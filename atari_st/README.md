@@ -17,6 +17,10 @@ What is working today
 - pixel movement governed by the original collision rules, including the
   walkable-tile exception list and the two-column test on vertical moves
 - room-to-room traversal with a 16-pixel stepped scroll in all four directions
+- overworld cave entry and exit, with a minimal interior room so the transition
+  is now playable instead of a dead end
+- first overworld enemy slice: repeated-template rooms using monster template
+  `$07` now spawn simple wandering enemies
 - status ribbon with hearts, and rupee, key and bomb counters, using the
   original glyphs
 - background buffer with dirty-rectangle sprite erase, so a frame costs a few
@@ -30,9 +34,10 @@ What is working today
 What this does not do yet
 -------------------------
 
-- caves and dungeon entrances, item pickup, the inventory subscreen
+- cave NPCs and cave contents, dungeon entrances, item pickup, the inventory
+  subscreen
 - sword, bombs and any other item use
-- enemies, combat and damage
+- most enemies, combat and damage
 - audio, and save handling
 - palette cycling (the animated pond)
 

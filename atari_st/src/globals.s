@@ -21,6 +21,7 @@
     gvar BASEPAGE, 4
     gvar OLD_SSP, 4
     gvar ERASE_OFFSET, 4        | where the sprite was drawn last frame
+    gvar ENEMY_ERASE_OFFSETS, 24
 
     gvar FRAME_COUNTER, 2
     gvar SCROLL_STEP, 2
@@ -48,6 +49,15 @@
     gvar INV_RUPEES, 1
     gvar INV_KEYS, 1
     gvar INV_BOMBS, 1
+    gvar HOTSPOT_TILE, 1
+    gvar CAVE_SOURCE_ROOM, 1
+    gvar CAVE_DOOR_X, 1
+    gvar ENEMY_COUNT, 1
+    gvar ENEMY_X, 6
+    gvar ENEMY_Y, 6
+    gvar ENEMY_DIR, 6
+    gvar ENEMY_ACTIVE, 6
+    gvar ENEMY_ERASE_VALID, 6
     gvar OLD_SCREEN_HI, 1
     gvar OLD_SCREEN_MID, 1
     gvar OLD_SCREEN_LOW, 1

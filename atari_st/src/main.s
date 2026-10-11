@@ -70,6 +70,20 @@
 
     .equ MODE_PLAY, 0
     .equ MODE_SCROLL, 1
+    .equ MODE_CAVE, 2
+
+    .equ MAX_ENEMIES, 6
+    .equ ENEMY_TEMPLATE_07, 0x07
+
+| ---------------------------------------------------------------- caves
+    .equ CAVE_ENTRANCE_TILE, 0x24
+    .equ CAVE_ROOM_BOUND_LEFT, 0x21
+    .equ CAVE_ROOM_BOUND_RIGHT, 0xd0
+    .equ CAVE_ROOM_BOUND_UP, 0x5e
+    .equ CAVE_ROOM_BOUND_DOWN, 0xbd
+    .equ CAVE_START_Y, 0xad
+    .equ CAVE_RETURN_Y, 0x5c
+    .equ CAVE_EXIT_HALF_WIDTH, 0x10
 
 | ------------------------------------------------------------------ HUD slots
     .equ HUD_COUNTER_COL, 4
@@ -150,12 +164,17 @@ main_loop:
     bne exit_program
     addq.w #1, OFF_FRAME_COUNTER(%a5)
 
-    tst.b OFF_GAME_MODE(%a5)
-    bne 1f
-    bsr update_play
-    bra 2f
-1:  bsr update_scroll
-2:  tst.b OFF_HUD_DIRTY(%a5)
+    moveq #0, %d0
+    move.b OFF_GAME_MODE(%a5), %d0
+    beq 1f
+    cmp.b #MODE_SCROLL, %d0
+    beq 2f
+    bsr update_cave
+    bra 3f
+1:  bsr update_play
+    bra 3f
+2:  bsr update_scroll
+3:  tst.b OFF_HUD_DIRTY(%a5)
     beq main_loop
     bsr draw_hud
     bra main_loop
@@ -226,6 +245,17 @@ enter_room:
     move.b OFF_ROOM_ID(%a5), %d0
     movea.l OFF_BG_CUR(%a5), %a1
     bsr render_room
+    bsr spawn_room_enemies
+    bsr show_background
+    clr.b OFF_ERASE_VALID(%a5)
+    bsr draw_link
+    bsr draw_enemies
+    rts
+
+enter_cave:
+    bsr clear_enemies
+    movea.l OFF_BG_CUR(%a5), %a1
+    bsr render_cave_room
     bsr show_background
     clr.b OFF_ERASE_VALID(%a5)
     bsr draw_link
@@ -245,15 +275,29 @@ show_background:
     rts
 
 update_play:
-    bsr erase_sprite
+    tst.b OFF_ENEMY_COUNT(%a5)
+    beq 1f
+    bsr show_background
+    clr.b OFF_ERASE_VALID(%a5)
+    bra 2f
+1:  bsr erase_sprite
+2:
     bsr link_update
-    tst.b OFF_GAME_MODE(%a5)
-    bne update_scroll       | a room transition started this frame
+    moveq #0, %d0
+    move.b OFF_GAME_MODE(%a5), %d0
+    beq 3f
+    cmp.b #MODE_SCROLL, %d0
+    beq update_scroll       | a room transition started this frame
+    rts                      | cave entry already redrew the new background
+3:
+    bsr update_enemies
     bsr draw_link
+    bsr draw_enemies
     rts
 
     .include "video.s"
     .include "sprite.s"
+    .include "enemy.s"
     .include "link.s"
     .include "hud.s"
     .include "input.s"
@@ -265,6 +309,8 @@ hud_tiles:
     .incbin "hud_tiles.bin"
 link_sprites:
     .incbin "link_sprites.bin"
+enemy_sprites:
+    .incbin "enemy_sprites.bin"
 metatile_tiles:
     .incbin "metatile_tiles.bin"
 metatiles:

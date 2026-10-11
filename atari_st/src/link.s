@@ -34,7 +34,12 @@ link_update:
 
 1:  bsr link_collide
     tst.w %d0
-    bne 7f                      | blocked: keep animating, do not move
+    beq 3f
+    bsr try_enter_cave
+    tst.w %d0
+    bne 8f                      | cave entry switched modes and redrew already
+    bra 7f                      | blocked: keep animating, do not move
+3:
     bsr link_advance
 7:  bsr link_animate
 8:  movem.l (%sp)+, %d0-%d3
@@ -154,6 +159,7 @@ link_collide:
     move.w %d0, %d5
 
 9:  move.w %d5, %d0
+    move.b %d5, OFF_HOTSPOT_TILE(%a5)
     bsr tile_blocks
     movem.l (%sp)+, %d1-%d5
     rts
@@ -283,6 +289,173 @@ link_animate:
     eori.b #1, OFF_LINK_ANIM_FRAME(%a5)
 9:  rts
 
+| Trigger the minimal cave mode when Link pushes up into an overworld cave.
+|
+| d1.b = attempted direction. Returns d0.w = 1 when a cave was entered.
+try_enter_cave:
+    movem.l %d1-%d2/%a0, -(%sp)
+    cmp.b #DIR_UP, %d1
+    bne 8f
+    moveq #0, %d0
+    move.b OFF_HOTSPOT_TILE(%a5), %d0
+    cmp.w #CAVE_ENTRANCE_TILE, %d0
+    beq 1f
+    cmp.w #0x00da, %d0
+    beq 1f
+    cmp.w #0x00e6, %d0
+    beq 1f
+    cmp.w #0x00e7, %d0
+    beq 1f
+    cmp.w #0x00e8, %d0
+    beq 1f
+    cmp.w #0x00e9, %d0
+    bne 8f
+1:
+
+    lea room_attr_b(%pc), %a0
+    moveq #0, %d2
+    move.b OFF_ROOM_ID(%a5), %d2
+    moveq #0, %d0
+    move.b 0(%a0, %d2.w), %d0
+    andi.w #0x00fc, %d0
+    cmpi.w #0x0040, %d0
+    blo 8f
+
+    bsr start_cave_entry
+    moveq #1, %d0
+    bra 9f
+
+8:  moveq #0, %d0
+9:  movem.l (%sp)+, %d1-%d2/%a0
+    rts
+
+| d2.w = overworld room id. Returns d0.w = cave exit X, d1.w = cave exit Y.
+compute_cave_exit_position:
+    movem.l %d2-%d3/%a0, -(%sp)
+    lea room_attr_a(%pc), %a0
+    moveq #0, %d0
+    move.b 0(%a0, %d2.w), %d0
+    andi.w #0x00f0, %d0
+
+    lea room_attr_f(%pc), %a0
+    moveq #0, %d1
+    move.b 0(%a0, %d2.w), %d1
+    andi.w #0x0007, %d1
+    lsl.w #4, %d1
+    addi.w #0x004d, %d1
+
+    movem.l (%sp)+, %d2-%d3/%a0
+    rts
+
+start_cave_entry:
+    movem.l %d0-%d2, -(%sp)
+    move.b OFF_ROOM_ID(%a5), OFF_CAVE_SOURCE_ROOM(%a5)
+    move.b OFF_LINK_X(%a5), OFF_CAVE_DOOR_X(%a5)
+    move.b #CAVE_START_Y, OFF_LINK_Y(%a5)
+    move.b #DIR_UP, OFF_LINK_DIR(%a5)
+    clr.b OFF_LINK_POS_FRAC(%a5)
+    clr.b OFF_LINK_ANIM_FRAME(%a5)
+    move.b #LINK_ANIM_PERIOD, OFF_LINK_ANIM_COUNTER(%a5)
+    move.b #MODE_CAVE, OFF_GAME_MODE(%a5)
+    bsr enter_cave
+    movem.l (%sp)+, %d0-%d2
+    rts
+
+leave_cave:
+    movem.l %d0-%d2, -(%sp)
+    move.b OFF_CAVE_SOURCE_ROOM(%a5), OFF_ROOM_ID(%a5)
+    move.b OFF_CAVE_DOOR_X(%a5), OFF_LINK_X(%a5)
+    move.b #CAVE_RETURN_Y, OFF_LINK_Y(%a5)
+    move.b #DIR_DOWN, OFF_LINK_DIR(%a5)
+    clr.b OFF_LINK_POS_FRAC(%a5)
+    clr.b OFF_LINK_ANIM_FRAME(%a5)
+    move.b #LINK_ANIM_PERIOD, OFF_LINK_ANIM_COUNTER(%a5)
+    move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
+    bsr enter_room
+    movem.l (%sp)+, %d0-%d2
+    rts
+
+update_cave:
+    movem.l %d0-%d3, -(%sp)
+    bsr erase_sprite
+    bsr read_input_dir
+    move.b %d0, %d1
+    beq 1f
+    move.b %d1, OFF_LINK_DIR(%a5)
+    bsr cave_advance
+    bsr link_animate
+1:  cmp.b #MODE_CAVE, OFF_GAME_MODE(%a5)
+    bne 9f
+    bsr draw_link
+9:  movem.l (%sp)+, %d0-%d3
+    rts
+
+| Advance Link inside the simplified cave room with plain rectangular bounds.
+| d1.b = direction.
+cave_advance:
+    movem.l %d0/%d2-%d5, -(%sp)
+    moveq #0, %d0
+    move.b OFF_LINK_POS_FRAC(%a5), %d0
+    add.w #LINK_QSPEED, %d0
+    move.w %d0, %d2
+    and.w #LINK_SUBPIXEL_MASK, %d2
+    move.b %d2, OFF_LINK_POS_FRAC(%a5)
+    lsr.w #LINK_SUBPIXEL_SHIFT, %d0
+    beq 9f
+
+    moveq #0, %d3
+    btst #0, %d1
+    beq 2f
+    move.b OFF_LINK_X(%a5), %d3
+    add.w %d0, %d3
+    cmp.w #CAVE_ROOM_BOUND_RIGHT, %d3
+    ble 1f
+    move.w #CAVE_ROOM_BOUND_RIGHT, %d3
+1:  move.b %d3, OFF_LINK_X(%a5)
+    bra 9f
+
+2:  btst #1, %d1
+    beq 3f
+    move.b OFF_LINK_X(%a5), %d3
+    sub.w %d0, %d3
+    cmp.w #CAVE_ROOM_BOUND_LEFT, %d3
+    bge 4f
+    move.w #CAVE_ROOM_BOUND_LEFT, %d3
+4:  move.b %d3, OFF_LINK_X(%a5)
+    bra 9f
+
+3:  btst #2, %d1
+    beq 5f
+    move.b OFF_LINK_Y(%a5), %d3
+    add.w %d0, %d3
+    cmp.w #CAVE_ROOM_BOUND_DOWN, %d3
+    ble 6f
+    move.w #CAVE_ROOM_BOUND_DOWN, %d3
+6:  move.b %d3, OFF_LINK_Y(%a5)
+    bra 9f
+
+5:  move.b OFF_LINK_Y(%a5), %d3
+    sub.w %d0, %d3
+    cmp.w #CAVE_ROOM_BOUND_UP, %d3
+    bge 7f
+    move.w #CAVE_ROOM_BOUND_UP, %d3
+7:  move.b %d3, OFF_LINK_Y(%a5)
+    cmp.w #CAVE_ROOM_BOUND_UP, %d3
+    bne 9f
+    moveq #0, %d4
+    move.b OFF_LINK_X(%a5), %d4
+    moveq #0, %d5
+    move.b OFF_CAVE_DOOR_X(%a5), %d5
+    sub.w %d5, %d4
+    bpl 8f
+    neg.w %d4
+8:  cmp.w #CAVE_EXIT_HALF_WIDTH, %d4
+    bhi 9f
+    bsr leave_cave
+
+9:  movem.l (%sp)+, %d0/%d2-%d5
+    rts
+
 | Begin walking into the next room. d1.b = the direction Link is leaving in.
 |
 | NextRoomIdOffsets adds -16/+16/-1/+1, so the map is a 16-wide grid; a move
@@ -407,5 +580,6 @@ finish_scroll:
     move.b OFF_SCROLL_TO_X(%a5), OFF_LINK_X(%a5)
     move.b OFF_SCROLL_TO_Y(%a5), OFF_LINK_Y(%a5)
     clr.b OFF_LINK_POS_FRAC(%a5)
+    bsr spawn_room_enemies
     move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
     rts

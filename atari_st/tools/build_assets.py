@@ -52,6 +52,7 @@ OW_GRID_HEIGHT = OW_ROOM_COUNT // OW_GRID_WIDTH
 # a 3-byte header, 8 palette rows of 4 NES colour indices, then a $FF terminator.
 LEVEL_INFO_BASE = 0x6B7E
 LEVEL_INFO_PALETTE_OFFSET = 3
+LEVEL_INFO_FOE_COUNTS = 0x6BA2 - LEVEL_INFO_BASE
 LEVEL_INFO_START_Y = 0x6BA6 - LEVEL_INFO_BASE
 LEVEL_INFO_START_ROOM_ID = 0x6BAD - LEVEL_INFO_BASE
 PALETTE_ROWS = 8
@@ -77,6 +78,7 @@ OW_INNER_ROW_RANGE = range(2, 9)
 LINK_FRAME_TILES = (0x00, 0x04, 0x08, 0x0C)
 # ObjAnimAttrHeap[0..3] are all 0, i.e. sprite palette row 0 == NES palette row 4.
 LINK_PALETTE_ROW = 4
+ENEMY_FRAME_COUNT = 2
 # SetUpWalkingSprites picks tile $00/$04 for horizontal and flips for left; for
 # vertical it uses one tile and flips on the second walk frame.
 LINK_FRAMES = (
@@ -425,6 +427,12 @@ class AssetBundle:
     sprite_tiles: list[list[list[int]]]
     rooms: list[list[int]]
     metatiles: list[tuple[int, tuple[int, int, int, int]]]
+    room_attrs_a: list[int]
+    room_attrs_b: list[int]
+    room_attrs_c: list[int]
+    room_attrs_d: list[int]
+    room_attrs_f: list[int]
+    foe_counts: list[int]
     start_room: int
     start_y: int
 
@@ -458,7 +466,16 @@ def load_ow_sprite_tiles(source_root: Path) -> list[list[list[int]]] | None:
 
 def decode_overworld(
     source_root: Path, chr_tiles: list[list[list[int]]]
-) -> tuple[list[list[int]], list[tuple[int, tuple[int, int, int, int]]], bytes, int, int]:
+) -> tuple[
+    list[list[int]],
+    list[tuple[int, tuple[int, int, int, int]]],
+    list[int],
+    list[int],
+    list[int],
+    bytes,
+    int,
+    int,
+]:
     asm_text = (source_root / "src" / "Z_05.asm").read_text(encoding="utf-8", errors="replace")
     primary = parse_asm_byte_table(asm_text, "PrimarySquaresOW")
     secondary = parse_asm_byte_table(asm_text, "SecondarySquaresOW")
@@ -516,14 +533,26 @@ def decode_overworld(
     if highest >= len(chr_tiles):
         raise SystemExit(f"Overworld references CHR tile {highest:#04x} but only {len(chr_tiles)} were loaded")
 
-    return rooms, metatiles, palette_bytes, level_info[LEVEL_INFO_START_ROOM_ID], level_info[LEVEL_INFO_START_Y]
+    return (
+        rooms,
+        metatiles,
+        list(attrs_a),
+        list(attrs_b),
+        list(level_block[LEVEL_BLOCK_TABLE_SIZE * 2 : LEVEL_BLOCK_TABLE_SIZE * 3]),
+        list(attrs_d),
+        list(level_block[LEVEL_BLOCK_TABLE_SIZE * 5 : LEVEL_BLOCK_TABLE_SIZE * 6]),
+        list(level_info[LEVEL_INFO_FOE_COUNTS : LEVEL_INFO_FOE_COUNTS + 4]),
+        palette_bytes,
+        level_info[LEVEL_INFO_START_ROOM_ID],
+        level_info[LEVEL_INFO_START_Y],
+    )
 
 
 def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
     bg_tiles = load_ow_background_tiles(source_root)
     sprite_tiles = load_ow_sprite_tiles(source_root)
     if bg_tiles is not None and sprite_tiles is not None:
-        rooms, metatiles, palette_bytes, start_room, start_y = decode_overworld(source_root, bg_tiles)
+        rooms, metatiles, room_attrs_a, room_attrs_b, room_attrs_c, room_attrs_d, room_attrs_f, foe_counts, palette_bytes, start_room, start_y = decode_overworld(source_root, bg_tiles)
         return AssetBundle(
             source_note="ROM-derived overworld tiles, sprites, rooms and palette",
             palette=build_palette_map(palette_bytes),
@@ -531,6 +560,12 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
             sprite_tiles=sprite_tiles,
             rooms=rooms,
             metatiles=metatiles,
+            room_attrs_a=room_attrs_a,
+            room_attrs_b=room_attrs_b,
+            room_attrs_c=room_attrs_c,
+            room_attrs_d=room_attrs_d,
+            room_attrs_f=room_attrs_f,
+            foe_counts=foe_counts,
             start_room=start_room,
             start_y=start_y,
         )
@@ -555,9 +590,43 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
         sprite_tiles=placeholder_tiles,
         rooms=rooms,
         metatiles=metatiles,
+        room_attrs_a=[0] * len(rooms),
+        room_attrs_b=[0] * len(rooms),
+        room_attrs_c=[0] * len(rooms),
+        room_attrs_d=[0] * len(rooms),
+        room_attrs_f=[0] * len(rooms),
+        foe_counts=[1, 4, 5, 6],
         start_room=0,
         start_y=0x8D,
     )
+
+
+def build_enemy_frame(eye_y: int) -> bytes:
+    """Build a simple 16x16 masked blob sprite for the first enemy slice."""
+    packed = bytearray()
+    for y in range(16):
+        pixels: list[int] = []
+        for x in range(16):
+            dx = x - 7.5
+            dy = y - 7.5
+            inside = (dx * dx) / 36 + (dy * dy) / 25 <= 1.0
+            color = 0
+            if inside:
+                color = 6
+                if y >= 10:
+                    color = 10
+                if eye_y <= y <= eye_y + 1 and x in (5, 10):
+                    color = 15
+                if y == 12 and 5 <= x <= 10:
+                    color = 2
+            pixels.append(color)
+        packed.extend(pack_st_row(pixels))
+        mask = 0
+        for x, pixel in enumerate(pixels):
+            if pixel:
+                mask |= 1 << (15 - x)
+        packed.extend(mask.to_bytes(2, "big"))
+    return bytes(packed)
 
 
 def pack_st_row(pixels: Iterable[int]) -> bytes:
@@ -661,6 +730,10 @@ def render_hud_tiles(bundle: AssetBundle) -> bytes:
     return bytes(packed)
 
 
+def render_enemy_sprites() -> bytes:
+    return build_enemy_frame(5) + build_enemy_frame(6)
+
+
 def format_words(label: str, values: Iterable[int]) -> str:
     values = list(values)
     chunks = [values[index : index + 8] for index in range(0, len(values), 8)]
@@ -683,6 +756,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "metatiles.bin").write_bytes(render_metatiles(bundle))
     (out_dir / "link_sprites.bin").write_bytes(render_sprites(bundle))
+    (out_dir / "enemy_sprites.bin").write_bytes(render_enemy_sprites())
     (out_dir / "hud_tiles.bin").write_bytes(render_hud_tiles(bundle))
     # The big tables ship as binaries rather than .byte directives: 22KB of
     # assembler text is slow to assemble, and keeping .rodata compact matters
@@ -749,6 +823,18 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
             format_words("room_palette", bundle.palette.st_colors),
             "",
             format_bytes("walkable_tiles", OW_WALKABLE_TILES),
+            "",
+            format_bytes("room_attr_a", bundle.room_attrs_a),
+            "",
+            format_bytes("room_attr_b", bundle.room_attrs_b),
+            "",
+            format_bytes("room_attr_c", bundle.room_attrs_c),
+            "",
+            format_bytes("room_attr_d", bundle.room_attrs_d),
+            "",
+            format_bytes("room_attr_f", bundle.room_attrs_f),
+            "",
+            format_bytes("foe_counts", bundle.foe_counts),
             "    .align 2",
             "    .section .text",
             "",
