@@ -49,7 +49,7 @@ init_video:
 
     | One ST palette covers every NES background and sprite row; see
     | build_palette_map in tools/build_assets.py.
-    lea room_palette(%pc), %a0
+    ltab room_palette, %a0
     movea.l #PALETTE_BASE, %a1
     moveq #15, %d7
 4:  move.w (%a0)+, (%a1)+
@@ -90,7 +90,7 @@ wait_vbl:
 | d0.w = room id, a1 = destination buffer
 render_room:
     movem.l %d0-%d7/%a0-%a4, -(%sp)
-    lea room_maps(%pc), %a0
+    ltab room_maps, %a0
     mulu.w #ROOM_BYTES, %d0
     adda.l %d0, %a0
     adda.l #PLAYFIELD_ORIGIN, %a1
@@ -101,7 +101,7 @@ render_room:
 2:  moveq #0, %d0
     move.b (%a0)+, %d0
     mulu.w #METATILE_BYTES, %d0
-    lea metatiles(%pc), %a3
+    ltab metatiles, %a3
     adda.l %d0, %a3
     movea.l %a2, %a4
     moveq #(SPRITE_HEIGHT - 1), %d5

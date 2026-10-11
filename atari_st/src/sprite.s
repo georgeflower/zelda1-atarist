@@ -69,8 +69,17 @@ draw_sprite:
 erase_sprite:
     tst.b OFF_ERASE_VALID(%a5)
     beq 9f
-    movem.l %d0/%d7/%a0-%a1, -(%sp)
+    move.l %d0, -(%sp)
     move.l OFF_ERASE_OFFSET(%a5), %d0
+    bsr erase_at
+    clr.b OFF_ERASE_VALID(%a5)
+    move.l (%sp)+, %d0
+9:  rts
+
+| Copy one sprite-sized rectangle of clean background back to the screen.
+| d0.l = byte offset of its top-left group from the start of a screen buffer.
+erase_at:
+    movem.l %d0/%d7/%a0-%a1, -(%sp)
     movea.l OFF_BG_CUR(%a5), %a0
     adda.l %d0, %a0
     movea.l OFF_SCREEN_PTR(%a5), %a1
@@ -83,9 +92,8 @@ erase_sprite:
     adda.w #(SCREEN_STRIDE - SPRITE_SPAN_BYTES), %a0
     adda.w #(SCREEN_STRIDE - SPRITE_SPAN_BYTES), %a1
     dbra %d7, 1b
-    clr.b OFF_ERASE_VALID(%a5)
     movem.l (%sp)+, %d0/%d7/%a0-%a1
-9:  rts
+    rts
 
 | Draw Link at his current position, recording where so the next frame can
 | put the background back.
@@ -108,7 +116,7 @@ draw_link:
     moveq #LINK_FRAME_DOWN_A, %d0
 4:  add.b OFF_LINK_ANIM_FRAME(%a5), %d0
     mulu.w #SPRITE_FRAME_BYTES, %d0
-    lea link_sprites(%pc), %a0
+    ltab link_sprites, %a0
     adda.l %d0, %a0
 
     | Screen X, then split into a group offset and a shift within the group.

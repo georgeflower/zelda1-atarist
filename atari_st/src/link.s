@@ -7,16 +7,63 @@
 | exceptions in WalkableTiles.
 
 link_update:
-    movem.l %d0-%d3, -(%sp)
+    movem.l %d0-%d4, -(%sp)
+    tst.b OFF_ATTACK(%a5)
+    bne 9f                      | Link stands still during a sword swing
     bsr read_input_dir
-    move.b %d0, %d1
-    beq 8f                      | nothing held: stand still
+    move.b %d0, %d4             | d4 = direction held, 0 for none
+    tst.b OFF_COMMIT(%a5)
+    bne 1f
+    tst.b %d4
+    beq 8f                      | nothing held and no step in progress
+1:  moveq #0, %d0
+    move.b OFF_LINK_POS_FRAC(%a5), %d0
+    add.w #LINK_QSPEED, %d0
+    move.w %d0, %d2
+    and.w #LINK_SUBPIXEL_MASK, %d2
+    move.b %d2, OFF_LINK_POS_FRAC(%a5)
+    lsr.w #LINK_SUBPIXEL_SHIFT, %d0
+    clr.b OFF_WARPED(%a5)
+    subq.w #1, %d0
+    bmi 7f                      | not a whole pixel yet
+2:  move.w %d0, -(%sp)
+    bsr link_pixel
+    move.w (%sp)+, %d0
+    tst.w %d2
+    bne 7f                      | stopped
+    cmp.b #MODE_PLAY, OFF_GAME_MODE(%a5)
+    bne 9f                      | a scroll or a cave took over
+    tst.b OFF_WARPED(%a5)
+    bne 9f
+    dbra %d0, 2b
+7:  bsr link_animate
+8:  bsr check_warps
+9:  movem.l (%sp)+, %d0-%d4
+    rts
+
+| One pixel of Link's movement.
+|
+| Like the 6502, Link walks whole 8-pixel grid steps: the key and the tile
+| ahead are only looked at on a grid boundary, and a step that has begun is
+| finished even if the key is let go. That is what lets him end up exactly
+| on an entrance, where CheckWarps looks for him.
+|
+| d4.b = direction held (0 for none). Returns d2.w = 1 when he stops.
+link_pixel:
+    movem.l %d0-%d1/%d3, -(%sp)
+    moveq #0, %d2
+    tst.b OFF_COMMIT(%a5)
+    bne 6f                      | part-way through a step
+
+    tst.b %d4
+    beq 5f                      | key let go on a boundary
+    move.b %d4, %d1
 
     | Turning onto the other axis snaps the perpendicular coordinate to the
     | grid, which is what EnsureObjectAligned does for the 6502.
-    move.b OFF_LINK_DIR(%a5), %d2
+    move.b OFF_LINK_DIR(%a5), %d0
     move.b %d1, OFF_LINK_DIR(%a5)
-    move.b %d2, %d3
+    move.b %d0, %d3
     eor.b %d1, %d3
     and.b #DIR_VERTICAL, %d3
     beq 1f                      | same axis as before, nothing to align
@@ -35,14 +82,55 @@ link_update:
 1:  bsr link_collide
     tst.w %d0
     beq 3f
-    bsr try_enter_cave
-    tst.w %d0
-    bne 8f                      | cave entry switched modes and redrew already
-    bra 7f                      | blocked: keep animating, do not move
-3:
-    bsr link_advance
-7:  bsr link_animate
-8:  movem.l (%sp)+, %d0-%d3
+    tst.b OFF_LEVEL(%a5)
+    beq 5f                      | blocked: keep facing the wall
+    bsr uw_try_door             | a locked door may open
+    bra 5f
+3:  bsr grid_distance
+    move.b %d0, OFF_COMMIT(%a5)
+6:  move.b OFF_LINK_DIR(%a5), %d1
+    bsr link_step_pixel
+    tst.b OFF_COMMIT(%a5)
+    beq 9f                      | a scroll or warp reset the step
+    subq.b #1, OFF_COMMIT(%a5)
+    bsr check_warps
+    bra 9f
+5:  moveq #1, %d2
+9:  movem.l (%sp)+, %d0-%d1/%d3
+    rts
+
+| Pixels from Link to the next grid boundary in direction d1.b (a whole 8
+| when he is already on one). Sideways boundaries are at X mod 8 = 0 and
+| vertical ones at Y mod 8 = 5. Returns d0.w.
+grid_distance:
+    movem.l %d1-%d2, -(%sp)
+    moveq #0, %d2
+    btst #0, %d1
+    beq 1f
+    move.b OFF_LINK_X(%a5), %d2
+    and.w #7, %d2
+    moveq #8, %d0
+    sub.w %d2, %d0
+    bra 9f
+1:  btst #1, %d1
+    beq 2f
+    move.b OFF_LINK_X(%a5), %d0
+    and.w #7, %d0
+    bne 9f
+    moveq #8, %d0
+    bra 9f
+2:  move.b OFF_LINK_Y(%a5), %d2
+    addq.b #3, %d2
+    and.w #7, %d2               | (Y - 5) mod 8
+    btst #2, %d1
+    beq 3f
+    moveq #8, %d0
+    sub.w %d2, %d0
+    bra 9f
+3:  move.w %d2, %d0
+    bne 9f
+    moveq #8, %d0
+9:  movem.l (%sp)+, %d1-%d2
     rts
 
 | Collect the held direction keys and reduce them to a single direction.
@@ -170,6 +258,8 @@ link_collide:
 | The room map stores 16x16 squares, and metatile_tiles keeps the four 8x8
 | tiles each square is built from, so no per-room tile grid is needed.
 fetch_tile:
+    tst.b OFF_LEVEL(%a5)
+    bne fetch_tile_uw
     movem.l %d1-%d3/%a0, -(%sp)
     moveq #0, %d0
     move.w %d2, %d0
@@ -183,7 +273,7 @@ fetch_tile:
     move.b OFF_ROOM_ID(%a5), %d1
     mulu.w #ROOM_BYTES, %d1
     add.l %d1, %d0
-    lea room_maps(%pc), %a0
+    ltab room_maps, %a0
     adda.l %d0, %a0
     moveq #0, %d0
     move.b (%a0), %d0
@@ -197,17 +287,35 @@ fetch_tile:
     move.w %d3, %d1
     and.w #1, %d1
     add.w %d1, %d0
-    lea metatile_tiles(%pc), %a0
+    ltab metatile_tiles, %a0
     moveq #0, %d1
     move.b 0(%a0, %d0.w), %d1
     move.w %d1, %d0
     movem.l (%sp)+, %d1-%d3/%a0
     rts
 
+| Underworld: the tile comes straight from the copy of the room's map.
+fetch_tile_uw:
+    movem.l %d1/%a0, -(%sp)
+    moveq #0, %d0
+    move.w %d2, %d0
+    lsl.w #5, %d0
+    add.w %d3, %d0
+    lea OFF_UW_MAP(%a5), %a0
+    moveq #0, %d1
+    move.b 0(%a0, %d0.w), %d1
+    ltab uw_tile_nes, %a0
+    moveq #0, %d0
+    move.b 0(%a0, %d1.w), %d0
+    movem.l (%sp)+, %d1/%a0
+    rts
+
 | d0.w = NES tile index. Returns d0.w = 1 if the tile blocks movement.
 tile_blocks:
+    tst.b OFF_LEVEL(%a5)
+    bne 7f
     movem.l %d1-%d2/%a0, -(%sp)
-    lea walkable_tiles(%pc), %a0
+    ltab walkable_tiles, %a0
     moveq #(WALKABLE_TILE_COUNT - 1), %d2
 1:  cmp.b (%a0)+, %d0
     beq 8f                      | on the exception list, so walkable regardless
@@ -220,66 +328,72 @@ tile_blocks:
 9:  movem.l (%sp)+, %d1-%d2/%a0
     rts
 
-| Advance Link by the whole pixels the sub-pixel accumulator has earned.
-| d1.b = direction.
-link_advance:
-    movem.l %d0/%d2-%d3, -(%sp)
-    moveq #0, %d0
-    move.b OFF_LINK_POS_FRAC(%a5), %d0
-    add.w #LINK_QSPEED, %d0
-    move.w %d0, %d2
-    and.w #LINK_SUBPIXEL_MASK, %d2
-    move.b %d2, OFF_LINK_POS_FRAC(%a5)
-    lsr.w #LINK_SUBPIXEL_SHIFT, %d0
-    beq 9f
+| The underworld has no walkable-tile exceptions, only a threshold.
+7:  cmp.w #UW_FIRST_UNWALKABLE_TILE, %d0
+    blo 6f
+    moveq #1, %d0
+    rts
+6:  moveq #0, %d0
+    rts
 
+| Move Link one pixel along d1.b; crossing the room bound starts a scroll.
+link_step_pixel:
+    movem.l %d2-%d4, -(%sp)
     moveq #0, %d3
     btst #0, %d1
     beq 2f
     move.b OFF_LINK_X(%a5), %d3
-    add.w %d0, %d3
-    cmp.w #ROOM_BOUND_RIGHT, %d3
+    addq.w #1, %d3
+    moveq #0, %d4
+    move.b OFF_BOUND_RIGHT(%a5), %d4
+    cmp.w %d4, %d3
     bgt 6f
     move.b %d3, OFF_LINK_X(%a5)
     bra 9f
-6:  move.b #ROOM_BOUND_RIGHT, OFF_LINK_X(%a5)
+6:  move.b %d4, OFF_LINK_X(%a5)
     bsr start_scroll
     bra 9f
 
 2:  btst #1, %d1
     beq 3f
     move.b OFF_LINK_X(%a5), %d3
-    sub.w %d0, %d3
-    cmp.w #ROOM_BOUND_LEFT, %d3
+    subq.w #1, %d3
+    moveq #0, %d4
+    move.b OFF_BOUND_LEFT(%a5), %d4
+    cmp.w %d4, %d3
     blt 7f
     move.b %d3, OFF_LINK_X(%a5)
     bra 9f
-7:  move.b #ROOM_BOUND_LEFT, OFF_LINK_X(%a5)
+7:  move.b %d4, OFF_LINK_X(%a5)
     bsr start_scroll
     bra 9f
 
 3:  btst #2, %d1
     beq 4f
     move.b OFF_LINK_Y(%a5), %d3
-    add.w %d0, %d3
-    cmp.w #ROOM_BOUND_DOWN, %d3
+    addq.w #1, %d3
+    moveq #0, %d4
+    move.b OFF_BOUND_DOWN(%a5), %d4
+    cmp.w %d4, %d3
     bgt 8f
     move.b %d3, OFF_LINK_Y(%a5)
     bra 9f
-8:  move.b #ROOM_BOUND_DOWN, OFF_LINK_Y(%a5)
+8:  move.b %d4, OFF_LINK_Y(%a5)
     bsr start_scroll
     bra 9f
 
 4:  move.b OFF_LINK_Y(%a5), %d3
-    sub.w %d0, %d3
-    cmp.w #ROOM_BOUND_UP, %d3
+    subq.w #1, %d3
+    moveq #0, %d4
+    move.b OFF_BOUND_UP(%a5), %d4
+    cmp.w %d4, %d3
     blt 5f
     move.b %d3, OFF_LINK_Y(%a5)
     bra 9f
-5:  move.b #ROOM_BOUND_UP, OFF_LINK_Y(%a5)
+5:  move.b %d4, OFF_LINK_Y(%a5)
     bsr start_scroll
 
-9:  movem.l (%sp)+, %d0/%d2-%d3
+9:  movem.l (%sp)+, %d2-%d4
     rts
 
 link_animate:
@@ -289,55 +403,15 @@ link_animate:
     eori.b #1, OFF_LINK_ANIM_FRAME(%a5)
 9:  rts
 
-| Trigger the minimal cave mode when Link pushes up into an overworld cave.
-|
-| d1.b = attempted direction. Returns d0.w = 1 when a cave was entered.
-try_enter_cave:
-    movem.l %d1-%d2/%a0, -(%sp)
-    cmp.b #DIR_UP, %d1
-    bne 8f
-    moveq #0, %d0
-    move.b OFF_HOTSPOT_TILE(%a5), %d0
-    cmp.w #CAVE_ENTRANCE_TILE, %d0
-    beq 1f
-    cmp.w #0x00da, %d0
-    beq 1f
-    cmp.w #0x00e6, %d0
-    beq 1f
-    cmp.w #0x00e7, %d0
-    beq 1f
-    cmp.w #0x00e8, %d0
-    beq 1f
-    cmp.w #0x00e9, %d0
-    bne 8f
-1:
-
-    lea room_attr_b(%pc), %a0
-    moveq #0, %d2
-    move.b OFF_ROOM_ID(%a5), %d2
-    moveq #0, %d0
-    move.b 0(%a0, %d2.w), %d0
-    andi.w #0x00fc, %d0
-    cmpi.w #0x0040, %d0
-    blo 8f
-
-    bsr start_cave_entry
-    moveq #1, %d0
-    bra 9f
-
-8:  moveq #0, %d0
-9:  movem.l (%sp)+, %d1-%d2/%a0
-    rts
-
 | d2.w = overworld room id. Returns d0.w = cave exit X, d1.w = cave exit Y.
 compute_cave_exit_position:
     movem.l %d2-%d3/%a0, -(%sp)
-    lea room_attr_a(%pc), %a0
+    ltab room_attr_a, %a0
     moveq #0, %d0
     move.b 0(%a0, %d2.w), %d0
     andi.w #0x00f0, %d0
 
-    lea room_attr_f(%pc), %a0
+    ltab room_attr_f, %a0
     moveq #0, %d1
     move.b 0(%a0, %d2.w), %d1
     andi.w #0x0007, %d1
@@ -364,8 +438,12 @@ start_cave_entry:
 leave_cave:
     movem.l %d0-%d2, -(%sp)
     move.b OFF_CAVE_SOURCE_ROOM(%a5), OFF_ROOM_ID(%a5)
-    move.b OFF_CAVE_DOOR_X(%a5), OFF_LINK_X(%a5)
-    move.b #CAVE_RETURN_Y, OFF_LINK_Y(%a5)
+    moveq #0, %d2
+    move.b OFF_ROOM_ID(%a5), %d2
+    bsr compute_cave_exit_position
+    move.b %d0, OFF_LINK_X(%a5)
+    move.b %d1, OFF_LINK_Y(%a5)
+    move.b #1, OFF_EXIT_GUARD(%a5)
     move.b #DIR_DOWN, OFF_LINK_DIR(%a5)
     clr.b OFF_LINK_POS_FRAC(%a5)
     clr.b OFF_LINK_ANIM_FRAME(%a5)
@@ -461,8 +539,19 @@ cave_advance:
 | NextRoomIdOffsets adds -16/+16/-1/+1, so the map is a 16-wide grid; a move
 | that would leave it is refused rather than wrapping onto the far side.
 start_scroll:
-    movem.l %d0/%d2-%d3, -(%sp)
-    moveq #0, %d2
+    movem.l %d0/%d2-%d3/%a0-%a1, -(%sp)
+    tst.b OFF_LEVEL(%a5)
+    beq 0f
+    tst.b OFF_IN_CELLAR(%a5)
+    beq 1f
+    btst #3, %d1                | in a cellar only the ladder up leads anywhere
+    beq 9f
+    bsr uw_leave_cellar
+    bra 9f
+1:  bsr uw_try_door             | a closed door keeps Link in the room
+    tst.w %d0
+    beq 9f
+0:  moveq #0, %d2
     move.b OFF_ROOM_ID(%a5), %d2
 
     btst #0, %d1
@@ -472,7 +561,7 @@ start_scroll:
     cmp.w #(ROOM_GRID_WIDTH - 1), %d3
     beq 9f
     addq.w #1, %d2
-    move.b #ROOM_BOUND_LEFT, OFF_SCROLL_TO_X(%a5)
+    move.b OFF_BOUND_LEFT(%a5), OFF_SCROLL_TO_X(%a5)
     move.b OFF_LINK_Y(%a5), OFF_SCROLL_TO_Y(%a5)
     bra 8f
 
@@ -482,26 +571,40 @@ start_scroll:
     and.w #(ROOM_GRID_WIDTH - 1), %d3
     beq 9f
     subq.w #1, %d2
-    move.b #ROOM_BOUND_RIGHT, OFF_SCROLL_TO_X(%a5)
+    move.b OFF_BOUND_RIGHT(%a5), OFF_SCROLL_TO_X(%a5)
     move.b OFF_LINK_Y(%a5), OFF_SCROLL_TO_Y(%a5)
     bra 8f
 
 3:  btst #2, %d1
     beq 4f
     cmp.w #(ROOM_COUNT - ROOM_GRID_WIDTH), %d2
-    bhs 9f
-    add.w #ROOM_GRID_WIDTH, %d2
+    blo 5f
+    tst.b OFF_LEVEL(%a5)
+    beq 9f
+    bsr uw_leave_level          | off the bottom of a level is the way out
+    bra 9f
+5:  add.w #ROOM_GRID_WIDTH, %d2
     move.b OFF_LINK_X(%a5), OFF_SCROLL_TO_X(%a5)
-    move.b #ROOM_BOUND_UP, OFF_SCROLL_TO_Y(%a5)
+    move.b OFF_BOUND_UP(%a5), OFF_SCROLL_TO_Y(%a5)
     bra 8f
 
 4:  cmp.w #ROOM_GRID_WIDTH, %d2
-    blo 9f
-    sub.w #ROOM_GRID_WIDTH, %d2
+    bhs 6f
+    tst.b OFF_LEVEL(%a5)
+    beq 9f
+    bsr uw_leave_level
+    bra 9f
+6:  sub.w #ROOM_GRID_WIDTH, %d2
     move.b OFF_LINK_X(%a5), OFF_SCROLL_TO_X(%a5)
-    move.b #ROOM_BOUND_DOWN, OFF_SCROLL_TO_Y(%a5)
+    move.b OFF_BOUND_DOWN(%a5), OFF_SCROLL_TO_Y(%a5)
 
-8:  move.b %d2, OFF_NEXT_ROOM_ID(%a5)
+8:  tst.b OFF_LEVEL(%a5)
+    beq 7f
+    ltab uw_room_index, %a0     | the neighbour has to be part of the level
+    cmpi.b #0xff, 0(%a0, %d2.w)
+    beq 9f
+7:  move.b %d2, OFF_NEXT_ROOM_ID(%a5)
+    clr.b OFF_COMMIT(%a5)
     move.b %d1, OFF_SCROLL_DIR(%a5)
     move.b OFF_LINK_X(%a5), OFF_SCROLL_FROM_X(%a5)
     move.b OFF_LINK_Y(%a5), OFF_SCROLL_FROM_Y(%a5)
@@ -510,8 +613,12 @@ start_scroll:
     clr.b OFF_ERASE_VALID(%a5)
     move.w %d2, %d0
     movea.l OFF_BG_NEXT(%a5), %a1
+    tst.b OFF_LEVEL(%a5)
+    bne 10f
     bsr render_room
-9:  movem.l (%sp)+, %d0/%d2-%d3
+    bra 9f
+10: bsr uw_render_next
+9:  movem.l (%sp)+, %d0/%d2-%d3/%a0-%a1
     rts
 
 update_scroll:
@@ -580,6 +687,9 @@ finish_scroll:
     move.b OFF_SCROLL_TO_X(%a5), OFF_LINK_X(%a5)
     move.b OFF_SCROLL_TO_Y(%a5), OFF_LINK_Y(%a5)
     clr.b OFF_LINK_POS_FRAC(%a5)
-    bsr spawn_room_enemies
+    tst.b OFF_LEVEL(%a5)
+    beq 1f
+    bsr uw_commit_next
+1:  bsr spawn_room_enemies
     move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
     rts

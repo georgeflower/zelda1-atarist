@@ -21,6 +21,28 @@ What is working today
   is now playable instead of a dead end
 - first overworld enemy slice: repeated-template rooms using monster template
   `$07` now spawn simple wandering enemies
+- Link walks in 8-pixel grid steps like the original, so he can be lined up
+  exactly on an entrance; overworld screens change at the original edge
+  coordinates (`PlayerScreenEdgeBounds`)
+- the Level 1 entrance (overworld room `$37`) leads into the underworld: all 17
+  rooms reachable from the start room, rebuilt from `LayOutRoom` (walls, doors,
+  floor), scrolled between like the overworld, with the original underworld
+  collision; walk off the bottom of the start room to leave
+- locked doors open with a key, and keys, hearts, rupees, bombs and the level's
+  items lie on the floor to be picked up; `K` still hands out a sword, a key
+  and bombs until the real sources exist
+- Level 1 monsters (stalfos, keese, gels, ropes, goriya) spawn from the
+  original room data, move on the grid, and are drawn from the original
+  sprites; they bite for half hearts, and Link blinks while invincible
+- `Space` swings a sword (placeholder blade art) that hurts and kills them;
+  killed monsters roll the original drop table
+- shutter doors close until the room's monsters are dead; a trigger-7 room's
+  item then appears
+- `B` drops a bomb that blows open bombable walls and hurts monsters nearby;
+  false walls can be walked through
+- the stairs room (`$22`) leads down to the cellar with the bow, which is
+  laid out like an overworld cave and full of keese; the ladders lead back up
+- dying refills the hearts and returns Link to the overworld start
 - status ribbon with hearts, and rupee, key and bomb counters, using the
   original glyphs
 - background buffer with dirty-rectangle sprite erase, so a frame costs a few
@@ -34,10 +56,12 @@ What is working today
 What this does not do yet
 -------------------------
 
-- cave NPCs and cave contents, dungeon entrances, item pickup, the inventory
-  subscreen
-- sword, bombs and any other item use
-- most enemies, combat and damage
+- the dungeon's remaining monsters (wallmasters, the boss, traps) and the
+  original behaviours: rope charges, goriya boomerangs, knock-back, wallmaster
+- real sword and bomb art, the explosion cloud, item inventory and use
+- push-block and other secret triggers (their shutters open when the room is
+  cleared instead), the sword cave and other cave contents
+- cave NPCs, shortcut caves, the other eight dungeons
 - audio, and save handling
 - palette cycling (the animated pond)
 
@@ -134,6 +158,8 @@ It breaks on a VBL count, dumps RAM and the video registers, decodes the
 four-bitplane framebuffer to a PNG, reports Link's state, and warns about bus
 errors or an early `Pterm0`. Key events are injected by poking the key-state
 table, which the harness locates through a marker next to the variable block.
+An event of the form `700:=ENEMY_X.0=120` pokes a byte of a variable instead,
+and `ZELDA_START_UW=0x72` starts inside Level 1 in that room.
 
 `tools/compare_render.py` closes the loop on the renderer by diffing a captured
 framebuffer against a reference render of the same room built in Python; they
@@ -148,6 +174,10 @@ Notes on the ST implementation
 - Everything lands in one flat section, so `link.ld` emits `.data` before
   `.rodata`: the 68000's PC-relative displacement is a signed 16 bits, and the
   36KB of tables would otherwise push the variable block out of reach.
+- With the underworld the tables total well over 32KB, so code reaches them
+  through `a6`, a register that holds `table_anchor` (a label in the middle of
+  the tables) for the whole run; the `ltab` macro in `main.s` writes the
+  offset. Nothing else may use `a6`.
 - Scroll steps are 16 pixels, exactly one bitplane word, so every copy stays
   byte-aligned and needs no bit shifting.
 - Sprites are shifted at run time rather than pre-shifted at build time.

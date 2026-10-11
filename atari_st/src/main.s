@@ -12,6 +12,16 @@
 
     .include "assets.inc"
     .include "globals.s"
+    .if UW_ROOM_BYTES != 704
+    .error "globals.s sizes the underworld map buffers as 704 bytes"
+    .endif
+
+| A6 holds table_anchor for the whole run. The read-only tables total more than
+| a signed 16-bit PC-relative displacement can reach from the code, so they are
+| addressed as signed offsets from an anchor placed in the middle of them.
+    .macro ltab sym, reg
+    lea \sym - table_anchor(%a6), \reg
+    .endm
 
 | ------------------------------------------------------------ screen geometry
     .equ SCREEN_STRIDE, 160
@@ -72,7 +82,14 @@
     .equ MODE_SCROLL, 1
     .equ MODE_CAVE, 2
 
-    .equ MAX_ENEMIES, 6
+| PlayerScreenEdgeBounds (Z_07.asm): Link leaves the overworld screen when he
+| reaches these coordinates. ObjectRoomBoundsOW is for other objects, not Link.
+    .equ LINK_EDGE_LEFT, 0x00
+    .equ LINK_EDGE_RIGHT, 0xf0
+    .equ LINK_EDGE_UP, 0x3d
+    .equ LINK_EDGE_DOWN, 0xdd
+
+    .equ MAX_ENEMIES, 8
     .equ ENEMY_TEMPLATE_07, 0x07
 
 | ---------------------------------------------------------------- caves
@@ -119,6 +136,10 @@
     .globl _start
 _start:
     lea globals(%pc), %a5
+    | room_palette is the first read-only table and close enough for a PC-relative
+    | lea; the anchor in the middle of the tables is then a link-time constant away.
+    lea room_palette(%pc), %a6
+    adda.l #(table_anchor - room_palette), %a6
     | Clear the variable block before anything is stored in it; bsr leaves the
     | stack alone, so the basepage is still at 4(sp) afterwards.
     bsr init_state
@@ -154,12 +175,29 @@ _start:
 
     bsr init_buffers
     bsr init_video
+    .if DEV_START_UW != 255
+    | Development shortcut: start inside the level, with a sword and a key.
+    move.b #UW_LEVEL, OFF_LEVEL(%a5)
+    move.b #UW_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
+    move.b #UW_BOUND_RIGHT, OFF_BOUND_RIGHT(%a5)
+    move.b #UW_BOUND_UP, OFF_BOUND_UP(%a5)
+    move.b #UW_BOUND_DOWN, OFF_BOUND_DOWN(%a5)
+    move.b #UW_BOUND_LEFT, OFF_OBJ_LEFT(%a5)
+    move.b #UW_BOUND_RIGHT, OFF_OBJ_RIGHT(%a5)
+    move.b #UW_BOUND_UP, OFF_OBJ_UP(%a5)
+    move.b #UW_BOUND_DOWN, OFF_OBJ_DOWN(%a5)
+    move.b #DEV_START_UW, OFF_ROOM_ID(%a5)
+    move.b #0x78, OFF_LINK_X(%a5)
+    move.b #0x8d, OFF_LINK_Y(%a5)
+    move.b #1, OFF_HAS_SWORD(%a5)
+    .endif
     bsr enter_room
     bsr draw_hud
 
 main_loop:
     bsr wait_vbl
     bsr poll_keyboard
+    bsr debug_keys
     tst.b OFF_EXIT_REQUESTED(%a5)
     bne exit_program
     addq.w #1, OFF_FRAME_COUNTER(%a5)
@@ -209,8 +247,17 @@ init_state:
     move.b #START_DIR, OFF_LINK_DIR(%a5)
     move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
     move.b #3, OFF_HEART_CONTAINERS(%a5)
-    move.b #3, OFF_HEART_FILLED(%a5)
+    move.b #6, OFF_HP_HALVES(%a5)
+    move.w #0xace1, OFF_RNG(%a5)
+    move.b #ROOM_BOUND_LEFT, OFF_OBJ_LEFT(%a5)
+    move.b #ROOM_BOUND_RIGHT, OFF_OBJ_RIGHT(%a5)
+    move.b #ROOM_BOUND_UP, OFF_OBJ_UP(%a5)
+    move.b #ROOM_BOUND_DOWN, OFF_OBJ_DOWN(%a5)
     move.b #1, OFF_HUD_DIRTY(%a5)
+    move.b #LINK_EDGE_LEFT, OFF_BOUND_LEFT(%a5)
+    move.b #LINK_EDGE_RIGHT, OFF_BOUND_RIGHT(%a5)
+    move.b #LINK_EDGE_UP, OFF_BOUND_UP(%a5)
+    move.b #LINK_EDGE_DOWN, OFF_BOUND_DOWN(%a5)
     rts
 
 init_buffers:
@@ -241,11 +288,16 @@ init_buffers:
 
 | Render the current room into bg_cur and show it.
 enter_room:
+    clr.b OFF_COMMIT(%a5)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
     movea.l OFF_BG_CUR(%a5), %a1
+    tst.b OFF_LEVEL(%a5)
+    bne 1f
     bsr render_room
-    bsr spawn_room_enemies
+    bra 2f
+1:  bsr uw_render_current
+2:  bsr spawn_room_enemies
     bsr show_background
     clr.b OFF_ERASE_VALID(%a5)
     bsr draw_link
@@ -253,6 +305,7 @@ enter_room:
     rts
 
 enter_cave:
+    clr.b OFF_COMMIT(%a5)
     bsr clear_enemies
     movea.l OFF_BG_CUR(%a5), %a1
     bsr render_cave_room
@@ -275,13 +328,13 @@ show_background:
     rts
 
 update_play:
-    tst.b OFF_ENEMY_COUNT(%a5)
-    beq 1f
-    bsr show_background
-    clr.b OFF_ERASE_VALID(%a5)
-    bra 2f
-1:  bsr erase_sprite
-2:
+    bsr erase_bomb
+    bsr erase_sword
+    bsr erase_items
+    bsr erase_enemies
+    bsr erase_sprite
+    bsr sword_input
+    bsr bomb_input
     bsr link_update
     moveq #0, %d0
     move.b OFF_GAME_MODE(%a5), %d0
@@ -291,14 +344,20 @@ update_play:
     rts                      | cave entry already redrew the new background
 3:
     bsr update_enemies
-    bsr draw_link
+    bsr update_combat
+    bsr draw_items
+    bsr draw_bomb
     bsr draw_enemies
+    bsr draw_link_blink
+    bsr draw_sword
     rts
 
     .include "video.s"
     .include "sprite.s"
     .include "enemy.s"
+    .include "combat.s"
     .include "link.s"
+    .include "uw.s"
     .include "hud.s"
     .include "input.s"
 
@@ -313,6 +372,47 @@ enemy_sprites:
     .incbin "enemy_sprites.bin"
 metatile_tiles:
     .incbin "metatile_tiles.bin"
+uw_tiles:
+    .incbin "uw_tiles.bin"
+uw_tile_nes:
+    .incbin "uw_tile_nes.bin"
+uw_room_index:
+    .incbin "uw_room_index.bin"
+    .align 2
+uw_door_cells:
+    .incbin "uw_door_cells.bin"
+    .align 2
+uw_doors:
+    .incbin "uw_doors.bin"
+    .align 2
+uw_rooms:
+    .incbin "uw_rooms.bin"
+    .align 2
+table_anchor:
+    | Actor tables sit right after the anchor, so they are within reach of
+    | the signed 16-bit displacement from it.
+mon_sprites:
+    .incbin "mon_sprites.bin"
+item_sprites:
+    .incbin "item_sprites.bin"
+sword_sprites:
+    .incbin "sword_sprites.bin"
+mon_table:
+    .incbin "mon_table.bin"
+item_index:
+    .incbin "item_index.bin"
+drop_table:
+    .incbin "drop_table.bin"
+drop_rates:
+    .incbin "drop_rates.bin"
+uw_room_info:
+    .incbin "uw_room_info.bin"
+uw_cellar_info:
+    .incbin "uw_cellar_info.bin"
+    .align 2
+uw_cellar_maps:
+    .incbin "uw_cellar_maps.bin"
+    .align 2
 metatiles:
     .incbin "metatiles.bin"
 | room_maps is by far the largest table, so it goes last: every label above it

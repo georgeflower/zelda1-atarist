@@ -39,6 +39,9 @@ SCANCODES = {
     "a": 0x1E,
     "s": 0x1F,
     "d": 0x20,
+    "k": 0x25,
+    "b": 0x30,
+    "space": 0x39,
 }
 
 
@@ -193,6 +196,11 @@ def parse_key_schedule(spec: str) -> dict[int, list[tuple[str, int]]]:
             continue
         when, _, action = entry.partition(":")
         action = action.strip()
+        if action[:1] == "=":
+            # "700:=ENEMY_X.1=100" pokes byte 1 of the variable ENEMY_X.
+            target, _, value = action[1:].partition("=")
+            schedule.setdefault(int(when), []).append(("=" + target.strip(), int(value, 0)))
+            continue
         if action[:1] not in "+-":
             raise SystemExit(f"Key event '{entry}' must start with + or -, e.g. 620:+right")
         key = action[1:].strip().lower()
@@ -267,7 +275,14 @@ def main() -> None:
 
         for index, (vbl, events) in enumerate(sorted(schedule.items())):
             step = args.work / f"keys{index}.ini"
-            pokes = [f"w {keys_addr + SCANCODES[key]:#x} {state}" for key, state in events]
+            pokes = []
+            for key, state in events:
+                if key.startswith("="):
+                    name, _, index = key[1:].partition(".")
+                    address = globals_addr + layout[name] + int(index or 0)
+                    pokes.append(f"w {address:#x} {state}")
+                else:
+                    pokes.append(f"w {keys_addr + SCANCODES[key]:#x} {state}")
             step.write_text("\n".join(pokes) + "\ncont\n", encoding="utf-8")
             script += f"b VBL > {vbl - 1} :once :file {step}\n"
 
@@ -299,10 +314,14 @@ def main() -> None:
     layout = parse_globals_layout(project / "src" / "globals.s")
     report = {
         name: ram[globals_addr + layout[name]]
-        for name in ("ROOM_ID", "LINK_X", "LINK_Y", "LINK_DIR", "GAME_MODE")
+        for name in ("ROOM_ID", "LINK_X", "LINK_Y", "LINK_DIR", "GAME_MODE", "LEVEL", "HOTSPOT_TILE", "COMMIT", "EXIT_GUARD",
+                     "HP_HALVES", "ENEMY_COUNT", "ENEMY_X", "ENEMY_Y", "ENEMY_DIR", "ENEMY_TYPE", "ENEMY_HP", "ENEMY_ACTIVE", "ITEM_ACTIVE", "ITEM_ID", "ITEM_X", "ITEM_Y", "IN_CELLAR", "INV_KEYS", "INV_RUPEES", "ATTACK", "LINK_HURT")
     }
     print(f"video base {base:#08x}, wrote {args.out}")
     print(" ".join(f"{k}={v:#04x}" for k, v in report.items()))
+    # A loop that keeps pace with the VBL advances this once per frame.
+    frames = int.from_bytes(ram[globals_addr + layout["FRAME_COUNTER"] :][:2], "big")
+    print(f"FRAME_COUNTER={frames} after {args.vbls} VBLs")
 
 
 if __name__ == "__main__":

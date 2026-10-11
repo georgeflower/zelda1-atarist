@@ -1,19 +1,39 @@
-| Minimal overworld enemy slice: repeated-template rooms of type $07 spawn a
-| handful of simple wandering enemies rendered with a procedural sprite.
+| Monsters: spawning, wandering and drawing.
+|
+| Overworld rooms of template $07 still get the simple procedural blobs (type
+| 255). Underworld rooms spawn the monsters listed for them, drawn with the
+| original sprite art. Hit points, damage and drops live in combat.s.
+
+| d0.b = a pseudo-random byte
+rand8:
+    move.w OFF_RNG(%a5), %d0
+    lsr.w #1, %d0
+    bcc 1f
+    eori.w #0xb400, %d0
+1:  move.w %d0, OFF_RNG(%a5)
+    move.l %d1, -(%sp)
+    move.w OFF_FRAME_COUNTER(%a5), %d1
+    eor.w %d1, %d0
+    move.l (%sp)+, %d1
+    and.w #0xff, %d0
+    rts
 
 spawn_room_enemies:
-    movem.l %d0-%d4/%a0, -(%sp)
+    movem.l %d0-%d7/%a0-%a2, -(%sp)
     bsr clear_enemies
+    bsr clear_items
+    tst.b OFF_LEVEL(%a5)
+    bne uw_spawn
 
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
-    lea room_attr_c(%pc), %a0
+    ltab room_attr_c, %a0
     moveq #0, %d1
     move.b 0(%a0, %d0.w), %d1
     move.w %d1, %d2
     andi.w #0x003f, %d2
 
-    lea room_attr_d(%pc), %a0
+    ltab room_attr_d, %a0
     btst #7, 0(%a0, %d0.w)
     beq 1f
     ori.w #0x0040, %d2
@@ -22,7 +42,7 @@ spawn_room_enemies:
 
     lsr.w #6, %d1
     andi.w #3, %d1
-    lea foe_counts(%pc), %a0
+    ltab foe_counts, %a0
     moveq #0, %d2
     move.b 0(%a0, %d1.w), %d2
     cmpi.w #MAX_ENEMIES, %d2
@@ -52,13 +72,114 @@ spawn_room_enemies:
     move.b %d0, OFF_ENEMY_Y(%a5, %d3.w)
 
     move.b #1, OFF_ENEMY_ACTIVE(%a5, %d3.w)
+    move.b #0xff, OFF_ENEMY_TYPE(%a5, %d3.w)
     move.b %d3, %d0
     andi.b #3, %d0
-    addq.b #1, %d0
-    move.b %d0, OFF_ENEMY_DIR(%a5, %d3.w)
+    moveq #1, %d1
+    lsl.b %d0, %d1
+    move.b %d1, OFF_ENEMY_DIR(%a5, %d3.w)
     addq.w #1, %d3
     bra 3b
-9:  movem.l (%sp)+, %d0-%d4/%a0
+9:  movem.l (%sp)+, %d0-%d7/%a0-%a2
+    rts
+
+| Underworld: place the monsters the room lists on the first safe spawn spots.
+uw_spawn:
+    moveq #0, %d0
+    move.b OFF_ROOM_ID(%a5), %d0
+    bsr uw_room_info_ptr
+    tst.w %d1
+    bmi 9b
+    move.b 1(%a1), OFF_ROOM_TRIGGER(%a5)
+    move.b 5(%a1), OFF_ROOM_UNSUPPORTED(%a5)
+    bsr uw_setup_item
+    lea OFF_UW_FLAGS(%a5), %a2
+    btst #0, 0(%a2, %d0.w)
+    bne 9b                      | already cleared: they stay dead
+    moveq #0, %d1
+    move.b (%a1), %d1           | monsters to place
+    beq 9b
+
+    moveq #0, %d3
+    move.b OFF_LINK_DIR(%a5), %d3
+    bsr enemy_spawn_list_index
+    lea enemy_spawn_lists(%pc), %a0
+    mulu.w #9, %d0
+    adda.w %d0, %a0
+
+    moveq #0, %d4               | spawn spots tried
+    moveq #0, %d5               | monsters placed
+1:  cmp.w #9, %d4
+    bhs 8f
+    cmp.w %d1, %d5
+    bhs 8f
+    moveq #0, %d0
+    move.b 0(%a0, %d4.w), %d0
+    addq.w #1, %d4
+    move.w %d0, %d6
+    lsl.w #4, %d6
+    and.w #0x00ff, %d6          | X
+    move.w %d0, %d7
+    and.w #0x00f0, %d7
+    or.w #0x000d, %d7           | Y
+
+    move.w %d6, %d2
+    move.w %d7, %d3
+    bsr enemy_blocked_at
+    tst.w %d0
+    bne 1b
+
+    moveq #0, %d0               | not on top of Link
+    move.b OFF_LINK_X(%a5), %d0
+    sub.w %d6, %d0
+    bpl 2f
+    neg.w %d0
+2:  cmp.w #0x22, %d0
+    bhs 3f
+    moveq #0, %d0
+    move.b OFF_LINK_Y(%a5), %d0
+    sub.w %d7, %d0
+    bpl 4f
+    neg.w %d0
+4:  cmp.w #0x22, %d0
+    blo 1b
+
+3:  move.b %d6, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d7, OFF_ENEMY_Y(%a5, %d5.w)
+    moveq #0, %d0
+    move.b 6(%a1, %d5.w), %d0   | monster index from the room record
+    move.b %d0, OFF_ENEMY_TYPE(%a5, %d5.w)
+    ltab mon_table, %a2
+    lsl.w #3, %d0
+    move.b 1(%a2, %d0.w), %d0
+    move.b %d0, OFF_ENEMY_HP(%a5, %d5.w)
+    move.b #1, OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    move.b %d5, %d0
+    andi.b #3, %d0
+    moveq #1, %d2
+    lsl.b %d0, %d2
+    move.b %d2, OFF_ENEMY_DIR(%a5, %d5.w)
+    addq.w #1, %d5
+    bra 1b
+8:  move.b %d5, OFF_ENEMY_COUNT(%a5)
+    bra 9b
+
+| d0.w = room id. Returns a1 = its record in uw_room_info and d1.w = 0, or
+| d1.w = -1 when the room is not part of the level.
+uw_room_info_ptr:
+    movem.l %d2/%a0, -(%sp)
+    ltab uw_room_index, %a0
+    moveq #0, %d2
+    move.b 0(%a0, %d0.w), %d2
+    cmpi.b #0xff, %d2
+    beq 1f
+    mulu.w #UW_INFO_BYTES, %d2
+    ltab uw_room_info, %a1
+    adda.l %d2, %a1
+    moveq #0, %d1
+    bra 2f
+1:  moveq #-1, %d1
+2:  movem.l (%sp)+, %d2/%a0
     rts
 
 enemy_spawn_list_index:
@@ -85,76 +206,159 @@ clear_enemies:
     moveq #(MAX_ENEMIES - 1), %d0
 2:  clr.b (%a0)+
     dbra %d0, 2b
+    lea OFF_ENEMY_HURT(%a5), %a0
+    moveq #(MAX_ENEMIES - 1), %d0
+3:  clr.b (%a0)+
+    dbra %d0, 3b
     movem.l (%sp)+, %d0/%a0
     rts
 
 erase_enemies:
+    movem.l %d0/%d3/%a0, -(%sp)
+    lea OFF_ENEMY_ERASE_OFFSETS(%a5), %a0
+    moveq #0, %d3
+1:  tst.b OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+    beq 2f
+    move.w %d3, %d0
+    lsl.w #2, %d0
+    move.l 0(%a0, %d0.w), %d0
+    bsr erase_at
+    clr.b OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+2:  addq.w #1, %d3
+    cmp.w #MAX_ENEMIES, %d3
+    blo 1b
+    movem.l (%sp)+, %d0/%d3/%a0
     rts
 
 update_enemies:
-    movem.l %d0-%d6, -(%sp)
-    move.w OFF_FRAME_COUNTER(%a5), %d6
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
     moveq #0, %d5
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
     bhs 9f
     tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
     beq 8f
-    move.w %d6, %d1
+    tst.b OFF_ENEMY_HURT(%a5, %d5.w)
+    beq 2f
+    subq.b #1, OFF_ENEMY_HURT(%a5, %d5.w)
+    bra 8f
+
+2:  moveq #4, %d4               | frames between pixel steps
+    moveq #0, %d0
+    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
+    cmpi.b #0xff, %d0
+    beq 3f
+    ltab mon_table, %a0
+    lsl.w #3, %d0
+    moveq #0, %d4
+    move.b 2(%a0, %d0.w), %d4
+3:  moveq #0, %d1
+    move.w OFF_FRAME_COUNTER(%a5), %d1
     add.w %d5, %d1
-    andi.w #3, %d1
+    divu.w %d4, %d1
+    swap %d1
+    tst.w %d1
     bne 8f
 
     moveq #0, %d2
     move.b OFF_ENEMY_X(%a5, %d5.w), %d2
     moveq #0, %d3
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
-    moveq #0, %d4
-    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
-    move.w %d2, %d0
-    move.w %d3, %d1
-    btst #0, %d4
-    beq 2f
-    addq.w #1, %d0
-    bra 5f
-2:  btst #1, %d4
-    beq 3f
-    subq.w #1, %d0
-    bra 5f
-3:  btst #2, %d4
-    beq 4f
-    addq.w #1, %d1
-    bra 5f
-4:  subq.w #1, %d1
-5:  move.w %d0, %d2
-    move.w %d1, %d3
-    bsr enemy_blocked_at
-    tst.w %d0
-    beq 6f
-    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
-    addq.b #1, %d4
-    andi.b #3, %d4
-    bne 7f
-    move.b #DIR_UP, %d4
+    moveq #0, %d6
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d6
+
+    | Now and then turn, but only on a grid boundary.
+    move.b %d2, %d0
+    and.b #7, %d0
+    bne 4f
+    move.b %d3, %d0
+    and.b #7, %d0
+    cmp.b #5, %d0
+    bne 4f
+    bsr rand8
+    and.b #7, %d0
+    bne 4f
+    bsr random_dir
+
+4:  btst #0, %d6
+    beq 5f
+    addq.w #1, %d2
     bra 7f
-6:  move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
-    move.b %d1, OFF_ENEMY_Y(%a5, %d5.w)
+5:  btst #1, %d6
+    beq 6f
+    subq.w #1, %d2
+    bra 7f
+6:  btst #2, %d6
+    beq 62f
+    addq.w #1, %d3
+    bra 7f
+62: subq.w #1, %d3
+
+7:  bsr enemy_step_blocked
+    tst.w %d0
+    beq 10f
+    bsr random_dir              | blocked: try another way next time
+    move.b %d6, OFF_ENEMY_DIR(%a5, %d5.w)
     bra 8f
-7:  move.b %d4, OFF_ENEMY_DIR(%a5, %d5.w)
+10: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+    move.b %d6, OFF_ENEMY_DIR(%a5, %d5.w)
 8:  addq.w #1, %d5
     bra 1b
-9:  movem.l (%sp)+, %d0-%d6
+9:  movem.l (%sp)+, %d0-%d7/%a0-%a1
+    rts
+
+| d6.b = one of the four directions, chosen at random
+random_dir:
+    bsr rand8
+    and.b #3, %d0
+    moveq #1, %d6
+    lsl.b %d0, %d6
+    rts
+
+| Is the step to (d2, d3) blocked for monster d5? Keese fly over obstacles and
+| only the room edges stop them. Returns d0.w = 1 when blocked.
+enemy_step_blocked:
+    movem.l %d1/%a0, -(%sp)
+    moveq #0, %d0
+    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
+    cmpi.b #0xff, %d0
+    beq 1f
+    ltab mon_table, %a0
+    lsl.w #3, %d0
+    tst.b 5(%a0, %d0.w)
+    beq 1f
+    bsr enemy_out_of_bounds
+    bra 2f
+1:  bsr enemy_blocked_at
+2:  movem.l (%sp)+, %d1/%a0
+    rts
+
+| d2.w = X, d3.w = Y. Returns d0.w = 1 outside the room's object bounds.
+enemy_out_of_bounds:
+    move.l %d1, -(%sp)
+    moveq #1, %d0
+    moveq #0, %d1
+    move.b OFF_OBJ_LEFT(%a5), %d1
+    cmp.w %d1, %d2
+    blt 9f
+    move.b OFF_OBJ_RIGHT(%a5), %d1
+    cmp.w %d1, %d2
+    bgt 9f
+    move.b OFF_OBJ_UP(%a5), %d1
+    cmp.w %d1, %d3
+    blt 9f
+    move.b OFF_OBJ_DOWN(%a5), %d1
+    cmp.w %d1, %d3
+    bgt 9f
+    moveq #0, %d0
+9:  move.l (%sp)+, %d1
     rts
 
 enemy_blocked_at:
     movem.l %d1-%d5, -(%sp)
-    cmpi.w #ROOM_BOUND_LEFT, %d2
-    blt 8f
-    cmpi.w #ROOM_BOUND_RIGHT, %d2
-    bgt 8f
-    cmpi.w #ROOM_BOUND_UP, %d3
-    blt 8f
-    cmpi.w #ROOM_BOUND_DOWN, %d3
-    bgt 8f
+    bsr enemy_out_of_bounds
+    tst.w %d0
+    bne 9f
     move.w %d2, %d4
     andi.w #0x00f8, %d4
     lsr.w #3, %d4
@@ -174,47 +378,142 @@ enemy_blocked_at:
     move.w %d4, %d3
     bsr fetch_tile
     bsr tile_blocks
-    bra 9f
-8:  moveq #1, %d0
 9:  movem.l (%sp)+, %d1-%d5
     rts
 
 draw_enemies:
-    movem.l %d0-%d3/%a0-%a1, -(%sp)
+    movem.l %d0-%d6/%a0-%a2, -(%sp)
     moveq #0, %d3
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d3
     bhs 9f
     tst.b OFF_ENEMY_ACTIVE(%a5, %d3.w)
     beq 8f
-    move.w OFF_FRAME_COUNTER(%a5), %d1
+    btst #1, OFF_ENEMY_HURT(%a5, %d3.w)
+    bne 8f                      | blink while hurt
+
+    moveq #0, %d0
+    move.b OFF_ENEMY_TYPE(%a5, %d3.w), %d0
+    cmpi.b #0xff, %d0
+    beq 2f
+
+    | Underworld monster. Its mode says which of its images to show and whether
+    | to mirror it, the way the original's update routines choose.
+    ltab mon_table, %a0
+    move.w %d0, %d1
+    lsl.w #3, %d1
+    moveq #0, %d2
+    move.b 6(%a0, %d1.w), %d2   | mode
+    move.w OFF_FRAME_COUNTER(%a5), %d4
+    add.w %d3, %d4              | desynchronise the monsters
+    moveq #0, %d1               | image
+    moveq #0, %d5               | 1 = mirrored
+    tst.w %d2
+    beq 10f
+    cmp.w #1, %d2
+    beq 11f
+    cmp.w #2, %d2
+    beq 12f
+    cmp.w #3, %d2
+    beq 13f
+    move.w %d4, %d1             | keese: wings beat
+    lsr.w #2, %d1
+    and.w #1, %d1
+    bra 19f
+10: move.w %d4, %d6             | walker: walk frame
+    lsr.w #3, %d6
+    and.w #1, %d6
+    moveq #0, %d2
+    move.b OFF_ENEMY_DIR(%a5, %d3.w), %d2
+    btst #2, %d2
+    beq 14f
+    moveq #2, %d1               | facing down: the flip alternates
+    move.w %d6, %d5
+    bra 19f
+14: btst #3, %d2
+    beq 15f
+    moveq #3, %d1               | facing up
+    move.w %d6, %d5
+    bra 19f
+15: move.w %d6, %d1             | sideways, flipped to face left
+    btst #1, %d2
+    beq 19f
+    moveq #1, %d5
+    bra 19f
+11: move.w %d4, %d5             | stalfos: the flip alternates
+    lsr.w #3, %d5
+    and.w #1, %d5
+    bra 19f
+12: move.w %d4, %d1             | rope: walk frame, flipped to face left
+    lsr.w #3, %d1
+    and.w #1, %d1
+    moveq #0, %d2
+    move.b OFF_ENEMY_DIR(%a5, %d3.w), %d2
+    btst #1, %d2
+    beq 19f
+    moveq #1, %d5
+    bra 19f
+13: move.w %d4, %d1             | gel: two images, swapped every two frames
+    lsr.w #1, %d1
+    and.w #1, %d1
+19: add.w %d1, %d1
+    add.w %d5, %d1
+    lsl.w #3, %d0
+    add.w %d1, %d0
+    mulu.w #SPRITE_FRAME_BYTES, %d0
+    ltab mon_sprites, %a0
+    adda.l %d0, %a0
+    bra 4f
+
+2:  move.w OFF_FRAME_COUNTER(%a5), %d1
     lsr.w #4, %d1
     add.w %d3, %d1
     andi.w #1, %d1
     mulu.w #SPRITE_FRAME_BYTES, %d1
-    lea enemy_sprites(%pc), %a0
+    ltab enemy_sprites, %a0
     adda.l %d1, %a0
 
-    moveq #0, %d1
+4:  moveq #0, %d1
+    moveq #0, %d2
     move.b OFF_ENEMY_X(%a5, %d3.w), %d1
-    add.w #(PLAYFIELD_LEFT * 2), %d1
-    move.w %d1, %d2
-    and.w #15, %d2
-    lsr.w #4, %d1
-    lsl.w #3, %d1
-
-    moveq #0, %d0
-    move.b OFF_ENEMY_Y(%a5, %d3.w), %d0
-    sub.w #LINK_Y_BIAS, %d0
-    mulu.w #SCREEN_STRIDE, %d0
-    add.l %d0, %d1
-
+    move.b OFF_ENEMY_Y(%a5, %d3.w), %d2
+    bsr sprite_offset
+    tst.w %d4
+    bmi 8f
+    move.w %d3, %d0
+    lsl.w #2, %d0
+    lea OFF_ENEMY_ERASE_OFFSETS(%a5), %a2
+    move.l %d1, 0(%a2, %d0.w)
+    move.b #1, OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
     movea.l OFF_SCREEN_PTR(%a5), %a1
     adda.l %d1, %a1
-    move.w %d2, %d0
+    move.w %d4, %d0
     bsr draw_sprite
 8:  addq.w #1, %d3
     bra 1b
-9:  movem.l (%sp)+, %d0-%d3/%a0-%a1
+9:  movem.l (%sp)+, %d0-%d6/%a0-%a2
+    rts
+
+| NES coordinates to a screen offset. d1.w = X, d2.w = Y.
+| Returns d1.l = byte offset of the sprite's top-left group and d4.w = shift
+| within the group, or d4.w = -1 when the sprite would leave the playfield.
+sprite_offset:
+    movem.l %d0/%d2, -(%sp)
+    moveq #-1, %d4
+    cmp.w #0x00f1, %d1
+    bhs 9f                      | also catches X below zero
+    cmp.w #0x003e, %d2
+    blt 9f
+    cmp.w #0x00df, %d2
+    bge 9f
+    add.w #(PLAYFIELD_LEFT * 2), %d1
+    move.w %d1, %d4
+    and.w #15, %d4
+    lsr.w #4, %d1
+    lsl.w #3, %d1
+    sub.w #LINK_Y_BIAS, %d2
+    mulu.w #SCREEN_STRIDE, %d2
+    add.l %d2, %d1
+9:  movem.l (%sp)+, %d0/%d2
     rts
 
 enemy_spawn_lists:

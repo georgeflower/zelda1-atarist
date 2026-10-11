@@ -165,6 +165,136 @@ class SpriteTests(unittest.TestCase):
         self.assertEqual(mask, 0x0001)
 
 
+ROM_ROOT = Path(__file__).resolve().parents[2]
+
+
+@unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
+class RomOverworldTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+
+    def test_whole_overworld_is_decoded(self) -> None:
+        rooms = self.bundle.rooms
+        self.assertEqual(len(rooms), build_assets.OW_ROOM_COUNT)
+        for room in rooms:
+            self.assertEqual(len(room), build_assets.OW_ROOM_COLS * build_assets.OW_ROOM_ROWS)
+            self.assertLess(max(room), len(self.bundle.metatiles))
+        # All 121 unique layouts are in use; a 6-bit id would only reach 64.
+        self.assertEqual(len(set(self.bundle.room_attrs_d[r] & 0x7F for r in range(len(rooms)))), 121)
+        self.assertGreaterEqual(len({tuple(room) for room in rooms}), 100)
+
+    def test_start_position_comes_from_level_info(self) -> None:
+        self.assertEqual(self.bundle.start_room, 0x77)
+        self.assertEqual(self.bundle.start_y, 0x8D)
+        self.assertEqual(build_assets.LINK_START_X, 0x78)
+
+
+class UnderworldGeometryTests(unittest.TestCase):
+    def test_door_faces_cover_twelve_distinct_tiles_inside_the_map(self) -> None:
+        import underworld
+
+        for direction in range(4):
+            cells = underworld.door_cells(direction)
+            self.assertEqual(len(set(cells)), underworld.DOOR_TILE_COUNT)
+            self.assertTrue(all(0 <= cell < underworld.UW_ROOM_BYTES for cell in cells))
+
+    def test_door_types_come_from_the_attribute_bytes(self) -> None:
+        import underworld
+
+        # Level 1's start room: attrs A=$A2, B=$03 -> N key door, S open, E/W open.
+        self.assertEqual(
+            [underworld.door_type(0xA2, 0x03, d) for d in range(4)], [0, 0, 0, 5]
+        )
+
+    def test_placeholder_underworld_is_consistent(self) -> None:
+        import underworld
+
+        uw = underworld.build_placeholder()
+        self.assertEqual(len(uw.rooms[0]), underworld.UW_ROOM_BYTES)
+        self.assertEqual(len(uw.tile_bank), len(uw.tile_nes) * 32)
+
+
+@unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
+class RomUnderworldTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.uw = build_assets.load_assets(ROM_ROOT, require_source=True).uw
+
+    def test_level_one_has_seventeen_rooms_from_the_start_room(self) -> None:
+        stored = [room for room, index in enumerate(self.uw.room_index) if index != 0xFF]
+        self.assertEqual(len(stored), 17)
+        self.assertIn(self.uw.start_room, stored)
+        self.assertEqual(self.uw.start_room, 0x73)
+
+    def test_locked_door_has_a_different_open_face(self) -> None:
+        import underworld
+
+        index = self.uw.room_index[0x73]
+        room = self.uw.rooms[index]
+        north_closed = [room[underworld._col_major_to_cell(c)] for c in underworld.door_cells(3)]
+        self.assertNotEqual(north_closed, self.uw.open_faces[index][3])
+
+    def test_every_room_uses_tiles_the_bank_holds(self) -> None:
+        for room in self.uw.rooms:
+            self.assertLess(max(room), len(self.uw.tile_nes))
+
+
+@unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
+class RomActorTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        import actors
+
+        cls.actors = actors
+        cls.data = build_assets.load_assets(ROM_ROOT, require_source=True).uw.actors
+
+    def test_every_monster_has_eight_frames_and_a_table_row(self) -> None:
+        count = len(self.actors.MONSTER_TYPES)
+        self.assertEqual(len(self.data.mon_table), count * 8)
+        self.assertEqual(
+            len(self.data.mon_sprites), count * self.actors.MONSTER_IMAGES * 2 * build_assets.SPRITE_FRAME_BYTES
+        )
+
+    def test_monster_periods_are_never_zero(self) -> None:
+        for row in range(len(self.actors.MONSTER_TYPES)):
+            self.assertGreaterEqual(self.data.mon_table[row * 8 + 2], 1)
+
+    def test_room_records_have_a_fixed_size_and_known_monsters(self) -> None:
+        for record in self.data.room_info:
+            self.assertEqual(len(record), self.actors.ROOM_INFO_BYTES)
+            for monster in record[6 : 6 + record[0]]:
+                self.assertLess(monster, len(self.actors.MONSTER_TYPES))
+
+    def test_stalfos_room_lists_five_stalfos(self) -> None:
+        import underworld  # noqa: F401
+
+        uw = build_assets.load_assets(ROM_ROOT, require_source=True).uw
+        record = self.data.room_info[uw.room_index[0x74]]
+        stalfos = self.actors.MONSTER_TYPES.index(0x2A)
+        self.assertEqual(list(record[6:11]), [stalfos] * 5)
+        self.assertEqual(record[0], 5)
+
+    def test_level_one_has_one_treasure_cellar_below_room_22(self) -> None:
+        import underworld
+
+        uw = build_assets.load_assets(ROM_ROOT, require_source=True).uw
+        self.assertEqual(len(uw.cellar_maps), 1)
+        self.assertEqual(len(uw.cellar_maps[0]), underworld.UW_ROOM_BYTES)
+        dest_a, dest_b, _position, item, _x, _y, room, kind = uw.cellar_info[0]
+        self.assertEqual((dest_a, dest_b), (0x22, 0x22))
+        self.assertEqual(item, 0x0A)            # the bow
+        self.assertEqual((room, kind), (0x7F, 1))
+        self.assertIn(0x0A, self.actors.ITEM_IDS)
+
+    def test_floor_items_have_art(self) -> None:
+        for item_id in self.actors.ITEM_IDS:
+            self.assertNotEqual(self.data.item_index[item_id], 0xFF)
+        self.assertEqual(
+            len(self.data.item_sprites), len(self.actors.ITEM_IDS) * build_assets.SPRITE_FRAME_BYTES
+        )
+
+
 class OutputTests(unittest.TestCase):
     def test_placeholder_generation_and_verification(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

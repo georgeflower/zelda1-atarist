@@ -8,6 +8,7 @@ screen. No Nintendo data is stored in this repository; the ROM stays local.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import textwrap
 import xml.etree.ElementTree as ET
@@ -55,6 +56,7 @@ LEVEL_INFO_PALETTE_OFFSET = 3
 LEVEL_INFO_FOE_COUNTS = 0x6BA2 - LEVEL_INFO_BASE
 LEVEL_INFO_START_Y = 0x6BA6 - LEVEL_INFO_BASE
 LEVEL_INFO_START_ROOM_ID = 0x6BAD - LEVEL_INFO_BASE
+LEVEL_INFO_ITEM_POSITIONS = 0x6BA7 - LEVEL_INFO_BASE
 PALETTE_ROWS = 8
 PALETTE_ROW_COLORS = 4
 BACKGROUND_PALETTE_ROWS = 4
@@ -435,6 +437,25 @@ class AssetBundle:
     foe_counts: list[int]
     start_room: int
     start_y: int
+    uw: object | None = None
+
+
+def load_uw_background_tiles(source_root: Path) -> list[list[list[int]]] | None:
+    """Rebuild the background pattern table that the underworld sees at runtime."""
+    import underworld
+
+    common = extract_binary(source_root, OW_BG_COMMON_NAME)
+    block = extract_binary(source_root, underworld.UW_BG_BLOCK_NAME)
+    if common is None or block is None:
+        return None
+    misc = extract_binary(source_root, OW_BG_MISC_NAME) or b""
+    return assemble_pattern_table(
+        (
+            (OW_BG_COMMON_FIRST_TILE, common),
+            (underworld.UW_BG_BLOCK_FIRST_TILE, block),
+            (OW_BG_MISC_FIRST_TILE, misc),
+        )
+    )
 
 
 def load_ow_background_tiles(source_root: Path) -> list[list[list[int]]] | None:
@@ -501,7 +522,8 @@ def decode_overworld(
     rooms: list[list[int]] = []
 
     for room_id in range(OW_ROOM_COUNT):
-        unique_id = attrs_d[room_id] & 0x3F
+        # LayoutRoomOW shifts bit 6 into the high byte too, so the id is 7 bits (121 layouts).
+        unique_id = attrs_d[room_id] & 0x7F
         base = unique_id * OW_COLUMNS_PER_ROOM
         descriptors = layouts[base : base + OW_COLUMNS_PER_ROOM]
         if len(descriptors) < OW_COLUMNS_PER_ROOM:
@@ -553,9 +575,19 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
     sprite_tiles = load_ow_sprite_tiles(source_root)
     if bg_tiles is not None and sprite_tiles is not None:
         rooms, metatiles, room_attrs_a, room_attrs_b, room_attrs_c, room_attrs_d, room_attrs_f, foe_counts, palette_bytes, start_room, start_y = decode_overworld(source_root, bg_tiles)
+        import underworld
+
+        # Development aid: ZELDA_START_ROOM=0x37 starts the game in another room.
+        override = os.environ.get("ZELDA_START_ROOM")
+        if override:
+            start_room = int(override, 0)
+        palette_map = build_palette_map(palette_bytes)
+        uw_tiles = load_uw_background_tiles(source_root)
+        uw = underworld.build_level(source_root, 1, uw_tiles, palette_bytes, palette_map)
         return AssetBundle(
             source_note="ROM-derived overworld tiles, sprites, rooms and palette",
-            palette=build_palette_map(palette_bytes),
+            uw=uw,
+            palette=palette_map,
             bg_tiles=bg_tiles,
             sprite_tiles=sprite_tiles,
             rooms=rooms,
@@ -581,10 +613,13 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
         "         Building with procedurally generated placeholder tiles -- the\n"
         "         result will NOT resemble the original game artwork.",
     )
+    import underworld
+
     placeholder_tiles = build_placeholder_tiles()
     rooms, metatiles = build_placeholder_rooms()
     return AssetBundle(
         source_note="generated placeholder CHR (Original.nes not available)",
+        uw=underworld.build_placeholder(),
         palette=build_palette_map(PLACEHOLDER_NES_PALETTE),
         bg_tiles=placeholder_tiles,
         sprite_tiles=placeholder_tiles,
@@ -752,6 +787,69 @@ def format_bytes(label: str, values: Iterable[int]) -> str:
     return "\n".join(lines)
 
 
+UW_DOOR_RECORD_BYTES = 4 + 4 * 12
+
+
+def write_underworld(out_dir: Path, uw) -> None:
+    (out_dir / "uw_tiles.bin").write_bytes(uw.tile_bank)
+    (out_dir / "uw_tile_nes.bin").write_bytes(uw.tile_nes)
+    (out_dir / "uw_rooms.bin").write_bytes(b"".join(uw.rooms))
+    (out_dir / "uw_room_index.bin").write_bytes(bytes(uw.room_index))
+    records = bytearray()
+    for types, faces in zip(uw.door_types, uw.open_faces):
+        records.extend(types)
+        for face in faces:
+            records.extend(face)
+    (out_dir / "uw_doors.bin").write_bytes(bytes(records))
+    cells = bytearray()
+    for direction in uw.door_cells:
+        for cell in direction:
+            cells.extend(cell.to_bytes(2, "big"))
+    (out_dir / "uw_door_cells.bin").write_bytes(bytes(cells))
+    actors = uw.actors
+    (out_dir / "mon_sprites.bin").write_bytes(actors.mon_sprites)
+    (out_dir / "mon_table.bin").write_bytes(actors.mon_table)
+    (out_dir / "mon_index.bin").write_bytes(actors.mon_index)
+    (out_dir / "item_sprites.bin").write_bytes(actors.item_sprites)
+    (out_dir / "item_index.bin").write_bytes(actors.item_index)
+    (out_dir / "drop_table.bin").write_bytes(actors.drop_table)
+    (out_dir / "drop_rates.bin").write_bytes(actors.drop_rates)
+    (out_dir / "sword_sprites.bin").write_bytes(actors.sword_sprites)
+    (out_dir / "uw_room_info.bin").write_bytes(b"".join(actors.room_info))
+    (out_dir / "uw_cellar_maps.bin").write_bytes(b"".join(uw.cellar_maps))
+    (out_dir / "uw_cellar_info.bin").write_bytes(b"".join(uw.cellar_info))
+
+
+def underworld_equates(uw) -> list[str]:
+    import underworld
+
+    left, right, up, down = underworld.UW_ROOM_BOUNDS
+    return [
+        f"| Underworld level {uw.level}: tile rooms rebuilt from LayOutRoom.",
+        f".equ UW_COLS, {underworld.UW_COLS}",
+        f".equ UW_ROWS, {underworld.UW_ROWS}",
+        f".equ UW_ROOM_BYTES, {underworld.UW_ROOM_BYTES}",
+        f".equ UW_ROOM_COUNT, {len(uw.rooms)}",
+        f".equ UW_TILE_COUNT, {len(uw.tile_nes)}",
+        f".equ UW_DOOR_RECORD_BYTES, {UW_DOOR_RECORD_BYTES}",
+        f".equ UW_FIRST_UNWALKABLE_TILE, 0x{underworld.UW_FIRST_UNWALKABLE_TILE:02x}",
+        f".equ UW_BOUND_LEFT, 0x{left:02x}",
+        f".equ UW_BOUND_RIGHT, 0x{right:02x}",
+        f".equ UW_BOUND_UP, 0x{up:02x}",
+        f".equ UW_BOUND_DOWN, 0x{down:02x}",
+        f".equ UW_START_ROOM, 0x{uw.start_room:02x}",
+        f".equ UW_START_Y, 0x{uw.start_y:02x}",
+        f".equ UW_LEVEL, {uw.level}",
+        f".equ MON_COUNT, {len(uw.actors.mon_table) // 8}",
+        f".equ ITEM_COUNT, {len(uw.actors.item_sprites) // SPRITE_FRAME_BYTES}",
+        f".equ UW_INFO_BYTES, {len(uw.actors.room_info[0])}",
+        f".equ CELLAR_COUNT, {len(uw.cellar_info)}",
+        f".equ CELLAR_INFO_BYTES, {underworld.CELLAR_INFO_BYTES}",
+        f".equ MON_KEESE, {uw.actors.keese_index}",
+        f".equ DEV_START_UW, {int(os.environ.get('ZELDA_START_UW', '0xFF'), 0)}",
+    ]
+
+
 def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "metatiles.bin").write_bytes(render_metatiles(bundle))
@@ -768,6 +866,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
     (out_dir / "room_maps.bin").write_bytes(
         bytes(value for room in bundle.rooms for value in room)
     )
+    write_underworld(out_dir, bundle.uw)
 
     room_count = len(bundle.rooms)
     metatile_count = len(bundle.metatiles)
@@ -808,6 +907,8 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
         f".equ START_X, 0x{LINK_START_X:02x}",
         f".equ START_Y, 0x{bundle.start_y:02x}",
         f".equ START_DIR, 0x{LINK_START_DIR:02x}",
+        "",
+        *underworld_equates(bundle.uw),
         "",
     ]
     for index, (name, _, _) in enumerate(HUD_GLYPHS):
@@ -854,6 +955,8 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
         sprite_frame_bytes={SPRITE_FRAME_BYTES}
         hud_tile_count={len(HUD_GLYPHS)}
         hud_tile_bytes={HUD_TILE_BYTES}
+        uw_room_count={len(bundle.uw.rooms)}
+        uw_tile_count={len(bundle.uw.tile_nes)}
         output_format=Atari ST low-resolution planar 16x16 metatiles
         """
     )
@@ -883,6 +986,8 @@ def verify_outputs(out_dir: Path) -> None:
         "sprite_frame_bytes",
         "hud_tile_count",
         "hud_tile_bytes",
+        "uw_room_count",
+        "uw_tile_count",
     )
     for key in required:
         if key not in manifest_values:
@@ -898,6 +1003,12 @@ def verify_outputs(out_dir: Path) -> None:
         "hud_tiles.bin": int(manifest_values["hud_tile_count"]) * int(manifest_values["hud_tile_bytes"]),
         "metatile_tiles.bin": int(manifest_values["metatile_count"]) * 4,
         "room_maps.bin": int(manifest_values["room_count"]) * int(manifest_values["room_bytes"]),
+        "uw_rooms.bin": int(manifest_values["uw_room_count"]) * 32 * 22,
+        "uw_doors.bin": int(manifest_values["uw_room_count"]) * UW_DOOR_RECORD_BYTES,
+        "uw_tiles.bin": int(manifest_values["uw_tile_count"]) * 32,
+        "uw_tile_nes.bin": int(manifest_values["uw_tile_count"]),
+        "uw_room_index.bin": 128,
+        "uw_door_cells.bin": 4 * 12 * 2,
     }
     for name, expected in expected_sizes.items():
         path = out_dir / name

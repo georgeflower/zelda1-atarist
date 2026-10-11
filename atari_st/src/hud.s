@@ -85,11 +85,19 @@ draw_hud_hearts:
     blo 2f
     moveq #HUD_BLANK, %d0       | past the containers Link owns
     bra 4f
-2:  move.b OFF_HEART_FILLED(%a5), %d3
+2:  move.b OFF_HP_HALVES(%a5), %d3
     and.w #0xFF, %d3
-    cmp.w %d3, %d4
-    bhs 4f
+    move.w %d4, %d2
+    add.w %d2, %d2
+    addq.w #2, %d2              | half hearts needed for this slot to be full
+    cmp.w %d2, %d3
+    blo 3f
     moveq #HUD_HEART_FULL, %d0
+    bra 4f
+3:  subq.w #1, %d2
+    cmp.w %d2, %d3
+    bne 4f
+    moveq #HUD_HEART_HALF, %d0
 
 4:  move.w %d4, %d1
     and.w #(HUD_HEARTS_PER_ROW - 1), %d1
@@ -108,7 +116,7 @@ draw_hud_hearts:
 | Draw one 8x8 glyph. d0.w = tile index, d1.w = column 0..39, d2.w = HUD row.
 draw_hud_tile:
     movem.l %d0-%d3/%d7/%a0-%a1, -(%sp)
-    lea hud_tiles(%pc), %a0
+    ltab hud_tiles, %a0
     mulu.w #HUD_TILE_BYTES, %d0
     adda.l %d0, %a0
 

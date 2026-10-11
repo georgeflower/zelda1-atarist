@@ -4,6 +4,7 @@ GENERATED_DIR := $(BUILD_DIR)/generated
 SRC_DIR := src
 TOOLS_DIR := tools
 ASSET_INPUTS := $(ROOT_DIR)/src/bins.xml $(ROOT_DIR)/src/Z_05.asm $(ROOT_DIR)/src/Z_06.asm \
+	$(TOOLS_DIR)/underworld.py $(TOOLS_DIR)/actors.py \
 	$(wildcard $(ROOT_DIR)/bin/dat/CommonBackgroundPatterns.dat $(ROOT_DIR)/ext/Original.nes)
 TOOLCHAIN_PREFIX ?= m68k-linux-gnu-
 AS := $(TOOLCHAIN_PREFIX)as
@@ -24,6 +25,14 @@ SOURCES := $(wildcard $(SRC_DIR)/*.s)
 GENERATED := $(GENERATED_DIR)/assets.inc $(GENERATED_DIR)/metatiles.bin \
 	$(GENERATED_DIR)/metatile_tiles.bin $(GENERATED_DIR)/room_maps.bin \
 	$(GENERATED_DIR)/link_sprites.bin $(GENERATED_DIR)/hud_tiles.bin \
+	$(GENERATED_DIR)/uw_tiles.bin $(GENERATED_DIR)/uw_tile_nes.bin \
+	$(GENERATED_DIR)/uw_rooms.bin $(GENERATED_DIR)/uw_room_index.bin \
+	$(GENERATED_DIR)/uw_doors.bin $(GENERATED_DIR)/uw_door_cells.bin \
+	$(GENERATED_DIR)/mon_sprites.bin $(GENERATED_DIR)/mon_table.bin \
+	$(GENERATED_DIR)/mon_index.bin $(GENERATED_DIR)/item_sprites.bin \
+	$(GENERATED_DIR)/item_index.bin $(GENERATED_DIR)/drop_table.bin \
+	$(GENERATED_DIR)/drop_rates.bin $(GENERATED_DIR)/sword_sprites.bin \
+	$(GENERATED_DIR)/uw_room_info.bin \
 	$(GENERATED_DIR)/asset_manifest.txt
 
 .PHONY: all assets check clean run screenshot
