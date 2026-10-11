@@ -1,75 +1,156 @@
 Atari STFM / Hatari port
 ========================
 
-A native Atari ST port of The Legend of Zelda's overworld, built on top of
-aldonunez's NES disassembly in `src/`. It runs as a stock TOS `.PRG` on a
-512KB ST in 320x200 sixteen-colour mode, and reads all of its graphics, room
-layouts and palettes out of a ROM you supply yourself.
+A native Atari ST port of The Legend of Zelda, built on top of aldonunez's NES
+disassembly in `src/`. It runs as a stock TOS `.PRG` on a 512KB ST in 320x200
+sixteen-colour mode, and reads all of its graphics, room layouts, palettes and
+text out of a ROM you supply yourself.
 
-What is working today
----------------------
+Status: an early but playable vertical slice. You can walk the whole
+overworld, fetch the wooden sword from the first cave, enter Level 1 and fight
+through most of it. It is not yet a complete game: there is no sound, no
+inventory screen, only one dungeon, and no way to win.
+
+How to play
+-----------
+
+| Key | Action |
+| --- | --- |
+| arrow keys or `W` `A` `S` `D` | walk (in 8-pixel grid steps, like the original) |
+| `Space` | swing the sword (once you have it) |
+| `B` | drop a bomb (once you have some) |
+| `K` | debug: one key and four bombs |
+| `Esc` | quit |
+
+A typical run:
+
+1. The game opens on the first overworld screen, just below a cave. Walk up
+   into it, wait for the old man to finish speaking, and take the wooden
+   sword. Walk out through the bottom doorway.
+2. Walk to the Level 1 entrance (overworld room `$37`) and go down the stairs.
+3. In the dungeon, kill the monsters with the sword (and its beam while your
+   hearts are full), pick up keys, open locked doors, bomb the bombable walls,
+   and step on the staircase in room `$22` to reach the cellar with the bow.
+4. Leave the dungeon by walking off the bottom of its first room.
+
+Implemented
+-----------
+
+Platform and rendering
 
 - native Motorola 68000 program emitted as a TOS `.PRG`, VBL-paced for STFM
   timing
-- the full 128-screen overworld decoded from the original data: room layouts,
-  16x16 squares, per-area palette
-- Link as a masked, run-time-shifted sprite with four-direction walk animation
-- pixel movement governed by the original collision rules, including the
-  walkable-tile exception list and the two-column test on vertical moves
-- room-to-room traversal with a 16-pixel stepped scroll in all four directions
-- overworld cave entry and exit; the first cave is built from the original cave
-  layout, with the old man, his bonfires and his typed-out speech, and he gives
-  the wooden sword. The game opens just below that cave; walk out of a cave
-  through its bottom doorway
-- first overworld enemy slice: repeated-template rooms using monster template
-  `$07` now spawn simple wandering enemies
-- Link walks in 8-pixel grid steps like the original, so he can be lined up
-  exactly on an entrance; overworld screens change at the original edge
-  coordinates (`PlayerScreenEdgeBounds`)
-- the Level 1 entrance (overworld room `$37`) leads into the underworld: all 17
-  rooms reachable from the start room, rebuilt from `LayOutRoom` (walls, doors,
-  floor), scrolled between like the overworld, with the original underworld
-  collision; walk off the bottom of the start room to leave
-- locked doors open with a key, and keys, hearts, rupees, bombs and the level's
-  items lie on the floor to be picked up; `K` still hands out a key
-  and bombs until the real sources exist
-- Level 1 monsters (stalfos, keese, gels, ropes, goriya) spawn from the
-  original room data, move on the grid, and are drawn from the original
-  sprites; they bite for half hearts, and Link blinks while invincible
-- `Space` swings the wooden sword (placeholder blade art), which is picked up
-  in the first overworld cave; it hurts and kills monsters, and killed monsters
-  roll the original drop table. With full hearts (or half a heart short) a
-  swing also fires a sword beam that flies until it hits a wall or a monster
-- playing frames are double-buffered, so Link and the monsters no longer
-  vanish in busy rooms when the redraw outruns the raster beam
-- shutter doors close until the room's monsters are dead; a trigger-7 room's
-  item then appears
-- `B` drops a bomb that blows open bombable walls and hurts monsters nearby;
-  false walls can be walked through
-- the stairs room (`$22`) leads down to the cellar with the bow, which is
-  laid out like an overworld cave and full of keese; the ladders lead back up
-- dying refills the hearts and returns Link to the overworld start
-- status ribbon with hearts, and rupee, key and bomb counters, using the
+- 16x16 masked sprites shifted at run time; one shared ST palette covers every
+  NES background and sprite palette row
+- double-buffered play frames with per-sprite erase from a clean background
+  copy, so busy rooms neither flicker nor lose Link; scrolls and caves draw
+  straight to the visible screen
+- keyboard input through the IKBD ACIA
+- status ribbon: hearts (with halves), rupee, key and bomb counters, in the
   original glyphs
-- background buffer with dirty-rectangle sprite erase, so a frame costs a few
-  hundred bytes of copying rather than a full 22KB repaint
-- keyboard input through the IKBD ACIA: arrow keys or `W/A/S/D` to walk,
-  `Esc` to quit
-- headless Hatari harness that captures the framebuffer to a PNG and can drive
-  scripted key input
-- placeholder asset fallback so the target still builds without any ROM
 
-What this does not do yet
--------------------------
+Overworld
 
-- the dungeon's remaining monsters (wallmasters, the boss, traps) and the
-  original behaviours: rope charges, goriya boomerangs, knock-back, wallmaster
-- real sword and bomb art, the explosion cloud, item inventory and use
-- push-block and other secret triggers (their shutters open when the room is
-  cleared instead), the sword cave and other cave contents
-- cave NPCs, shortcut caves, the other eight dungeons
-- audio, and save handling
-- palette cycling (the animated pond)
+- all 128 screens decoded from the original data: room layouts, 16x16 squares,
+  per-area palette
+- Link's movement follows the original: 8-pixel grid steps, the collision
+  hotspot and the walkable-tile exception list, the two-column test on
+  vertical moves, and the original screen-edge coordinates
+- 16-pixel stepped scrolling between screens in all four directions
+- cave entry and exit. The first cave is rebuilt from the original cave layout
+  with the old man, his two bonfires, his speech typed out character by
+  character, and the wooden sword on the floor. Other caves are the same room
+  without a person
+- the game starts just below the first cave; dying refills the hearts and
+  returns Link there
+- repeated-template rooms (template `$07`) spawn simple wandering placeholder
+  blobs, so the overworld has something to hit
+
+Level 1 (underworld)
+
+- the 17 rooms reachable from the start room, rebuilt from the original room
+  layout routines (walls, doors, floor), with the original collision
+- doors: open doorways, locked doors (cost a key), bombable walls (open with a
+  bomb), false walls (walk through), and shutters that stay shut until the
+  room's monsters are dead
+- the staircase room (`$22`) and the cellar below it, rebuilt from the
+  original cellar layout, with the bow on the floor and four keese
+- monsters spawned from the original room data: stalfos, keese, gels, ropes
+  and goriya, drawn from the original sprites with their own animation rules
+  and hit points; they wander on the grid and bite for their original damage
+- the room's items appear on the floor (a trigger-7 room's item appears when
+  the monsters are dead) and stay collected
+
+Combat and items
+
+- sword: hurts monsters, and killed monsters roll the original drop table
+  (hearts, rupees, bombs)
+- sword beam: with full hearts, or half a heart short, a swing also fires a
+  beam that flies until it hits a wall or a monster
+- bombs: a fuse, then damage to nearby monsters and to bombable walls
+- pickups with their effects: keys, hearts, heart containers, rupees, bombs
+  and the wooden sword. Maps, compasses, the bow and similar items are
+  collected but do nothing yet
+- Link is invincible and blinks for a short time after being hurt
+
+Tooling
+
+- asset pipeline from the ROM to ST data (see below) with a placeholder
+  fallback so the target still builds without any ROM
+- unit tests for the asset pipeline
+- headless Hatari harness that captures the framebuffer to a PNG, drives
+  scripted key input, and can poke variables
+
+Known gaps
+----------
+
+Things that behave differently from the original, or are stand-ins:
+
+- sword and bomb art is placeholder, there is no explosion cloud, no sword
+  beam spark, and the bonfires do not flicker
+- monsters wander randomly: no rope charge, goriya boomerangs, knock-back or
+  stun
+- wallmasters, the boss (Aquamentus) and traps are not spawned, so rooms with
+  them never count as cleared (their shutters still open once the monsters
+  that do spawn are dead). The boss room's heart container therefore never
+  appears, and picking up the triforce piece does nothing yet
+- push-block and other secret triggers are not implemented; the shutters of
+  such rooms open when the monsters die instead
+- `K` is a debug key standing in for the shops and secrets that give keys and
+  bombs
+- the overworld's real monsters are not ported; only the placeholder blobs
+- the HUD does not show the sword or any other item
+
+Roadmap
+-------
+
+Near term (finish Level 1)
+
+1. the remaining Level 1 monsters and behaviours: wallmasters, traps,
+   Aquamentus, rope charging, goriya boomerangs, knock-back
+2. push-block and other secret triggers
+3. the triforce piece, the ending of the level, and the heart container
+4. real sword, beam and bomb art and the bomb explosion
+5. map and compass use, and the dungeon map on the ribbon
+
+Then the rest of the overworld
+
+6. the real overworld monsters (octoroks, tektites, moblins, leevers,
+   zoras and so on) and their behaviours
+7. the other caves: shops, hints, money-making games, doors that charge,
+   shortcut stairs, and the secrets under trees, rocks and armos
+8. the inventory subscreen, item selection and the B-button item, with the
+   boomerang, bow and arrows, candles, recorder, raft, ladder, rings and
+   the magic items
+9. the animated pond (palette cycling)
+
+Then the game around it
+
+10. the other eight dungeons, reusing the underworld engine
+11. YM2149 audio from the song and sound-effect scripts already listed in
+    `bins.xml`
+12. title screen, game-over and continue, saving and the second quest
+13. a disk image / floppy-friendly build and a check on real STFM timing
 
 Prerequisites
 -------------
@@ -128,8 +209,14 @@ The asset pipeline
 - **collision**: emits the four raw NES tile indices behind each square, which
   is what lets the engine apply `GetCollidableTile`'s rules at 8-pixel
   resolution without storing a tile grid per room
-- **output**: planar metatiles, Link's eight sprite frames with opacity masks,
-  HUD glyphs, and an assembler include of the constants lifted from the
+- **underworld**: rebuilds Level 1's rooms from the original layout routines
+  (`tools/underworld.py`), including doors, the cellar below the stairs room
+  and the level's palette, as 32x22 tile maps over a shared tile bank
+- **actors**: monster and item sprites, hit points, drop tables and per-room
+  monster and item lists (`tools/actors.py`), plus the cave's rooms, sprites
+  and the old man's text
+- **output**: planar metatiles, sprite frames with opacity masks, HUD and
+  text glyphs, and an assembler include of the constants lifted from the
   disassembly
 
 Screen layout
@@ -186,6 +273,12 @@ Notes on the ST implementation
   offset. Nothing else may use `a6`.
 - Scroll steps are 16 pixels, exactly one bitplane word, so every copy stays
   byte-aligned and needs no bit shifting.
+- Playing frames draw into a hidden screen buffer that is shown on the next
+  frame. Each sprite remembers where it was drawn, and the hidden buffer is
+  cleaned using what was drawn two frames ago. Scrolls and caves bypass this
+  and draw to the visible screen, so the engine switches between the two at
+  room transitions. Single-buffered, a busy room made Link vanish because his
+  redraw finished after the raster beam had passed him.
 - Sprites are shifted at run time rather than pre-shifted at build time.
   Sixteen pre-rotated copies would cost 40KB for Link alone; the shift costs a
   few thousand cycles against a 160,000-cycle frame.
@@ -198,13 +291,3 @@ Licensing notes
   lawfully possess and use that source data.
 - The converter and 68000 source are open build inputs; generated artifacts
   stay out of version control.
-
-Next porting milestones
------------------------
-
-1. caves and dungeon entrances, driven by the same square-type data the
-   collision already reads
-2. item pickup, the inventory subscreen and item use
-3. the enemy object system and combat
-4. the underworld, reusing the overworld decoders against the `UW` tables
-5. YM2149 audio from the song scripts already listed in `bins.xml`
