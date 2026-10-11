@@ -43,6 +43,14 @@
     gvar ITEM_ERASE_OFFSETS, 12
     gvar SWORD_ERASE_OFFSET, 4
     gvar BOMB_ERASE_OFFSET, 4
+    | What was drawn into the other screen buffer one frame earlier, so it can be erased there.
+    gvar OLD_ENEMY_ERASE_OFFSETS, 32
+    gvar OLD_ITEM_ERASE_OFFSETS, 12
+    gvar OLD_SWORD_ERASE_OFFSET, 4
+    gvar OLD_BOMB_ERASE_OFFSET, 4
+    gvar OLD_ERASE_OFFSET, 4
+    gvar BEAM_ERASE_OFFSET, 4
+    gvar OLD_BEAM_ERASE_OFFSET, 4
     gvar RNG, 2
 
     gvar FRAME_COUNTER, 2
@@ -92,6 +100,24 @@
     gvar BOMB_Y, 1
     gvar BOMB_VALID, 1
     gvar B_HELD, 1
+    gvar CAVE_PERSON, 1         | the old man is still in the cave
+    gvar CAVE_TEXT_ON, 1        | his speech is still being typed, and Link is halted
+    gvar CAVE_TEXT_IDX, 1
+    gvar CAVE_TEXT_COL, 1
+    gvar CAVE_TEXT_ROW, 1
+    gvar CAVE_TEXT_TIMER, 1
+    gvar DBL_ACTIVE, 1          | 1 while play frames alternate between two screen buffers
+    gvar OLD_ENEMY_ERASE_VALID, 8
+    gvar OLD_ITEM_ERASE_VALID, 3
+    gvar OLD_SWORD_VALID, 1
+    gvar OLD_BOMB_VALID, 1
+    gvar OLD_ERASE_VALID, 1
+    gvar BEAM_ACTIVE, 1         | the sword's shot flying through the room
+    gvar BEAM_X, 1
+    gvar BEAM_Y, 1
+    gvar BEAM_DIR, 1
+    gvar BEAM_VALID, 1
+    gvar OLD_BEAM_VALID, 1
     gvar IN_CELLAR, 1           | cellar index + 1 while Link is in a cellar
     gvar CELLAR_SOURCE, 1       | the room whose stairs he took
     gvar CELLAR_ROOM, 1         | the cellar's own room id, for its item flag

@@ -17,6 +17,7 @@
     .equ TRIGGER_KILL_ITEM, 7
 
     .equ ITEM_BOMBS, 0x00
+    .equ ITEM_WOOD_SWORD, 0x01
     .equ ITEM_FIVE_RUPEES, 0x0f
     .equ ITEM_RUPEE, 0x18
     .equ ITEM_KEY, 0x19
@@ -41,6 +42,7 @@ sword_input:
     tst.b OFF_GAME_MODE(%a5)
     bne 9f
     move.b #ATTACK_FRAMES, OFF_ATTACK(%a5)
+    bsr beam_launch
     bra 9f
 2:  clr.b OFF_SPACE_HELD(%a5)
 9:  movem.l (%sp)+, %d0/%a0
@@ -102,6 +104,163 @@ draw_sword:
 9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
     rts
 
+| ------------------------------------------------------------- sword beam
+| With all hearts full (or short by half a heart) a swing also sends the sword
+| flying, at three pixels a frame, until it hits a wall or a monster.
+    .equ BEAM_SPEED, 3
+    .equ BEAM_LEAD, 16
+
+beam_launch:
+    movem.l %d0-%d4, -(%sp)
+    tst.b OFF_BEAM_ACTIVE(%a5)
+    bne 9f
+    moveq #0, %d0
+    move.b OFF_HEART_CONTAINERS(%a5), %d0
+    add.w %d0, %d0
+    subq.w #1, %d0
+    moveq #0, %d1
+    move.b OFF_HP_HALVES(%a5), %d1
+    cmp.w %d0, %d1
+    blo 9f
+    bsr sword_pos
+    cmp.w #3, %d0               | start the shot a full sprite ahead of Link
+    bne 1f
+    addq.w #(BEAM_LEAD - SWORD_REACH), %d1
+    bra 4f
+1:  cmp.w #2, %d0
+    bne 2f
+    subq.w #(BEAM_LEAD - SWORD_REACH), %d1
+    bra 4f
+2:  cmp.w #1, %d0
+    bne 3f
+    addq.w #(BEAM_LEAD - SWORD_REACH), %d2
+    bra 4f
+3:  subq.w #(BEAM_LEAD - SWORD_REACH), %d2
+4:  move.w %d2, %d3
+    move.w %d1, %d2
+    bsr enemy_blocked_at
+    tst.w %d0
+    bne 9f                      | no room for it in front of Link
+    move.b %d2, OFF_BEAM_X(%a5)
+    move.b %d3, OFF_BEAM_Y(%a5)
+    move.b OFF_LINK_DIR(%a5), OFF_BEAM_DIR(%a5)
+    move.b #1, OFF_BEAM_ACTIVE(%a5)
+9:  movem.l (%sp)+, %d0-%d4
+    rts
+
+beam_update:
+    movem.l %d0-%d6/%a0, -(%sp)
+    tst.b OFF_BEAM_ACTIVE(%a5)
+    beq 9f
+    moveq #0, %d2
+    move.b OFF_BEAM_X(%a5), %d2
+    moveq #0, %d3
+    move.b OFF_BEAM_Y(%a5), %d3
+    moveq #0, %d6
+    move.b OFF_BEAM_DIR(%a5), %d6
+    btst #0, %d6
+    beq 1f
+    addq.w #BEAM_SPEED, %d2
+    bra 4f
+1:  btst #1, %d6
+    beq 2f
+    subq.w #BEAM_SPEED, %d2
+    bra 4f
+2:  btst #2, %d6
+    beq 3f
+    addq.w #BEAM_SPEED, %d3
+    bra 4f
+3:  subq.w #BEAM_SPEED, %d3
+
+4:  | A wall is met by the leading edge, 8 pixels past the origin going right or down.
+    move.w %d2, %d4
+    move.w %d3, %d5
+    btst #0, %d6
+    beq 41f
+    addq.w #8, %d2
+41: btst #2, %d6
+    beq 42f
+    addq.w #8, %d3
+42: bsr enemy_blocked_at
+    tst.w %d0
+    bne 8f
+    move.b %d4, OFF_BEAM_X(%a5)
+    move.b %d5, OFF_BEAM_Y(%a5)
+
+    moveq #0, %d6                       | monsters in the way
+5:  cmp.b OFF_ENEMY_COUNT(%a5), %d6
+    bhs 9f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d6.w)
+    beq 7f
+    tst.b OFF_ENEMY_HURT(%a5, %d6.w)
+    bne 7f
+    moveq #0, %d0
+    move.b OFF_ENEMY_X(%a5, %d6.w), %d0
+    sub.w %d4, %d0
+    bpl 51f
+    neg.w %d0
+51: cmp.w #SWORD_REACH, %d0
+    bhs 7f
+    moveq #0, %d0
+    move.b OFF_ENEMY_Y(%a5, %d6.w), %d0
+    sub.w %d5, %d0
+    bpl 52f
+    neg.w %d0
+52: cmp.w #SWORD_REACH, %d0
+    bhs 7f
+    move.w %d6, %d5
+    bsr hit_enemy
+    bra 8f
+7:  addq.w #1, %d6
+    bra 5b
+8:  clr.b OFF_BEAM_ACTIVE(%a5)
+9:  movem.l (%sp)+, %d0-%d6/%a0
+    rts
+
+erase_beam:
+    tst.b OFF_BEAM_VALID(%a5)
+    beq 9f
+    move.l %d0, -(%sp)
+    move.l OFF_BEAM_ERASE_OFFSET(%a5), %d0
+    bsr erase_at
+    clr.b OFF_BEAM_VALID(%a5)
+    move.l (%sp)+, %d0
+9:  rts
+
+draw_beam:
+    movem.l %d0-%d4/%a0-%a1, -(%sp)
+    tst.b OFF_BEAM_ACTIVE(%a5)
+    beq 9f
+    moveq #3, %d0                       | frame: up, down, left, right
+    move.b OFF_BEAM_DIR(%a5), %d3
+    btst #0, %d3
+    bne 1f
+    moveq #2, %d0
+    btst #1, %d3
+    bne 1f
+    moveq #1, %d0
+    btst #2, %d3
+    bne 1f
+    moveq #0, %d0
+1:  mulu.w #SPRITE_FRAME_BYTES, %d0
+    ltab sword_sprites, %a0
+    adda.l %d0, %a0
+    moveq #0, %d1
+    moveq #0, %d2
+    move.b OFF_BEAM_X(%a5), %d1
+    move.b OFF_BEAM_Y(%a5), %d2
+    bsr sprite_offset
+    tst.w %d4
+    bmi 9f
+    move.l %d1, OFF_BEAM_ERASE_OFFSET(%a5)
+    move.b #1, OFF_BEAM_VALID(%a5)
+    movea.l OFF_SCREEN_PTR(%a5), %a1
+    adda.l %d1, %a1
+    move.w %d4, %d0
+    bsr draw_sprite
+9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
+    rts
+
 | Link blinks while he is invincible.
 draw_link_blink:
     btst #1, OFF_LINK_HURT(%a5)
@@ -121,6 +280,7 @@ update_combat:
     subq.b #1, OFF_ATTACK(%a5)
 2:  bsr enemy_contact
     bsr item_pickup
+    bsr beam_update
     bsr bomb_tick
     tst.b OFF_LEVEL(%a5)
     beq 9f
@@ -315,8 +475,8 @@ link_dies:
     move.b #ROOM_BOUND_UP, OFF_OBJ_UP(%a5)
     move.b #ROOM_BOUND_DOWN, OFF_OBJ_DOWN(%a5)
     move.b #START_ROOM_ID, OFF_ROOM_ID(%a5)
-    move.b #START_X, OFF_LINK_X(%a5)
-    move.b #START_Y, OFF_LINK_Y(%a5)
+    move.b #HOME_X, OFF_LINK_X(%a5)
+    move.b #HOME_Y, OFF_LINK_Y(%a5)
     move.b #START_DIR, OFF_LINK_DIR(%a5)
     bsr enter_room
     move.b #1, OFF_HUD_DIRTY(%a5)
@@ -656,7 +816,11 @@ item_pickup:
 take_item:
     movem.l %d0-%d2, -(%sp)
     move.b #1, OFF_HUD_DIRTY(%a5)
-    cmp.b #ITEM_KEY, %d0
+    cmp.b #ITEM_WOOD_SWORD, %d0
+    bne 0f
+    move.b #1, OFF_HAS_SWORD(%a5)
+    bra 9f
+0:  cmp.b #ITEM_KEY, %d0
     bne 1f
     cmpi.b #9, OFF_INV_KEYS(%a5)
     bhs 9f

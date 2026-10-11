@@ -11,8 +11,7 @@
     .equ DOORWAY_SLACK, 6
     .equ SCAN_K, 0x25
 
-| Temporary: K hands out a sword and a key, until the sword is found in its
-| cave and keys are picked up on the floor.
+| Temporary: K hands out a key and bombs, until every source of them exists.
 debug_keys:
     movem.l %d0/%a0, -(%sp)
     lea OFF_KEY_STATES(%a5), %a0
@@ -21,7 +20,6 @@ debug_keys:
     tst.b OFF_K_HELD(%a5)
     bne 9f
     move.b #1, OFF_K_HELD(%a5)
-    move.b #1, OFF_HAS_SWORD(%a5)
     cmpi.b #8, OFF_INV_BOMBS(%a5)
     bhs 3f
     addq.b #4, OFF_INV_BOMBS(%a5)

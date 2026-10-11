@@ -198,6 +198,7 @@ enemy_spawn_list_index:
 clear_enemies:
     movem.l %d0/%a0, -(%sp)
     clr.b OFF_ENEMY_COUNT(%a5)
+    clr.b OFF_BEAM_ACTIVE(%a5)
     lea OFF_ENEMY_ACTIVE(%a5), %a0
     moveq #(MAX_ENEMIES - 1), %d0
 1:  clr.b (%a0)+

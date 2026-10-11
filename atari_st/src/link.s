@@ -425,6 +425,7 @@ start_cave_entry:
     movem.l %d0-%d2, -(%sp)
     move.b OFF_ROOM_ID(%a5), OFF_CAVE_SOURCE_ROOM(%a5)
     move.b OFF_LINK_X(%a5), OFF_CAVE_DOOR_X(%a5)
+    move.b #CAVE_DOOR_CENTER, OFF_LINK_X(%a5)
     move.b #CAVE_START_Y, OFF_LINK_Y(%a5)
     move.b #DIR_UP, OFF_LINK_DIR(%a5)
     clr.b OFF_LINK_POS_FRAC(%a5)
@@ -455,7 +456,11 @@ leave_cave:
 
 update_cave:
     movem.l %d0-%d3, -(%sp)
+    bsr erase_items
     bsr erase_sprite
+    bsr cave_talk
+    tst.b OFF_CAVE_TEXT_ON(%a5)
+    bne 2f                      | Link waits while the old man speaks
     bsr read_input_dir
     move.b %d0, %d1
     beq 1f
@@ -464,6 +469,9 @@ update_cave:
     bsr link_animate
 1:  cmp.b #MODE_CAVE, OFF_GAME_MODE(%a5)
     bne 9f
+    bsr item_pickup
+    bsr cave_check_taken
+2:  bsr draw_items
     bsr draw_link
 9:  movem.l (%sp)+, %d0-%d3
     rts
@@ -471,7 +479,7 @@ update_cave:
 | Advance Link inside the simplified cave room with plain rectangular bounds.
 | d1.b = direction.
 cave_advance:
-    movem.l %d0/%d2-%d5, -(%sp)
+    movem.l %d0/%d2-%d4, -(%sp)
     moveq #0, %d0
     move.b OFF_LINK_POS_FRAC(%a5), %d0
     add.w #LINK_QSPEED, %d0
@@ -481,7 +489,13 @@ cave_advance:
     lsr.w #LINK_SUBPIXEL_SHIFT, %d0
     beq 9f
 
-    moveq #0, %d3
+    cmpi.b #CAVE_ROOM_BOUND_DOWN, OFF_LINK_Y(%a5)
+    bls 0f
+    btst #2, %d1                | in the doorway Link can only go up or down
+    bne 0f
+    btst #3, %d1
+    beq 9f
+0:  moveq #0, %d3
     btst #0, %d1
     beq 2f
     move.b OFF_LINK_X(%a5), %d3
@@ -506,7 +520,18 @@ cave_advance:
     beq 5f
     move.b OFF_LINK_Y(%a5), %d3
     add.w %d0, %d3
-    cmp.w #CAVE_ROOM_BOUND_DOWN, %d3
+    moveq #0, %d4               | only the doorway leads out
+    move.b OFF_LINK_X(%a5), %d4
+    sub.w #CAVE_DOOR_CENTER, %d4
+    bpl 31f
+    neg.w %d4
+31: cmp.w #CAVE_EXIT_HALF_WIDTH, %d4
+    bhi 32f
+    cmp.w #CAVE_EXIT_Y, %d3
+    blt 6f
+    bsr leave_cave
+    bra 9f
+32: cmp.w #CAVE_ROOM_BOUND_DOWN, %d3
     ble 6f
     move.w #CAVE_ROOM_BOUND_DOWN, %d3
 6:  move.b %d3, OFF_LINK_Y(%a5)
@@ -518,20 +543,8 @@ cave_advance:
     bge 7f
     move.w #CAVE_ROOM_BOUND_UP, %d3
 7:  move.b %d3, OFF_LINK_Y(%a5)
-    cmp.w #CAVE_ROOM_BOUND_UP, %d3
-    bne 9f
-    moveq #0, %d4
-    move.b OFF_LINK_X(%a5), %d4
-    moveq #0, %d5
-    move.b OFF_CAVE_DOOR_X(%a5), %d5
-    sub.w %d5, %d4
-    bpl 8f
-    neg.w %d4
-8:  cmp.w #CAVE_EXIT_HALF_WIDTH, %d4
-    bhi 9f
-    bsr leave_cave
 
-9:  movem.l (%sp)+, %d0/%d2-%d5
+9:  movem.l (%sp)+, %d0/%d2-%d4
     rts
 
 | Begin walking into the next room. d1.b = the direction Link is leaving in.
@@ -604,6 +617,7 @@ start_scroll:
     cmpi.b #0xff, 0(%a0, %d2.w)
     beq 9f
 7:  move.b %d2, OFF_NEXT_ROOM_ID(%a5)
+    bsr dbl_end                 | the scroll composes straight onto the visible screen
     clr.b OFF_COMMIT(%a5)
     move.b %d1, OFF_SCROLL_DIR(%a5)
     move.b OFF_LINK_X(%a5), OFF_SCROLL_FROM_X(%a5)

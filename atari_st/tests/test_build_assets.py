@@ -287,6 +287,15 @@ class RomActorTests(unittest.TestCase):
         self.assertEqual((room, kind), (0x7F, 1))
         self.assertIn(0x0A, self.actors.ITEM_IDS)
 
+    def test_old_man_says_the_famous_line(self) -> None:
+        bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+        letters = {0x0A + n: chr(ord("A") + n) for n in range(26)}
+        letters.update({0x24: " ", 0x25: " ", 0x29: "!", 0x2A: "'", 0x2C: "."})
+        text = "".join(letters[code & 0x3F] for code in bundle.cave_text)
+        self.assertEqual(" ".join(text.split()), "IT'S DANGEROUS TO GO ALONE! TAKE THIS.")
+        self.assertEqual(bundle.cave_text[-1] & 0xC0, 0xC0)   # the last character ends the speech
+        self.assertEqual(len(bundle.cave_map), build_assets.OW_ROOM_COLS * build_assets.OW_ROOM_ROWS)
+
     def test_floor_items_have_art(self) -> None:
         for item_id in self.actors.ITEM_IDS:
             self.assertNotEqual(self.data.item_index[item_id], 0xFF)

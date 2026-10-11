@@ -93,6 +93,7 @@ render_room:
     ltab room_maps, %a0
     mulu.w #ROOM_BYTES, %d0
     adda.l %d0, %a0
+render_map_body:
     adda.l #PLAYFIELD_ORIGIN, %a1
 
     moveq #(MAP_HEIGHT - 1), %d7
@@ -117,46 +118,13 @@ render_room:
     movem.l (%sp)+, %d0-%d7/%a0-%a4
     rts
 
-| Draw a minimal cave interior: a dim room with a black doorway at the top.
-|
-| a1 = destination buffer
+| Draw the cave's walls and floor; the layout comes from the original's cave
+| room. a1 = destination buffer
 render_cave_room:
-    movem.l %d0-%d7/%a0-%a2, -(%sp)
-    movea.l %a1, %a2
-    adda.l #PLAYFIELD_ORIGIN, %a2
-    movea.l %a2, %a1
+    movem.l %d0-%d7/%a0-%a4, -(%sp)
+    ltab cave_map, %a0
+    bra render_map_body
 
-    | Fill the playfield with palette colour 2 so the doorway reads as an opening.
-    move.w #(PLAYFIELD_HEIGHT - 1), %d7
-1:  movea.l %a1, %a0
-    move.w #((PLAYFIELD_BYTES / 8) - 1), %d6
-2:  move.l #0x0000ffff, (%a0)+
-    clr.l (%a0)+
-    dbra %d6, 2b
-    adda.w #SCREEN_STRIDE, %a1
-    dbra %d7, 1b
-
-    | Cut a two-group-wide black doorway aligned to the cave's overworld exit X.
-    moveq #0, %d0
-    move.b OFF_CAVE_DOOR_X(%a5), %d0
-    add.w #(PLAYFIELD_LEFT * 2), %d0
-    subq.w #8, %d0
-    bpl 3f
-    clr.w %d0
-3:  andi.w #0xfff0, %d0
-    lsr.w #1, %d0
-    movea.l %a2, %a0
-    adda.w %d0, %a0
-    move.w #23, %d7
-4:  clr.l (%a0)+
-    clr.l (%a0)+
-    clr.l (%a0)+
-    clr.l (%a0)+
-    adda.w #(SCREEN_STRIDE - 16), %a0
-    dbra %d7, 4b
-
-    movem.l (%sp)+, %d0-%d7/%a0-%a2
-    rts
 
 | Copy a rectangle between two screen-shaped buffers.
 |

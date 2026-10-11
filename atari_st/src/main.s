@@ -96,11 +96,27 @@
     .equ CAVE_ENTRANCE_TILE, 0x24
     .equ CAVE_ROOM_BOUND_LEFT, 0x21
     .equ CAVE_ROOM_BOUND_RIGHT, 0xd0
-    .equ CAVE_ROOM_BOUND_UP, 0x5e
+    .equ CAVE_ROOM_BOUND_UP, 0x95
     .equ CAVE_ROOM_BOUND_DOWN, 0xbd
-    .equ CAVE_START_Y, 0xad
+    .equ CAVE_START_Y, 0xbd
     .equ CAVE_RETURN_Y, 0x5c
-    .equ CAVE_EXIT_HALF_WIDTH, 0x10
+    .equ CAVE_DOOR_CENTER, 0x78
+    .equ CAVE_EXIT_HALF_WIDTH, 0x08
+    .equ CAVE_EXIT_Y, 0xc5
+    .equ CAVE_PERSON_Y, 0x80
+    .equ CAVE_ITEM_Y, 0x98
+    .equ CAVE_TEXT_COL0, 8
+    .equ CAVE_TEXT_ROW0, 8
+    .equ CAVE_TEXT_DELAY, 6
+
+| The game opens in front of the first cave, not at the start the data names.
+    .if START_ROOM_ID == 0x77
+    .equ HOME_X, 0x40
+    .equ HOME_Y, 0x5d
+    .else
+    .equ HOME_X, START_X
+    .equ HOME_Y, START_Y
+    .endif
 
 | ------------------------------------------------------------------ HUD slots
     .equ HUD_COUNTER_COL, 4
@@ -196,6 +212,7 @@ _start:
 
 main_loop:
     bsr wait_vbl
+    bsr frame_begin
     bsr poll_keyboard
     bsr debug_keys
     tst.b OFF_EXIT_REQUESTED(%a5)
@@ -215,6 +232,11 @@ main_loop:
 3:  tst.b OFF_HUD_DIRTY(%a5)
     beq main_loop
     bsr draw_hud
+    tst.b OFF_DBL_ACTIVE(%a5)
+    beq main_loop
+    bsr swap_screens            | the other buffer needs the new ribbon too
+    bsr draw_hud
+    bsr swap_screens
     bra main_loop
 
 exit_program:
@@ -242,8 +264,8 @@ init_state:
     dbra %d7, 1b
 
     move.b #START_ROOM_ID, OFF_ROOM_ID(%a5)
-    move.b #START_X, OFF_LINK_X(%a5)
-    move.b #START_Y, OFF_LINK_Y(%a5)
+    move.b #HOME_X, OFF_LINK_X(%a5)
+    move.b #HOME_Y, OFF_LINK_Y(%a5)
     move.b #START_DIR, OFF_LINK_DIR(%a5)
     move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
     move.b #3, OFF_HEART_CONTAINERS(%a5)
@@ -307,12 +329,139 @@ enter_room:
 enter_cave:
     clr.b OFF_COMMIT(%a5)
     bsr clear_enemies
-    movea.l OFF_BG_CUR(%a5), %a1
-    bsr render_cave_room
-    bsr show_background
+    bsr clear_items
+    bsr cave_setup
+    bsr cave_redraw
     clr.b OFF_ERASE_VALID(%a5)
     bsr draw_link
     rts
+
+| The first cave (type $40) has the old man, who gives the wooden sword.
+cave_setup:
+    movem.l %d0/%a0, -(%sp)
+    clr.b OFF_CAVE_PERSON(%a5)
+    clr.b OFF_CAVE_TEXT_ON(%a5)
+    tst.b OFF_HAS_SWORD(%a5)
+    bne 9f
+    ltab room_attr_b, %a0
+    moveq #0, %d0
+    move.b OFF_CAVE_SOURCE_ROOM(%a5), %d0
+    move.b 0(%a0, %d0.w), %d0
+    and.w #0x00fc, %d0
+    cmp.w #0x40, %d0
+    bne 9f
+    move.b #1, OFF_CAVE_PERSON(%a5)
+    move.b #1, OFF_CAVE_TEXT_ON(%a5)
+    clr.b OFF_CAVE_TEXT_IDX(%a5)
+    move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
+    move.b #CAVE_TEXT_ROW0, OFF_CAVE_TEXT_ROW(%a5)
+    move.b #CAVE_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
+    move.b #2, OFF_ITEM_ACTIVE(%a5)
+    move.b #ITEM_WOOD_SWORD, OFF_ITEM_ID(%a5)
+    move.b #CAVE_DOOR_CENTER, OFF_ITEM_X(%a5)
+    move.b #CAVE_ITEM_Y, OFF_ITEM_Y(%a5)
+9:  movem.l (%sp)+, %d0/%a0
+    rts
+
+| Draw the cave room with its bonfires and, while he is there, the old man.
+cave_redraw:
+    movem.l %d0-%d2, -(%sp)
+    movea.l OFF_BG_CUR(%a5), %a1
+    bsr render_cave_room
+    moveq #1, %d0
+    move.w #0x48, %d1
+    move.w #CAVE_PERSON_Y, %d2
+    bsr cave_bake_sprite
+    moveq #1, %d0
+    move.w #0xa8, %d1
+    move.w #CAVE_PERSON_Y, %d2
+    bsr cave_bake_sprite
+    tst.b OFF_CAVE_PERSON(%a5)
+    beq 1f
+    moveq #0, %d0
+    move.w #CAVE_DOOR_CENTER, %d1
+    move.w #CAVE_PERSON_Y, %d2
+    bsr cave_bake_sprite
+1:  bsr show_background
+    movem.l (%sp)+, %d0-%d2
+    rts
+
+| Paint cave sprite d0 into the clean room, so erasing Link never wipes it.
+| d1.w = X, d2.w = Y
+cave_bake_sprite:
+    movem.l %d0-%d4/%a0-%a1, -(%sp)
+    mulu.w #SPRITE_FRAME_BYTES, %d0
+    ltab cave_sprites, %a0
+    adda.l %d0, %a0
+    bsr sprite_offset
+    tst.w %d4
+    bmi 9f
+    movea.l OFF_BG_CUR(%a5), %a1
+    adda.l %d1, %a1
+    move.w %d4, %d0
+    bsr draw_sprite
+9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
+    rts
+
+| The old man's speech, one character every few frames. Link stands still
+| until it is finished.
+cave_talk:
+    movem.l %d0-%d4/%a0-%a1, -(%sp)
+    tst.b OFF_CAVE_TEXT_ON(%a5)
+    beq 9f
+    subq.b #1, OFF_CAVE_TEXT_TIMER(%a5)
+    bne 9f
+    ltab cave_text, %a0
+    ltab text_glyphs, %a1
+1:  moveq #0, %d0
+    move.b OFF_CAVE_TEXT_IDX(%a5), %d0
+    moveq #0, %d4
+    move.b 0(%a0, %d0.w), %d4
+    addq.b #1, OFF_CAVE_TEXT_IDX(%a5)
+    move.w %d4, %d3
+    and.w #0x3f, %d3
+    cmp.w #0x25, %d3            | a space that takes no time
+    bne 2f
+    addq.b #1, OFF_CAVE_TEXT_COL(%a5)
+    bra 1b
+2:  moveq #0, %d0
+    move.b 0(%a1, %d3.w), %d0
+    moveq #0, %d1
+    move.b OFF_CAVE_TEXT_COL(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_CAVE_TEXT_ROW(%a5), %d2
+    bsr draw_hud_tile
+    move.l OFF_SCREEN_PTR(%a5), -(%sp)  | and into the clean room, to survive Link's erasing
+    move.l OFF_BG_CUR(%a5), OFF_SCREEN_PTR(%a5)
+    bsr draw_hud_tile
+    move.l (%sp)+, OFF_SCREEN_PTR(%a5)
+    addq.b #1, OFF_CAVE_TEXT_COL(%a5)
+    move.b #CAVE_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
+    and.w #0xc0, %d4
+    beq 9f
+    move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
+    cmp.w #0x80, %d4
+    bne 3f
+    move.b #(CAVE_TEXT_ROW0 + 1), OFF_CAVE_TEXT_ROW(%a5)
+    bra 9f
+3:  cmp.w #0x40, %d4
+    bne 4f
+    move.b #(CAVE_TEXT_ROW0 + 2), OFF_CAVE_TEXT_ROW(%a5)
+    bra 9f
+4:  clr.b OFF_CAVE_TEXT_ON(%a5)     | the last line: he has finished
+9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
+    rts
+
+| Once the sword is in Link's hands the old man and his words are gone.
+cave_check_taken:
+    tst.b OFF_CAVE_PERSON(%a5)
+    beq 9f
+    tst.b OFF_HAS_SWORD(%a5)
+    beq 9f
+    clr.b OFF_CAVE_PERSON(%a5)
+    bsr cave_redraw
+    clr.b OFF_ERASE_VALID(%a5)
+9:  rts
 
 | Copy the whole playfield from bg_cur to the visible screen.
 show_background:
@@ -324,10 +473,155 @@ show_background:
     move.w #PLAYFIELD_HEIGHT, %d0
     move.w #PLAYFIELD_BYTES, %d1
     bsr blit_rect
+    tst.b OFF_DBL_ACTIVE(%a5)
+    beq 9f
+    movea.l OFF_BG_CUR(%a5), %a0
+    adda.l #PLAYFIELD_ORIGIN, %a0
+    movea.l OFF_BG_NEXT(%a5), %a1
+    adda.l #PLAYFIELD_ORIGIN, %a1
+    move.w #PLAYFIELD_HEIGHT, %d0
+    move.w #PLAYFIELD_BYTES, %d1
+    bsr blit_rect
+    bsr clear_erase_state
+9:  movem.l (%sp)+, %d0-%d1/%a0-%a1
+    rts
+
+| ---------------------------------------------------------- double buffering
+| Playing frames draw into a hidden buffer that is shown on the next frame, so
+| the beam never catches a sprite between its erase and its redraw. SCREEN_PTR
+| is always the buffer being drawn into; BG_NEXT is the other one. Scrolls and
+| caves draw straight to the visible screen instead (DBL_ACTIVE = 0), and then
+| SCREEN_PTR is the visible buffer and BG_NEXT is scratch space again.
+
+| d0 = screen address
+set_video_base:
+    movea.l #VIDEO_BASE_LOW, %a0
+    move.b %d0, (%a0)
+    lsr.l #8, %d0
+    movea.l #VIDEO_BASE_MID, %a0
+    move.b %d0, (%a0)
+    lsr.l #8, %d0
+    movea.l #VIDEO_BASE_HI, %a0
+    move.b %d0, (%a0)
+    rts
+
+swap_screens:
+    move.l %d0, -(%sp)
+    move.l OFF_SCREEN_PTR(%a5), %d0
+    move.l OFF_BG_NEXT(%a5), OFF_SCREEN_PTR(%a5)
+    move.l %d0, OFF_BG_NEXT(%a5)
+    move.l (%sp)+, %d0
+    rts
+
+frame_begin:
+    tst.b OFF_GAME_MODE(%a5)
+    bne 9f
+    movem.l %d0/%a0, -(%sp)
+    tst.b OFF_DBL_ACTIVE(%a5)
+    bne 1f
+    bsr dbl_enter
+    bra 2f
+1:  move.l OFF_SCREEN_PTR(%a5), %d0     | last frame's drawing goes on show
+    bsr set_video_base
+2:  bsr swap_screens
+    bsr swap_erase_state
+    movem.l (%sp)+, %d0/%a0
+9:  rts
+
+| Leave double buffering for a frame type that writes to the visible screen.
+dbl_end:
+    tst.b OFF_DBL_ACTIVE(%a5)
+    beq 9f
+    movem.l %d0/%a0, -(%sp)
+    move.l OFF_SCREEN_PTR(%a5), %d0     | already erased down to the bare room
+    bsr set_video_base
+    clr.b OFF_DBL_ACTIVE(%a5)
+    movem.l (%sp)+, %d0/%a0
+9:  rts
+
+| Make the hidden buffer a clean copy of the visible one, with the room redrawn over it.
+dbl_enter:
+    movem.l %d0-%d1/%a0-%a1, -(%sp)
+    movea.l OFF_SCREEN_PTR(%a5), %a0
+    movea.l OFF_BG_NEXT(%a5), %a1
+    move.w #(SCREEN_LONGS / 4 - 1), %d0
+1:  move.l (%a0)+, (%a1)+
+    move.l (%a0)+, (%a1)+
+    move.l (%a0)+, (%a1)+
+    move.l (%a0)+, (%a1)+
+    dbra %d0, 1b
+    movea.l OFF_BG_CUR(%a5), %a0
+    adda.l #PLAYFIELD_ORIGIN, %a0
+    movea.l OFF_BG_NEXT(%a5), %a1
+    adda.l #PLAYFIELD_ORIGIN, %a1
+    move.w #PLAYFIELD_HEIGHT, %d0
+    move.w #PLAYFIELD_BYTES, %d1
+    bsr blit_rect
+    bsr clear_old_erase_state
+    move.b #1, OFF_DBL_ACTIVE(%a5)
     movem.l (%sp)+, %d0-%d1/%a0-%a1
     rts
 
+    .macro xchg_state first, second, count
+    lea OFF_\first(%a5), %a0
+    lea OFF_\second(%a5), %a1
+    moveq #(\count - 1), %d0
+1:  move.b (%a0), %d1
+    move.b (%a1), (%a0)+
+    move.b %d1, (%a1)+
+    dbra %d0, 1b
+    .endm
+
+    .macro clear_state name, count
+    lea OFF_\name(%a5), %a0
+    moveq #(\count - 1), %d0
+1:  clr.b (%a0)+
+    dbra %d0, 1b
+    .endm
+
+| What the sprites erased this frame are is what was drawn two frames ago.
+swap_erase_state:
+    movem.l %d0-%d1/%a0-%a1, -(%sp)
+    xchg_state ENEMY_ERASE_VALID, OLD_ENEMY_ERASE_VALID, 8
+    xchg_state ENEMY_ERASE_OFFSETS, OLD_ENEMY_ERASE_OFFSETS, 32
+    xchg_state ITEM_ERASE_VALID, OLD_ITEM_ERASE_VALID, 3
+    xchg_state ITEM_ERASE_OFFSETS, OLD_ITEM_ERASE_OFFSETS, 12
+    xchg_state SWORD_VALID, OLD_SWORD_VALID, 1
+    xchg_state SWORD_ERASE_OFFSET, OLD_SWORD_ERASE_OFFSET, 4
+    xchg_state BOMB_VALID, OLD_BOMB_VALID, 1
+    xchg_state BOMB_ERASE_OFFSET, OLD_BOMB_ERASE_OFFSET, 4
+    xchg_state ERASE_VALID, OLD_ERASE_VALID, 1
+    xchg_state ERASE_OFFSET, OLD_ERASE_OFFSET, 4
+    xchg_state BEAM_VALID, OLD_BEAM_VALID, 1
+    xchg_state BEAM_ERASE_OFFSET, OLD_BEAM_ERASE_OFFSET, 4
+    movem.l (%sp)+, %d0-%d1/%a0-%a1
+    rts
+
+clear_old_erase_state:
+    movem.l %d0/%a0, -(%sp)
+    clear_state OLD_ENEMY_ERASE_VALID, 8
+    clear_state OLD_ITEM_ERASE_VALID, 3
+    clr.b OFF_OLD_SWORD_VALID(%a5)
+    clr.b OFF_OLD_BOMB_VALID(%a5)
+    clr.b OFF_OLD_ERASE_VALID(%a5)
+    clr.b OFF_OLD_BEAM_VALID(%a5)
+    movem.l (%sp)+, %d0/%a0
+    rts
+
+clear_erase_state:
+    movem.l %d0/%a0, -(%sp)
+    bsr clear_old_erase_state
+    clear_state ENEMY_ERASE_VALID, 8
+    clear_state ITEM_ERASE_VALID, 3
+    clr.b OFF_SWORD_VALID(%a5)
+    clr.b OFF_BOMB_VALID(%a5)
+    clr.b OFF_ERASE_VALID(%a5)
+    clr.b OFF_BEAM_VALID(%a5)
+    movem.l (%sp)+, %d0/%a0
+    rts
+
 update_play:
+    bsr erase_beam
     bsr erase_bomb
     bsr erase_sword
     bsr erase_items
@@ -339,6 +633,7 @@ update_play:
     moveq #0, %d0
     move.b OFF_GAME_MODE(%a5), %d0
     beq 3f
+    bsr dbl_end
     cmp.b #MODE_SCROLL, %d0
     beq update_scroll       | a room transition started this frame
     rts                      | cave entry already redrew the new background
@@ -349,8 +644,10 @@ update_play:
     bsr draw_bomb
     bsr draw_enemies
     bsr draw_link_blink
+    bsr draw_beam
     bsr draw_sword
     rts
+
 
     .include "video.s"
     .include "sprite.s"
@@ -413,6 +710,15 @@ uw_cellar_info:
 uw_cellar_maps:
     .incbin "uw_cellar_maps.bin"
     .align 2
+cave_map:
+    .incbin "cave_map.bin"
+cave_text:
+    .incbin "cave_text.bin"
+text_glyphs:
+    .incbin "text_glyphs.bin"
+    .align 2
+cave_sprites:
+    .incbin "cave_sprites.bin"
 metatiles:
     .incbin "metatiles.bin"
 | room_maps is by far the largest table, so it goes last: every label above it

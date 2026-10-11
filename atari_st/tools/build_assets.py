@@ -118,7 +118,21 @@ HUD_GLYPHS = (
     ("RUPEE", 0xF7, HUD_ACCENT_ROW),
     ("KEY", 0xF9, HUD_ACCENT_ROW),
     ("BOMB", 0x61, HUD_ACCENT_ROW),
+    # Letters and punctuation for the people in caves; the NES code is the tile.
+    *((f"CH_{chr(ord('A') + n)}", 0x0A + n, HUD_TEXT_ROW) for n in range(26)),
+    ("CH_COMMA", 0x28, HUD_TEXT_ROW),
+    ("CH_BANG", 0x29, HUD_TEXT_ROW),
+    ("CH_APOS", 0x2A, HUD_TEXT_ROW),
+    ("CH_PERIOD", 0x2C, HUD_TEXT_ROW),
+    ("CH_QUESTION", 0x2E, HUD_TEXT_ROW),
 )
+
+CAVE_WALL_ROW = PALETTE_ROWS       # the palette row appended for the cave's row 3
+PERSON_TEXT_NAME = "dat/PersonText.dat"
+PERSON_TEXT_BYTES = 43             # the first person's speech
+OLD_MAN_TYPE = 0x6A
+FIRE_ANIM_INDEX = 0x41
+CAVE_SPRITE_FRAMES = 3             # old man, fire, fire turned round
 
 # GetCollidableTile (Z_07.asm) treats a tile as blocking when it is at or above
 # ObjectFirstUnwalkableTile, except for the tiles in this list, which it rewrites
@@ -438,6 +452,9 @@ class AssetBundle:
     start_room: int
     start_y: int
     uw: object | None = None
+    cave_map: bytes = bytes(OW_ROOM_COLS * OW_ROOM_ROWS)
+    cave_sprites: bytes = bytes(CAVE_SPRITE_FRAMES * SPRITE_FRAME_BYTES)
+    cave_text: bytes = bytes((0xEC,))
 
 
 def load_uw_background_tiles(source_root: Path) -> list[list[list[int]]] | None:
@@ -570,6 +587,81 @@ def decode_overworld(
     )
 
 
+def add_cave_palette_row(palette: PaletteMap, source_root: Path) -> PaletteMap:
+    """Append the cave's wall palette, squeezed onto the colours the ST palette already has."""
+    asm = (source_root / "src" / "Z_06.asm").read_text(encoding="utf-8", errors="replace")
+    buffer = parse_asm_byte_table(asm, "CaveBgPaletteRowsTransferBuf")
+    row3 = buffer[7:11]  # the buffer is: address, length, then rows 2 and 3 of four colours
+
+    def nearest(nes_color: int) -> int:
+        wanted = nes_color_to_st(nes_color)
+        def distance(entry: int) -> int:
+            return sum(
+                (((wanted >> shift) & 7) - ((entry >> shift) & 7)) ** 2 for shift in (8, 4, 0)
+            )
+        return min(range(len(palette.st_colors)), key=lambda i: distance(palette.st_colors[i]))
+
+    entries = (palette.table[0][0],) + tuple(nearest(color) for color in row3[1:])
+    return PaletteMap(st_colors=palette.st_colors, table=palette.table + (entries,))
+
+
+def decode_cave(source_root: Path, metatiles: list) -> bytes:
+    """The cave room layout as metatile ids, appending any metatile it needs."""
+    asm = (source_root / "src" / "Z_05.asm").read_text(encoding="utf-8", errors="replace")
+    primary = parse_asm_byte_table(asm, "PrimarySquaresOW")
+    secondary = parse_asm_byte_table(asm, "SecondarySquaresOW")
+    heap = parse_column_heaps(asm)
+    directory = parse_column_directory(
+        (source_root / "src" / "Z_06.asm").read_text(encoding="utf-8", errors="replace")
+    )
+    layout = parse_asm_byte_table(asm, "RoomLayoutOWCave0")
+    columns = [decode_column(heap, directory[d >> 4], d & 0x0F) for d in layout]
+
+    known = {key: index for index, key in enumerate(metatiles)}
+    grid = bytearray()
+    for row in range(OW_ROOM_ROWS):
+        for col in range(OW_ROOM_COLS):
+            key = (CAVE_WALL_ROW, square_to_tiles(columns[col][row], primary, secondary))
+            if key not in known:
+                known[key] = len(metatiles)
+                metatiles.append(key)
+            grid.append(known[key])
+    if len(metatiles) > 256:
+        raise SystemExit(f"The cave pushes the metatile count to {len(metatiles)}, past a byte index")
+    return bytes(grid)
+
+
+def build_cave_sprites(source_root: Path, sprite_tiles, palette: PaletteMap) -> bytes:
+    """The old man and the bonfire, as the original's animation tables lay them out."""
+    import actors
+
+    asm = (source_root / "src" / "Z_01.asm").read_text(encoding="utf-8", errors="replace")
+    anim = parse_asm_byte_table(asm, "ObjAnimations")
+    heap = parse_asm_byte_table(asm, "ObjAnimFrameHeap")
+    attrs = parse_asm_byte_table(asm, "ObjAnimAttrHeap")
+
+    def image(anim_index: int, layout: str):
+        base = anim[anim_index]
+        row = LINK_PALETTE_ROW + (attrs[base] & 3)
+        return actors._monster_image(sprite_tiles, palette, row, heap[base], layout)
+
+    old_man = image(OLD_MAN_TYPE + 1, "mirror")   # old men, women and shopkeepers are mirrored
+    fire = image(FIRE_ANIM_INDEX, "wide")
+    return b"".join(
+        actors._pack_masked(rows)
+        for rows in (old_man, fire, [row[::-1] for row in fire])
+    )
+
+
+def text_glyph_map() -> bytes:
+    """NES text code (0..63) -> HUD glyph, blank for anything the ribbon has no glyph for."""
+    by_tile = {}
+    for index, (_, tile, row) in enumerate(HUD_GLYPHS):
+        if row == HUD_TEXT_ROW:
+            by_tile.setdefault(tile, index)
+    return bytes(by_tile.get(code, 0) for code in range(64))
+
+
 def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
     bg_tiles = load_ow_background_tiles(source_root)
     sprite_tiles = load_ow_sprite_tiles(source_root)
@@ -582,11 +674,18 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
         if override:
             start_room = int(override, 0)
         palette_map = build_palette_map(palette_bytes)
+        cave_map = decode_cave(source_root, metatiles)
+        palette_map = add_cave_palette_row(palette_map, source_root)
+        cave_sprites = build_cave_sprites(source_root, sprite_tiles, palette_map)
+        cave_text = require_binary(source_root, PERSON_TEXT_NAME)[:PERSON_TEXT_BYTES]
         uw_tiles = load_uw_background_tiles(source_root)
         uw = underworld.build_level(source_root, 1, uw_tiles, palette_bytes, palette_map)
         return AssetBundle(
             source_note="ROM-derived overworld tiles, sprites, rooms and palette",
             uw=uw,
+            cave_map=cave_map,
+            cave_sprites=cave_sprites,
+            cave_text=cave_text,
             palette=palette_map,
             bg_tiles=bg_tiles,
             sprite_tiles=sprite_tiles,
@@ -867,6 +966,10 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
         bytes(value for room in bundle.rooms for value in room)
     )
     write_underworld(out_dir, bundle.uw)
+    (out_dir / "cave_map.bin").write_bytes(bundle.cave_map)
+    (out_dir / "cave_sprites.bin").write_bytes(bundle.cave_sprites)
+    (out_dir / "cave_text.bin").write_bytes(bundle.cave_text)
+    (out_dir / "text_glyphs.bin").write_bytes(text_glyph_map())
 
     room_count = len(bundle.rooms)
     metatile_count = len(bundle.metatiles)

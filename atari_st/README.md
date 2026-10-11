@@ -17,8 +17,10 @@ What is working today
 - pixel movement governed by the original collision rules, including the
   walkable-tile exception list and the two-column test on vertical moves
 - room-to-room traversal with a 16-pixel stepped scroll in all four directions
-- overworld cave entry and exit, with a minimal interior room so the transition
-  is now playable instead of a dead end
+- overworld cave entry and exit; the first cave is built from the original cave
+  layout, with the old man, his bonfires and his typed-out speech, and he gives
+  the wooden sword. The game opens just below that cave; walk out of a cave
+  through its bottom doorway
 - first overworld enemy slice: repeated-template rooms using monster template
   `$07` now spawn simple wandering enemies
 - Link walks in 8-pixel grid steps like the original, so he can be lined up
@@ -29,13 +31,17 @@ What is working today
   floor), scrolled between like the overworld, with the original underworld
   collision; walk off the bottom of the start room to leave
 - locked doors open with a key, and keys, hearts, rupees, bombs and the level's
-  items lie on the floor to be picked up; `K` still hands out a sword, a key
+  items lie on the floor to be picked up; `K` still hands out a key
   and bombs until the real sources exist
 - Level 1 monsters (stalfos, keese, gels, ropes, goriya) spawn from the
   original room data, move on the grid, and are drawn from the original
   sprites; they bite for half hearts, and Link blinks while invincible
-- `Space` swings a sword (placeholder blade art) that hurts and kills them;
-  killed monsters roll the original drop table
+- `Space` swings the wooden sword (placeholder blade art), which is picked up
+  in the first overworld cave; it hurts and kills monsters, and killed monsters
+  roll the original drop table. With full hearts (or half a heart short) a
+  swing also fires a sword beam that flies until it hits a wall or a monster
+- playing frames are double-buffered, so Link and the monsters no longer
+  vanish in busy rooms when the redraw outruns the raster beam
 - shutter doors close until the room's monsters are dead; a trigger-7 room's
   item then appears
 - `B` drops a bomb that blows open bombable walls and hurts monsters nearby;
