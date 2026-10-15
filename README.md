@@ -13,8 +13,9 @@ An early but playable slice, not yet a complete game: the whole overworld and th
 - explore Level 1: locked doors, bombable and false walls, shutters, the push block, the stairs to the cellar
 - fight stalfos, keese, gels, ropes, goriyas, wallmasters, blade traps and Aquamentus with the sword and its beam, bombs, the boomerang and the candle, and pick up the drops
 - open the inventory screen and choose the B item
+- hear the music and sound effects, ripped from the ROM's own sound engine at build time: overworld, dungeon and Level 9 themes, the item and triforce fanfares, Link's death jingle, and effects for hits, bombs, kills, rupees, keys, hearts and opening shutters
 
-**Not there yet:** the triforce held up and the level's completion recorded, the map and compass, the dungeon people, sound effects, the real overworld monsters, other caves and shops, and the other eight dungeons.
+**Not there yet:** the triforce held up and the level's completion recorded, the map and compass, the dungeon people, the title, ending and game-over music, boss roars, the low-health beep, the real overworld monsters, other caves and shops, and the other eight dungeons.
 
 ## Controls
 

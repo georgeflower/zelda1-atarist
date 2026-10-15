@@ -122,7 +122,8 @@ everything that builds runs in WSL.
   the TOS images: `TOSes\ST\104_us.img` (**TOS 1.04 US**, used for all tests).
   From WSL that is
   `/mnt/g/OneDrive/Download Saved/Nostalgia/hatari-2.6.1_windows64/TOSes/ST/104_us.img`.
-  Never commit TOS images or the ROM (copyrighted).
+  Never commit TOS images or the ROM (copyrighted). **EmuTOS 1.4 (512k, `etos512us.img`)
+  also works** and was used to check the music: pass it as `--tos`/`TOS`.
 - Editor/shell: VS Code, PowerShell as the terminal.
 
 ### Build commands
@@ -141,6 +142,10 @@ From PowerShell:
 wsl.exe bash -c "cd /mnt/g/OneDrive/Documents/GitHub/zelda1-atarist/atari_st && make all 2>&1 | tail -20"
 python -m unittest discover -s atari_st\tests          # unit tests, Windows python
 ```
+
+The music bank (`music_bank.bin`, `music_drum_table.bin`, `music_ids.inc`) is built by `music_pack.py` from
+`ext/Original.nes`; the Makefile also tracks whether `py65` is importable (`build/music_capability.stamp`), so
+installing or removing it rebuilds the bank. Without ROM or `py65` the bank holds only the overworld song.
 
 Makefile variables: `TOOLCHAIN_PREFIX` (default `m68k-linux-gnu-`), `PYTHON`
 (`python3`). Environment for the tools: `TOS` (path to a TOS image, needed by the
@@ -202,6 +207,11 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
   `700:=LINK_X=0x78` pokes a plain byte; `.N` indexes arrays. Variable names are
   the `gvar` names in `src/globals.s` (the harness replays the macro to get
   offsets; the block is found in RAM by the marker `ZELDAST1`).
+- `--trace psg_write`: logs every YM2149 write (`ym write data reg=0xR val=0xV ... pc=...`) to
+  `build/shots/hatari.log`. `music_write` always writes R0..R12 in order from one `pc` (R13 only
+  with an envelope shape), the digidrum engine writes the drum's volume register from another;
+  group by `pc` and compare frames with `music_pack.unpack_stream` of `build/generated/music_bank.bin`.
+  Verified this way: 745 overworld frames, 659 dungeon frames, a bomb effect overlay, digidrum samples.
 - `--trace cpu_exception,...`: Hatari trace flags; look for faults whose PC is in
   RAM (app bug) versus ROM `$fcxxxx-$feffff` (TOS internal, harmless; e.g. the
   blitter probe bus error at `$fc0ee2`).
@@ -447,6 +457,12 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **New floor item**: add the id to `ITEM_IDS` and handle it in `take_item` (combat.s).
 - **New B item**: add a `B_*` code, a `b_item_owned` case, a `b_item_input` dispatch, a HUD icon
   id in `HUD_ITEM_IDS` (same index as the code) and a menu entry in `menu.s`.
+- **New sound event**: call `sfx SFX_NAME` (an effect over voice A or B, ids in the generated
+  `build/generated/music_ids.inc`, names in `tools/music_pack.py` `TRACK_LIST`) or `jingle MUS_NAME` (an event song
+  that replaces the area music until it ends) at the place in the 68000 code where it happens; both macros
+  keep every register. A new track: add it to `TRACK_LIST` and `nes_music_rip.py` `TRACKS`, and bump nothing
+  else (the bank, ids and tests follow). `gvar` values must stay plain numbers (the screenshot harness
+  parses them), so write `gvar NAME, 96`, not `gvar NAME, (3 * X)`.
 - **New variable**: `gvar` at the **end** of `globals.s` (never insert in the middle of the
   front arrays); `OFF_NAME` is then available; add it to the harness report if useful.
 - **New asset table**: field in `ActorData`, writer in `build_assets.py`, entry in the Makefile
@@ -476,7 +492,7 @@ Open items (user-visible gaps): triforce piece held up + level completion record
 runs mode `$12`: "end level" song, curtain, Link lifting the triforce); map and compass items and
 the dungeon minimap on the ribbon; the old man / people in dungeons (room `$41`); fireball art
 (placeholder); the clock and fairy drops; stairs-type push block (trigger 5, not in Level 1);
-visible block slide animation; sound effects; then the rest of the overworld (real monsters,
+visible block slide animation; the rest of the sound (title, ending, game-over and boss music, low-health beep, DPCM); then the rest of the overworld (real monsters,
 shops, caves, secrets), inventory items (bow/arrows, recorder, ladder, raft, rings, ...), other
 eight dungeons, title/game-over/save.
 

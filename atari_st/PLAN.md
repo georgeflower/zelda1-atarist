@@ -33,7 +33,7 @@ Remaining, in the words of your request:
 | M8 | Bosses | M7 | XL |
 | M9 | Levels 2 to 9 content, triforce sequence, map/compass minimap | M6, M7, M8 | XL |
 | M10 | Title/story, file select, name entry, save, continue/death, ending | M5 | L |
-| M11 | Sound effects and music | any | M |
+| M11 | Sound effects and music (player, bank and the Level 1 events done; the rest are hooks, see 12) | any | M |
 | M12 | Polish: PAL 50 Hz, performance, memory, unit tests, docs | all | M |
 | M13 | Deferred (decided: not now): Second Quest | all | L |
 
@@ -278,7 +278,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 - [ ] **Level 9 entry**: all eight triforce pieces needed (`InvTriforce == $FF`).
 - [ ] **Per-level palette and pattern blocks** (risk R1): load at level entry. Death-palette series (`LevelInfo_DeathPaletteSeries`).
 - [ ] **Whirlwind exit**, **map reveal**, **visited rooms** (rooms marked visited on the Map), **room flags** (item taken, boss dead, door opened).
-- [ ] **End-of-level sequence** (mode `$12`): hold the triforce piece overhead, curtain closing, music, return to the dungeon entrance on the overworld. Marked open in `AGENTS.md`.
+- [ ] **End-of-level sequence** (mode `$12`): hold the triforce piece overhead, curtain closing, music, return to the dungeon entrance on the overworld. Marked open in `AGENTS.md`. The triforce fanfare (`MUS_TRIFORCE`) already plays on pickup; the sequence should time itself to it instead of `TRIFORCE_FRAMES`.
 
 ### 9.2 Collectibles, dark rooms, bosses and people per level
 
@@ -359,7 +359,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 ### 10.3 Work items
 
 - [ ] For each type: sprite frames, behaviour routine, hit rule, drop row, test.
-- [ ] Boss music and roars, boss-dead flag and the heart container or triforce that appears after (secret trigger 7 and 3).
+- [ ] Boss music and roars, boss-dead flag and the heart container or triforce that appears after (secret trigger 7 and 3). `MUS_GANON` is in the music bank; the roars are DPCM or noise effects that are not ripped yet.
 - [ ] Gleeok head object (`UpdateGleeokHead`), Patra child orbit, Moldorm segment chain: these need new multi-object structures in `enemy.s`.
 - [ ] Acceptance: one scripted fight per boss in Hatari with the dev-start variable for that room; check the kill sets the room flag and spawns the reward.
 
@@ -390,7 +390,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 
 ### 11.4 Winning
 
-- Mode `$13`: curtain effect, Zelda's text box "THANKS LINK, YOU'RE THE HERO OF HYRULE...", Link and Zelda holding the triforces, "FINALLY PEACE RETURNS TO HYRULE. THIS ENDS THE STORY.", ash pile where Ganon was, credits (`DrawCredits`), then the game restarts the same slot as a Second Quest profile (`SwitchProfileToSecondQuest` clears world flags and sets the quest number).
+- Music for this and the other screens is already in the bank (`MUS_TITLE`, `MUS_ZELDA`, `MUS_ENDING`, `MUS_GAMEOVER`, hook with `music_event`/`music_play`). Mode `$13`: curtain effect, Zelda's text box "THANKS LINK, YOU'RE THE HERO OF HYRULE...", Link and Zelda holding the triforces, "FINALLY PEACE RETURNS TO HYRULE. THIS ENDS THE STORY.", ash pile where Ganon was, credits (`DrawCredits`), then the game restarts the same slot as a Second Quest profile (`SwitchProfileToSecondQuest` clears world flags and sets the quest number).
 - [ ] Credits text is in the ROM; the pipeline reads it from there.
 
 ## 12. M11 Sound, M12 polish, M13 Second Quest
