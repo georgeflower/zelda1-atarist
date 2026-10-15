@@ -90,7 +90,13 @@ uw_spawn:
     bsr uw_room_info_ptr
     tst.w %d1
     bmi 9b
-    move.b 1(%a1), OFF_ROOM_TRIGGER(%a5)
+    move.b 1(%a1), %d2
+    move.b %d2, %d3
+    and.b #7, %d2
+    move.b %d2, OFF_ROOM_TRIGGER(%a5)
+    rol.b #1, %d3                   | bit 7 of the record: the room has a push block
+    and.b #1, %d3
+    move.b %d3, OFF_ROOM_BLOCK(%a5)
     move.b 5(%a1), OFF_ROOM_UNSUPPORTED(%a5)
     bsr uw_setup_item
     bsr block_setup
