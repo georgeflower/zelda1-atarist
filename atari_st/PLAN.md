@@ -298,7 +298,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 
 ### 9.3 Notes per level (what is special)
 
-- **Level 1** (done, including the triforce sequence, the bow cellar and the push-block rooms): the old man at `$41` and the map and compass in the Tab screen remain (the map and compass items and the dungeon minimap on the ribbon are in).
+- **Level 1** (done, including the triforce sequence, the bow cellar and the push-block rooms): the old man at `$41` remains (the map and compass, the dungeon minimap on the ribbon and the Tab screen are in).
 - **Level 2**: Dodongo boss room `$0E` takes bombs; Moldorm mini-boss `$3E`; Magical Boomerang from the Goriya room `$4F`; eight rope rooms.
 - **Level 3**: Manhandla boss; the Raft is down the stairs in the eight-Darknut room `$69` (stairs room `$0F`); the old man asks about "the sword from the old man on top of the waterfall".
 - **Level 4**: seven dark rooms; Vire and Zol rooms; Manhandla at `$10` then Gleeok (3 heads) at `$13`; stepladder in the cellar `$60`.

@@ -237,7 +237,7 @@ draw_hud_tile_ptr:
     .equ MM_COLUMNS, 8
 
 draw_minimap:
-    movem.l %d0-%d7/%a0-%a2, -(%sp)
+    movem.l %d0-%d2/%a3, -(%sp)
     moveq #0, %d2               | blank the corner first
 1:  moveq #0, %d1
 2:  moveq #HUD_BLANK, %d0
@@ -248,7 +248,15 @@ draw_minimap:
     addq.w #1, %d2
     cmp.w #HUD_ROWS, %d2
     blo 1b
+    lea mm_box(%pc), %a3
+    bsr minimap_paint
+    movem.l (%sp)+, %d0-%d2/%a3
+    rts
 
+| Paint the dungeon with the box routine in a3 (mm_box for the ribbon, mm_box_big for
+| the inventory screen).
+minimap_paint:
+    movem.l %d0-%d7/%a0-%a2, -(%sp)
     tst.b OFF_LEVEL(%a5)
     beq 9f                      | the overworld has no map here yet
     moveq #0, %d6
@@ -269,7 +277,7 @@ draw_minimap:
     tst.w %d0
     bmi 4f
     moveq #MM_ROOM, %d2
-    bsr mm_box
+    jsr (%a3)
 4:  addq.w #1, %d3
     cmp.w #128, %d3
     blo 3b
@@ -289,7 +297,7 @@ draw_minimap:
     btst #4, (OFF_FRAME_COUNTER + 1)(%a5)
     beq 6f
     moveq #MM_FLASH_B, %d2
-6:  bsr mm_box
+6:  jsr (%a3)
 
 7:  moveq #0, %d3
     move.b OFF_ROOM_ID(%a5), %d3
@@ -297,7 +305,7 @@ draw_minimap:
     tst.w %d0
     bmi 9f
     moveq #MM_LINK, %d2
-    bsr mm_box
+    jsr (%a3)
 9:  movem.l (%sp)+, %d0-%d7/%a0-%a2
     rts
 
@@ -385,4 +393,41 @@ minimap_tick:
     move.w %d0, OFF_MINIMAP_SIG(%a5)
     move.b #1, OFF_HUD_DIRTY(%a5)
 9:  movem.l (%sp)+, %d0-%d2
+    rts
+
+| The same box for the inventory screen: cells of 8x3 pixels, boxes of 7x2, in the
+| tile columns that start at MENU_MAP_COL, MENU_MAP_ROW.
+    .equ MENU_MAP_COL, 14
+    .equ MENU_MAP_ROW, 3
+
+mm_box_big:
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    movea.l OFF_SCREEN_PTR(%a5), %a0
+    mulu.w #(3 * SCREEN_STRIDE), %d1
+    adda.l %d1, %a0
+    adda.l #(MENU_MAP_ROW * 8 * SCREEN_STRIDE), %a0
+    add.w #MENU_MAP_COL, %d0
+    move.w %d0, %d3
+    lsr.w #1, %d3
+    lsl.w #3, %d3
+    adda.w %d3, %a0
+    btst #0, %d0
+    beq 1f
+    addq.l #1, %a0              | the odd tile column is the low byte of the word
+1:  moveq #1, %d7               | two lines
+2:  movea.l %a0, %a1
+    moveq #0, %d5               | plane
+3:  move.b (%a1), %d6
+    and.b #1, %d6               | the gap pixel stays as it was
+    btst %d5, %d2
+    beq 4f
+    or.b #0xfe, %d6
+4:  move.b %d6, (%a1)
+    addq.l #2, %a1
+    addq.w #1, %d5
+    cmp.w #4, %d5
+    blo 3b
+    adda.w #SCREEN_STRIDE, %a0
+    dbra %d7, 2b
+    movem.l (%sp)+, %d0-%d7/%a0-%a1
     rts
