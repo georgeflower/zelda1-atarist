@@ -244,5 +244,8 @@
     galign
     gvar MINIMAP_SIG, 2        | what the ribbon's map last showed: room id, flags, blink phase
     gvar UW_PERSON, 1          | the dungeon room's old man: 0 nobody, 1 speaking, 2 has spoken
+    galign
+    gvar ENEMY_TURN, 8         | frames until a wanderer may turn toward Link again (ObjTurnTimer)
+    gvar ENEMY_WANT, 8         | a goriya that has Link in range (ObjWantsToShoot)
 
     .equ GLOBALS_BYTES, gvar_offset

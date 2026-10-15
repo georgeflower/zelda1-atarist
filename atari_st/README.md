@@ -101,7 +101,10 @@ Level 1 (underworld)
   and breathes three fanned fireballs. Killing him reveals the heart container
 - walking monsters keep to the 16-pixel lanes of the room: they only turn on a
   square boundary and look at the whole square ahead, so they never overlap
-  blocks. Keese fly over everything instead, in eight directions: they speed
+  blocks. They turn as the original does: stalfos work their way toward Link,
+  goriyas face him only when he is within $51 pixels and then throw on a
+  2-in-256 roll each frame, ropes turn to a free side now and then, and gels
+  cross a square at a pixel a frame and rest at its edge. Keese fly over everything instead, in eight directions: they speed
   up, then chase Link or wander for a few turns, slow to a stop, rest, and
   start again
 - the old man in room `$41` stands between two flames and types out "EASTMOST
@@ -175,7 +178,7 @@ Known gaps
 Things that behave differently from the original, or are stand-ins:
 
 - fireball art is placeholder (Aquamentus himself is original)
-- monsters wander randomly apart from the behaviours above; the clock is not
+- the blue goriya and the other walking monsters of later dungeons are not in; the clock is not
   Link's yet
 - the push block slides in one jump rather than visibly, and only the
   trigger-4 kind (open the shutters) exists; the stairs kind is not needed in

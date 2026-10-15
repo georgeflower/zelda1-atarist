@@ -17,18 +17,21 @@ import build_assets as B
 # room (traps, and the monsters of later levels) are left out for now.
 MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49)
 # Frames between one-pixel steps: the 6502's quarter-speed $20 is half a pixel
-# a frame; keese are quicker, gels and wallmasters slower. Aquamentus moves a
+# a frame; keese are quicker and wallmasters slower. A gel walks a pixel a frame (quarter-speed
+# $40) but rests at the edge of every square. Aquamentus moves a
 # pixel every eighth frame.
-MONSTER_PERIOD = {0x06: 2, 0x15: 3, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8, 0x49: 1}
+MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8, 0x49: 1}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2}
 # Keese ignore walls and blocks and are only held in by the room edges.
 MONSTER_FLYERS = (0x1B,)
 
 # What the game does with a monster every frame, besides drawing it.
-BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS, BEHAVIOUR_KEESE, BEHAVIOUR_TRAP = range(7)
+(BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS,
+ BEHAVIOUR_KEESE, BEHAVIOUR_TRAP, BEHAVIOUR_GEL) = range(8)
 MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
-                      0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP}
+                      0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP,
+                      0x15: BEHAVIOUR_GEL}
 
 # How each monster is drawn: (sprite layout, images, mode). The layout says how
 # the two 8x16 halves of an image are put together; the mode tells the game
