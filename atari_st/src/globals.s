@@ -235,5 +235,6 @@
     gvar BLOCK_PUSH, 1         | frames Link has been pushing it
     gvar BLOCK_TICK, 1         | he pushed it this frame
     gvar ENEMY_STUN, 8         | frames a monster stays stunned
+    gvar ROOM_BLOCK, 1         | the underworld room has a push block (attribute D bit 6)
 
     .equ GLOBALS_BYTES, gvar_offset

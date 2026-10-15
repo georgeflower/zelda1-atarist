@@ -393,10 +393,12 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   (`$40,$8D`)(`$B0,$8D`)); allowed directions `05 09 06 0A 01 02`; trigger when Link is
   within `$0E` on the other axis; out at `$70/64` px/frame until within 5 of the room
   middle (`$78` / `$90`), back at `$20/64`; damage 1 heart; invulnerable; `ENEMY_ACTIVE=2`.
-- **Push block** (room `$42`, trigger 4): block tile `$B0` at tile row 10 (found from col 4,
+- **Push block** (rooms with attribute D bit 6: `$42` with trigger 4, and `$22`, the bow room, with
+  trigger 0; the room record's trigger byte carries it as bit 7, `ROOM_BLOCK`): block tile `$B0` at tile row 10 (found from col 4,
   step 2); push only when the room is cleared (UW_FLAGS bit 0), Link lined up and pushing
-  16 frames; it swaps with the floor 16 px beyond, shutters open for good (trigger-4 rooms do
-  not open shutters on clear). Slide is instantaneous (no animation).
+  16 frames; it swaps with the floor 16 px beyond. Only trigger-4 rooms open their shutters for good (and
+  do not open them on clear); in `$22` the block just moves (secret tune): the stairs sit inside a ring of 8
+  blocks and the player pushes the left block up or down to open a gap. Slide is instantaneous (no animation).
 - **Secret triggers** (`LevelBlock` attr F & 7): 1 kill all -> open shutters, 4 push block,
   7 kill all -> item appears; others in `Z_05.asm` (`CheckSecretTrigger`).
 - **Level 1 rooms** (reachable from `$73`): `$22` traps, `$23` goriya+key, `$33` stalfos+key,

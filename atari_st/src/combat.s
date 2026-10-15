@@ -1656,8 +1656,8 @@ block_setup:
     beq 9f
     tst.b OFF_IN_CELLAR(%a5)
     bne 9f
-    cmpi.b #TRIGGER_PUSH_BLOCK, OFF_ROOM_TRIGGER(%a5)
-    bne 9f
+    tst.b OFF_ROOM_BLOCK(%a5)
+    beq 9f
     moveq #4, %d3                   | FindAndCreatePushBlockObject: row 10, from column 4
 1:  moveq #10, %d2
     bsr fetch_tile
@@ -1785,10 +1785,15 @@ block_slide:
 
     move.b #2, OFF_BLOCK_STATE(%a5)
     clr.b OFF_BLOCK_PUSH(%a5)
+    cmpi.b #TRIGGER_PUSH_BLOCK, OFF_ROOM_TRIGGER(%a5)
+    bne 7f                          | any other room: the block only moves (the secret tune plays)
     moveq #0, %d0                   | the shutters open, and the room is rebuilt
     move.b OFF_ROOM_ID(%a5), %d0
     bsr uw_open_shutters
     bsr uw_redraw_room
+    bra 8f
+7:  sfx SFX_SECRET
+8:
     moveq #0, %d0                   | then the block and the floor swap places
     move.b OFF_BLOCK_X(%a5), %d0
     lsr.w #3, %d0

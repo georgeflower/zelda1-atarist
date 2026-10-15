@@ -412,7 +412,8 @@ def _projectile_sprites(code, sp_tiles, bg_tiles, palette) -> bytes:
 
 
 def _room_info(room: int, attrs, foe_counts, info) -> bytes:
-    """count, secret trigger, item id, item X, item Y, unsupported, then eight monsters."""
+    """count, secret trigger (bit 7: the room has a push block), item id, item X, item Y, unsupported,
+    then eight monsters."""
     attr_c, attr_d, attr_e, attr_f = attrs
     list_id = (attr_c[room] & 0x3F) | (0x40 if attr_d[room] & 0x80 else 0)
     count = foe_counts[attr_c[room] >> 6]
@@ -432,7 +433,9 @@ def _room_info(room: int, attrs, foe_counts, info) -> bytes:
     positions = info[B.LEVEL_INFO_ITEM_POSITIONS : B.LEVEL_INFO_ITEM_POSITIONS + 4]
     pos = positions[(attr_f[room] & 0x30) >> 4]
     item_id = 0xFF if item == 3 else item
-    record = bytearray([len(monsters), attr_f[room] & 7, item_id, pos & 0xF0, (pos & 0x0F) << 4, unsupported])
+    # FindAndCreatePushBlockObject runs for every room whose attribute D has $40, whatever its secret trigger
+    trigger = (attr_f[room] & 7) | (0x80 if attr_d[room] & 0x40 else 0)
+    record = bytearray([len(monsters), trigger, item_id, pos & 0xF0, (pos & 0x0F) << 4, unsupported])
     record.extend(monsters)
     record.extend([0xFF] * (ROOM_INFO_BYTES - len(record)))
     return bytes(record)

@@ -39,6 +39,13 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(list(record[6:10]), [trap] * 4)
         self.assertEqual(record[0], 4)
 
+    def test_the_push_block_flag_is_bit_7_of_the_trigger_byte(self) -> None:
+        # attribute D bit 6 makes FindAndCreatePushBlockObject run, whatever the secret trigger is
+        # (room $22, the bow room, has the block but trigger 0; room $42 has block and trigger 4)
+        for attr_d, attr_f, want in ((0xDA, 0x00, 0x80), (0x62, 0x04, 0x84), (0x1F, 0x07, 0x07), (0x80, 0x00, 0x00)):
+            record = actors._room_info(0, ([0], [attr_d], [0], [attr_f]), [3, 5, 6, 8], bytes(64))
+            self.assertEqual(record[1], want, f"D {attr_d:#x} F {attr_f:#x}")
+
 
 if __name__ == "__main__":
     unittest.main()
