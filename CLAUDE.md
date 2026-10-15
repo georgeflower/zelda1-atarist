@@ -399,6 +399,13 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   16 frames; it swaps with the floor 16 px beyond. Only trigger-4 rooms open their shutters for good (and
   do not open them on clear); in `$22` the block just moves (secret tune): the stairs sit inside a ring of 8
   blocks and the player pushes the left block up or down to open a gap. Slide is instantaneous (no animation).
+- **Triforce ending** (`UpdateMode12EndLevel_Full`; `ending_update` in combat.s, phases in `ENDING_PHASE`):
+  taking item `$1B` records the level's piece (`TRIFORCE_PIECES`, bit level-1), starts the end-level song and hides
+  monsters; 1 Link holds it up for 48 frames (his arms-up picture is item picture `$3F`, tile `$78`, drawn
+  by `draw_link`, the piece floats 16 px above him as item state `ITEM_LIFTED`), 2 the backdrop flashes white for 48 frames, 3 hearts fill a half heart every 21
+  frames (heart blip), 4 a curtain blanks one 8-px column from each side every 5 frames for 16 steps
+  (`curtain_column` clears it in the clean room and both screens), 5 a 128-frame pause on the black room,
+  then `uw_leave_level`. Input is frozen by `LINK_HELD`; the Tab menu is blocked while the phase is non-zero.
 - **Secret triggers** (`LevelBlock` attr F & 7): 1 kill all -> open shutters, 4 push block,
   7 kill all -> item appears; others in `Z_05.asm` (`CheckSecretTrigger`).
 - **Level 1 rooms** (reachable from `$73`): `$22` traps, `$23` goriya+key, `$33` stalfos+key,
@@ -493,8 +500,7 @@ cellar, stalfos/keese/gel/rope/goriya/wallmaster/Aquamentus/blade traps, sword +
 boomerang + candle, drops with kill counters, knock-back and invincibility, push block, triforce
 ending, HUD with A/B boxes, Tab inventory screen, YM2149 music and sound effects.
 
-Open items (user-visible gaps): triforce piece held up + level completion recorded (the original
-runs mode `$12`: "end level" song, curtain, Link lifting the triforce); map and compass items and
+Open items (user-visible gaps): map and compass items and
 the dungeon minimap on the ribbon; the old man / people in dungeons (room `$41`); fireball art
 (placeholder); the clock and fairy drops; stairs-type push block (trigger 5, not in Level 1);
 visible block slide animation; the rest of the sound (title, ending, game-over and boss music, DPCM); then the rest of the overworld (real monsters,

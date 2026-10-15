@@ -118,6 +118,15 @@ draw_link:
     mulu.w #SPRITE_FRAME_BYTES, %d0
     ltab link_sprites, %a0
     adda.l %d0, %a0
+    tst.b OFF_ENDING_PHASE(%a5)
+    beq 5f
+    ltab item_index, %a0                | holding the triforce piece up: both arms raised
+    moveq #0, %d0
+    move.b ITEM_LINK_LIFT(%a0), %d0
+    mulu.w #SPRITE_FRAME_BYTES, %d0
+    ltab item_sprites, %a0
+    adda.l %d0, %a0
+5:
 
     | Screen X, then split into a group offset and a shift within the group.
     moveq #0, %d0

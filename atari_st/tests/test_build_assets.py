@@ -296,6 +296,17 @@ class RomActorTests(unittest.TestCase):
         self.assertEqual(bundle.cave_text[-1] & 0xC0, 0xC0)   # the last character ends the speech
         self.assertEqual(len(bundle.cave_map), build_assets.OW_ROOM_COLS * build_assets.OW_ROOM_ROWS)
 
+    def test_link_lifting_the_triforce_has_a_picture(self) -> None:
+        # the end-of-level sequence draws Link with both arms up: item picture $3F, a symmetric pair of tiles
+        frame_bytes = build_assets.SPRITE_FRAME_BYTES
+        index = self.data.item_index[self.actors.LINK_LIFT_ID]
+        self.assertNotEqual(index, 0xFF)
+        frame = self.data.item_sprites[index * frame_bytes : (index + 1) * frame_bytes]
+        masks = [int.from_bytes(frame[row * 10 + 8 : row * 10 + 10], "big") for row in range(16)]
+        self.assertTrue(any(masks), "the picture is not blank")
+        for mask in masks:  # left and right halves are mirror images
+            self.assertEqual(mask >> 8, int(f"{mask & 255:08b}"[::-1], 2))
+
     def test_floor_items_have_art(self) -> None:
         for item_id in self.actors.ITEM_IDS:
             self.assertNotEqual(self.data.item_index[item_id], 0xFF)

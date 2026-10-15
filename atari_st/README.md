@@ -104,8 +104,9 @@ Level 1 (underworld)
   blocks. Keese fly over everything instead, in eight directions: they speed
   up, then chase Link or wander for a few turns, slow to a stop, rest, and
   start again
-- the triforce piece ends the level: full hearts, a flashing screen, and Link is
-  back at the entrance on the overworld
+- the triforce piece ends the level as in the original: Link holds it up, the screen
+  flashes, his hearts fill one by one, a curtain closes the room, and he is back at
+  the entrance on the overworld
 - the room's items appear on the floor (a trigger-7 room's item appears when
   the monsters are dead) and stay collected
 
@@ -171,8 +172,6 @@ Things that behave differently from the original, or are stand-ins:
 - the push block slides in one jump rather than visibly, and only the
   trigger-4 kind (open the shutters) exists; the stairs kind is not needed in
   Level 1
-- the triforce piece is not shown being held up, and the level's completion is
-  not yet recorded anywhere
 - `K` is a debug key standing in for the shops and secrets that give keys,
   bombs and the candle
 - the overworld's real monsters are not ported; only the placeholder blobs
@@ -188,30 +187,29 @@ The detailed plan, with the data tables behind it, is in [`PLAN.md`](PLAN.md).
 
 Near term (finish Level 1)
 
-1. the triforce piece held up, and the level's completion recorded
-2. fireball art
-3. map and compass use, and the dungeon map on the ribbon
-4. the old man in room `$41` and the other dungeon people
-5. the rest of the sound (title, ending and game-over songs,
+1. fireball art
+2. map and compass use, and the dungeon map on the ribbon
+3. the old man in room `$41` and the other dungeon people
+4. the rest of the sound (title, ending and game-over songs,
    boss roars, DPCM samples), the clock and fairy drops
 
 Then the rest of the overworld
 
-6. the real overworld monsters (octoroks, tektites, moblins, leevers,
+5. the real overworld monsters (octoroks, tektites, moblins, leevers,
    zoras and so on) and their behaviours
-7. the other caves: shops, hints, money-making games, doors that charge,
+6. the other caves: shops, hints, money-making games, doors that charge,
    shortcut stairs, and the secrets under trees, rocks and armos
-8. the rest of the inventory: the bow and arrows, recorder, raft, ladder,
+7. the rest of the inventory: the bow and arrows, recorder, raft, ladder,
    rings and the magic items, on top of the Tab screen that exists now
-9. the animated pond (palette cycling)
+8. the animated pond (palette cycling)
 
 Then the game around it
 
-10. the other eight dungeons, reusing the underworld engine
-11. the remaining audio hooks: the songs and effects are already in the music
+9. the other eight dungeons, reusing the underworld engine
+10. the remaining audio hooks: the songs and effects are already in the music
     bank (see `tools/music_pack.py`) and need their game events
-12. title screen, game-over and continue, saving and the second quest
-13. a disk image / floppy-friendly build and a check on real STFM timing
+11. title screen, game-over and continue, saving and the second quest
+12. a disk image / floppy-friendly build and a check on real STFM timing
 
 Prerequisites
 -------------
