@@ -563,6 +563,8 @@ update_cave:
     bsr cave_talk
     tst.b OFF_CAVE_TEXT_ON(%a5)
     bne 2f                      | Link waits while the old man speaks
+    tst.b OFF_LIFT_TIMER(%a5)
+    bne 4f                      | and while he holds the new item up
     bsr read_input_dir
     move.b %d0, %d1
     beq 1f
@@ -573,6 +575,7 @@ update_cave:
     bne 9f
     bsr item_pickup
     bsr cave_check_taken
+4:  bsr lift_update
 2:  bsr draw_cave_fires
     bsr draw_items
     bsr draw_link

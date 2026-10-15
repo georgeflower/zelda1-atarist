@@ -112,6 +112,9 @@ Level 1 (underworld)
   speech comes from the original dungeon-people tables. The flames do not shoot
   when he is hit, and the other people types (more bombs, life or money) are not
   in yet
+- the wooden sword, the boomerang, the bow and the candle are held up with the item
+  fanfare when taken: Link stands still with his arms raised and the item over his
+  head for about two seconds, and the monsters wait
 - the triforce piece ends the level as in the original: Link holds it up, the screen
   flashes, his hearts fill one by one, a curtain closes the room, and he is back at
   the entrance on the overworld

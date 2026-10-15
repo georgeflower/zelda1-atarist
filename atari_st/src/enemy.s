@@ -264,6 +264,8 @@ erase_enemies:
 
 update_enemies:
     movem.l %d0-%d7/%a0-%a1, -(%sp)
+    tst.b OFF_LIFT_TIMER(%a5)
+    bne 9f                      | Link is holding something up: everything waits
     moveq #0, %d5
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
     bhs 9f

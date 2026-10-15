@@ -392,6 +392,11 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   kills monsters with HP 0 (gel, keese); picks up items; traps/boss ignore it. Art:
   item slot `$1D` tiles `$36,$38,$3A` + spark `$3C`, spin cycle `{0,1,2,1,0,1,2,1}` with
   flips. Stunned monsters do nothing and do no contact damage (`ENEMY_STUN`).
+- **Holding an item up** (`TakeItem` with `ItemLiftTimer`, `lift_begin` / `lift_update` in combat.s, `LIFT_TIMER`): the wooden sword, the
+  boomerang, the bow and the candle play the item fanfare (`MUS_ITEM`), then Link stands arms-up for `LIFT_FRAMES` (128, the original's `$80`)
+  with the item 16 px over his head (an `ITEM_LIFTED` slot, drawn by `draw_items`; `draw_link` shows the arms-up picture). `LINK_HELD` freezes
+  him, `update_enemies` and the cave walking are skipped while it runs. The original only lifts outside walking mode (caves, cellars); the
+  boomerang found in a room is lifted here on purpose, at the owner's request.
 - **Candle**: blue candle, fire 16 px ahead, creeps 16 px at half a pixel/frame, stands 63
   frames, burns monsters within 14 px (1 hit), once per room (`CANDLE_USED`).
 - **Blade traps** (`InitTrap_Full`, `UpdateTrap_Full`): room `$22` only. Type `$4A` = 4

@@ -24,6 +24,7 @@
     .equ ITEM_BLUE_CANDLE, 0x06
     .equ ITEM_BOOMERANG, 0x1d
     .equ ITEM_BOW, 0x0a
+    .equ LIFT_FRAMES, 128            | ItemLiftTimer: the original holds the item up for $80 frames
     .equ ITEM_WOOD_SWORD, 0x01
     .equ ITEM_FIVE_RUPEES, 0x0f
     .equ ITEM_RUPEE, 0x18
@@ -500,6 +501,7 @@ draw_link_blink:
 | ------------------------------------------------------------ per-frame logic
 update_combat:
     movem.l %d0-%d7/%a0-%a3, -(%sp)
+    bsr lift_update
     bsr ending_update
     tst.b OFF_LINK_HURT(%a5)
     beq 1f
@@ -1509,12 +1511,46 @@ item_pickup:
     move.b OFF_CELLAR_ROOM(%a5), %d1
 5:  lea OFF_UW_FLAGS(%a5), %a0
     bset #1, 0(%a0, %d1.w)
-4:  clr.b OFF_ITEM_ACTIVE(%a5, %d3.w)
+4:  cmpi.b #LIFT_FRAMES, OFF_LIFT_TIMER(%a5)
+    bne 41f                             | this very pickup started a lift: the item goes over his head
+    move.b OFF_LINK_X(%a5), OFF_ITEM_X(%a5, %d3.w)
+    move.b OFF_LINK_Y(%a5), %d0
+    sub.b #16, %d0
+    move.b %d0, OFF_ITEM_Y(%a5, %d3.w)
+    move.b #ITEM_LIFTED, OFF_ITEM_ACTIVE(%a5, %d3.w)
+    bra 8f
+41: clr.b OFF_ITEM_ACTIVE(%a5, %d3.w)
 8:  addq.w #1, %d3
     cmp.w #ITEM_SLOTS, %d3
     blo 1b
     movem.l (%sp)+, %d0-%d4/%a0
     rts
+
+| TakeItem outside the overworld's walking mode: Link holds the new item up for $80 frames, halted,
+| while the monsters stand still. item_pickup puts the item over his head.
+lift_begin:
+    move.b #LIFT_FRAMES, OFF_LIFT_TIMER(%a5)
+    move.b #1, OFF_LINK_HELD(%a5)
+    clr.b OFF_ATTACK(%a5)
+    clr.b OFF_LINK_SHOVE(%a5)
+    rts
+
+lift_update:
+    tst.b OFF_LIFT_TIMER(%a5)
+    beq 9f
+    subq.b #1, OFF_LIFT_TIMER(%a5)
+    bne 9f
+    clr.b OFF_LINK_HELD(%a5)
+    movem.l %d0/%a0, -(%sp)
+    lea OFF_ITEM_ACTIVE(%a5), %a0
+    moveq #(ITEM_SLOTS - 1), %d0
+1:  cmpi.b #ITEM_LIFTED, (%a0)
+    bne 2f
+    clr.b (%a0)
+2:  addq.l #1, %a0
+    dbra %d0, 1b
+    movem.l (%sp)+, %d0/%a0
+9:  rts
 
 | Apply the effect of item d0.b to Link's counters. Items without an effect
 | here yet (weapons, ...) are simply collected.
@@ -1525,21 +1561,25 @@ take_item:
     bne 15f
     move.b #1, OFF_INV_BOOMERANG(%a5)
     jingle MUS_ITEM
+    bsr lift_begin
     bra 9f
 15: cmp.b #ITEM_BOW, %d0
     bne 17f
     move.b #1, OFF_INV_BOW(%a5)
     jingle MUS_ITEM
+    bsr lift_begin
     bra 9f
 17: cmp.b #ITEM_BLUE_CANDLE, %d0
     bne 16f
     move.b #1, OFF_INV_CANDLE(%a5)
     jingle MUS_ITEM
+    bsr lift_begin
     bra 9f
 16: cmp.b #ITEM_WOOD_SWORD, %d0
     bne 0f
     move.b #1, OFF_HAS_SWORD(%a5)
     jingle MUS_ITEM
+    bsr lift_begin
     bra 9f
 0:  cmp.b #ITEM_KEY, %d0
     bne 1f
