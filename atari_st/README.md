@@ -104,6 +104,11 @@ Level 1 (underworld)
   blocks. Keese fly over everything instead, in eight directions: they speed
   up, then chase Link or wander for a few turns, slow to a stop, rest, and
   start again
+- the old man in room `$41` stands between two flames and types out "EASTMOST
+  PENNINSULA IS THE SECRET." while Link is held; Link cannot walk past him. The
+  speech comes from the original dungeon-people tables. The flames do not shoot
+  when he is hit, and the other people types (more bombs, life or money) are not
+  in yet
 - the triforce piece ends the level as in the original: Link holds it up, the screen
   flashes, his hearts fill one by one, a curtain closes the room, and he is back at
   the entrance on the overworld
@@ -191,7 +196,7 @@ The detailed plan, with the data tables behind it, is in [`PLAN.md`](PLAN.md).
 Near term (finish Level 1)
 
 1. fireball art
-2. the old man in room `$41` and the other dungeon people
+2. the other dungeon people (more bombs, life or money) and the old man's fireballs
 3. the rest of the sound (title, ending and game-over songs,
    boss roars, DPCM samples), the clock and fairy drops
 

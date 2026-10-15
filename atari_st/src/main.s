@@ -180,10 +180,10 @@
     .globl _start
 _start:
     lea globals(%pc), %a5
-    | room_palette is the first read-only table and close enough for a PC-relative
-    | lea; the anchor in the middle of the tables is then a link-time constant away.
-    lea room_palette(%pc), %a6
-    adda.l #(table_anchor - room_palette), %a6
+    | The table anchor is set up by a routine at the very end of the code (init_anchor),
+    | which is the only place close enough to the tables for a PC-relative lea: code,
+    | variables and the stack together are nearly 32 KB.
+    bsr init_anchor
     | Clear the variable block before anything is stored in it; bsr leaves the
     | stack alone, so the basepage is still at 4(sp) afterwards.
     bsr init_state
@@ -519,6 +519,13 @@ cave_talk:
     move.l OFF_BG_CUR(%a5), OFF_SCREEN_PTR(%a5)
     bsr draw_hud_tile
     move.l (%sp)+, OFF_SCREEN_PTR(%a5)
+    tst.b OFF_DBL_ACTIVE(%a5)
+    beq 21f
+    move.l OFF_SCREEN_PTR(%a5), -(%sp)  | in a dungeon room the other buffer needs the letter too
+    move.l OFF_BG_NEXT(%a5), OFF_SCREEN_PTR(%a5)
+    bsr draw_hud_tile
+    move.l (%sp)+, OFF_SCREEN_PTR(%a5)
+21:
     sfx SFX_HEART                       | the text blip
     addq.b #1, OFF_CAVE_TEXT_COL(%a5)
     move.b #CAVE_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
@@ -746,6 +753,7 @@ update_play:
     rts                      | cave entry already redrew the new background
 4:  rts
 3:
+    bsr uw_person_update
     bsr update_enemies
     bsr update_combat
     bsr update_projectiles
@@ -773,6 +781,16 @@ update_play:
     .include "music.s"
 
 | ---------------------------------------------------------------------------
+    | room_palette is the first read-only table and close enough for a PC-relative
+    | lea from here; the anchor in the middle of the tables is then a link-time constant
+    | away. This routine sits after all the other code (link.ld places .text.late
+    | right after .text) so that code size never pushes room_palette out of reach.
+    .section .text.late, "ax"
+init_anchor:
+    lea room_palette(%pc), %a6
+    adda.l #(table_anchor - room_palette), %a6
+    rts
+
     .section .rodata
     .align 2
 uw_tiles:
@@ -859,6 +877,14 @@ music_bank:
 
     .section .data
     .align 2
+    | The stack lives in .data rather than after .rodata because _start reaches
+    | it with a PC-relative lea, which the 68000 limits to a signed 16-bit
+    | displacement. It comes first in .data (and .data before the big tables), so
+    | it stays in range however large the code grows.
+stack_bottom:
+    .space STACK_BYTES
+stack_top:
+    .align 2
     | Lets the test harness locate the variable block in a RAM dump.
 globals_marker:
     .ascii "ZELDAST1"
@@ -875,10 +901,3 @@ music_old_vbl:
 ikbd_state:
     .space 258
 
-    | The stack lives in .data rather than after .rodata because _start reaches
-    | it with a PC-relative lea, which the 68000 limits to a signed 16-bit
-    | displacement. .data is emitted before the big tables, so it stays in range.
-    .align 2
-stack_bottom:
-    .space STACK_BYTES
-stack_top:

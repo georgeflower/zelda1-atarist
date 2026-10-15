@@ -14,9 +14,10 @@ An early but playable slice, not yet a complete game: the whole overworld and th
 - fight stalfos, keese, gels, ropes, goriyas, wallmasters, blade traps and Aquamentus with the sword and its beam, bombs, the boomerang and the candle, and pick up the drops
 - open the inventory screen and choose the B item
 - find the map and the compass and read the dungeon minimap on the ribbon and on the inventory screen
+- meet the old man in the first dungeon's room `$41` and read his hint
 - hear the music and sound effects, ripped from the ROM's own sound engine at build time: overworld, dungeon and Level 9 themes, the item and triforce fanfares, Link's death jingle, and effects for hits, bombs, kills, rupees, keys, hearts and opening shutters
 
-**Not there yet:** the dungeon people, the title, ending and game-over music, boss roars, the real overworld monsters, other caves and shops, and the other eight dungeons.
+**Not there yet:** the other dungeon people, the old man's fireballs, the title, ending and game-over music, boss roars, the real overworld monsters, other caves and shops, and the other eight dungeons.
 
 ## Controls
 

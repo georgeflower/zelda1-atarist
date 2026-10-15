@@ -85,11 +85,16 @@ spawn_room_enemies:
 
 | Underworld: place the monsters the room lists on the first safe spawn spots.
 uw_spawn:
+    clr.b OFF_UW_PERSON(%a5)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
     bsr uw_room_info_ptr
     tst.w %d1
     bmi 9b
+    cmpi.b #0xff, 14(%a1)
+    beq 0f
+    bsr uw_person_begin             | an old man waits here with something to say
+0:
     move.b 1(%a1), %d2
     move.b %d2, %d3
     and.b #7, %d2

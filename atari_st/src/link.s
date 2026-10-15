@@ -279,7 +279,16 @@ read_input_dir:
 | d1.b = direction. Returns d0.w = 0 when walkable, 1 when blocked.
 link_collide:
     movem.l %d1-%d5, -(%sp)
-    moveq #0, %d2
+    tst.b OFF_UW_PERSON(%a5)
+    beq 0f
+    btst #3, %d1                | DIR_UP: the old man is in the way
+    beq 0f
+    cmpi.b #0x8e, OFF_LINK_Y(%a5)
+    bhs 0f
+    moveq #1, %d0
+    movem.l (%sp)+, %d1-%d5
+    rts
+0:  moveq #0, %d2
     move.b OFF_LINK_Y(%a5), %d2
     add.w #HOTSPOT_Y_OFFSET, %d2
     moveq #0, %d3

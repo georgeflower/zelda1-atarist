@@ -177,6 +177,7 @@ uw_render_current:
     bsr uw_render_map
     lea OFF_UW_MAP(%a5), %a0
     bsr uw_open_false_walls
+    bsr uw_bake_person
     movem.l (%sp)+, %d1/%a0
     rts
 
@@ -200,6 +201,7 @@ uw_render_next:
     bsr uw_render_map
     lea OFF_UW_MAP_NEXT(%a5), %a0
     bsr uw_open_false_walls
+    bsr uw_bake_person
     movem.l (%sp)+, %d1-%d3/%a0
     rts
 
@@ -213,6 +215,60 @@ uw_commit_next:
     dbra %d0, 1b
     move.b OFF_UW_NEXT_MASK(%a5), OFF_UW_ENTER_MASK(%a5)
     movem.l (%sp)+, %d0/%a0-%a1
+    rts
+
+| ---------------------------------------------------------------- dungeon people
+| Some rooms hold an old man between two bonfires. Like the first cave's, he is part of
+| the room's picture, and his speech is typed out by cave_talk while Link stands still
+| (InitUnderworldPerson, UpdatePersonState_Textbox). Walking up to him is stopped at
+| Y $8E (CheckPersonBlocking), see link_collide. Hitting him, which makes the flames
+| shoot, is not ported.
+    .equ UW_PERSON_DELAY, 10        | frames before the first letter
+
+| The room's record (a1) names a speech: start it. Link is held until it is over.
+uw_person_begin:
+    move.b #1, OFF_UW_PERSON(%a5)
+    move.b #1, OFF_CAVE_TEXT_ON(%a5)
+    move.b 14(%a1), OFF_CAVE_TEXT_IDX(%a5)
+    move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
+    move.b #CAVE_TEXT_ROW0, OFF_CAVE_TEXT_ROW(%a5)
+    move.b #UW_PERSON_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
+    move.b #1, OFF_LINK_HELD(%a5)
+    rts
+
+| Once per frame: the letters, and Link's release when the last one is down.
+uw_person_update:
+    cmpi.b #1, OFF_UW_PERSON(%a5)
+    bne 9f
+    bsr cave_talk
+    tst.b OFF_CAVE_TEXT_ON(%a5)
+    bne 9f
+    move.b #2, OFF_UW_PERSON(%a5)
+    clr.b OFF_LINK_HELD(%a5)
+9:  rts
+
+| Paint the old man into the room just drawn. d0.w = room id, a1 = the buffer it went to.
+uw_bake_person:
+    movem.l %d0-%d4/%a0-%a2, -(%sp)
+    movea.l %a1, %a2
+    bsr uw_room_info_ptr
+    tst.w %d1
+    bmi 9f
+    cmpi.b #0xff, 14(%a1)
+    beq 9f
+    ltab cave_sprites, %a0              | picture 0 is the old man
+    moveq #0, %d1
+    move.w #CAVE_DOOR_CENTER, %d1
+    moveq #0, %d2
+    move.w #CAVE_PERSON_Y, %d2
+    bsr sprite_offset
+    tst.w %d4
+    bmi 9f
+    movea.l %a2, %a1
+    adda.l %d1, %a1
+    move.w %d4, %d0
+    bsr draw_sprite
+9:  movem.l (%sp)+, %d0-%d4/%a0-%a2
     rts
 
 | A door has opened: redraw the room behind Link.
@@ -399,6 +455,7 @@ uw_warp_to_start:
 | Link walked off the edge of the level: back out to the overworld entrance.
 uw_leave_level:
     movem.l %d0-%d2, -(%sp)
+    clr.b OFF_UW_PERSON(%a5)
     move.b #1, OFF_WARPED(%a5)
     clr.b OFF_LEVEL(%a5)
     move.b #LINK_EDGE_LEFT, OFF_BOUND_LEFT(%a5)

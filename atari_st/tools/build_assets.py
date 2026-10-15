@@ -685,6 +685,7 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
         cave_text = require_binary(source_root, PERSON_TEXT_NAME)[:PERSON_TEXT_BYTES]
         uw_tiles = load_uw_background_tiles(source_root)
         uw = underworld.build_level(source_root, 1, uw_tiles, palette_bytes, palette_map)
+        cave_text += uw.actors.person_text      # the level's old men speak from the same text
         return AssetBundle(
             source_note="ROM-derived overworld tiles, sprites, rooms and palette",
             uw=uw,

@@ -428,7 +428,25 @@ draw_effects:
     and.w #1, %d0
     add.w #FX_FIRE, %d0         | the flame turns round every four frames
     bsr fx_put
-55: moveq #0, %d7
+55: tst.b OFF_UW_PERSON(%a5)
+    beq 57f
+    tst.b OFF_LEVEL(%a5)
+    beq 57f
+    moveq #9, %d6               | the old man's two bonfires
+56: move.w OFF_FRAME_COUNTER(%a5), %d0
+    lsr.w #2, %d0
+    and.w #1, %d0
+    add.w #FX_FIRE, %d0
+    move.w #0xa8, %d1
+    cmp.w #10, %d6
+    beq 58f
+    move.w #0x48, %d1
+58: move.w #CAVE_PERSON_Y, %d2
+    bsr fx_put
+    addq.w #1, %d6
+    cmp.w #10, %d6
+    bls 56b
+57: moveq #0, %d7
     move.b OFF_CLOUD_TIMER(%a5), %d7
     beq 9f
     moveq #0, %d5               | the first part of the cloud, then the thinner one

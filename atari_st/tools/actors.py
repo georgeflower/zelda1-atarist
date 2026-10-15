@@ -7,6 +7,7 @@ item art (Anim_ItemFrameOffsets / Anim_ItemFrameTiles).
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -54,7 +55,14 @@ MONSTER_DRAW = {
 MONSTER_IMAGES = 4          # image slots per monster, each stored plain and flipped
 FRAME_BYTES = B.SPRITE_FRAME_BYTES
 NO_DROP_ROW = 0xFF
-ROOM_INFO_BYTES = 14
+ROOM_INFO_BYTES = 16
+NO_PERSON = 0xFF
+PERSON_LIST_FIRST = 0x4B      # Person1..Person8 in the monster lists
+PERSON_LIST_LAST = 0x52
+PERSON_MORE_BOMBS = 0x4F      # these two do more than talk: not ported yet
+PERSON_LIFE_OR_MONEY = 0x51
+# CurLevel -> which of the two selector tables (InitUnderworldPerson_Full_JumpTable); 9 has a third
+PERSON_SELECTOR_LABELS = {1: "A", 2: "A", 3: "B", 4: "B", 5: "A", 6: "B", 7: "A", 8: "B"}
 
 # 0x3F is not an item: it is Link with both arms up (tile $78, a mirrored pair, from
 # Anim_ItemFrameTiles) that DrawLinkLiftingItem shows while he holds the triforce piece.
@@ -91,8 +99,9 @@ class ActorData:
     fx_sprites: bytes         # two bomb clouds, then four spark corners in four palette rows each
     proj_sprites: bytes       # 4 boomerang turns, 2 fireball frames, then 4 pieces for each Aquamentus image
     hud_items: bytes          # sword, bomb, boomerang, candle, compass, map as two status bar tiles each, top then bottom
-    room_info: list[bytes]    # 16 bytes per stored room
+    room_info: list[bytes]    # ROOM_INFO_BYTES per stored room
     keese_index: int = 0      # monster index of the keese the cellars are full of
+    person_text: bytes = b""  # the speeches of the level's dungeon people, appended to the first cave's text
 
 
 def _pack_masked(rows: list[list[int]]) -> bytes:
@@ -291,6 +300,8 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         "palette": B.parse_asm_byte_table(asm1, "ItemSlotToPaletteOffsetsOrValues"),
     }
 
+    person_blob, person_offsets = dungeon_people(source_root, level, room_ids, attrs, B.PERSON_TEXT_BYTES)
+
     sp_tiles = _sprite_table(source_root, level)
     sprites = bytearray()
     table = bytearray()
@@ -352,7 +363,8 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         fx_sprites=_effect_frames(sp_tiles, bg_tiles, palette, _fire_rows(anim, heap, attr_heap, sp_tiles, palette)),
         proj_sprites=_projectile_sprites(code, sp_tiles, bg_tiles, palette),
         hud_items=_hud_items(code, sp_tiles, bg_tiles, palette),
-        room_info=[_room_info(r, attrs, foe_counts, info) for r in room_ids],
+        room_info=[_room_info(r, attrs, foe_counts, info, person_offsets.get(r, NO_PERSON)) for r in room_ids],
+        person_text=person_blob,
         keese_index=MONSTER_TYPES.index(0x1B),
     )
 
@@ -418,9 +430,45 @@ def _projectile_sprites(code, sp_tiles, bg_tiles, palette) -> bytes:
     return b"".join(frames) + b"".join(_boss_pieces(sp_tiles, palette))
 
 
-def _room_info(room: int, attrs, foe_counts, info) -> bytes:
+def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_bytes: int):
+    """The speeches of the old men (and women) a level's rooms hold.
+
+    Returns (blob, {room: offset}): the offsets count from the start of the cave text, which the blob
+    is appended to, so cave_talk can type them out as it does the first cave's. Selectors come from
+    UnderworldPersonTextSelectorsA/B and index PersonTextAddrs; the two people that do more than
+    talk are left out.
+    """
+    label = PERSON_SELECTOR_LABELS.get(level)
+    if label is None:
+        return b"", {}
+    asm = (source_root / "src" / "Z_01.asm").read_text(encoding="utf-8", errors="replace")
+    selectors = B.parse_asm_byte_table(asm, f"UnderworldPersonTextSelectors{label}")
+    texts = B.require_binary(source_root, B.PERSON_TEXT_NAME)
+    addrs_inc = (source_root / "src" / "dat" / "PersonTextAddrs.inc").read_text(encoding="utf-8", errors="replace")
+    starts = [int(m) for m in re.findall(r"PersonText\+(\d+)", addrs_inc)]
+    attr_c, attr_d = attrs[0], attrs[1]
+    blob = bytearray()
+    offsets: dict[int, int] = {}
+    placed: dict[int, int] = {}
+    for room in room_ids:
+        list_id = (attr_c[room] & 0x3F) | (0x40 if attr_d[room] & 0x80 else 0)
+        if not PERSON_LIST_FIRST <= list_id <= PERSON_LIST_LAST or list_id in (PERSON_MORE_BOMBS, PERSON_LIFE_OR_MONEY):
+            continue
+        selector = selectors[list_id - PERSON_LIST_FIRST]
+        if selector not in placed:
+            entry = selector // 2
+            end = starts[entry + 1] if entry + 1 < len(starts) else len(texts)
+            placed[selector] = first_text_bytes + len(blob)
+            blob.extend(texts[starts[entry] : end])
+        offsets[room] = placed[selector]
+    if first_text_bytes + len(blob) > 255:
+        raise SystemExit("The dungeon people's speeches no longer fit the one-byte text index")
+    return bytes(blob), offsets
+
+
+def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON) -> bytes:
     """count, secret trigger (bit 7: the room has a push block), item id, item X, item Y, unsupported,
-    then eight monsters."""
+    eight monsters, then where the person's speech starts in the cave text (0xFF: nobody talks here)."""
     attr_c, attr_d, attr_e, attr_f = attrs
     list_id = (attr_c[room] & 0x3F) | (0x40 if attr_d[room] & 0x80 else 0)
     count = foe_counts[attr_c[room] >> 6]
@@ -444,7 +492,8 @@ def _room_info(room: int, attrs, foe_counts, info) -> bytes:
     trigger = (attr_f[room] & 7) | (0x80 if attr_d[room] & 0x40 else 0)
     record = bytearray([len(monsters), trigger, item_id, pos & 0xF0, (pos & 0x0F) << 4, unsupported])
     record.extend(monsters)
-    record.extend([0xFF] * (ROOM_INFO_BYTES - len(record)))
+    record.extend([0xFF] * (ROOM_INFO_BYTES - 2 - len(record)))
+    record.extend([person, 0xFF])
     return bytes(record)
 
 
@@ -463,5 +512,5 @@ def build_placeholder() -> ActorData:
         fx_sprites=frame * 20,
         proj_sprites=frame * 27,
         hud_items=bytes(384),
-        room_info=[bytes([0, 0, 0xFF, 0, 0, 0] + [0xFF] * 8)],
+        room_info=[bytes([0, 0, 0xFF, 0, 0, 0] + [0xFF] * 10)],
     )
