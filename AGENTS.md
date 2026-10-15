@@ -145,9 +145,9 @@ Makefile variables: `TOOLCHAIN_PREFIX` (default `m68k-linux-gnu-`), `PYTHON`
 screenshot harness), `HATARI` (binary, default `hatari`), and the **dev-start
 variables** below.
 
-`make check` always prints a *"placeholder tiles ... will NOT resemble the original
-game artwork"* warning from the `--verify-only` step even when the real ROM is
-used (`build/generated/asset_manifest.txt` says `source=ROM-derived ...`). Ignore it.
+The *"placeholder tiles ... will NOT resemble the original game artwork"* warning is
+printed only when the assets are generated without a ROM (`build/generated/asset_manifest.txt`
+then says `source=generated placeholder CHR`). With the real ROM it should not appear.
 
 ### Dev start variables (BAKED INTO THE BUILD - important)
 
@@ -155,14 +155,14 @@ used (`build/generated/asset_manifest.txt` says `source=ROM-derived ...`). Ignor
   (Link at X `$78`, Y `$8D`).
 - `ZELDA_START_ROOM=0x37` starts in another overworld room.
 - They write `DEV_START_UW`/`START_ROOM_ID` into `build/generated/assets.inc`.
-  `make` only regenerates assets when an input changes, so after changing the env
-  var run `touch tools/build_assets.py` first. Any change to `actors.py`,
-  `underworld.py`, etc. regenerates assets too, using **whatever env is set then**.
-- **Always finish with a default build**: `unset ZELDA_START_UW ZELDA_START_ROOM;
-  touch tools/build_assets.py; make all` and confirm
-  `grep -E 'DEV_START_UW|START_ROOM_ID' build/generated/assets.inc` shows
-  `START_ROOM_ID, 0x77` and `DEV_START_UW, 255`. Otherwise the owner's PRG starts
-  in a dungeon.
+  The Makefile tracks both variables in `build/dev_start.stamp`, so changing them
+  (including unsetting them) regenerates the assets on the next `make`; no `touch`
+  is needed. Any change to `actors.py`, `underworld.py`, etc. regenerates assets
+  too, using **whatever env is set then**.
+- **Finish with a default build**: `unset ZELDA_START_UW ZELDA_START_ROOM; make all`.
+  To confirm, `grep -E 'DEV_START_UW|START_ROOM_ID' build/generated/assets.inc`
+  should show `START_ROOM_ID, 0x77` and `DEV_START_UW, 255`; otherwise the owner's
+  PRG starts in a dungeon.
 
 ## 5. Testing
 
