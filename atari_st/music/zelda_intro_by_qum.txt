@@ -1,0 +1,9 @@
+Packed YM2149 stream, 4174 frames @ 50 Hz, 11713 bytes, 1 digidrum(s), table 256 bytes.
+See the comment at the top of ymplay.h.
+
+Digidrums: call ymdrum_init(zelda_intro_by_qum_drums) once and ymdrum_exit() at the end, both in supervisor mode.
+They use MFP Timer D (vector $110, level 6); nothing else may use Timer D while the music plays.
+Call ymplay_step(); ymplay_write(); every 50 Hz tick from supervisor mode. ymplay_write() leaves the volume
+register of the voice that plays a drum alone; if you write the PSG yourself, do the same (see ymdrum_busy()).
+
+No timer effects in this song.

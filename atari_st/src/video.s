@@ -79,6 +79,31 @@ restore_video:
     rts
 
 wait_vbl:
+    movem.l %d1/%a1, -(%sp)
+    bsr wait_vbl_tick
+    tst.b OFF_PRESENT_PENDING(%a5)
+    beq 9f
+    clr.b OFF_PRESENT_PENDING(%a5)
+    | Between VBLs the video counter holds the base the shifter has latched.
+    | If it is not the one just written, the write came too late and the old
+    | buffer is still on show for this frame: skip a frame rather than draw
+    | into it.
+    moveq #0, %d1
+    movea.l #VIDEO_COUNTER_HI, %a1
+    move.b (%a1), %d1
+    lsl.l #8, %d1
+    movea.l #VIDEO_COUNTER_MID, %a1
+    move.b (%a1), %d1
+    lsl.l #8, %d1
+    movea.l #VIDEO_COUNTER_LOW, %a1
+    move.b (%a1), %d1
+    cmp.l OFF_PRESENT_BASE(%a5), %d1
+    beq 9f
+    bsr wait_vbl_tick
+9:  movem.l (%sp)+, %d1/%a1
+    rts
+
+wait_vbl_tick:
     movea.l #FR_CLOCK, %a0
     move.l (%a0), %d0
 1:  cmp.l (%a0), %d0

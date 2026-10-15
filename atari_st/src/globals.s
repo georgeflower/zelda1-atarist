@@ -37,6 +37,10 @@
     gvar ITEM_ID, 3
     gvar ITEM_ACTIVE, 3         | 0 none, 1 drop, 2 the room's item
     gvar ITEM_ERASE_VALID, 3
+    gvar ENEMY_SHOVE, 8         | direction an enemy is being knocked back in, 0 for none
+    gvar ENEMY_STATE, 8         | per-monster behaviour state
+    gvar ENEMY_TIMER, 8         | per-monster countdown
+    gvar ENEMY_STEP, 8          | wallmaster: where it is along its path
 
     galign
     gvar ENEMY_ERASE_OFFSETS, 32
@@ -88,6 +92,8 @@
     gvar SWORD_VALID, 1
     gvar SPACE_HELD, 1
     gvar LINK_HURT, 1           | frames of invincibility after a hit
+    gvar LINK_SHOVE, 1          | pixels of knock-back still to go
+    gvar LINK_SHOVE_DIR, 1
     gvar KILL_CYCLE, 1          | WorldKillCycle: picks the column of the drop table
     gvar ROOM_TRIGGER, 1
     gvar ROOM_UNSUPPORTED, 1    | living monsters this port cannot draw yet
@@ -147,5 +153,39 @@
     galign
     gvar UW_MAP, 704            | UW_ROOM_BYTES; the test harness parses plain numbers
     gvar UW_MAP_NEXT, 704
+
+    galign
+    gvar MUS_PTR, 4            | next byte of the music stream
+    gvar MUS_DATA, 4
+    gvar MUS_ENGINE, 4
+    gvar MUS_FRAME, 2
+    gvar MUS_REG, 14           | the PSG registers R0-R13 as last decoded
+    gvar MUS_TRIG, 1
+    gvar MUS_ON, 1             | 0 silences the PSG and pauses the song
+
+    galign
+    gvar PRESENT_BASE, 4       | buffer handed to the shifter at the end of the last play frame
+    gvar PRESENT_PENDING, 1    | wait_vbl still has to confirm the shifter took it
+
+    | Projectiles: one row of eight per field, in the order ai.s indexes them from PROJ_KIND.
+    galign
+    gvar PROJ_KIND, 8
+    gvar PROJ_X, 8
+    gvar PROJ_Y, 8
+    gvar PROJ_DIR, 8
+    gvar PROJ_QX, 8
+    gvar PROJ_QY, 8
+    gvar PROJ_FRACX, 8
+    gvar PROJ_FRACY, 8
+    gvar PROJ_TIMER, 8
+    gvar PROJ_OWNER, 8
+    gvar PROJ_ERASE_VALID, 8
+    gvar OLD_PROJ_ERASE_VALID, 8
+    gvar PROJ_ERASE_OFFSETS, 32
+    gvar OLD_PROJ_ERASE_OFFSETS, 32
+    gvar WALL_TIMER, 1         | frames before the next wallmaster may come out of a wall
+    gvar LINK_HELD, 1          | a wallmaster has him
+    gvar TRIFORCE, 1           | the level's triforce piece is his
+    gvar ENDING_TIMER, 1       | frames left of the triforce celebration
 
     .equ GLOBALS_BYTES, gvar_offset

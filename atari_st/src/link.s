@@ -8,7 +8,15 @@
 
 link_update:
     movem.l %d0-%d4, -(%sp)
-    tst.b OFF_ATTACK(%a5)
+    tst.b OFF_LINK_HELD(%a5)
+    bne 9f                      | a wallmaster is carrying him
+    tst.b OFF_LINK_SHOVE(%a5)
+    beq 0f
+    tst.b OFF_COMMIT(%a5)
+    bne 0f                      | finish the step he is on first
+    bsr link_shove
+    bra 9f
+0:  tst.b OFF_ATTACK(%a5)
     bne 9f                      | Link stands still during a sword swing
     bsr read_input_dir
     move.b %d0, %d4             | d4 = direction held, 0 for none
@@ -55,6 +63,8 @@ link_pixel:
     tst.b OFF_COMMIT(%a5)
     bne 6f                      | part-way through a step
 
+    tst.b OFF_LINK_SHOVE(%a5)
+    bne 5f                      | being knocked back: no new step
     tst.b %d4
     beq 5f                      | key let go on a boundary
     move.b %d4, %d1
@@ -97,6 +107,72 @@ link_pixel:
     bra 9f
 5:  moveq #1, %d2
 9:  movem.l (%sp)+, %d0-%d1/%d3
+    rts
+
+| Knock-back: four pixels a frame until the shove is spent, or Link meets a
+| wall or the edge of the room. Link never leaves the room this way.
+link_shove:
+    movem.l %d0-%d1/%d3, -(%sp)
+    moveq #3, %d3
+1:  tst.b OFF_LINK_SHOVE(%a5)
+    beq 9f
+    move.b OFF_LINK_SHOVE_DIR(%a5), %d1
+    bsr link_shove_pixel
+    tst.w %d0
+    bne 8f
+    subq.b #1, OFF_LINK_SHOVE(%a5)
+    dbra %d3, 1b
+    bra 9f
+8:  clr.b OFF_LINK_SHOVE(%a5)
+9:  movem.l (%sp)+, %d0-%d1/%d3
+    rts
+
+| d1.b = direction. Returns d0.w = 1 when Link cannot go that way.
+link_shove_pixel:
+    movem.l %d2-%d3, -(%sp)
+    moveq #0, %d2
+    move.b OFF_LINK_X(%a5), %d2
+    moveq #0, %d3
+    move.b OFF_LINK_Y(%a5), %d3
+    move.b %d1, %d0
+    and.b #DIR_VERTICAL, %d0
+    bne 5f
+    move.b %d2, %d0
+    and.b #7, %d0
+    bne 1f                      | the tile is only looked at on a grid boundary
+    bsr link_collide
+    tst.w %d0
+    bne 8f
+1:  btst #0, %d1
+    beq 2f
+    cmp.b OFF_OBJ_RIGHT(%a5), %d2
+    bhs 8f
+    addq.b #1, OFF_LINK_X(%a5)
+    bra 7f
+2:  cmp.b OFF_OBJ_LEFT(%a5), %d2
+    bls 8f
+    subq.b #1, OFF_LINK_X(%a5)
+    bra 7f
+5:  move.b %d3, %d0
+    addq.b #3, %d0
+    and.b #7, %d0
+    bne 6f
+    bsr link_collide
+    tst.w %d0
+    bne 8f
+6:  btst #2, %d1
+    beq 3f
+    cmp.b OFF_OBJ_DOWN(%a5), %d3
+    bhs 8f
+    addq.b #1, OFF_LINK_Y(%a5)
+    bra 7f
+3:  cmp.b OFF_OBJ_UP(%a5), %d3
+    bls 8f
+    subq.b #1, OFF_LINK_Y(%a5)
+7:  moveq #0, %d0
+    bra 9f
+8:  moveq #1, %d0
+9:  movem.l (%sp)+, %d2-%d3
     rts
 
 | Pixels from Link to the next grid boundary in direction d1.b (a whole 8
@@ -432,6 +508,7 @@ start_cave_entry:
     clr.b OFF_LINK_ANIM_FRAME(%a5)
     move.b #LINK_ANIM_PERIOD, OFF_LINK_ANIM_COUNTER(%a5)
     move.b #MODE_CAVE, OFF_GAME_MODE(%a5)
+    clr.b OFF_LINK_SHOVE(%a5)
     bsr enter_cave
     movem.l (%sp)+, %d0-%d2
     rts
@@ -619,6 +696,7 @@ start_scroll:
 7:  move.b %d2, OFF_NEXT_ROOM_ID(%a5)
     bsr dbl_end                 | the scroll composes straight onto the visible screen
     clr.b OFF_COMMIT(%a5)
+    clr.b OFF_LINK_SHOVE(%a5)
     move.b %d1, OFF_SCROLL_DIR(%a5)
     move.b OFF_LINK_X(%a5), OFF_SCROLL_FROM_X(%a5)
     move.b OFF_LINK_Y(%a5), OFF_SCROLL_FROM_Y(%a5)

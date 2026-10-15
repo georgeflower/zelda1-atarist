@@ -7,9 +7,9 @@ sixteen-colour mode, and reads all of its graphics, room layouts, palettes and
 text out of a ROM you supply yourself.
 
 Status: an early but playable vertical slice. You can walk the whole
-overworld, fetch the wooden sword from the first cave, enter Level 1 and fight
-through most of it. It is not yet a complete game: there is no sound, no
-inventory screen, only one dungeon, and no way to win.
+overworld, fetch the wooden sword from the first cave, and fight through
+Level 1 to Aquamentus and the triforce piece. It is not yet a complete game:
+there is no inventory screen, only one dungeon, and no way to win.
 
 How to play
 -----------
@@ -31,7 +31,8 @@ A typical run:
 3. In the dungeon, kill the monsters with the sword (and its beam while your
    hearts are full), pick up keys, open locked doors, bomb the bombable walls,
    and step on the staircase in room `$22` to reach the cellar with the bow.
-4. Leave the dungeon by walking off the bottom of its first room.
+4. Leave the dungeon by walking off the bottom of its first room, or fight
+   on: Aquamentus is in room `$35` and the triforce piece in room `$36`.
 
 Implemented
 -----------
@@ -46,6 +47,7 @@ Platform and rendering
   copy, so busy rooms neither flicker nor lose Link; scrolls and caves draw
   straight to the visible screen
 - keyboard input through the IKBD ACIA
+- the overworld plays a YM2149 song (digidrums included) from a VBL hook
 - status ribbon: hearts (with halves), rupee, key and bomb counters, in the
   original glyphs
 
@@ -72,12 +74,20 @@ Level 1 (underworld)
   layout routines (walls, doors, floor), with the original collision
 - doors: open doorways, locked doors (cost a key), bombable walls (open with a
   bomb), false walls (walk through), and shutters that stay shut until the
-  room's monsters are dead
+  room's monsters are dead. A door that has been opened stays open from both
+  sides
 - the staircase room (`$22`) and the cellar below it, rebuilt from the
   original cellar layout, with the bow on the floor and four keese
-- monsters spawned from the original room data: stalfos, keese, gels, ropes
-  and goriya, drawn from the original sprites with their own animation rules
-  and hit points; they wander on the grid and bite for their original damage
+- monsters spawned from the original room data: stalfos, keese, gels, ropes,
+  goriya, wallmasters and Aquamentus, drawn from the original art with their
+  own animation rules and hit points, and biting for their original damage
+- goriyas that line up with Link turn to face him and throw boomerangs that
+  fly out, hurt him, and come back; ropes charge once they are level with him;
+  wallmasters come out of the walls when Link stands against them and carry
+  him back to the level's first room; Aquamentus paces his end of room `$35`
+  and breathes three fanned fireballs. Killing him reveals the heart container
+- the triforce piece ends the level: full hearts, a flashing screen, and Link is
+  back at the entrance on the overworld
 - the room's items appear on the floor (a trigger-7 room's item appears when
   the monsters are dead) and stay collected
 
@@ -91,7 +101,9 @@ Combat and items
 - pickups with their effects: keys, hearts, heart containers, rupees, bombs
   and the wooden sword. Maps, compasses, the bow and similar items are
   collected but do nothing yet
-- Link is invincible and blinks for a short time after being hurt
+- Link is invincible and blinks for a short time after being hurt, and is
+  knocked back 32 pixels; monsters are knocked back when the sword hits them
+  and are invincible for a moment
 
 Tooling
 
@@ -106,31 +118,30 @@ Known gaps
 
 Things that behave differently from the original, or are stand-ins:
 
-- sword and bomb art is placeholder, there is no explosion cloud, no sword
-  beam spark, and the bonfires do not flicker
-- monsters wander randomly: no rope charge, goriya boomerangs, knock-back or
-  stun
-- wallmasters, the boss (Aquamentus) and traps are not spawned, so rooms with
-  them never count as cleared (their shutters still open once the monsters
-  that do spawn are dead). The boss room's heart container therefore never
-  appears, and picking up the triforce piece does nothing yet
+- sword, bomb, boomerang and fireball art is placeholder (Aquamentus himself is
+  original), there is no explosion cloud, no sword beam spark, and the
+  bonfires do not flicker
+- monsters wander randomly apart from the behaviours above; there is no
+  stun (the boomerang and the clock are not Link's yet) and no traps
 - push-block and other secret triggers are not implemented; the shutters of
   such rooms open when the monsters die instead
+- the triforce piece is not shown being held up, and the level's completion is
+  not yet recorded anywhere
 - `K` is a debug key standing in for the shops and secrets that give keys and
   bombs
 - the overworld's real monsters are not ported; only the placeholder blobs
 - the HUD does not show the sword or any other item
+- the song is for 50 Hz; at 60 Hz it plays about a fifth too fast
 
 Roadmap
 -------
 
 Near term (finish Level 1)
 
-1. the remaining Level 1 monsters and behaviours: wallmasters, traps,
-   Aquamentus, rope charging, goriya boomerangs, knock-back
+1. traps, and a stun from the boomerang
 2. push-block and other secret triggers
-3. the triforce piece, the ending of the level, and the heart container
-4. real sword, beam and bomb art and the bomb explosion
+3. the triforce piece held up, and the level's completion recorded
+4. real sword, beam, bomb, boomerang and fireball art and the bomb explosion
 5. map and compass use, and the dungeon map on the ribbon
 
 Then the rest of the overworld

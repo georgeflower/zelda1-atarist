@@ -1,0 +1,239 @@
+/* ymplay.h - packed YM2149 register stream replayer (generated with the MOD/XM -> YM tool)
+ *
+ *   #include "zelda_intro_by_qum.h"          // stream data from the tool
+ *   #include "ymplay.h"
+ *
+ *   ymplay_start(zelda_intro_by_qum_data, ZELDA_INTRO_BY_QUM_FRAMES, ZELDA_INTRO_BY_QUM_LOOP_FRAME, ZELDA_INTRO_BY_QUM_LOOP_OFFSET);
+ *   ...every 50 Hz tick (VBL):  ymplay_step();
+ *
+ *   Digidrums (4-bit samples played through a voice's volume register by MFP Timer D):
+ *   ymdrum_init(zelda_intro_by_qum_drums);      // once, supervisor mode: takes over Timer D (vector $110)
+ *   ...every 50 Hz tick, supervisor mode:  ymplay_step();  ymplay_write();
+ *   ymdrum_exit();                // when the music ends: restores Timer D
+ *   ymplay_write() writes the PSG for you, leaves the volume register of the voice that is playing a drum alone
+ *   and starts / stops drums.  If you write the PSG yourself, check ymplay_trig after ymplay_step() (see ymplay_write)
+ *   and never write R8+voice while ymdrum_busy() is non-zero.  Only one drum plays at a time; a new one cuts the old.
+ *   Timer D must not be used by anything else; the interrupt runs at IPL 6.
+ *   R13 (envelope shape) is 0xff in ymplay_reg when it must not be written (writing it restarts the envelope).
+ *   To let a sound effect steal a voice, override tone R0-R5, volume R8-R10 and the mixer bits in R7 before the write.
+ */
+#ifndef YMPLAY_H
+#define YMPLAY_H
+static const unsigned char *ymplay_data, *ymplay_p;
+static unsigned short ymplay_frames, ymplay_loop_frame, ymplay_frame;
+static unsigned long  ymplay_loop_off;
+static unsigned char  ymplay_reg[14];
+/* digidrum trigger of the frame just stepped: 0 = none, else ((voice + 1) << 6) | drum, drum 63 = stop */
+static unsigned char  ymplay_trig;
+#if defined(__GNUC__) && defined(__mc68000__)
+#define YMPLAY_IRQ_OFF(sr)     __asm__ volatile ("move.w %%sr,%0\n\tor.w #0x0600,%%sr" : "=d"(sr) : : "cc")
+#define YMPLAY_IRQ_RESTORE(sr) __asm__ volatile ("move.w %0,%%sr" : : "d"(sr) : "cc")
+#else
+#define YMPLAY_IRQ_OFF(sr)     ((sr) = 0)
+#define YMPLAY_IRQ_RESTORE(sr) ((void)(sr))
+#endif
+
+/* ---- digidrum / timer effect engine (68000 machine code, position independent; needs RAM, so not const) ---- */
+static unsigned short ymdrum_code[594] = {
+    0x6000,0x042e,0x6000,0x0440,0x6000,0x044a,0x6000,0x045c,
+    0x6000,0x0466,0x6000,0x0480,0x0000,0x0000,0x0000,0x0000,
+    0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0800,
+    0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0238,
+    0x00f8,0xfa1d,0x08b8,0x0004,0xfa15,0x08b8,0x0004,0xfa0d,
+    0x4e75,0x6100,0xffea,0x4a29,0x0009,0x670e,0x4229,0x0009,
+    0x11e9,0x0008,0x8800,0x4238,0x8802,0x4e75,0x48e7,0x80c0,
+    0x43fa,0xffb4,0x2348,0x0010,0x4a29,0x000a,0x6624,0x137c,
+    0x0001,0x000a,0x2378,0x0110,0x0014,0x1378,0xfa09,0x000b,
+    0x1378,0xfa15,0x000c,0x1378,0xfa1d,0x000d,0x1378,0xfa25,
+    0x000e,0x40e7,0x007c,0x0700,0x6100,0xff94,0x4229,0x0009,
+    0x41fa,0x0108,0x21c8,0x0110,0x46df,0x4cdf,0x0301,0x4e75,
+    0x6100,0x026a,0x48e7,0xc040,0x43fa,0xff5c,0x4a29,0x000a,
+    0x6756,0x40e7,0x007c,0x0700,0x6100,0xff78,0x21e9,0x0014,
+    0x0110,0x1029,0x000b,0x0200,0x0010,0x08b8,0x0004,0xfa09,
+    0x8138,0xfa09,0x1029,0x000c,0x0200,0x0010,0x08b8,0x0004,
+    0xfa15,0x8138,0xfa15,0x11e9,0x000e,0xfa25,0x1029,0x000d,
+    0x0200,0x0007,0x1238,0xfa1d,0x0201,0x00f8,0x8200,0x11c1,
+    0xfa1d,0x4229,0x000a,0x46df,0x4cdf,0x0203,0x4e75,0x48e7,
+    0x0040,0x43fa,0xfef2,0x40e7,0x007c,0x0700,0x6100,0xff14,
+    0x46df,0x4cdf,0x0200,0x4e75,0x48e7,0xf0c0,0x43fa,0xfed8,
+    0x4a29,0x000a,0x675e,0x2429,0x0010,0x6758,0x40e7,0x007c,
+    0x0700,0x6100,0xfeee,0x2042,0xb250,0x6446,0xe749,0x41f0,
+    0x1002,0x2610,0xd682,0x2283,0x7200,0x3228,0x0004,0xd681,
+    0x2343,0x0004,0x5000,0x1340,0x0008,0x137c,0x0001,0x0009,
+    0x11e8,0x0007,0xfa25,0x1238,0xfa1d,0x0201,0x00f8,0x8228,
+    0x0006,0x11c1,0xfa1d,0x08f8,0x0004,0xfa09,0x08f8,0x0004,
+    0xfa15,0x46df,0x4cdf,0x030f,0x4e75,0x48e7,0x80c0,0x41fa,
+    0xfe66,0x2250,0xb3e8,0x0004,0x6412,0x7000,0x1019,0x2089,
+    0x11e8,0x0008,0x8800,0x11c0,0x8802,0x601a,0x11e8,0x0008,
+    0x8800,0x4238,0x8802,0x4228,0x0009,0x0238,0x00f8,0xfa1d,
+    0x08b8,0x0004,0xfa15,0x08b8,0x0004,0xfa11,0x4cdf,0x0301,
+    0x4e73,0x00ff,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
+    0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
+    0x0000,0x0003,0x0608,0x0b0c,0x0e0f,0x0f0f,0x0e0c,0x0b08,
+    0x0603,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
+    0x0000,0x48e7,0x0080,0x41fa,0xffba,0x4210,0x117c,0x00ff,
+    0x0001,0x4228,0x0002,0x4228,0x0004,0x4cdf,0x0100,0x4e75,
+    0x0238,0x00f0,0xfa19,0x08b8,0x0005,0xfa13,0x08b8,0x0005,
+    0xfa0b,0x7800,0x1828,0x0001,0x0c04,0x00ff,0x670a,0x11c4,
+    0x8800,0x11f0,0x4010,0x8802,0x117c,0x00ff,0x0001,0x4210,
+    0x4e75,0x48e7,0x0880,0x41fa,0xff6a,0x40e7,0x007c,0x0700,
+    0x6100,0xffbe,0x46df,0x4cdf,0x0110,0x4e75,0x48e7,0xf8c0,
+    0x41fa,0xff50,0x40e7,0x007c,0x0700,0x4a28,0x0004,0x6624,
+    0x117c,0x0001,0x0004,0x2178,0x0134,0x000c,0x1178,0xfa07,
+    0x0005,0x1178,0xfa13,0x0006,0x1178,0xfa19,0x0007,0x1178,
+    0xfa1f,0x0008,0x43fa,0x00b0,0x21c9,0x0134,0x6100,0xff72,
+    0x1081,0x4228,0x0002,0x4228,0x0003,0x0c01,0x0003,0x6706,
+    0x5000,0x1140,0x0001,0x11c3,0xfa1f,0x1838,0xfa19,0x0204,
+    0x00f0,0x8802,0x11c4,0xfa19,0x08f8,0x0005,0xfa07,0x08f8,
+    0x0005,0xfa13,0x46df,0x4cdf,0x031f,0x4e75,0x48e7,0xc880,
+    0x41fa,0xfed0,0x4a28,0x0004,0x6756,0x40e7,0x007c,0x0700,
+    0x6100,0xff1e,0x21e8,0x000c,0x0134,0x1028,0x0005,0x0200,
+    0x0020,0x08b8,0x0005,0xfa07,0x8138,0xfa07,0x1028,0x0006,
+    0x0200,0x0020,0x08b8,0x0005,0xfa13,0x8138,0xfa13,0x11e8,
+    0x0008,0xfa1f,0x1028,0x0007,0x0200,0x000f,0x1238,0xfa19,
+    0x0201,0x00f0,0x8200,0x11c1,0xfa19,0x4228,0x0004,0x46df,
+    0x4cdf,0x0113,0x4e75,0x48e7,0xe0c0,0x41fa,0xfe66,0x1210,
+    0x0c01,0x0003,0x676c,0x7000,0x1028,0x0001,0x0c00,0x00ff,
+    0x6772,0x7200,0x1230,0x0010,0x0801,0x0004,0x6704,0x720f,
+    0x6004,0x0241,0x000f,0x0c10,0x0002,0x670c,0x0a28,0x0001,
+    0x0002,0x6634,0x7200,0x6030,0x7400,0x1428,0x0003,0x5202,
+    0x0202,0x003f,0x1142,0x0003,0x0c02,0x0020,0x6418,0x43fa,
+    0xfe32,0x1431,0x2000,0xc4c1,0xc4fc,0x0011,0x0642,0x0080,
+    0xe04a,0x3202,0x6002,0x7200,0x11c0,0x8800,0x11c1,0x8802,
+    0x6012,0x11fc,0x000d,0x8800,0x1228,0x001d,0x0201,0x000f,
+    0x11c1,0x8802,0x08b8,0x0005,0xfa0f,0x4cdf,0x0307,0x4e73,
+    0x48e7,0xfffe,0x6100,0xfe0c,0x207a,0xfbde,0x6100,0xfc2e,
+    0x4cdf,0x7fff,0x4e75,0x48e7,0xfffe,0x6100,0xfc74,0x4cdf,
+    0x7fff,0x4e75,0x48e7,0xfffe,0x303a,0xfbc2,0x323a,0xfbc0,
+    0x6100,0xfce6,0x4cdf,0x7fff,0x4e75,0x48e7,0xfffe,0x6100,
+    0xfcbe,0x4cdf,0x7fff,0x4e75,0x48e7,0xfffe,0x303a,0xfb9e,
+    0x323a,0xfb9e,0x343a,0xfb9c,0x363a,0xfb9a,0x6100,0xfe1e,
+    0x4cdf,0x7fff,0x4e75,0x48e7,0xfffe,0x6100,0xfdf6,0x4cdf,
+    0x7fff,0x4e75,
+};
+#define YMDRUM_INIT  0
+#define YMDRUM_EXIT  4
+#define YMDRUM_START 8
+#define YMDRUM_STOP  12
+#define YMDRUM_TAB   24
+#define YMDRUM_VOICE 28
+#define YMDRUM_IDX   30
+#define YMDRUM_SEL   46
+#define YMDRUM_ACT   47
+#define YMFX_START   16
+#define YMFX_STOP    20
+#define YMFX_KIND    32
+#define YMFX_CODE    34
+#define YMFX_COUNT   36
+#define YMFX_SEL     515
+#define YMFX_SHADOW  530
+#ifndef YMDRUM_CALL
+#define YMDRUM_CALL(off) (((void (*)(void))((char *)ymdrum_code + (off)))())
+#endif
+#define YMDRUM_W(off) (*(volatile unsigned short *)((char *)ymdrum_code + (off)))
+#define YMDRUM_B(off) (*(volatile unsigned char *)((char *)ymdrum_code + (off)))
+
+static void ymdrum_init(const unsigned short *table)
+{
+    YMDRUM_W(YMDRUM_TAB)     = (unsigned short)((unsigned long)table >> 16);
+    YMDRUM_W(YMDRUM_TAB + 2) = (unsigned short)((unsigned long)table);
+    YMDRUM_CALL(YMDRUM_INIT);
+}
+static void ymdrum_exit(void) { YMDRUM_CALL(YMDRUM_EXIT); }
+static void ymdrum_start(int voice, int idx)
+{
+    YMDRUM_W(YMDRUM_VOICE) = (unsigned short)voice;
+    YMDRUM_W(YMDRUM_IDX)   = (unsigned short)idx;
+    YMDRUM_CALL(YMDRUM_START);
+}
+static void ymdrum_stop(void) { YMDRUM_CALL(YMDRUM_STOP); }
+/* non-zero while a drum is playing */
+static int ymdrum_busy(void) { return YMDRUM_B(YMDRUM_ACT); }
+/* the voice (0..2) that the running drum owns; only meaningful while ymdrum_busy() */
+static int ymdrum_voice(void) { return YMDRUM_B(YMDRUM_SEL) - 8; }
+static void ymfx_start(int voice, int kind, int code, int count)
+{
+    YMDRUM_W(YMDRUM_VOICE) = (unsigned short)voice;
+    YMDRUM_W(YMFX_KIND)    = (unsigned short)kind;
+    YMDRUM_W(YMFX_CODE)    = (unsigned short)code;
+    YMDRUM_W(YMFX_COUNT)   = (unsigned short)count;
+    YMDRUM_CALL(YMFX_START);
+}
+static void ymfx_stop(void) { YMDRUM_CALL(YMFX_STOP); }
+/* the voice (0..2) whose volume (SID / sinus-SID) an effect drives, -1 when none (sync-buzzer drives the envelope) */
+static int ymfx_voice(void) { int s = YMDRUM_B(YMFX_SEL); return s == 0xff ? -1 : s - 8; }
+
+static void ymplay_start(const unsigned char *data, unsigned short frames,
+                         unsigned short loop_frame, unsigned long loop_off)
+{
+    int k;
+    ymplay_data = ymplay_p = data;
+    ymplay_frames = frames; ymplay_loop_frame = loop_frame; ymplay_loop_off = loop_off;
+    ymplay_frame = 0; ymplay_trig = 0;
+    for (k = 0; k < 14; k++) ymplay_reg[k] = 0;
+    ymplay_reg[7] = 0xff; ymplay_reg[13] = 0xff;
+}
+
+static void ymplay_step(void)               /* advance one 50 Hz frame */
+{
+    unsigned char a = *ymplay_p++;
+    unsigned short mask = a & 0x7f;
+    int k;
+    ymplay_trig = 0;
+    ymplay_reg[13] = 0xff;
+    if (a & 0x80) {
+        unsigned char b = *ymplay_p++;
+        mask |= (unsigned short)(b & 0x7f) << 7;
+        if (b & 0x80) ymplay_trig = *ymplay_p++;
+    }
+    for (k = 0; k < 14; k++, mask >>= 1)
+        if (mask & 1) ymplay_reg[k] = *ymplay_p++;
+    if (++ymplay_frame >= ymplay_frames) {   /* the loop point starts with a full register refresh */
+        ymplay_frame = ymplay_loop_frame;
+        ymplay_p = ymplay_data + ymplay_loop_off;
+    }
+}
+
+/* Sync-square: bit 5 of a volume register (R8-R10) in ymplay_reg asks to restart that voice's square wave.  The tone counter
+   only toggles when it reaches the period, so a very short period held for >= 8 PSG clocks (32 CPU cycles) forces an edge;
+   the real period then goes back, high byte first.  STFM only (the STE clocks CPU and PSG apart and can miss the edge).
+   `periods` holds R0-R5 of this frame. */
+static void ymplay_sync(int v, const unsigned char *periods)
+{
+    volatile unsigned char *sel = (volatile unsigned char *)0xffff8800L;
+    volatile unsigned char *wr  = (volatile unsigned char *)0xffff8802L;
+    *sel = (unsigned char)(2 * v);     *wr = 0;
+    *sel = (unsigned char)(2 * v + 1); *wr = 0;
+#if defined(__GNUC__) && defined(__mc68000__)
+    __asm__ volatile ("nop\n\tnop\n\tnop\n\tnop\n\tnop\n\tnop\n\tnop\n\tnop");
+#endif
+    *sel = (unsigned char)(2 * v + 1); *wr = periods[2 * v + 1];
+    *sel = (unsigned char)(2 * v);     *wr = periods[2 * v];
+}
+
+/* Write the registers to the PSG (supervisor mode).  Drum / effect events are handled here: stops first, then the
+   register writes (not the volume of a voice that a drum or an effect owns; IPL 6 so the timer interrupts cannot
+   interleave), then new drums / effects start.  The shadow copy is what the effect interrupts read. */
+static void ymplay_write(void)
+{
+    volatile unsigned char *sel = (volatile unsigned char *)0xffff8800L;
+    volatile unsigned char *wr  = (volatile unsigned char *)0xffff8802L;
+    volatile unsigned char *sh  = &YMDRUM_B(YMFX_SHADOW);
+    unsigned short sr = 0;
+    int k, skip = -1, fskip;
+    if (ymplay_trig && (ymplay_trig & 63) == 63) ymdrum_stop();
+    YMPLAY_IRQ_OFF(sr);
+    if (ymdrum_busy()) skip = ymdrum_voice() + 8;
+    fskip = -1;
+    for (k = 0; k < 14; k++) {
+        unsigned char val = ymplay_reg[k];
+        if (k == 13 && val == 0xff) continue;
+        if (k >= 8 && k <= 10 && (val & 0x20)) { ymplay_sync(k - 8, ymplay_reg); val &= 0x1f; }
+        sh[k] = val;
+        if (k == skip || k == fskip) continue;
+        *sel = (unsigned char)k; *wr = val;
+    }
+    YMPLAY_IRQ_RESTORE(sr);
+    if (ymplay_trig && (ymplay_trig & 63) != 63) ymdrum_start((ymplay_trig >> 6) - 1, ymplay_trig & 63);
+}
+#endif

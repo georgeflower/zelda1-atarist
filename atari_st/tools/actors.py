@@ -13,15 +13,21 @@ from pathlib import Path
 import build_assets as B
 
 # Monsters this port draws and moves so far (Level 1's repertoire). Others in a
-# room (the boss, wallmasters, traps) are left out for now.
-MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A)
+# room (traps, and the monsters of later levels) are left out for now.
+MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D)
 # Frames between one-pixel steps: the 6502's quarter-speed $20 is half a pixel
-# a frame; keese and ropes are quicker, gels slower.
-MONSTER_PERIOD = {0x06: 2, 0x15: 3, 0x1B: 1, 0x28: 1, 0x2A: 2}
-# Half-hearts of damage on contact.
-MONSTER_DAMAGE = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1}
+# a frame; keese are quicker, gels and wallmasters slower. Aquamentus moves a
+# pixel every eighth frame.
+MONSTER_PERIOD = {0x06: 2, 0x15: 3, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8}
+# Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
+MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2}
 # Keese ignore walls and blocks and are only held in by the room edges.
 MONSTER_FLYERS = (0x1B,)
+
+# What the game does with a monster every frame, besides drawing it.
+BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS = range(5)
+MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA,
+                      0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS}
 
 # How each monster is drawn: (sprite layout, images, mode). The layout says how
 # the two 8x16 halves of an image are put together; the mode tells the game
@@ -32,12 +38,16 @@ MODE_STALFOS = 1    # one image whose flip alternates
 MODE_ROPE = 2       # walk frame, flipped to face left
 MODE_GEL = 3        # two narrow images, swapped every two frames
 MODE_KEESE = 4      # two mirrored images, wings beating
+MODE_WALLMASTER = 5  # open and closed hand, swapped every eight frames
+MODE_BOSS = 6       # drawn from the boss pieces instead
 MONSTER_DRAW = {
     0x06: ("wide", 4, MODE_WALKER),
     0x15: ("narrow", 2, MODE_GEL),
     0x1B: ("mirror", 2, MODE_KEESE),
     0x28: ("wide", 2, MODE_ROPE),
     0x2A: ("wide", 1, MODE_STALFOS),
+    0x27: ("wide", 2, MODE_WALLMASTER),
+    0x3D: ("wide", 1, MODE_BOSS),
 }
 MONSTER_IMAGES = 4          # image slots per monster, each stored plain and flipped
 FRAME_BYTES = B.SPRITE_FRAME_BYTES
@@ -59,13 +69,14 @@ UW_SP_BOSS_FIRST = 0xC0
 @dataclass(frozen=True)
 class ActorData:
     mon_sprites: bytes        # monster, frame, flip -> one masked 16x16 frame
-    mon_table: bytes          # 8 bytes per monster: type, hp, period, damage, drop row, flies, draw mode
+    mon_table: bytes          # 8 bytes per monster: type, hp, period, damage, drop row, flies, draw mode, behaviour
     mon_index: bytes          # NES object type -> monster index, 0xFF for none
     item_sprites: bytes       # one masked 16x16 frame per item
     item_index: bytes         # item id (0..63) -> item index, 0xFF for none
     drop_table: bytes
     drop_rates: bytes
     sword_sprites: bytes      # up, down, left, right
+    proj_sprites: bytes       # 4 boomerang turns, 2 fireball frames, then 4 pieces for each Aquamentus image
     room_info: list[bytes]    # 16 bytes per stored room
     keese_index: int = 0      # monster index of the keese the cellars are full of
 
@@ -196,7 +207,15 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             frame = min(image, image_count - 1)
             tile = heap[base + frame]
             row = B.LINK_PALETTE_ROW + (attr_heap[base + frame] & 3)
-            images.append(_monster_image(sp_tiles, palette, row, tile, layout))
+            if mode == MODE_BOSS:
+                images.append(_blank(16))
+            elif mode == MODE_WALLMASTER and frame == 1:
+                # The closed hand reuses Keese art on the left; the game patches it to the open hand's.
+                left = _tile_rows(sp_tiles, palette, row, heap[base])
+                right = _tile_rows(sp_tiles, palette, row, tile + 2)
+                images.append(_join(left, right))
+            else:
+                images.append(_monster_image(sp_tiles, palette, row, tile, layout))
         for rows in images:
             sprites.extend(_pack_masked(rows))
             sprites.extend(_pack_masked([r[::-1] for r in rows]))
@@ -210,7 +229,8 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
                     drop_row = row_number
                     break
         table.extend((nes_type, hp, MONSTER_PERIOD[nes_type], MONSTER_DAMAGE[nes_type],
-                      drop_row, 1 if nes_type in MONSTER_FLYERS else 0, mode, 0))
+                      drop_row, 1 if nes_type in MONSTER_FLYERS else 0, mode,
+                      MONSTER_BEHAVIOUR.get(nes_type, BEHAVIOUR_WANDER)))
 
     item_index = bytearray([0xFF]) * 64
     items = bytearray()
@@ -228,9 +248,82 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         drop_table=bytes(drop_table),
         drop_rates=bytes(drop_rates),
         sword_sprites=_sword_frames(palette),
+        proj_sprites=_projectile_sprites(sp_tiles, palette),
         room_info=[_room_info(r, attrs, foe_counts, info) for r in room_ids],
         keese_index=MONSTER_TYPES.index(0x1B),
     )
+
+
+# Aquamentus is three 8x16 sprites wide and two high; the 16x16 blitter takes it in four pieces.
+AQUAMENTUS_TILES = ((0xCC, 0xC4, 0xC8, 0xC2, 0xC6, 0xCA), (0xCC, 0xC4, 0xC8, 0xCE, 0xD0, 0xD2))
+AQUAMENTUS_OPEN_MOUTH = 0xC0
+AQUAMENTUS_OFFSETS = ((0, 0), (8, 0), (16, 0), (0, 16), (8, 16), (16, 16))
+# AquamentusPaletteRow7TransferBuf: the boss swaps in its own three greens.
+AQUAMENTUS_COLORS = (0x0A, 0x29, 0x30)
+
+
+class _FixedPalette:
+    """Maps the three CHR pixel values straight to chosen ST colours, whatever the row."""
+
+    def __init__(self, indices):
+        self.indices = indices
+
+    def index(self, row: int, pixel: int) -> int:
+        return self.indices[pixel - 1]
+
+
+def _nearest_st_color(palette, nes_color: int) -> int:
+    """The entry of the shared ST palette closest to a NES colour."""
+    target = B.nes_color_to_st(nes_color)
+
+    def distance(entry: int) -> int:
+        return sum(abs(((entry >> shift) & 7) - ((target >> shift) & 7)) for shift in (8, 4, 0))
+
+    return min(range(len(palette.st_colors)), key=lambda i: distance(palette.st_colors[i]))
+
+
+def _boss_pieces(sp_tiles, palette) -> list[bytes]:
+    """Per image (animation frame, mouth shut or open): top-left, top-right, bottom-left, bottom-right."""
+    row = B.LINK_PALETTE_ROW + 3
+    greens = _FixedPalette([_nearest_st_color(palette, c) for c in AQUAMENTUS_COLORS])
+    frames = []
+    for tiles in AQUAMENTUS_TILES:
+        for mouth_open in (False, True):
+            canvas = _blank(32) + _blank(32)
+            for slot, (x, y) in enumerate(AQUAMENTUS_OFFSETS):
+                tile = AQUAMENTUS_OPEN_MOUTH if (slot == 0 and mouth_open) else tiles[slot]
+                for dy, pixels in enumerate(_tile_rows(sp_tiles, greens, row, tile)):
+                    canvas[y + dy][x : x + 8] = pixels
+            for top, left in ((0, 0), (0, 16), (16, 0), (16, 16)):
+                frames.append(_pack_masked([canvas[top + r][left : left + 16] for r in range(16)]))
+    return frames
+
+
+def _projectile_sprites(sp_tiles, palette) -> bytes:
+    """Four boomerang turns, two fireball frames, then the Aquamentus pieces. Placeholder shots."""
+    boom = palette.index(B.LINK_PALETTE_ROW + 1, 3)
+    boom_dark = palette.index(B.LINK_PALETTE_ROW + 1, 2)
+    fire = palette.index(B.LINK_PALETTE_ROW + 2, 3)
+    fire_dark = palette.index(B.LINK_PALETTE_ROW + 2, 2)
+    frames = []
+    for turn in range(4):
+        rows = _blank(16)
+        edges = (("top", "left"), ("top", "right"), ("bottom", "right"), ("bottom", "left"))[turn]
+        for k in range(8):
+            for t in range(2):
+                for edge in edges:
+                    y, x = {"top": (t, k), "bottom": (7 - t, k), "left": (k, t), "right": (k, 7 - t)}[edge]
+                    rows[4 + y][4 + x] = boom if t == 0 else boom_dark
+        frames.append(_pack_masked(rows))
+    for phase in range(2):
+        rows = _blank(16)
+        for y in range(8):
+            for x in range(8):
+                distance = (2 * x - 7) ** 2 + (2 * y - 7) ** 2
+                if distance <= 36:
+                    rows[4 + y][4 + x] = fire if (distance <= 16) == (phase == 0) else fire_dark
+        frames.append(_pack_masked(rows))
+    return b"".join(frames) + b"".join(_boss_pieces(sp_tiles, palette))
 
 
 def _room_info(room: int, attrs, foe_counts, info) -> bytes:
@@ -269,5 +362,6 @@ def build_placeholder() -> ActorData:
         drop_table=bytes(40),
         drop_rates=bytes(4),
         sword_sprites=frame * 4,
+        proj_sprites=frame * 22,
         room_info=[bytes([0, 0, 0xFF, 0, 0, 0] + [0xFF] * 8)],
     )

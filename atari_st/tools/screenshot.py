@@ -315,10 +315,13 @@ def main() -> None:
     report = {
         name: ram[globals_addr + layout[name]]
         for name in ("ROOM_ID", "LINK_X", "LINK_Y", "LINK_DIR", "GAME_MODE", "LEVEL", "HOTSPOT_TILE", "COMMIT", "EXIT_GUARD",
-                     "HP_HALVES", "ENEMY_COUNT", "ENEMY_X", "ENEMY_Y", "ENEMY_DIR", "ENEMY_TYPE", "ENEMY_HP", "ENEMY_ACTIVE", "ITEM_ACTIVE", "ITEM_ID", "ITEM_X", "ITEM_Y", "IN_CELLAR", "HAS_SWORD", "BEAM_ACTIVE", "BEAM_X", "BEAM_Y", "INV_KEYS", "INV_RUPEES", "ATTACK", "LINK_HURT")
+                     "HP_HALVES", "ENEMY_COUNT", "ENEMY_X", "ENEMY_Y", "ENEMY_DIR", "ENEMY_TYPE", "ENEMY_HP", "ENEMY_ACTIVE", "ITEM_ACTIVE", "ITEM_ID", "ITEM_X", "ITEM_Y", "IN_CELLAR", "HAS_SWORD", "BEAM_ACTIVE", "BEAM_X", "BEAM_Y", "INV_KEYS", "INV_RUPEES", "ATTACK", "LINK_HURT", "PROJ_KIND", "PROJ_X", "PROJ_Y", "LINK_HELD", "TRIFORCE", "ENEMY_STATE", "ENEMY_TIMER")
     }
     print(f"video base {base:#08x}, wrote {args.out}")
     print(" ".join(f"{k}={v:#04x}" for k, v in report.items()))
+    # Opened door masks of the rooms either side of the first locked door of Level 1.
+    print(f"UW_OPEN[0x73]={ram[globals_addr + layout['UW_OPEN'] + 0x73]:#04x} "
+          f"UW_OPEN[0x63]={ram[globals_addr + layout['UW_OPEN'] + 0x63]:#04x}")
     # A loop that keeps pace with the VBL advances this once per frame.
     frames = int.from_bytes(ram[globals_addr + layout["FRAME_COUNTER"] :][:2], "big")
     print(f"FRAME_COUNTER={frames} after {args.vbls} VBLs")

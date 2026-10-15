@@ -159,6 +159,7 @@ uw_spawn:
     moveq #1, %d2
     lsl.b %d0, %d2
     move.b %d2, OFF_ENEMY_DIR(%a5, %d5.w)
+    bsr enemy_init_special
     addq.w #1, %d5
     bra 1b
 8:  move.b %d5, OFF_ENEMY_COUNT(%a5)
@@ -211,6 +212,15 @@ clear_enemies:
     moveq #(MAX_ENEMIES - 1), %d0
 3:  clr.b (%a0)+
     dbra %d0, 3b
+    lea OFF_ENEMY_SHOVE(%a5), %a0
+    moveq #(MAX_ENEMIES * 3 - 1), %d0
+4:  clr.b (%a0)+
+    dbra %d0, 4b
+    lea OFF_PROJ_KIND(%a5), %a0
+    moveq #(MAX_PROJ - 1), %d0
+5:  clr.b (%a0)+
+    dbra %d0, 5b
+    clr.b OFF_WALL_TIMER(%a5)
     movem.l (%sp)+, %d0/%a0
     rts
 
@@ -241,9 +251,11 @@ update_enemies:
     tst.b OFF_ENEMY_HURT(%a5, %d5.w)
     beq 2f
     subq.b #1, OFF_ENEMY_HURT(%a5, %d5.w)
+    bsr enemy_shove
     bra 8f
 
 2:  moveq #4, %d4               | frames between pixel steps
+    moveq #0, %d7               | behaviour
     moveq #0, %d0
     move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
     cmpi.b #0xff, %d0
@@ -252,6 +264,27 @@ update_enemies:
     lsl.w #3, %d0
     moveq #0, %d4
     move.b 2(%a0, %d0.w), %d4
+    move.b 7(%a0, %d0.w), %d7
+    cmp.w #BEH_WALLMASTER, %d7
+    bne 21f
+    bsr wallmaster_ai
+    bra 8f
+21: cmp.w #BEH_BOSS, %d7
+    bne 22f
+    bsr boss_ai
+    bra 8f
+22: cmp.w #BEH_ROPE, %d7
+    bne 23f
+    bsr rope_ai
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    beq 3f
+    moveq #1, %d4               | charging: a pixel every frame, and more
+    bra 3f
+23: cmp.w #BEH_GORIYA, %d7
+    bne 3f
+    bsr goriya_ai
+    tst.w %d0
+    bne 8f                      | waiting for its boomerang
 3:  moveq #0, %d1
     move.w OFF_FRAME_COUNTER(%a5), %d1
     add.w %d5, %d1
@@ -260,14 +293,24 @@ update_enemies:
     tst.w %d1
     bne 8f
 
-    moveq #0, %d2
+    moveq #1, %d7               | pixels to move this frame
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    beq 31f
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    add.w %d5, %d0
+    btst #0, %d0
+    beq 31f
+    moveq #2, %d7               | a charging rope makes one and a half pixels a frame
+31: moveq #0, %d2
     move.b OFF_ENEMY_X(%a5, %d5.w), %d2
     moveq #0, %d3
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
     moveq #0, %d6
     move.b OFF_ENEMY_DIR(%a5, %d5.w), %d6
 
-    | Now and then turn, but only on a grid boundary.
+    | Now and then turn, but only on a grid boundary, and not while charging.
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 4f
     move.b %d2, %d0
     and.b #7, %d0
     bne 4f
@@ -299,13 +342,63 @@ update_enemies:
     beq 10f
     bsr random_dir              | blocked: try another way next time
     move.b %d6, OFF_ENEMY_DIR(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)       | and a charging rope stops
+    move.b #24, OFF_ENEMY_STEP(%a5, %d5.w)  | a goriya looks elsewhere for a while
     bra 8f
 10: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
     move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
     move.b %d6, OFF_ENEMY_DIR(%a5, %d5.w)
+    subq.w #1, %d7
+    bgt 4b
 8:  addq.w #1, %d5
     bra 1b
 9:  movem.l (%sp)+, %d0-%d7/%a0-%a1
+    rts
+
+| Knock-back for enemy d5 while it is hurt: four pixels a frame, stopping at a
+| wall. When the shove is over it settles back onto the grid.
+enemy_shove:
+    movem.l %d0-%d4/%d6, -(%sp)
+    moveq #0, %d6
+    move.b OFF_ENEMY_SHOVE(%a5, %d5.w), %d6
+    beq 9f
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    moveq #3, %d4
+1:  movem.w %d2-%d3, -(%sp)
+    btst #0, %d6
+    beq 11f
+    addq.w #1, %d2
+    bra 15f
+11: btst #1, %d6
+    beq 12f
+    subq.w #1, %d2
+    bra 15f
+12: btst #2, %d6
+    beq 13f
+    addq.w #1, %d3
+    bra 15f
+13: subq.w #1, %d3
+15: bsr enemy_step_blocked
+    tst.w %d0
+    bne 3f
+    addq.l #4, %sp
+    dbra %d4, 1b
+    bra 4f
+3:  movem.w (%sp)+, %d2-%d3
+    clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)
+4:  tst.b OFF_ENEMY_HURT(%a5, %d5.w)
+    bne 5f
+    and.w #0x00f8, %d2          | squares keep the tile test on the same cell
+    subq.w #5, %d3
+    and.w #0x00f8, %d3
+    addq.w #5, %d3
+    clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)
+5:  move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+9:  movem.l (%sp)+, %d0-%d4/%d6
     rts
 
 | d6.b = one of the four directions, chosen at random
@@ -416,6 +509,10 @@ draw_enemies:
     beq 12f
     cmp.w #3, %d2
     beq 13f
+    cmp.w #5, %d2
+    beq 30f
+    cmp.w #6, %d2
+    beq 32f
     move.w %d4, %d1             | keese: wings beat
     lsr.w #2, %d1
     and.w #1, %d1
@@ -456,6 +553,15 @@ draw_enemies:
 13: move.w %d4, %d1             | gel: two images, swapped every two frames
     lsr.w #1, %d1
     and.w #1, %d1
+    bra 19f
+30: tst.b OFF_ENEMY_STATE(%a5, %d3.w)
+    beq 8f                      | a wallmaster inside the wall is not seen
+    move.w %d4, %d1             | open and closed hand, swapped every eight frames
+    lsr.w #3, %d1
+    and.w #1, %d1
+    bra 19f
+32: bsr draw_boss_head         | Aquamentus is drawn from his own pieces
+    bra 8f
 19: add.w %d1, %d1
     add.w %d5, %d1
     lsl.w #3, %d0

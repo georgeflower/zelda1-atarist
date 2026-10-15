@@ -1,14 +1,15 @@
 | Combat and pickups: the sword, damage in both directions, monster drops and
 | the items lying on the floor.
 |
-| Simplifications against the original, to be revisited: one sword damage,
-| no knock-back or shove, and a placeholder blade sprite.
+| Simplifications against the original, to be revisited: one sword damage and
+| a placeholder blade sprite.
 
     .equ SCAN_SPACE, 0x39
     .equ ATTACK_FRAMES, 12
     .equ SWORD_REACH, 12
-    .equ ENEMY_HURT_FRAMES, 12
-    .equ LINK_HURT_FRAMES, 40
+    .equ ENEMY_HURT_FRAMES, 16
+    .equ LINK_HURT_FRAMES, 24
+    .equ LINK_SHOVE_PIXELS, 32
     .equ CONTACT_RANGE, 10
     .equ PICKUP_RANGE, 9
     .equ ITEM_SLOTS, 3
@@ -22,6 +23,8 @@
     .equ ITEM_RUPEE, 0x18
     .equ ITEM_KEY, 0x19
     .equ ITEM_HEART_CONTAINER, 0x1a
+    .equ ITEM_TRIFORCE, 0x1b
+    .equ TRIFORCE_FRAMES, 150
     .equ ITEM_HEART, 0x22
     .equ MAX_BOMBS, 8
 
@@ -40,6 +43,8 @@ sword_input:
     tst.b OFF_ATTACK(%a5)
     bne 9f
     tst.b OFF_GAME_MODE(%a5)
+    bne 9f
+    tst.b OFF_LINK_HELD(%a5)
     bne 9f
     move.b #ATTACK_FRAMES, OFF_ATTACK(%a5)
     bsr beam_launch
@@ -209,6 +214,7 @@ beam_update:
 52: cmp.w #SWORD_REACH, %d0
     bhs 7f
     move.w %d6, %d5
+    move.b OFF_BEAM_DIR(%a5), OFF_ENEMY_SHOVE(%a5, %d5.w)
     bsr hit_enemy
     bra 8f
 7:  addq.w #1, %d6
@@ -271,6 +277,7 @@ draw_link_blink:
 | ------------------------------------------------------------ per-frame logic
 update_combat:
     movem.l %d0-%d7/%a0-%a3, -(%sp)
+    bsr ending_update
     tst.b OFF_LINK_HURT(%a5)
     beq 1f
     subq.b #1, OFF_LINK_HURT(%a5)
@@ -315,6 +322,7 @@ sword_hits:
     neg.w %d3
 3:  cmp.w #SWORD_REACH, %d3
     bhs 8f
+    move.b OFF_LINK_DIR(%a5), OFF_ENEMY_SHOVE(%a5, %d5.w)
     bsr hit_enemy
 8:  addq.w #1, %d5
     bra 1b
@@ -395,6 +403,8 @@ enemy_contact:
     movem.l %d0-%d5/%a0, -(%sp)
     tst.b OFF_LINK_HURT(%a5)
     bne 9f
+    tst.b OFF_LINK_HELD(%a5)
+    bne 9f
     moveq #0, %d5
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
     bhs 9f
@@ -428,11 +438,75 @@ enemy_contact:
     lsl.w #3, %d0
     moveq #0, %d1
     move.b 3(%a0, %d0.w), %d1
-4:  bsr hurt_link
+4:  bsr link_knockback
+    bsr hurt_link
     bra 9f
 8:  addq.w #1, %d5
     bra 1b
 9:  movem.l (%sp)+, %d0-%d5/%a0
+    rts
+
+| Enemy d5 has touched Link: a wallmaster takes hold of him, anything else
+| shoves him away and turns round.
+link_knockback:
+    movem.l %d0-%d2, -(%sp)
+    bsr wallmaster_grab
+    tst.w %d0
+    bne 9f
+    moveq #0, %d0
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d0
+    moveq #0, %d2
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
+    bsr link_shove_from
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
+    move.b %d0, %d2
+    and.b #(DIR_RIGHT + DIR_DOWN), %d0
+    add.b %d0, %d0
+    and.b #(DIR_LEFT + DIR_UP), %d2
+    lsr.b #1, %d2
+    or.b %d2, %d0
+    move.b %d0, OFF_ENEMY_DIR(%a5, %d5.w)
+9:  movem.l (%sp)+, %d0-%d2
+    rts
+
+| Link is shoved away from the point (d0.w, d2.w).
+link_shove_from:
+    movem.l %d0-%d4, -(%sp)
+    moveq #0, %d1
+    move.b OFF_LINK_X(%a5), %d1
+    sub.w %d0, %d1
+    move.w %d1, %d0                 | d0 = how far right of it Link is
+    moveq #0, %d1
+    move.b OFF_LINK_Y(%a5), %d1
+    sub.w %d2, %d1
+    move.w %d1, %d2                 | d2 = how far below
+    move.w %d0, %d1
+    bpl 1f
+    neg.w %d1
+1:  move.w %d2, %d3
+    bpl 2f
+    neg.w %d3
+2:  | A step in progress has to be finished along its own axis.
+    tst.b OFF_COMMIT(%a5)
+    beq 3f
+    move.b OFF_LINK_DIR(%a5), %d4
+    and.b #DIR_VERTICAL, %d4
+    bne 5f
+    bra 4f
+3:  cmp.w %d3, %d1
+    bgt 4f
+5:  moveq #DIR_DOWN, %d1
+    tst.w %d2
+    bpl 6f
+    moveq #DIR_UP, %d1
+    bra 6f
+4:  moveq #DIR_RIGHT, %d1
+    tst.w %d0
+    bpl 6f
+    moveq #DIR_LEFT, %d1
+6:  move.b %d1, OFF_LINK_SHOVE_DIR(%a5)
+    move.b #LINK_SHOVE_PIXELS, OFF_LINK_SHOVE(%a5)
+    movem.l (%sp)+, %d0-%d4
     rts
 
 | d1.w = half hearts of damage
@@ -463,6 +537,8 @@ link_dies:
     clr.b OFF_IN_CELLAR(%a5)
     clr.b OFF_ATTACK(%a5)
     clr.b OFF_LINK_HURT(%a5)
+    clr.b OFF_LINK_SHOVE(%a5)
+    clr.b OFF_LINK_HELD(%a5)
     clr.b OFF_COMMIT(%a5)
     clr.b OFF_LINK_POS_FRAC(%a5)
     move.b #1, OFF_WARPED(%a5)
@@ -609,6 +685,7 @@ bomb_explode:
     bhs 4f
     move.b #1, OFF_ENEMY_HP(%a5, %d5.w)
     clr.b OFF_ENEMY_HURT(%a5, %d5.w)
+    clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)
     bsr hit_enemy
 4:  addq.w #1, %d5
     bra 1b
@@ -665,7 +742,8 @@ bomb_explode:
     lea OFF_UW_OPEN(%a5), %a2
     btst %d6, 0(%a2, %d0.w)
     bne 9f
-    bset %d6, 0(%a2, %d0.w)
+    move.w %d6, %d2
+    bsr uw_open_door_pair
     bsr uw_redraw_room
 9:  movem.l (%sp)+, %d0-%d6/%a0-%a2
     rts
@@ -865,7 +943,7 @@ take_item:
 41: move.b %d2, OFF_HP_HALVES(%a5)
     bra 9f
 8:  cmp.b #ITEM_HEART_CONTAINER, %d0
-    bne 9f
+    bne 10f
     cmpi.b #HUD_HEART_SLOTS, OFF_HEART_CONTAINERS(%a5)
     bhs 9f
     addq.b #1, OFF_HEART_CONTAINERS(%a5)
@@ -873,7 +951,42 @@ take_item:
     move.b OFF_HEART_CONTAINERS(%a5), %d1
     add.w %d1, %d1
     move.b %d1, OFF_HP_HALVES(%a5)
+    bra 9f
+10: cmp.b #ITEM_TRIFORCE, %d0
+    bne 9f
+    move.b #1, OFF_TRIFORCE(%a5)
+    move.b #TRIFORCE_FRAMES, OFF_ENDING_TIMER(%a5)
+    move.b #1, OFF_LINK_HELD(%a5)       | he stands holding it up while the screen flashes
+    clr.b OFF_ATTACK(%a5)
+    clr.b OFF_LINK_SHOVE(%a5)
+    moveq #0, %d1
+    move.b OFF_HEART_CONTAINERS(%a5), %d1
+    add.w %d1, %d1
+    move.b %d1, OFF_HP_HALVES(%a5)      | the level is won: full hearts
 9:  movem.l (%sp)+, %d0-%d2
+    rts
+
+| The celebration after the triforce piece: the backdrop flashes, then Link is
+| back at the level's entrance on the overworld.
+ending_update:
+    movem.l %d0/%a0-%a1, -(%sp)
+    tst.b OFF_ENDING_TIMER(%a5)
+    beq 9f
+    subq.b #1, OFF_ENDING_TIMER(%a5)
+    movea.l #PALETTE_BASE, %a1
+    ltab room_palette, %a0
+    move.b OFF_ENDING_TIMER(%a5), %d0
+    beq 2f
+    btst #2, %d0
+    beq 1f
+    move.w #0x0777, (%a1)
+    bra 9f
+1:  move.w (%a0), (%a1)
+    bra 9f
+2:  move.w (%a0), (%a1)
+    clr.b OFF_LINK_HELD(%a5)
+    bsr uw_leave_level
+9:  movem.l (%sp)+, %d0/%a0-%a1
     rts
 
 | ---------------------------------------------------- rooms and their shutters

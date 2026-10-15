@@ -128,6 +128,12 @@
     .equ VIDEO_BASE_HI, 0x00ff8201
     .equ VIDEO_BASE_MID, 0x00ff8203
     .equ VIDEO_BASE_LOW, 0x00ff820d
+    .equ VIDEO_COUNTER_HI, 0x00ff8205
+    .equ VIDEO_COUNTER_MID, 0x00ff8207
+    .equ VIDEO_COUNTER_LOW, 0x00ff8209
+    .equ VIDEO_COUNTER_HI, 0x00ff8205
+    .equ VIDEO_COUNTER_MID, 0x00ff8207
+    .equ VIDEO_COUNTER_LOW, 0x00ff8209
     .equ PALETTE_BASE, 0x00ff8240
     .equ SHIFT_MODE, 0x00ff8260
     .equ FR_CLOCK, 0x00000462
@@ -191,6 +197,7 @@ _start:
 
     bsr init_buffers
     bsr init_video
+    bsr music_init
     .if DEV_START_UW != 255
     | Development shortcut: start inside the level, with a sword and a key.
     move.b #UW_LEVEL, OFF_LEVEL(%a5)
@@ -206,6 +213,7 @@ _start:
     move.b #0x78, OFF_LINK_X(%a5)
     move.b #0x8d, OFF_LINK_Y(%a5)
     move.b #1, OFF_HAS_SWORD(%a5)
+    move.b #0x37, OFF_CAVE_SOURCE_ROOM(%a5)     | the level 1 entrance, where leaving comes out
     .endif
     bsr enter_room
     bsr draw_hud
@@ -215,6 +223,7 @@ main_loop:
     bsr frame_begin
     bsr poll_keyboard
     bsr debug_keys
+    bsr music_update
     tst.b OFF_EXIT_REQUESTED(%a5)
     bne exit_program
     addq.w #1, OFF_FRAME_COUNTER(%a5)
@@ -240,6 +249,7 @@ main_loop:
     bra main_loop
 
 exit_program:
+    bsr music_exit
     bsr restore_video
     bra terminate
 
@@ -505,6 +515,18 @@ set_video_base:
     move.b %d0, (%a0)
     rts
 
+| The shifter takes the base at the end of the frame, so it has to be written
+| before the next frame starts drawing into the buffer that is on show now.
+| wait_vbl checks that the write made it in time.
+present_frame:
+    movem.l %d0/%a0, -(%sp)
+    move.l OFF_SCREEN_PTR(%a5), %d0
+    move.l %d0, OFF_PRESENT_BASE(%a5)
+    move.b #1, OFF_PRESENT_PENDING(%a5)
+    bsr set_video_base
+    movem.l (%sp)+, %d0/%a0
+    rts
+
 swap_screens:
     move.l %d0, -(%sp)
     move.l OFF_SCREEN_PTR(%a5), %d0
@@ -518,11 +540,8 @@ frame_begin:
     bne 9f
     movem.l %d0/%a0, -(%sp)
     tst.b OFF_DBL_ACTIVE(%a5)
-    bne 1f
+    bne 2f
     bsr dbl_enter
-    bra 2f
-1:  move.l OFF_SCREEN_PTR(%a5), %d0     | last frame's drawing goes on show
-    bsr set_video_base
 2:  bsr swap_screens
     bsr swap_erase_state
     movem.l (%sp)+, %d0/%a0
@@ -584,6 +603,8 @@ swap_erase_state:
     movem.l %d0-%d1/%a0-%a1, -(%sp)
     xchg_state ENEMY_ERASE_VALID, OLD_ENEMY_ERASE_VALID, 8
     xchg_state ENEMY_ERASE_OFFSETS, OLD_ENEMY_ERASE_OFFSETS, 32
+    xchg_state PROJ_ERASE_VALID, OLD_PROJ_ERASE_VALID, 8
+    xchg_state PROJ_ERASE_OFFSETS, OLD_PROJ_ERASE_OFFSETS, 32
     xchg_state ITEM_ERASE_VALID, OLD_ITEM_ERASE_VALID, 3
     xchg_state ITEM_ERASE_OFFSETS, OLD_ITEM_ERASE_OFFSETS, 12
     xchg_state SWORD_VALID, OLD_SWORD_VALID, 1
@@ -600,6 +621,7 @@ swap_erase_state:
 clear_old_erase_state:
     movem.l %d0/%a0, -(%sp)
     clear_state OLD_ENEMY_ERASE_VALID, 8
+    clear_state OLD_PROJ_ERASE_VALID, 8
     clear_state OLD_ITEM_ERASE_VALID, 3
     clr.b OFF_OLD_SWORD_VALID(%a5)
     clr.b OFF_OLD_BOMB_VALID(%a5)
@@ -612,6 +634,7 @@ clear_erase_state:
     movem.l %d0/%a0, -(%sp)
     bsr clear_old_erase_state
     clear_state ENEMY_ERASE_VALID, 8
+    clear_state PROJ_ERASE_VALID, 8
     clear_state ITEM_ERASE_VALID, 3
     clr.b OFF_SWORD_VALID(%a5)
     clr.b OFF_BOMB_VALID(%a5)
@@ -626,6 +649,7 @@ update_play:
     bsr erase_sword
     bsr erase_items
     bsr erase_enemies
+    bsr erase_projectiles
     bsr erase_sprite
     bsr sword_input
     bsr bomb_input
@@ -640,23 +664,27 @@ update_play:
 3:
     bsr update_enemies
     bsr update_combat
+    bsr update_projectiles
     bsr draw_items
     bsr draw_bomb
     bsr draw_enemies
+    bsr draw_projectiles
     bsr draw_link_blink
     bsr draw_beam
     bsr draw_sword
-    rts
+    bra present_frame
 
 
     .include "video.s"
     .include "sprite.s"
+    .include "ai.s"
     .include "enemy.s"
     .include "combat.s"
     .include "link.s"
     .include "uw.s"
     .include "hud.s"
     .include "input.s"
+    .include "music.s"
 
 | ---------------------------------------------------------------------------
     .section .rodata
@@ -694,6 +722,8 @@ item_sprites:
     .incbin "item_sprites.bin"
 sword_sprites:
     .incbin "sword_sprites.bin"
+proj_sprites:
+    .incbin "proj_sprites.bin"
 mon_table:
     .incbin "mon_table.bin"
 item_index:
@@ -725,6 +755,11 @@ metatiles:
 | has to stay inside the 68000's signed 16-bit PC-relative displacement.
 room_maps:
     .incbin "room_maps.bin"
+    .align 2
+music_drums:
+    .incbin "music_drums.bin"
+music_data:
+    .incbin "music_data.bin"
 
     .section .data
     .align 2
@@ -733,6 +768,13 @@ globals_marker:
     .ascii "ZELDAST1"
 globals:
     .space GLOBALS_BYTES
+
+    | The digidrum engine writes to itself, so it has to live in RAM.
+    .align 2
+ymdrum_code:
+    .incbin "music_engine.bin"
+music_old_vbl:
+    .long 0
 
     | The stack lives in .data rather than after .rodata because _start reaches
     | it with a PC-relative lea, which the 68000 limits to a signed 16-bit

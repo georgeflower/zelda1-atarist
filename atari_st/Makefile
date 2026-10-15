@@ -32,8 +32,13 @@ GENERATED := $(GENERATED_DIR)/assets.inc $(GENERATED_DIR)/metatiles.bin \
 	$(GENERATED_DIR)/mon_index.bin $(GENERATED_DIR)/item_sprites.bin \
 	$(GENERATED_DIR)/item_index.bin $(GENERATED_DIR)/drop_table.bin \
 	$(GENERATED_DIR)/drop_rates.bin $(GENERATED_DIR)/sword_sprites.bin \
+	$(GENERATED_DIR)/proj_sprites.bin \
 	$(GENERATED_DIR)/uw_room_info.bin \
 	$(GENERATED_DIR)/asset_manifest.txt
+MUSIC_SRC := music/zelda_intro_by_qum.h
+MUSIC_PLAYER := music/ymplay.h
+MUSIC_GENERATED := $(GENERATED_DIR)/music.inc $(GENERATED_DIR)/music_data.bin \
+	$(GENERATED_DIR)/music_drums.bin $(GENERATED_DIR)/music_engine.bin
 
 .PHONY: all assets check clean run screenshot
 
@@ -45,7 +50,11 @@ $(GENERATED) &: $(TOOLS_DIR)/build_assets.py $(ASSET_INPUTS)
 	@mkdir -p $(GENERATED_DIR)
 	$(PYTHON) $(TOOLS_DIR)/build_assets.py --source-root $(ROOT_DIR) --out-dir $(GENERATED_DIR)
 
-$(OBJ): $(SOURCES) $(GENERATED)
+$(MUSIC_GENERATED) &: $(TOOLS_DIR)/ym_convert.py $(MUSIC_SRC) $(MUSIC_PLAYER)
+	@mkdir -p $(GENERATED_DIR)
+	$(PYTHON) $(TOOLS_DIR)/ym_convert.py --song $(MUSIC_SRC) --player $(MUSIC_PLAYER) --out-dir $(GENERATED_DIR)
+
+$(OBJ): $(SOURCES) $(GENERATED) $(MUSIC_GENERATED)
 	@mkdir -p $(BUILD_DIR)
 	$(AS) $(ASFLAGS) -o $@ $(MAIN_SRC)
 

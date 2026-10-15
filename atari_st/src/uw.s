@@ -225,6 +225,47 @@ uw_redraw_room:
     movem.l (%sp)+, %d0/%a1
     rts
 
+| Open door d2 (0 E, 1 W, 2 S, 3 N) of room d0 for good, and the matching door
+| of the room on its other side, so it is still open when Link comes back.
+uw_open_door_pair:
+    movem.l %d0-%d4/%a0-%a2, -(%sp)
+    lea OFF_UW_OPEN(%a5), %a2
+    bset %d2, 0(%a2, %d0.w)
+    move.w %d0, %d3
+    moveq #1, %d4
+    tst.w %d2
+    beq 1f
+    moveq #-1, %d4
+    cmp.w #1, %d2
+    beq 1f
+    moveq #16, %d4
+    cmp.w #2, %d2
+    beq 1f
+    moveq #-16, %d4
+1:  add.w %d4, %d3
+    bmi 9f
+    cmp.w #0x7f, %d3
+    bhi 9f
+    ltab uw_room_index, %a0
+    moveq #0, %d1
+    move.b 0(%a0, %d3.w), %d1
+    cmpi.b #0xff, %d1
+    beq 9f
+    mulu.w #UW_DOOR_RECORD_BYTES, %d1
+    ltab uw_doors, %a1
+    adda.l %d1, %a1
+    move.w %d2, %d1
+    eori.w #1, %d1                  | the far side's door faces back
+    moveq #0, %d4
+    move.b 0(%a1, %d1.w), %d4
+    cmpi.b #4, %d4
+    blo 9f
+    cmpi.b #DOOR_SHUTTER, %d4
+    beq 9f
+    bset %d1, 0(%a2, %d3.w)
+9:  movem.l (%sp)+, %d0-%d4/%a0-%a2
+    rts
+
 | Link is pushing against a doorway.
 |
 | d1.b = direction. Returns d0.w = 1 when he may walk through. A locked door
@@ -309,8 +350,7 @@ uw_try_door:
     tst.b OFF_INV_KEYS(%a5)
     beq 8f
     subq.b #1, OFF_INV_KEYS(%a5)
-    bset %d2, %d5
-    move.b %d5, 0(%a2, %d0.w)
+    bsr uw_open_door_pair
     move.b #1, OFF_HUD_DIRTY(%a5)
     bsr uw_redraw_room
     bra 8f
@@ -328,8 +368,12 @@ uw_try_door:
 
 | Walk down the stairs of an overworld entrance into level UW_LEVEL.
 uw_enter_level:
-    move.b #1, OFF_WARPED(%a5)
     move.b OFF_ROOM_ID(%a5), OFF_CAVE_SOURCE_ROOM(%a5)
+
+| Link starts the level over: the first room, at the bottom, walking up. This
+| is also where a wallmaster takes him.
+uw_warp_to_start:
+    move.b #1, OFF_WARPED(%a5)
     move.b #UW_LEVEL, OFF_LEVEL(%a5)
     move.b #UW_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
     move.b #UW_BOUND_RIGHT, OFF_BOUND_RIGHT(%a5)
