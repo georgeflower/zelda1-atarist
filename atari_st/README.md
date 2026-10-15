@@ -54,7 +54,11 @@ Platform and rendering
   straight to the visible screen
 - keyboard input through an IKBD interrupt that queues every byte, so no key
   release is ever missed
-- the overworld plays a YM2149 song (digidrums included) from a VBL hook
+- YM2149 music and sound effects from a VBL hook: your arrangement for the overworld,
+  the ROM's dungeon and Level 9 themes, event fanfares and effects laid over the
+  music (digidrums included). Everything except the overworld song is ripped from
+  `ext/Original.nes` at build time; without the ROM (or `py65`) only the overworld
+  song plays
 - status ribbon: hearts (with halves), rupee, key and bomb counters, in the
   original glyphs, and the B and A item boxes
 - the IKBD joystick (either port) can walk Link and fire the sword
@@ -150,7 +154,8 @@ Tooling
 
 - asset pipeline from the ROM to ST data (see below) with a placeholder
   fallback so the target still builds without any ROM
-- unit tests for the asset pipeline
+- unit tests for the asset pipeline, and for the music packer and the 68000 music
+  player (run on `machine68k`, every track checked frame by frame)
 - headless Hatari harness that captures the framebuffer to a PNG, drives
   scripted key input, and can poke variables
 
@@ -186,7 +191,8 @@ Near term (finish Level 1)
 2. fireball art
 3. map and compass use, and the dungeon map on the ribbon
 4. the old man in room `$41` and the other dungeon people
-5. sound effects (only the overworld song plays), the clock and fairy drops
+5. the rest of the sound (title, ending and game-over songs, the low-health beep,
+   boss roars, DPCM samples), the clock and fairy drops
 
 Then the rest of the overworld
 
@@ -201,8 +207,8 @@ Then the rest of the overworld
 Then the game around it
 
 10. the other eight dungeons, reusing the underworld engine
-11. YM2149 audio from the song and sound-effect scripts already listed in
-    `bins.xml`
+11. the remaining audio hooks: the songs and effects are already in the music
+    bank (see `tools/music_pack.py`) and need their game events
 12. title screen, game-over and continue, saving and the second quest
 13. a disk image / floppy-friendly build and a check on real STFM timing
 
@@ -211,7 +217,10 @@ Prerequisites
 
 - Python 3
 - GNU m68k binutils with `m68k-linux-gnu-as`, `ld`, and `objcopy`
-- Hatari (or another TOS-compatible emulator) for execution
+- Hatari (or another TOS-compatible emulator) for execution; EmuTOS 1.4 (512k) and
+  TOS 1.04 both boot the game
+- optional: `pip install py65` and your ROM for the full sound bank,
+  `pip install machine68k` for the music player tests
 
 Example Debian/Ubuntu packages:
 
@@ -289,8 +298,10 @@ hotspot offsets, the unwalkable tile threshold -- are used unchanged.
 Testing
 -------
 
-`make check` runs the asset unit tests, verifies the generated files against the
-manifest, and validates the PRG header.
+`make check` runs the unit tests (assets, music packer, the 68000 music player on
+`machine68k`), verifies the generated files against the manifest, and validates the
+PRG header. The player tests skip without the m68k binutils or `machine68k`, the
+real-bank ones also without the ROM or `py65`.
 
 For visual and behavioural checks there is a headless Hatari harness:
 
@@ -307,6 +318,11 @@ errors or an early `Pterm0`. Key events are injected by poking the key-state
 table, which the harness locates through a marker next to the variable block.
 An event of the form `700:=ENEMY_X.0=120` pokes a byte of a variable instead,
 and `ZELDA_START_UW=0x72` starts inside Level 1 in that room.
+
+To check the sound, add `--trace psg_write`: Hatari then logs every write to the
+YM2149 in `build/shots/hatari.log` (`ym write data reg=0x.. val=0x..`), including
+the digidrum engine's volume writes. The player's writes come from one fixed code
+address, so they can be compared frame by frame with the packed streams.
 
 `tools/compare_render.py` closes the loop on the renderer by diffing a captured
 framebuffer against a reference render of the same room built in Python; they
