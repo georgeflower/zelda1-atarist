@@ -56,7 +56,11 @@ FRAME_BYTES = B.SPRITE_FRAME_BYTES
 NO_DROP_ROW = 0xFF
 ROOM_INFO_BYTES = 14
 
-ITEM_IDS = (0x00, 0x01, 0x0A, 0x0F, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1D, 0x22, 0x06)
+# 0x3F is not an item: it is Link with both arms up (tile $78, a mirrored pair, from
+# Anim_ItemFrameTiles) that DrawLinkLiftingItem shows while he holds the triforce piece.
+LINK_LIFT_ID = 0x3F
+LINK_LIFT_TILE = 0x78
+ITEM_IDS = (0x00, 0x01, 0x0A, 0x0F, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1D, 0x22, 0x06, LINK_LIFT_ID)
 BOOMERANG_ITEM = 0x1D
 FIRE_ANIM_INDEX = 0x41
 HUD_ITEM_IDS = (0x01, 0x00, BOOMERANG_ITEM, 0x06)    # sword, bomb, boomerang, candle
@@ -329,7 +333,10 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
     items = bytearray()
     for index, item_id in enumerate(ITEM_IDS):
         item_index[item_id] = index
-        items.extend(_item_frame(code, sp_tiles, bg_tiles, palette, item_id))
+        if item_id == LINK_LIFT_ID:
+            items.extend(_pack_masked(_item_rows(sp_tiles, bg_tiles, palette, LINK_LIFT_TILE, B.LINK_PALETTE_ROW)))
+        else:
+            items.extend(_item_frame(code, sp_tiles, bg_tiles, palette, item_id))
 
     foe_counts = list(info[B.LEVEL_INFO_FOE_COUNTS : B.LEVEL_INFO_FOE_COUNTS + 4])
     return ActorData(

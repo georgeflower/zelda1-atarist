@@ -30,7 +30,7 @@ menu_check_open:
     bset #0, OFF_MENU_KEYS(%a5)
     tst.b OFF_LINK_HELD(%a5)
     bne 9f
-    tst.b OFF_ENDING_TIMER(%a5)
+    tst.b OFF_ENDING_PHASE(%a5)
     bne 9f
     tst.b OFF_GAME_MODE(%a5)
     bne 9f

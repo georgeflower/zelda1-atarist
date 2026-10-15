@@ -235,6 +235,9 @@
     gvar BLOCK_PUSH, 1         | frames Link has been pushing it
     gvar BLOCK_TICK, 1         | he pushed it this frame
     gvar ENEMY_STUN, 8         | frames a monster stays stunned
+    gvar ENDING_PHASE, 1       | the triforce ending: 0 none, 1 hold, 2 flash, 3 hearts, 4 curtain, 5 pause
+    gvar TRIFORCE_PIECES, 1    | bit n: the triforce piece of level n+1 is his (InvTriforce)
+    gvar ENDING_STEP, 1        | curtain columns closed from each side so far
     gvar ROOM_BLOCK, 1         | the underworld room has a push block (attribute D bit 6)
 
     .equ GLOBALS_BYTES, gvar_offset
