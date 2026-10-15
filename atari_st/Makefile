@@ -1,6 +1,17 @@
 ROOT_DIR := ..
 BUILD_DIR := build
 GENERATED_DIR := $(BUILD_DIR)/generated
+# The dev-start env vars are baked into assets.inc, so they are an input of the
+# asset step: the stamp is rewritten only when they change, which makes make
+# regenerate the assets exactly then (in either direction, also back to default).
+DEV_STAMP := $(BUILD_DIR)/dev_start.stamp
+.DEFAULT_GOAL := all
+.PHONY: FORCE_DEV_STAMP
+FORCE_DEV_STAMP:
+
+$(DEV_STAMP): FORCE_DEV_STAMP
+	@mkdir -p $(BUILD_DIR)
+	@printf '%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' | cmp -s - $@ 2>/dev/null || printf '%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' > $@
 SRC_DIR := src
 TOOLS_DIR := tools
 ASSET_INPUTS := $(ROOT_DIR)/src/bins.xml $(ROOT_DIR)/src/Z_05.asm $(ROOT_DIR)/src/Z_06.asm \
@@ -47,7 +58,7 @@ all: $(PRG)
 
 assets: $(GENERATED)
 
-$(GENERATED) &: $(TOOLS_DIR)/build_assets.py $(ASSET_INPUTS)
+$(GENERATED) &: $(TOOLS_DIR)/build_assets.py $(ASSET_INPUTS) $(DEV_STAMP)
 	@mkdir -p $(GENERATED_DIR)
 	$(PYTHON) $(TOOLS_DIR)/build_assets.py --source-root $(ROOT_DIR) --out-dir $(GENERATED_DIR)
 
