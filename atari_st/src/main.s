@@ -11,6 +11,7 @@
 |     y  24..199   playfield, 256x176, x = 32..287
 
     .include "assets.inc"
+    .include "music_ids.inc"
     .include "globals.s"
     .if UW_ROOM_BYTES != 704
     .error "globals.s sizes the underworld map buffers as 704 bytes"
@@ -21,6 +22,22 @@
 | addressed as signed offsets from an anchor placed in the middle of them.
     .macro ltab sym, reg
     lea \sym - table_anchor(%a6), \reg
+    .endm
+
+| Sound: sfx plays an effect over the music, jingle an event song that replaces it
+| (music.s). Neither disturbs any register.
+    .macro sfx id
+    move.l %d0, -(%sp)
+    moveq #\id, %d0
+    bsr music_play
+    move.l (%sp)+, %d0
+    .endm
+
+    .macro jingle id
+    move.l %d0, -(%sp)
+    moveq #\id, %d0
+    bsr music_event
+    move.l (%sp)+, %d0
     .endm
 
 | ------------------------------------------------------------ screen geometry
@@ -832,9 +849,10 @@ room_maps:
     .incbin "room_maps.bin"
     .align 2
 music_drums:
-    .incbin "music_drums.bin"
-music_data:
-    .incbin "music_data.bin"
+    .incbin "music_drum_table.bin"
+    .align 2
+music_bank:
+    .incbin "music_bank.bin"
 
     .section .data
     .align 2
