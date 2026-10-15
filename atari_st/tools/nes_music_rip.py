@@ -474,10 +474,8 @@ def noise_register(index: int, clock: float, table: str) -> int:
     return max(1, min(31, round(YM_CLOCK / 16 / rate)))
 
 
-def to_ym_registers(
-    rip: Rip, clock: float, table: str, drums_mode: str, tri_volume: int
-) -> tuple[list[list[int]], list[bytes]]:
-    """Returns (one 16-register list per frame, digidrum samples)."""
+def tone_registers(rip: Rip, clock: float, tri_volume: int) -> tuple[list[list[int]], list[list[int]]]:
+    """Pulse 1/2 and the triangle as YM voices A/B/C: (16 registers per frame, voice volumes per frame)."""
     frames = rip.frames
     regs = [[0] * 16 for _ in frames]
     volumes = [[0, 0, 0] for _ in frames]
@@ -504,6 +502,15 @@ def to_ym_registers(
             mixer |= 4
         r[7] = mixer
         r[13] = 0xFF
+    return regs, volumes
+
+
+def to_ym_registers(
+    rip: Rip, clock: float, table: str, drums_mode: str, tri_volume: int
+) -> tuple[list[list[int]], list[bytes]]:
+    """Returns (one 16-register list per frame, digidrum samples)."""
+    frames = rip.frames
+    regs, volumes = tone_registers(rip, clock, tri_volume)
     samples: list[bytes] = []
     found = find_drums(frames)
     if drums_mode == "noise":
@@ -535,6 +542,54 @@ def to_ym_registers(
                 r[8 + voice] = index_of[d.key] + k
                 r[7] |= 1 << voice  # the drum owns the voice: no tone under it
     return regs, samples
+
+
+@dataclass
+class GameTrack:
+    """A track as the game's register stream wants it: R0-R13 per frame, a digidrum trigger per frame."""
+
+    regs: list[list[int]]  # 14 registers per frame, R13 = 0xFF (never written)
+    trig: list[int]  # 0, or ((voice + 1) << 6) | drum index (local to `drums`)
+    drums: list[bytes]  # 4-bit PCM at DRUM_RATE, one per distinct hit
+    loop_frame: int
+    looped: bool
+
+
+def to_game_stream(rip: Rip, clock: float, table: str, tri_volume: int = 13) -> GameTrack:
+    """Like the digidrum .ym, but each drum is one whole sample triggered once (the game kit's engine).
+
+    The kit engine plays a drum to its end and a new trigger cuts the old, so unlike a .ym file there is
+    no need to cut the hit into per-frame pieces.
+    """
+    frames = rip.frames
+    regs16, volumes = tone_registers(rip, clock, tri_volume)
+    regs = [row[:14] for row in regs16]
+    trig = [0] * len(frames)
+    drums: list[bytes] = []
+    index_of: dict[tuple[int, int, int, int], int] = {}
+    for d in find_drums(frames):
+        vol, idx, mode, length = d.key
+        if d.key not in index_of:
+            if len(drums) >= 62:
+                raise SystemExit("more than 62 distinct drums in one track")
+            index_of[d.key] = len(drums)
+            drums.append(b"".join(noise_lfsr_samples(idx, mode, clock, table, vol, length)))
+        end = min(len(frames), d.start + d.frames)
+        voice = min(range(3), key=lambda v: (sum(volumes[f][v] for f in range(d.start, end)), -v))
+        trig[d.start] = ((voice + 1) << 6) | index_of[d.key]
+        for f in range(d.start, end):
+            regs[f][7] |= 1 << voice  # the drum owns the voice: no tone under it
+    return GameTrack(regs, trig, drums, rip.loop_frame, rip.looped)
+
+
+def rip_all(prg: bytes, only: list[str] | None = None, max_frames: int = 30000) -> dict[str, Rip]:
+    """Rip every track in TRACKS (or the named ones); each on a fresh sound CPU."""
+    out = {}
+    for stem, kind, value, _ in TRACKS:
+        if only and stem not in only:
+            continue
+        out[stem] = rip_track(SoundCpu(prg), kind, value, max_frames)
+    return out
 
 
 # --------------------------------------------------------------------------- .ym writer

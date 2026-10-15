@@ -66,7 +66,7 @@ atari_st/                the port
   README.md              user-facing docs: features, known gaps, roadmap, notes
   src/*.s                68000 code (one assembly unit, main.s .includes the rest)
   tools/*.py             asset pipeline, PRG packer, Hatari screenshot harness
-  tests/*.py             unittest suites (41 tests)
+  tests/*.py             unittest suites (81 tests)
   music/                 YM2149 song source (zelda_intro_by_qum.h) + player (ymplay.h)
   build/                 OUTPUT (gitignored): generated/, ZELDAST.PRG, scratch, shots/
 ```
@@ -87,7 +87,7 @@ atari_st/                the port
 | `menu.s` | Tab inventory screen (MODE_MENU) |
 | `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `debug_keys` (K) |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
-| `music.s` | YM2149 overworld song replayed from the VBL hook (+ digidrum engine in `.data`) |
+| `music.s` | music and sound effects replayed from the VBL hook: three register-stream contexts (song, effect over voice A, effect over voice B) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`) |
 
 `atari_st/tools`:
 
@@ -101,6 +101,7 @@ atari_st/                the port
 | `dev_run.sh` | build with a start room + capture (needs `$TOS`) |
 | `compare_render.py`, `render_map.py` | diff the renderer against a Python render; render maps |
 | `ym_convert.py` | converts the song + player header into `music_data.bin`, `music_engine.bin`, drums, `music.inc` |
+| `music_pack.py` | packs the shipped overworld song and every other track ripped from the ROM (via `nes_music_rip.py`) into `music_bank.bin`, one shared `music_drum_table.bin` and `music_ids.inc`. Without the ROM or `py65` the bank holds only the overworld song and the rest stays silent. `--overworld rip` uses the NES original instead of the shipped arrangement |
 | `nes_music_rip.py` | runs the ROM's own sound engine (bank 0) in py65 and writes every song, jingle and sound effect as `.ym` (YM6, 50 Hz; noise drums or digidrums). Output is ROM-derived: `*.ym` is gitignored. `--list` shows the tracks |
 
 ## 4. The exact toolchain (this is how it is built and tested here)
@@ -170,8 +171,10 @@ then says `source=generated placeholder CHR`). With the real ROM it should not a
 ### Unit tests
 `atari_st/tests/` (`test_build_assets.py`, `test_actors.py`, `test_ym_convert.py`,
 `test_nes_music_rip.py` (needs `py65` for the ROM part, `ZELDA_ROM` or `ext/Original.nes`),
-...). Run `python -m unittest discover -s atari_st\tests` (41 tests at the time of
-writing). They cover the asset pipeline and tables, not the 68000 code.
+`test_music_player.py` (the packer, and `music.s` run on `machine68k` through `tests/music_harness.s`; needs the m68k binutils and `pip install machine68k`, the real-bank part also the ROM and `py65`),
+...). Run `python -m unittest discover -s atari_st\tests` (81 tests at the time of
+writing). They cover the asset pipeline and tables; the 68000 music player is the one piece of
+68000 code with unit tests.
 
 ### The Hatari harness (`tools/screenshot.py`)
 Hatari is run **headless** (`SDL_VIDEODRIVER=dummy`, `--disable-video true`,
@@ -394,9 +397,16 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **Item ids** (`ItemIdToSlot`): `00` bomb, `01` wood sword, `06` blue candle, `0A` bow, `0F` 5
   rupees, `16` compass, `17` map, `18` rupee, `19` key, `1A` heart container, `1B`
   triforce, `1D` boomerang, `22` heart, `23` fairy.
-- **Music**: YM2149 stream replayed from a VBL hook (`music_vbl`, chains to TOS's handler);
-  only plays in the overworld proper. The song is for 50 Hz; at 60 Hz (`$FF820A` bit 1
-  clear) every 6th VBL holds it (`MUS_SKIP`).
+- **Music and sound**: YM2149 register streams (the MOD/XM->YM tool's game-kit format) replayed
+  from a VBL hook (`music_vbl`, chains to TOS's handler). `music_update` (every frame) picks the
+  area song from the state: overworld theme, dungeon theme (level 1-8), level 9 theme, silence in
+  caves. Events call `music_play`/`music_event` through the `sfx` and `jingle` macros
+  (item pickup, triforce, Link hurt/dead, bomb, kill, shutters/bombed wall). `jingle` replaces the
+  song until it ends (`MUS_FORCED`); `sfx` takes over voice A or B for its length and hands the voice
+  back. Track ids are in the generated `music_ids.inc`. Not hooked yet: low-health beep
+  (`SFX_HEART_WARNING`), title/ending/Ganon/Zelda/game-over songs, recorder and parry (no
+  game events for them yet), and the DPCM samples (never ripped). The streams are for 50 Hz; at
+  60 Hz (`$FF820A` bit 1 clear) every 6th VBL holds them (`MUS_SKIP`).
 - **B item** (`B_ITEM`): 0 nothing, 1 bombs, 2 boomerang, 3 candle; `b_item_fix` keeps it on
   something owned. **Inventory screen** lists owned B items (bombs if count > 0); Left/Right
   moves the "B" label. Opening it freezes everything.
@@ -460,7 +470,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 Done in Level 1: overworld + first cave, doors/keys/shutters/bombable and false walls, stairs +
 cellar, stalfos/keese/gel/rope/goriya/wallmaster/Aquamentus/blade traps, sword + beam + bombs +
 boomerang + candle, drops with kill counters, knock-back and invincibility, push block, triforce
-ending, HUD with A/B boxes, Tab inventory screen, YM2149 overworld music.
+ending, HUD with A/B boxes, Tab inventory screen, YM2149 music and sound effects.
 
 Open items (user-visible gaps): triforce piece held up + level completion recorded (the original
 runs mode `$12`: "end level" song, curtain, Link lifting the triforce); map and compass items and

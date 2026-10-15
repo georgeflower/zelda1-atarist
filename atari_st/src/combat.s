@@ -555,6 +555,7 @@ hit_enemy:
 | drop (a bomb if the tenth was a bomb kill, else five rupees), and the
 | sixteenth is a fairy, which this port has no picture for yet.
 kill_enemy:
+    sfx SFX_MONSTER_DIED
     clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
     addq.b #1, OFF_WORLD_KILLS(%a5)
     cmpi.b #HELP_KILLS, OFF_HELP_COUNT(%a5)
@@ -760,6 +761,7 @@ link_shove_from:
 | d1.w = half hearts of damage
 hurt_link:
     move.l %d0, -(%sp)
+    sfx SFX_HARMED
     move.b #LINK_HURT_FRAMES, OFF_LINK_HURT(%a5)
     clr.b OFF_WORLD_KILLS(%a5)          | being hurt starts the kill streak over
     clr.b OFF_HELP_COUNT(%a5)
@@ -780,6 +782,7 @@ hurt_link:
 | Out of hearts: full health and back to the start of the overworld.
 link_dies:
     movem.l %d0-%d1, -(%sp)
+    jingle MUS_DEATH
     moveq #0, %d0
     move.b OFF_HEART_CONTAINERS(%a5), %d0
     add.w %d0, %d0
@@ -926,6 +929,7 @@ place_bomb:
     tst.b OFF_BOMB_TIMER(%a5)
     bne 9f
     subq.b #1, OFF_INV_BOMBS(%a5)
+    sfx SFX_BOMB
     move.b #1, OFF_HUD_DIRTY(%a5)
     bsr sword_pos
     tst.w %d1
@@ -1302,6 +1306,7 @@ bomb_open_wall:
     bne 9f
     move.w %d6, %d2
     bsr uw_open_door_pair
+    sfx SFX_SECRET              | the wall blows open
     bsr uw_redraw_room
 9:  movem.l (%sp)+, %d0-%d6/%a0-%a2
     rts
@@ -1486,17 +1491,21 @@ take_item:
     cmp.b #ITEM_BOOMERANG, %d0
     bne 15f
     move.b #1, OFF_INV_BOOMERANG(%a5)
+    jingle MUS_ITEM
     bra 9f
 15: cmp.b #ITEM_BLUE_CANDLE, %d0
     bne 16f
     move.b #1, OFF_INV_CANDLE(%a5)
+    jingle MUS_ITEM
     bra 9f
 16: cmp.b #ITEM_WOOD_SWORD, %d0
     bne 0f
     move.b #1, OFF_HAS_SWORD(%a5)
+    jingle MUS_ITEM
     bra 9f
 0:  cmp.b #ITEM_KEY, %d0
     bne 1f
+    sfx SFX_KEY
     cmpi.b #9, OFF_INV_KEYS(%a5)
     bhs 9f
     addq.b #1, OFF_INV_KEYS(%a5)
@@ -1508,7 +1517,8 @@ take_item:
 2:  cmp.b #ITEM_FIVE_RUPEES, %d0
     bne 3f
     moveq #5, %d1
-5:  moveq #0, %d2
+5:  sfx SFX_RUPEE
+    moveq #0, %d2
     move.b OFF_INV_RUPEES(%a5), %d2
     add.w %d1, %d2
     cmp.w #255, %d2
@@ -1518,6 +1528,7 @@ take_item:
     bra 9f
 3:  cmp.b #ITEM_BOMBS, %d0
     bne 4f
+    sfx SFX_ITEM_TAKEN
     moveq #0, %d2
     move.b OFF_INV_BOMBS(%a5), %d2
     addq.w #4, %d2
@@ -1528,6 +1539,7 @@ take_item:
     bra 9f
 4:  cmp.b #ITEM_HEART, %d0
     bne 8f
+    sfx SFX_HEART
     moveq #0, %d1
     move.b OFF_HEART_CONTAINERS(%a5), %d1
     add.w %d1, %d1
@@ -1543,6 +1555,7 @@ take_item:
     bne 10f
     cmpi.b #HUD_HEART_SLOTS, OFF_HEART_CONTAINERS(%a5)
     bhs 9f
+    jingle MUS_ITEM
     addq.b #1, OFF_HEART_CONTAINERS(%a5)
     moveq #0, %d1
     move.b OFF_HEART_CONTAINERS(%a5), %d1
@@ -1552,6 +1565,7 @@ take_item:
 10: cmp.b #ITEM_TRIFORCE, %d0
     bne 9f
     move.b #1, OFF_TRIFORCE(%a5)
+    jingle MUS_TRIFORCE
     move.b #TRIFORCE_FRAMES, OFF_ENDING_TIMER(%a5)
     move.b #1, OFF_LINK_HELD(%a5)       | he stands holding it up while the screen flashes
     clr.b OFF_ATTACK(%a5)
@@ -1617,6 +1631,7 @@ uw_check_clear:
     cmpi.b #ROOM_ITEM_HIDDEN, OFF_ITEM_ACTIVE(%a5)
     bne 9f
     move.b #2, OFF_ITEM_ACTIVE(%a5)
+    sfx SFX_ITEM_APPEARS
 9:  movem.l (%sp)+, %d0-%d1/%a0
     rts
 
@@ -1837,5 +1852,7 @@ uw_open_shutters:
     moveq #1, %d3
 2:  dbra %d2, 1b
 8:  move.w %d3, %d1
-    movem.l (%sp)+, %d0/%d2-%d3/%a0-%a2
+    beq 9f
+    sfx SFX_SECRET              | the shutters open
+9:  movem.l (%sp)+, %d0/%d2-%d3/%a0-%a2
     rts
