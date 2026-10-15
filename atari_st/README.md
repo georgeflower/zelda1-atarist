@@ -178,8 +178,8 @@ Things that behave differently from the original, or are stand-ins:
 - `K` is a debug key standing in for the shops and secrets that give keys,
   bombs and the candle
 - the overworld's real monsters are not ported; only the placeholder blobs
-- the inventory screen only lists the B items; there is no map, compass or
-  other item on it yet, and the overworld has no map on the ribbon
+- the inventory screen lists the B items, the compass and the map; the other
+  items are not there yet, and the overworld has no map on the ribbon
 - the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
   it back so the tempo stays right
 

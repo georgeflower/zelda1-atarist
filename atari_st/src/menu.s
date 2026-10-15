@@ -127,7 +127,7 @@ menu_draw:
 
     lea menu_title(%pc), %a0
     moveq #14, %d1
-    moveq #6, %d2
+    moveq #7, %d2
     bsr menu_text
     lea menu_hint1(%pc), %a0
     moveq #9, %d1
@@ -184,7 +184,65 @@ menu_draw:
 8:  addq.w #1, %d3
     cmp.w #B_CANDLE, %d3
     bls 3b
+    bsr menu_dungeon
     movem.l (%sp)+, %d0-%d7/%a0-%a2
+    rts
+
+| In a dungeon the screen also shows its map, and the compass and map icons he owns on either
+| side of it (the original's passive items). The map is drawn like the ribbon's, only bigger.
+    .equ MENU_PASSIVE_ROW, 3
+    .equ MENU_COMPASS_COL, 8
+    .equ MENU_MAP_ICON_COL, 29
+    .equ HUD_ICON_COMPASS, 4
+    .equ HUD_ICON_MAP, 5
+
+menu_dungeon:
+    movem.l %d0-%d6/%a0-%a3, -(%sp)
+    tst.b OFF_LEVEL(%a5)
+    beq 9f
+    moveq #0, %d6
+    move.b OFF_LEVEL(%a5), %d6
+    subq.w #1, %d6
+    and.w #7, %d6
+    moveq #1, %d5
+    lsl.b %d6, %d5
+    move.b OFF_INV_COMPASS(%a5), %d0
+    and.b %d5, %d0
+    beq 1f
+    moveq #HUD_ICON_COMPASS, %d0
+    moveq #MENU_COMPASS_COL, %d1
+    bsr menu_icon
+    lea menu_compass(%pc), %a0
+    moveq #(MENU_COMPASS_COL - 3), %d1
+    moveq #(MENU_PASSIVE_ROW + 2), %d2
+    bsr menu_text
+1:  move.b OFF_INV_MAP(%a5), %d0
+    and.b %d5, %d0
+    beq 2f
+    moveq #HUD_ICON_MAP, %d0
+    moveq #MENU_MAP_ICON_COL, %d1
+    bsr menu_icon
+    lea menu_map(%pc), %a0
+    moveq #(MENU_MAP_ICON_COL - 1), %d1
+    moveq #(MENU_PASSIVE_ROW + 2), %d2
+    bsr menu_text
+2:  lea mm_box_big(%pc), %a3
+    bsr minimap_paint
+9:  movem.l (%sp)+, %d0-%d6/%a0-%a3
+    rts
+
+| A ribbon item picture (two tiles, top then bottom): d0.w = icon, d1.w = column.
+menu_icon:
+    movem.l %d0-%d2/%a0, -(%sp)
+    ltab hud_items, %a0
+    mulu.w #(2 * HUD_TILE_BYTES), %d0
+    adda.l %d0, %a0
+    moveq #MENU_PASSIVE_ROW, %d2
+    bsr draw_hud_tile_ptr
+    lea HUD_TILE_BYTES(%a0), %a0
+    moveq #(MENU_PASSIVE_ROW + 1), %d2
+    bsr draw_hud_tile_ptr
+    movem.l (%sp)+, %d0-%d2/%a0
     rts
 
 | Write the string at a0 with the ribbon's glyphs. d1.w = column, d2.w = row.
@@ -226,6 +284,10 @@ menu_text:
 
 menu_title:
     .asciz "INVENTORY"
+menu_compass:
+    .asciz "COMPASS"
+menu_map:
+    .asciz "MAP"
 menu_hint1:
     .asciz "LEFT RIGHT CHOOSE THE B ITEM"
 menu_hint2:

@@ -327,6 +327,14 @@ class RomActorTests(unittest.TestCase):
         for mask in masks:  # left and right halves are mirror images
             self.assertEqual(mask >> 8, int(f"{mask & 255:08b}"[::-1], 2))
 
+    def test_inventory_icons_follow_the_b_item_codes_then_compass_and_map(self) -> None:
+        # menu.s indexes hud_items directly: sword, bomb, boomerang, candle (the B codes), then compass, map
+        self.assertEqual(self.actors.HUD_ITEM_IDS[4:], (0x16, 0x17))
+        self.assertEqual(len(self.data.hud_items), len(self.actors.HUD_ITEM_IDS) * 2 * build_assets.HUD_TILE_BYTES)
+        for icon in (4, 5):
+            tiles = self.data.hud_items[icon * 64 : (icon + 1) * 64]
+            self.assertTrue(any(tiles[:32]) and any(tiles[32:]) or any(tiles), "the icon is not blank")
+
     def test_floor_items_have_art(self) -> None:
         for item_id in self.actors.ITEM_IDS:
             self.assertNotEqual(self.data.item_index[item_id], 0xFF)
