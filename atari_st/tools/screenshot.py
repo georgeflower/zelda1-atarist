@@ -310,8 +310,10 @@ def main() -> None:
 
     ram = ram_path.read_bytes()
     base = video_base(log)
-    rows, palette = decode_screen(ram, base, read_palette(log))
+    palette_words = read_palette(log)
+    rows, palette = decode_screen(ram, base, palette_words)
     write_png(args.out, rows, palette)
+    print("PALETTE " + " ".join(f"{word:03x}" for word in palette_words))
 
     globals_addr = find_globals(ram)
     layout = parse_globals_layout(project / "src" / "globals.s")
@@ -332,6 +334,11 @@ def main() -> None:
     # A loop that keeps pace with the VBL advances this once per frame.
     frames = int.from_bytes(ram[globals_addr + layout["FRAME_COUNTER"] :][:2], "big")
     print(f"FRAME_COUNTER={frames} after {args.vbls} VBLs")
+    sync = re.search(r"^00FF8200: ((?:[0-9a-fA-F]{2} ){16})", log, re.M)
+    if sync:
+        # $FF820A bit 1 set = 50 Hz (PAL), clear = 60 Hz
+        mode = int(sync.group(1).split()[10], 16)
+        print(f"SYNC_MODE={mode:#04x} ({'50' if mode & 2 else '60'} Hz) MUS_SKIP={ram[globals_addr + layout['MUS_SKIP']]}")
 
 
 if __name__ == "__main__":

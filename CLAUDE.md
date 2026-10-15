@@ -66,7 +66,7 @@ atari_st/                the port
   README.md              user-facing docs: features, known gaps, roadmap, notes
   src/*.s                68000 code (one assembly unit, main.s .includes the rest)
   tools/*.py             asset pipeline, PRG packer, Hatari screenshot harness
-  tests/*.py             unittest suites (86 tests)
+  tests/*.py             unittest suites (99 tests)
   music/                 YM2149 song source (zelda_intro_by_qum.h) + player (ymplay.h)
   build/                 OUTPUT (gitignored): generated/, ZELDAST.PRG, scratch, shots/
 ```
@@ -177,7 +177,7 @@ then says `source=generated placeholder CHR`). With the real ROM it should not a
 `atari_st/tests/` (`test_build_assets.py`, `test_actors.py`, `test_ym_convert.py`,
 `test_nes_music_rip.py` (needs `py65` for the ROM part, `ZELDA_ROM` or `ext/Original.nes`),
 `test_music_player.py` (the packer, and `music.s` run on `machine68k` through `tests/music_harness.s`; needs the m68k binutils and `pip install machine68k`, the real-bank part also the ROM and `py65`),
-...). Run `python -m unittest discover -s atari_st\tests` (86 tests at the time of
+...). Run `python -m unittest discover -s atari_st\tests` (99 tests at the time of
 writing). They cover the asset pipeline and tables; the 68000 music player is the one piece of
 68000 code with unit tests.
 
@@ -237,6 +237,9 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
   the WSL command or the script.
 - PowerShell has no heredocs; write files with the editor tools.
 - `make clean` wipes `atari_st/build/*`, including scratch scripts and probes.
+- **50 Hz test**: pass EmuTOS German (`etos512de.img`) as `TOS`; the report then shows `SYNC_MODE=0xfe (50 Hz)`. The US images give
+  `0xfc` (60 Hz). Compare `FRAME_COUNTER` at two `--vbls` (it must advance one per VBL) and count `reg=0x0` writes with `--trace psg_write`
+  (one per music tick: 600 of 600 VBLs at 50 Hz, 500 at 60 Hz). The report also prints a `PALETTE` line with the 16 colours on show.
 - Hatari quirks: `--memsize 4` with TOS 1.04 bus-errors during TOS's own RAM test
   (use `--memsize 1`); Hatari here runs at **60 Hz** (133,600 cycles per frame).
 
@@ -328,6 +331,12 @@ time (no pre-shifted copies).
   edits such as the pushed block must be re-applied after).
 - One ST palette covers all NES background and sprite rows (16 colours, no
   collisions). Sprite palette rows are `LINK_PALETTE_ROW (4) + attribute & 3`.
+- **Palette per mode**: `room_palette` is the overworld's; `level_palettes` holds nine more (one per dungeon, 32 bytes each). A
+  dungeon keeps every overworld colour in its slot and swaps in the 1-3 colours the overworld lacks (Levels 3-9), because Link,
+  items, effects, the HUD, the cellar walls and the minimap (slots named in `hud.s`, `underworld.PROTECTED_SLOTS`) are baked once
+  by slot number. `underworld.palette_lookup` builds a level's table; `palette_sync` (video.s, each frame) loads the one for
+  `OFF_LEVEL`; code that restores the colours after a flash calls `cur_palette` (a0 = current table). A level's monsters must be
+  baked with the level's own rows when its dungeon is added.
 - Sprites: 16x16, 4 planes + 1 mask word, **160 bytes** (`SPRITE_FRAME_BYTES`). Narrow
   NES items (8 wide) are centred in the 16 px frame. `draw_sprite` (a0 frame, a1
   dest, d0 shift), `erase_at` restores from `BG_CUR` (the clean room).
