@@ -468,6 +468,10 @@ visible block slide animation; sound effects; then the rest of the overworld (re
 shops, caves, secrets), inventory items (bow/arrows, recorder, ladder, raft, rings, ...), other
 eight dungeons, title/game-over/save.
 
+The full plan for everything still missing (hidden bomb/fire spots, enemies, caves, items, all nine
+dungeons and bosses, title/save) is `atari_st/PLAN.md`. Scope decision: First Quest only, the Second
+Quest is deferred. Its tables are decoded from a user-supplied ROM; do not commit the ROM.
+
 ## 15. Persistent notes also kept in the repo memory (VS Code agent memory)
 
 `/memories/repo/*.md` in the VS Code workspace store: build notes, references, the underworld port

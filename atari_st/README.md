@@ -178,6 +178,8 @@ Things that behave differently from the original, or are stand-ins:
 Roadmap
 -------
 
+The detailed plan, with the data tables behind it, is in [`PLAN.md`](PLAN.md).
+
 Near term (finish Level 1)
 
 1. the triforce piece held up, and the level's completion recorded
