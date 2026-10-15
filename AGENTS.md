@@ -17,7 +17,7 @@ TOS `ZELDAST.PRG` that runs in Hatari (and should on real hardware): 320x200,
 Current scope: the whole overworld is walkable (128 screens), the first cave
 and the wooden sword, and **Level 1 (the Eagle dungeon)** is playable to the boss
 Aquamentus and the triforce piece. Everything else (other 8 dungeons, real
-overworld monsters, shops, dungeon people, map/compass) is future work, see
+overworld monsters, shops, dungeon people) is future work, see
 section 14.
 
 The repository root also contains the original disassembly the port is built on
@@ -406,6 +406,15 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   frames (heart blip), 4 a curtain blanks one 8-px column from each side every 5 frames for 16 steps
   (`curtain_column` clears it in the clean room and both screens), 5 a 128-frame pause on the black room,
   then `uw_leave_level`. Input is frozen by `LINK_HELD`; the Tab menu is blocked while the phase is non-zero.
+- **Map and compass** (`TakeClass0Complex`, `UpdatePositionMarker`): items `$17` (map) and `$16` (compass) set the
+  bit of the current level in `INV_MAP` / `INV_COMPASS` (bit level-1, like `TRIFORCE_PIECES`) and play the item-taken blip. The
+  dungeon minimap lives in `hud.s` (`draw_minimap`, called by `draw_hud`): the free 32x24 pixel corner left of the counters, each room
+  of the level a 4x3 cell with a 3x2 grey box (the NES uses 8x4 cells; this ribbon is 24 lines tall). Boxes show only with the map, Link's
+  room is always a green box, and with the compass the triforce room is a box that flashes red/white every 16 frames until the piece
+  is taken, then stays dull. Rooms come from `uw_room_index`; `UW_MAP_COL0` (circular window of 8 columns, centred, from
+  `underworld.minimap_first_column`) and `UW_TRIFORCE_ROOM` (LevelInfo) are build equates. `minimap_tick` (main loop) raises
+  `HUD_DIRTY` when the room, the items or the flash phase change (`MINIMAP_SIG`). The overworld shows nothing there yet, and the Tab screen does
+  not list map or compass yet.
 - **Secret triggers** (`LevelBlock` attr F & 7): 1 kill all -> open shutters, 4 push block,
   7 kill all -> item appears; others in `Z_05.asm` (`CheckSecretTrigger`).
 - **Level 1 rooms** (reachable from `$73`): `$22` traps, `$23` goriya+key, `$33` stalfos+key,
@@ -498,10 +507,10 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 Done in Level 1: overworld + first cave, doors/keys/shutters/bombable and false walls, stairs +
 cellar, stalfos/keese/gel/rope/goriya/wallmaster/Aquamentus/blade traps, sword + beam + bombs +
 boomerang + candle, drops with kill counters, knock-back and invincibility, push block, triforce
-ending, HUD with A/B boxes, Tab inventory screen, YM2149 music and sound effects.
+ending, map and compass with the dungeon minimap, HUD with A/B boxes, Tab inventory screen, YM2149 music and sound effects.
 
-Open items (user-visible gaps): map and compass items and
-the dungeon minimap on the ribbon; the old man / people in dungeons (room `$41`); fireball art
+Open items (user-visible gaps): the old man / people in dungeons (room `$41`); the map and compass
+in the Tab screen; the overworld map on the ribbon; fireball art
 (placeholder); the clock and fairy drops; stairs-type push block (trigger 5, not in Level 1);
 visible block slide animation; the rest of the sound (title, ending, game-over and boss music, DPCM); then the rest of the overworld (real monsters,
 shops, caves, secrets), inventory items (bow/arrows, recorder, ladder, raft, rings, ...), other

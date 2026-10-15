@@ -29,6 +29,8 @@
     .equ ITEM_KEY, 0x19
     .equ ITEM_HEART_CONTAINER, 0x1a
     .equ ITEM_TRIFORCE, 0x1b
+    .equ ITEM_COMPASS, 0x16
+    .equ ITEM_MAP, 0x17
     .equ ENDING_HOLD_FRAMES, 48      | UpdateMode12EndLevel_Sub0: Link holds the piece up
     .equ ENDING_FLASH_FRAMES, 48     | Sub1: the screen flashes
     .equ ENDING_HEART_FRAMES, 21     | World_FillHearts adds 6 of 248 a frame: a heart takes ~43 frames
@@ -1496,7 +1498,7 @@ item_pickup:
     rts
 
 | Apply the effect of item d0.b to Link's counters. Items without an effect
-| here yet (maps, weapons, ...) are simply collected.
+| here yet (weapons, ...) are simply collected.
 take_item:
     movem.l %d0-%d2, -(%sp)
     move.b #1, OFF_HUD_DIRTY(%a5)
@@ -1575,7 +1577,7 @@ take_item:
     move.b %d1, OFF_HP_HALVES(%a5)
     bra 9f
 10: cmp.b #ITEM_TRIFORCE, %d0
-    bne 9f
+    bne 22f
     move.b #1, OFF_TRIFORCE(%a5)
     moveq #0, %d1                       | the level's piece is recorded
     move.b OFF_LEVEL(%a5), %d1
@@ -1596,6 +1598,25 @@ take_item:
     clr.b OFF_FIRE_STATE(%a5)
     clr.b OFF_BOMB_TIMER(%a5)
     clr.b OFF_CLOUD_TIMER(%a5)
+    bra 9f
+    | The map and the compass belong to the level they were found in (TakeClass0Complex).
+22: cmp.b #ITEM_MAP, %d0
+    beq 23f
+    cmp.b #ITEM_COMPASS, %d0
+    bne 9f
+23: moveq #0, %d1
+    move.b OFF_LEVEL(%a5), %d1
+    beq 9f
+    subq.w #1, %d1
+    and.w #7, %d1
+    moveq #1, %d2
+    lsl.b %d1, %d2
+    cmp.b #ITEM_MAP, %d0
+    bne 24f
+    or.b %d2, OFF_INV_MAP(%a5)
+    bra 25f
+24: or.b %d2, OFF_INV_COMPASS(%a5)
+25: sfx SFX_ITEM_TAKEN
 9:  bsr b_item_fix
     movem.l (%sp)+, %d0-%d2
     rts

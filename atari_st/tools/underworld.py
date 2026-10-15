@@ -63,9 +63,32 @@ class UwData:
     start_room: int
     start_y: int
     level: int
+    triforce_room: int = 0    # LevelInfo_TriforceRoomId: where the compass marker points
+    map_col0: int = 0         # room column drawn in the minimap's first column
     actors: object = None
     cellar_maps: tuple = ()   # UW_ROOM_BYTES row-major bank ids per cellar
     cellar_info: tuple = ()   # CELLAR_INFO_BYTES per cellar
+
+
+MINIMAP_COLUMNS = 8
+
+
+def minimap_first_column(rooms) -> int:
+    """The first of the eight room columns the status-bar map shows.
+
+    A level is at most eight columns wide, but it may wrap past column 15 (level 2 does), so the
+    window is circular. The level is centred in it, as LevelInfo_StatusBarMapXOffset does.
+    """
+    columns = sorted({room & 15 for room in rooms})
+    best = None
+    for start in range(16):
+        span = max(((column - start) & 15) for column in columns) + 1
+        if span <= MINIMAP_COLUMNS and (best is None or span < best[0]):
+            best = (span, start)
+    if best is None:
+        raise SystemExit("A level wider than the eight columns of the status-bar map")
+    span, start = best
+    return (start - (MINIMAP_COLUMNS - span) // 2) & 15
 
 
 def _col_major_to_cell(index: int) -> int:
@@ -374,6 +397,8 @@ def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes
         start_room=start_room,
         start_y=start_y,
         level=level,
+        triforce_room=info[B.LEVEL_INFO_TRIFORCE_ROOM_ID],
+        map_col0=minimap_first_column(stored),
         actors=actors.build_actors(
             source_root, level, bg_tiles, ow_map, stored, (attrs[2], attrs_d, attrs[4], attrs[5]), info
         ),
@@ -406,5 +431,7 @@ def build_placeholder() -> UwData:
         start_room=0x73,
         start_y=0xDD,
         level=1,
+        triforce_room=0x73,
+        map_col0=2,
         actors=actors.build_placeholder(),
     )

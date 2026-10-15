@@ -43,6 +43,7 @@ draw_hud:
 
     bsr draw_hud_hearts
     bsr draw_hud_boxes
+    bsr draw_minimap
     movem.l (%sp)+, %d0-%d4
     rts
 
@@ -220,4 +221,168 @@ draw_hud_tile_ptr:
     adda.w #SCREEN_STRIDE, %a1
     dbra %d7, 2b
     movem.l (%sp)+, %d0-%d3/%d7/%a0-%a1
+    rts
+
+| ---------------------------------------------------------------------------
+| The dungeon map, in the corner of the ribbon the counters leave free: 32x24 pixels,
+| each room a 4x3 cell with a 3x2 box (the NES uses 8x4 cells, but this ribbon is only
+| 24 lines tall). Like the original, the layout shows once he has the map of the level,
+| his own room is always marked, and the compass marks the triforce room, flashing
+| until the piece is his.
+    .equ MM_ROOM, 2            | the grey the original draws its rooms in
+    .equ MM_LINK, 7            | green
+    .equ MM_FLASH_A, 4         | the triforce room, still to be taken: red, then
+    .equ MM_FLASH_B, 1         | white
+    .equ MM_GOT, 9             | and dull once the piece is his
+    .equ MM_COLUMNS, 8
+
+draw_minimap:
+    movem.l %d0-%d7/%a0-%a2, -(%sp)
+    moveq #0, %d2               | blank the corner first
+1:  moveq #0, %d1
+2:  moveq #HUD_BLANK, %d0
+    bsr draw_hud_tile
+    addq.w #1, %d1
+    cmp.w #4, %d1
+    blo 2b
+    addq.w #1, %d2
+    cmp.w #HUD_ROWS, %d2
+    blo 1b
+
+    tst.b OFF_LEVEL(%a5)
+    beq 9f                      | the overworld has no map here yet
+    moveq #0, %d6
+    move.b OFF_LEVEL(%a5), %d6
+    subq.w #1, %d6
+    and.w #7, %d6
+    moveq #1, %d5
+    lsl.b %d6, %d5              | this level's bit in the item masks
+
+    move.b OFF_INV_MAP(%a5), %d0
+    and.b %d5, %d0
+    beq 5f
+    ltab uw_room_index, %a2
+    moveq #0, %d3
+3:  cmpi.b #0xff, 0(%a2, %d3.w)
+    beq 4f
+    bsr mm_place
+    tst.w %d0
+    bmi 4f
+    moveq #MM_ROOM, %d2
+    bsr mm_box
+4:  addq.w #1, %d3
+    cmp.w #128, %d3
+    blo 3b
+
+5:  move.b OFF_INV_COMPASS(%a5), %d0
+    and.b %d5, %d0
+    beq 7f
+    move.w #UW_TRIFORCE_ROOM, %d3
+    bsr mm_place
+    tst.w %d0
+    bmi 7f
+    moveq #MM_GOT, %d2
+    move.b OFF_TRIFORCE_PIECES(%a5), %d4
+    and.b %d5, %d4
+    bne 6f
+    moveq #MM_FLASH_A, %d2
+    btst #4, (OFF_FRAME_COUNTER + 1)(%a5)
+    beq 6f
+    moveq #MM_FLASH_B, %d2
+6:  bsr mm_box
+
+7:  moveq #0, %d3
+    move.b OFF_ROOM_ID(%a5), %d3
+    bsr mm_place
+    tst.w %d0
+    bmi 9f
+    moveq #MM_LINK, %d2
+    bsr mm_box
+9:  movem.l (%sp)+, %d0-%d7/%a0-%a2
+    rts
+
+| Room id d3.w -> map cell: d0.w = column, d1.w = row; d0 is -1 when the room lies
+| outside the eight columns shown.
+mm_place:
+    move.w %d3, %d0
+    and.w #15, %d0
+    sub.w #UW_MAP_COL0, %d0
+    and.w #15, %d0
+    cmp.w #MM_COLUMNS, %d0
+    blo 1f
+    moveq #-1, %d0
+    rts
+1:  move.w %d3, %d1
+    lsr.w #4, %d1
+    rts
+
+| A 3x2 pixel box in the map cell d0.w (column 0..7), d1.w (row 0..7), colour d2.w.
+mm_box:
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    movea.l OFF_SCREEN_PTR(%a5), %a0
+    mulu.w #(3 * SCREEN_STRIDE), %d1
+    adda.l %d1, %a0
+    move.w %d0, %d3
+    lsr.w #2, %d3
+    lsl.w #3, %d3
+    adda.w %d3, %a0             | four cells share a 16-pixel group (8 bytes)
+    and.w #3, %d0
+    lsl.w #2, %d0
+    move.w #0xe000, %d3
+    lsr.w %d0, %d3              | the box's three pixels inside the group
+    move.w %d3, %d4
+    not.w %d4
+    moveq #1, %d7               | two lines
+1:  movea.l %a0, %a1
+    moveq #0, %d5               | plane
+2:  move.w (%a1), %d6
+    and.w %d4, %d6
+    btst %d5, %d2
+    beq 3f
+    or.w %d3, %d6
+3:  move.w %d6, (%a1)+
+    addq.w #1, %d5
+    cmp.w #4, %d5
+    blo 2b
+    adda.w #SCREEN_STRIDE, %a0
+    dbra %d7, 1b
+    movem.l (%sp)+, %d0-%d7/%a0-%a1
+    rts
+
+| Ask for a ribbon redraw when what the map shows has changed: his room, the map or
+| compass arriving, the level changing, or the triforce marker's flash turning over.
+minimap_tick:
+    movem.l %d0-%d2, -(%sp)
+    moveq #0, %d0               | the overworld shows nothing
+    moveq #0, %d1
+    move.b OFF_LEVEL(%a5), %d1
+    beq 3f
+    subq.w #1, %d1
+    and.w #7, %d1
+    moveq #1, %d2
+    lsl.b %d1, %d2
+    move.b OFF_ROOM_ID(%a5), %d0
+    lsl.w #8, %d0
+    addq.w #1, %d0
+    move.b OFF_INV_MAP(%a5), %d1
+    and.b %d2, %d1
+    beq 1f
+    or.w #2, %d0
+1:  move.b OFF_INV_COMPASS(%a5), %d1
+    and.b %d2, %d1
+    beq 3f
+    or.w #4, %d0
+    move.b OFF_TRIFORCE_PIECES(%a5), %d1
+    and.b %d2, %d1
+    bne 2f
+    move.b (OFF_FRAME_COUNTER + 1)(%a5), %d1
+    and.b #16, %d1
+    or.b %d1, %d0               | the flash phase
+    bra 3f
+2:  or.w #8, %d0
+3:  cmp.w OFF_MINIMAP_SIG(%a5), %d0
+    beq 9f
+    move.w %d0, OFF_MINIMAP_SIG(%a5)
+    move.b #1, OFF_HUD_DIRTY(%a5)
+9:  movem.l (%sp)+, %d0-%d2
     rts

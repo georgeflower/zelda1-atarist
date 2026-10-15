@@ -239,5 +239,9 @@
     gvar TRIFORCE_PIECES, 1    | bit n: the triforce piece of level n+1 is his (InvTriforce)
     gvar ENDING_STEP, 1        | curtain columns closed from each side so far
     gvar ROOM_BLOCK, 1         | the underworld room has a push block (attribute D bit 6)
+    gvar INV_MAP, 1            | bit n: he has the map of level n+1 (InvMap)
+    gvar INV_COMPASS, 1        | bit n: he has the compass of level n+1 (InvCompass)
+    galign
+    gvar MINIMAP_SIG, 2        | what the ribbon's map last showed: room id, flags, blink phase
 
     .equ GLOBALS_BYTES, gvar_offset
