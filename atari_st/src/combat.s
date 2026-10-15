@@ -1110,7 +1110,7 @@ bomb_flash:
 2:  cmp.b OFF_FLASH_ON(%a5), %d1
     beq 9f
     move.b %d1, OFF_FLASH_ON(%a5)
-    ltab room_palette, %a0
+    bsr cur_palette
     movea.l #PALETTE_BASE, %a1
     moveq #15, %d2
 3:  moveq #0, %d0
@@ -1153,7 +1153,7 @@ clear_bomb:
     tst.b OFF_FLASH_ON(%a5)
     beq 9f
     clr.b OFF_FLASH_ON(%a5)
-    ltab room_palette, %a0
+    bsr cur_palette
     movea.l #PALETTE_BASE, %a1
     moveq #15, %d0
 1:  move.w (%a0)+, (%a1)+
@@ -1712,7 +1712,7 @@ ending_update:
     bra 3f
     | phase 2: the backdrop flashes white every 4 frames
 3:  movea.l #PALETTE_BASE, %a1
-    ltab room_palette, %a0
+    bsr cur_palette
     move.b OFF_ENDING_TIMER(%a5), %d0
     beq 31f
     btst #2, %d0

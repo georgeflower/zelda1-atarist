@@ -250,4 +250,6 @@
     gvar LIFT_TIMER, 1         | frames left of Link holding a new weapon up (ItemLiftTimer)
     gvar INV_BOW, 1            | he has the bow (InvBow); arrows are not in yet, so it only shows on the Tab screen
 
+    gvar PAL_LEVEL, 1          | the level whose palette the ST is showing (0 = overworld); palette_sync follows OFF_LEVEL
+
     .equ GLOBALS_BYTES, gvar_offset

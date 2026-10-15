@@ -191,6 +191,7 @@ Things that behave differently from the original, or are stand-ins:
 - the overworld's real monsters are not ported; only the placeholder blobs
 - the inventory screen lists the B items, the compass and the map; the other
   items are not there yet, and the overworld has no map on the ribbon
+- the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed
 - the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
   it back so the tempo stays right
 

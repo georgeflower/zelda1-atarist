@@ -257,23 +257,71 @@ def reachable_rooms(start: int, attrs_a: bytes, attrs_b: bytes) -> list[int]:
     return sorted(seen)
 
 
+# Palette rows of the shared overworld table whose slots no level may repurpose: Link's own row
+# (his sprite is baked once, for every level) and the cave wall row the cellars use.
+PROTECTED_ROWS = (B.LINK_PALETTE_ROW, B.CAVE_WALL_ROW, B.HUD_TEXT_ROW, B.HUD_ACCENT_ROW)
+# Slots the 68000 code names directly: the minimap colours (MM_* in hud.s; tests keep the two in step).
+PROTECTED_SLOTS = (1, 2, 4, 7, 9)
+
+
 def palette_lookup(ow_palette: bytes, ow_map: "B.PaletteMap", uw_palette: bytes):
-    """Express the level's palette rows in the overworld's shared ST palette."""
-    known = {}
+    """Express a level's palette rows in a 16-colour ST palette that keeps the overworld's slot numbers.
+
+    Everything baked once for all modes (Link, items, effects, the HUD, the cellar walls) names a colour by
+    its slot in the overworld's table, so a slot must keep meaning "that colour" wherever it is shown.
+    Colours the level shares with the overworld therefore keep their slot. The few colours the overworld
+    lacks (levels 3-9 have up to three) take over slots whose overworld colour the level does not use and
+    that nothing baked relies on, background-only colours first. Returns (table, st_colors): table[row][pixel]
+    is the slot a CHR pixel takes in this level and st_colors the 16 ST words to load while inside it.
+    """
+    known: dict[int, int] = {}
+    slot_colour: dict[int, int] = {}
     for row in range(B.PALETTE_ROWS):
         for pixel in range(B.PALETTE_ROW_COLORS):
             nes = ow_palette[0] if pixel == 0 else ow_palette[row * 4 + pixel]
             known[nes] = ow_map.table[row][pixel]
+            slot_colour[ow_map.table[row][pixel]] = nes
+
+    wanted = [uw_palette[0]]
+    for row in range(B.PALETTE_ROWS):
+        wanted.extend(uw_palette[row * 4 + pixel] for pixel in range(1, B.PALETTE_ROW_COLORS))
+    wanted = list(dict.fromkeys(wanted))
+    if uw_palette[0] != ow_palette[0]:
+        raise SystemExit("A level's backdrop differs from the overworld's; slot 0 would change meaning")
+
+    protected = {ow_map.table[row][pixel] for row in PROTECTED_ROWS if row < len(ow_map.table)
+                 for pixel in range(B.PALETTE_ROW_COLORS)} | set(PROTECTED_SLOTS)
+    sprite_slots = {ow_map.table[row][pixel] for row in range(4, 8) for pixel in range(B.PALETTE_ROW_COLORS)}
+    keep = {known[nes] for nes in wanted if nes in known}
+    spare = sorted((slot for slot in slot_colour if slot not in keep and slot not in protected),
+                   key=lambda slot: (slot in sprite_slots, slot))
+
+    slot_of = {nes: known[nes] for nes in wanted if nes in known}
+    st_colors = list(ow_map.st_colors)
+    for nes in wanted:
+        if nes in slot_of:
+            continue
+        if not spare:
+            raise SystemExit(f"Level colour {nes:#04x} has no free slot in the shared ST palette")
+        slot = spare.pop(0)
+        slot_of[nes] = slot
+        st_colors[slot] = B.nes_color_to_st(nes)
+
     table = []
     for row in range(B.PALETTE_ROWS):
-        entries = []
-        for pixel in range(B.PALETTE_ROW_COLORS):
-            nes = uw_palette[0] if pixel == 0 else uw_palette[row * 4 + pixel]
-            if nes not in known:
-                raise SystemExit(f"Underworld colour {nes:#04x} is missing from the shared ST palette")
-            entries.append(known[nes])
-        table.append(tuple(entries))
-    return table
+        table.append(tuple(slot_of[uw_palette[0] if pixel == 0 else uw_palette[row * 4 + pixel]]
+                           for pixel in range(B.PALETTE_ROW_COLORS)))
+    return table, tuple(st_colors)
+
+
+def level_palettes(source_root: Path, ow_palette: bytes, ow_map) -> list[tuple[int, ...]]:
+    """The 16 ST colours to show inside each of the nine levels (slot-compatible with the overworld)."""
+    result = []
+    for level in range(1, 10):
+        info = B.require_binary(source_root, f"dat/LevelInfoUW{level}.dat")
+        uw_palette = info[B.LEVEL_INFO_PALETTE_OFFSET : B.LEVEL_INFO_PALETTE_OFFSET + 32]
+        result.append(palette_lookup(ow_palette, ow_map, uw_palette)[1])
+    return result
 
 
 def build_cellars(asm: str, info: bytes, attrs, bank_id) -> tuple[list[bytes], list[bytes]]:
@@ -329,7 +377,7 @@ def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes
     start_room = info[B.LEVEL_INFO_START_ROOM_ID]
     start_y = info[B.LEVEL_INFO_START_Y]
     uw_palette = info[B.LEVEL_INFO_PALETTE_OFFSET : B.LEVEL_INFO_PALETTE_OFFSET + 32]
-    pal_table = palette_lookup(ow_palette_bytes, ow_map, uw_palette)
+    pal_table, _ = palette_lookup(ow_palette_bytes, ow_map, uw_palette)
 
     stored = reachable_rooms(start_room, attrs_a, attrs_b)
     room_index = [0xFF] * 128

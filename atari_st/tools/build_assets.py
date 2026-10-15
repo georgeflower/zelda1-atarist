@@ -460,6 +460,7 @@ class AssetBundle:
     cave_map: bytes = bytes(OW_ROOM_COLS * OW_ROOM_ROWS)
     cave_sprites: bytes = bytes(CAVE_SPRITE_FRAMES * SPRITE_FRAME_BYTES)
     cave_text: bytes = bytes((0xEC,))
+    level_palettes: tuple = ()      # nine rows of 16 ST colours, one per dungeon (empty = reuse `palette`)
 
 
 def load_uw_background_tiles(source_root: Path) -> list[list[list[int]]] | None:
@@ -685,6 +686,7 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
         cave_text = require_binary(source_root, PERSON_TEXT_NAME)[:PERSON_TEXT_BYTES]
         uw_tiles = load_uw_background_tiles(source_root)
         uw = underworld.build_level(source_root, 1, uw_tiles, palette_bytes, palette_map)
+        level_palettes = tuple(underworld.level_palettes(source_root, palette_bytes, palette_map))
         cave_text += uw.actors.person_text      # the level's old men speak from the same text
         return AssetBundle(
             source_note="ROM-derived overworld tiles, sprites, rooms and palette",
@@ -693,6 +695,7 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
             cave_sprites=cave_sprites,
             cave_text=cave_text,
             palette=palette_map,
+            level_palettes=level_palettes,
             bg_tiles=bg_tiles,
             sprite_tiles=sprite_tiles,
             rooms=rooms,
@@ -1038,6 +1041,13 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
             "    .align 2",
             format_words("room_palette", bundle.palette.st_colors),
             "",
+            "| Inside dungeon n (1..9) the ST shows level_palettes + (n-1)*32: the overworld's slots with the",
+            "| few colours it lacks swapped in (underworld.palette_lookup).",
+            format_words(
+                "level_palettes",
+                [color for row in (bundle.level_palettes or (bundle.palette.st_colors,) * 9) for color in row],
+            ),
+            "",
             format_bytes("walkable_tiles", OW_WALKABLE_TILES),
             "",
             format_bytes("room_attr_a", bundle.room_attrs_a),
@@ -1145,13 +1155,20 @@ def verify_outputs(out_dir: Path) -> None:
         if symbol not in include_text:
             raise SystemExit(f"assets.inc is missing {symbol}")
 
-    palette_entries = sum(
-        len(line.partition(".word")[2].split(","))
-        for line in include_text.splitlines()
-        if line.strip().startswith(".word")
-    )
+    def word_count(label: str) -> int:
+        block = include_text.partition(f"\n{label}:")[2]
+        total = 0
+        for line in block.splitlines()[1:]:
+            if not line.strip().startswith(".word"):
+                break
+            total += len(line.partition(".word")[2].split(","))
+        return total
+
+    palette_entries = word_count("room_palette")
     if palette_entries != ST_PALETTE_SIZE:
         raise SystemExit(f"room_palette holds {palette_entries} entries, expected {ST_PALETTE_SIZE}")
+    if word_count("level_palettes") != 9 * ST_PALETTE_SIZE:
+        raise SystemExit("level_palettes must hold nine rows of sixteen colours")
 
     print(f"Verified generated assets in {out_dir}")
 

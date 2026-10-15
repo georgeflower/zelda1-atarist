@@ -243,6 +243,7 @@ _start:
 main_loop:
     bsr wait_vbl
     bsr frame_begin
+    bsr palette_sync
     bsr poll_keyboard
     bsr debug_keys
     bsr music_update

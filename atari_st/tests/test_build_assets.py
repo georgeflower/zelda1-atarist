@@ -261,6 +261,63 @@ class RomUnderworldTests(unittest.TestCase):
 
 
 @unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
+class RomLevelPaletteTests(unittest.TestCase):
+    """Risk R1: every dungeon must fit the 16 ST colours without disturbing what is baked once for all modes."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+
+    def test_every_level_has_a_sixteen_colour_palette(self) -> None:
+        self.assertEqual(len(self.bundle.level_palettes), 9)
+        for palette in self.bundle.level_palettes:
+            self.assertEqual(len(palette), build_assets.ST_PALETTE_SIZE)
+
+    def test_levels_one_and_two_use_the_overworld_palette_unchanged(self) -> None:
+        for level in (0, 1):
+            self.assertEqual(self.bundle.level_palettes[level], self.bundle.palette.st_colors)
+
+    def test_the_slots_other_code_relies_on_never_change(self) -> None:
+        import underworld
+
+        base = self.bundle.palette
+        fixed = {base.table[row][pixel] for row in underworld.PROTECTED_ROWS for pixel in range(4)}
+        fixed |= set(underworld.PROTECTED_SLOTS)
+        for level, palette in enumerate(self.bundle.level_palettes, 1):
+            for slot in fixed:
+                self.assertEqual(palette[slot], base.st_colors[slot], f"level {level} slot {slot}")
+
+    def test_each_level_shows_every_colour_it_needs(self) -> None:
+        import underworld
+
+        for level, palette in enumerate(self.bundle.level_palettes, 1):
+            info = build_assets.require_binary(ROM_ROOT, f"dat/LevelInfoUW{level}.dat")
+            nes = info[build_assets.LEVEL_INFO_PALETTE_OFFSET : build_assets.LEVEL_INFO_PALETTE_OFFSET + 32]
+            table, colors = underworld.palette_lookup(self._overworld(), self.bundle.palette, nes)
+            self.assertEqual(colors, palette)
+            for row in range(8):
+                for pixel in range(4):
+                    wanted = build_assets.nes_color_to_st(nes[0] if pixel == 0 else nes[row * 4 + pixel])
+                    self.assertEqual(palette[table[row][pixel]], wanted, f"level {level} row {row} pixel {pixel}")
+
+    @staticmethod
+    def _overworld() -> bytes:
+        info = build_assets.require_binary(ROM_ROOT, build_assets.LEVEL_INFO_OW_NAME)
+        return info[build_assets.LEVEL_INFO_PALETTE_OFFSET : build_assets.LEVEL_INFO_PALETTE_OFFSET + 32]
+
+
+class PaletteSlotCodeTests(unittest.TestCase):
+    def test_the_minimap_colours_are_protected_slots(self) -> None:
+        import re
+        import underworld
+
+        source = (Path(__file__).resolve().parents[1] / "src" / "hud.s").read_text(encoding="utf-8")
+        for name in ("MM_ROOM", "MM_LINK", "MM_FLASH_A", "MM_FLASH_B", "MM_GOT"):
+            slot = int(re.search(rf"\.equ {name}, (\d+)", source).group(1))
+            self.assertIn(slot, underworld.PROTECTED_SLOTS, name)
+
+
+@unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
 class RomActorTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -381,6 +438,7 @@ class OutputTests(unittest.TestCase):
             include_text = (out_dir / "assets.inc").read_text(encoding="utf-8")
             manifest_text = (out_dir / "asset_manifest.txt").read_text(encoding="utf-8")
             self.assertIn("room_palette:", include_text)
+            self.assertIn("level_palettes:", include_text)
             self.assertIn("walkable_tiles:", include_text)
             self.assertIn("source=generated placeholder CHR", manifest_text)
 
