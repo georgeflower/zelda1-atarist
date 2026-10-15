@@ -144,8 +144,11 @@ Combat and items
   beyond it and the room's shutters open for good (they no longer open when
   the last monster dies)
 - pickups with their effects: keys, hearts, heart containers, rupees, bombs,
-  the boomerang, the candle and the wooden sword. Maps, compasses, the bow
-  and similar items are collected but do nothing yet
+  the boomerang, the candle, the wooden sword, the map and the compass. The
+  bow and similar items are collected but do nothing yet
+- the dungeon map in the corner of the ribbon: the level's rooms as grey boxes
+  once you have the map, a green box where Link is, and with the compass the
+  triforce room flashing until you take the piece
 - Link is invincible and blinks for about 0.8 seconds after being hurt (the
   original's $18 timer ticks every second frame), and is knocked back 32
   pixels; monsters are knocked back up to 64 pixels when the sword hits them
@@ -176,7 +179,7 @@ Things that behave differently from the original, or are stand-ins:
   bombs and the candle
 - the overworld's real monsters are not ported; only the placeholder blobs
 - the inventory screen only lists the B items; there is no map, compass or
-  other item yet, and no map on the ribbon
+  other item on it yet, and the overworld has no map on the ribbon
 - the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
   it back so the tempo stays right
 
@@ -188,9 +191,8 @@ The detailed plan, with the data tables behind it, is in [`PLAN.md`](PLAN.md).
 Near term (finish Level 1)
 
 1. fireball art
-2. map and compass use, and the dungeon map on the ribbon
-3. the old man in room `$41` and the other dungeon people
-4. the rest of the sound (title, ending and game-over songs,
+2. the old man in room `$41` and the other dungeon people
+3. the rest of the sound (title, ending and game-over songs,
    boss roars, DPCM samples), the clock and fairy drops
 
 Then the rest of the overworld

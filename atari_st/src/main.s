@@ -264,7 +264,8 @@ main_loop:
 1:  bsr update_play
     bra 3f
 2:  bsr update_scroll
-3:  tst.b OFF_HUD_DIRTY(%a5)
+3:  bsr minimap_tick
+    tst.b OFF_HUD_DIRTY(%a5)
     beq main_loop
     bsr draw_hud
     tst.b OFF_DBL_ACTIVE(%a5)

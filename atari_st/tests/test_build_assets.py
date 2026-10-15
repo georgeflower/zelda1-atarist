@@ -207,6 +207,19 @@ class UnderworldGeometryTests(unittest.TestCase):
             [underworld.door_type(0xA2, 0x03, d) for d in range(4)], [0, 0, 0, 5]
         )
 
+    def test_minimap_window_is_centred_and_wraps_past_column_fifteen(self) -> None:
+        import underworld
+
+        # Columns 1..6 (level 1): six wide, so one spare column each side.
+        self.assertEqual(underworld.minimap_first_column([0x41, 0x22, 0x36, 0x73]), 0)
+        # Level 2 spans columns 12..15 and 0: the window starts before column 12.
+        first = underworld.minimap_first_column([0x7D, 0x0D, 0x0E, 0x1F, 0x70, 0x6C])
+        self.assertEqual(first, 11)
+        for room in (0x7D, 0x0D, 0x0E, 0x1F, 0x70, 0x6C):
+            self.assertLess(((room & 15) - first) & 15, 8)
+        with self.assertRaises(SystemExit):
+            underworld.minimap_first_column([0x00, 0x04, 0x08])    # needs ten columns
+
     def test_placeholder_underworld_is_consistent(self) -> None:
         import underworld
 
@@ -226,6 +239,13 @@ class RomUnderworldTests(unittest.TestCase):
         self.assertEqual(len(stored), 17)
         self.assertIn(self.uw.start_room, stored)
         self.assertEqual(self.uw.start_room, 0x73)
+
+    def test_level_one_map_window_holds_every_room_and_the_triforce_marker(self) -> None:
+        stored = [room for room, index in enumerate(self.uw.room_index) if index != 0xFF]
+        for room in stored:
+            self.assertLess((room - self.uw.map_col0) & 15, 8)
+        self.assertEqual(self.uw.triforce_room, 0x36)
+        self.assertIn(self.uw.triforce_room, stored)
 
     def test_locked_door_has_a_different_open_face(self) -> None:
         import underworld
