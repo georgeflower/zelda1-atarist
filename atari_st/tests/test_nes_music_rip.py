@@ -149,6 +149,29 @@ class ConversionTests(unittest.TestCase):
         regs, _ = rip.to_ym_registers(hit, rip.CPU_CLOCK["pal"], "pal", "digidrum", 5)
         self.assertEqual((regs[2][1] >> 4) & 3, 3)  # voice C (tri volume 5) is the quietest
 
+    def test_game_stream_triggers_each_drum_once_with_the_whole_sample(self) -> None:
+        hit = self._hit(5)
+        track = rip.to_game_stream(hit, rip.CPU_CLOCK["pal"], "pal", 13)
+        self.assertEqual(len(track.regs), len(hit.frames))
+        self.assertTrue(all(len(row) == 14 and row[13] == 0xFF for row in track.regs))
+        self.assertEqual([f for f, x in enumerate(track.trig) if x], [2])
+        self.assertEqual(len(track.drums), 1)
+        self.assertAlmostEqual(len(track.drums[0]), 5 * rip.DRUM_RATE / rip.YM_RATE, delta=1)
+        voice = (track.trig[2] >> 6) - 1
+        self.assertIn(voice, (0, 1, 2))
+        self.assertEqual(track.trig[2] & 63, 0)
+        for f in range(2, 7):
+            self.assertTrue(track.regs[f][7] & (1 << voice), "no tone under the drum")
+        self.assertEqual(track.regs[1][7] & 0x38, 0x38)  # the YM noise generator stays off
+
+    def test_equal_hits_share_one_drum(self) -> None:
+        hit = self._hit(1)
+        again = self._hit(1)
+        merged = rip.Rip(hit.frames + again.frames, 0, False)
+        track = rip.to_game_stream(merged, rip.CPU_CLOCK["pal"], "pal", 13)
+        self.assertEqual(len(track.drums), 1)
+        self.assertEqual(sum(1 for x in track.trig if x), 2)
+
 
 class YmFileTests(unittest.TestCase):
     def test_round_trip_and_layout(self) -> None:

@@ -157,14 +157,15 @@
     gvar UW_MAP, 704            | UW_ROOM_BYTES; the test harness parses plain numbers
     gvar UW_MAP_NEXT, 704
 
+    | Music: three register-stream contexts (song, voice A effect, voice B effect), see music.s
     galign
-    gvar MUS_PTR, 4            | next byte of the music stream
-    gvar MUS_DATA, 4
+    .equ MUSC_SIZE, 32
+    gvar MUS_CTX, (3 * MUSC_SIZE)
+    gvar MUS_BANK, 4           | music_bank, as an absolute address
     gvar MUS_ENGINE, 4
-    gvar MUS_FRAME, 2
-    gvar MUS_REG, 14           | the PSG registers R0-R13 as last decoded
-    gvar MUS_TRIG, 1
-    gvar MUS_ON, 1             | 0 silences the PSG and pauses the song
+    gvar MUS_OUT, 14           | the PSG registers R0-R13 as last merged
+    gvar MUS_TRIG, 1           | the frame's digidrum trigger
+    gvar MUS_FORCED, 1         | an event song (item, triforce, ...) owns the song context
 
     galign
     gvar PRESENT_BASE, 4       | buffer handed to the shifter at the end of the last play frame
