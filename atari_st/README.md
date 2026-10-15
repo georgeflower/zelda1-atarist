@@ -16,11 +16,14 @@ How to play
 
 | Key | Action |
 | --- | --- |
-| arrow keys or `W` `A` `S` `D` | walk (in 8-pixel grid steps, like the original) |
-| `Space` | swing the sword (once you have it) |
-| `B` | drop a bomb (once you have some) |
+| arrow keys, `W` `A` `S` `D` or the joystick | walk (in 8-pixel grid steps, like the original) |
+| joystick fire, `Alternate` (`Ctrl` in Hatari) | the sword, the NES A button (once you have it) |
+| `Space` | the B item: drop a bomb (once you have some) |
 | `K` | debug: one key and four bombs |
 | `Esc` | quit |
+
+The two item boxes on the ribbon show what each button holds: the sword under
+A once you have picked it up, and a bomb under B while you carry any.
 
 A typical run:
 
@@ -49,7 +52,8 @@ Platform and rendering
 - keyboard input through the IKBD ACIA
 - the overworld plays a YM2149 song (digidrums included) from a VBL hook
 - status ribbon: hearts (with halves), rupee, key and bomb counters, in the
-  original glyphs
+  original glyphs, and the B and A item boxes
+- the IKBD joystick (either port) can walk Link and fire the sword
 
 Overworld
 
@@ -86,6 +90,11 @@ Level 1 (underworld)
   wallmasters come out of the walls when Link stands against them and carry
   him back to the level's first room; Aquamentus paces his end of room `$35`
   and breathes three fanned fireballs. Killing him reveals the heart container
+- walking monsters keep to the 16-pixel lanes of the room: they only turn on a
+  square boundary and look at the whole square ahead, so they never overlap
+  blocks. Keese fly over everything instead, in eight directions: they speed
+  up, then chase Link or wander for a few turns, slow to a stop, rest, and
+  start again
 - the triforce piece ends the level: full hearts, a flashing screen, and Link is
   back at the entrance on the overworld
 - the room's items appear on the floor (a trigger-7 room's item appears when
@@ -101,9 +110,11 @@ Combat and items
 - pickups with their effects: keys, hearts, heart containers, rupees, bombs
   and the wooden sword. Maps, compasses, the bow and similar items are
   collected but do nothing yet
-- Link is invincible and blinks for a short time after being hurt, and is
-  knocked back 32 pixels; monsters are knocked back when the sword hits them
-  and are invincible for a moment
+- Link is invincible and blinks for about 0.8 seconds after being hurt (the
+  original's $18 timer ticks every second frame), and is knocked back 32
+  pixels; monsters are knocked back up to 64 pixels when the sword hits them
+  and are invincible for about half a second. Aquamentus and the keese are
+  never knocked back
 
 Tooling
 

@@ -125,7 +125,7 @@ uw_spawn:
 
     move.w %d6, %d2
     move.w %d7, %d3
-    bsr enemy_blocked_at
+    bsr enemy_square_blocked
     tst.w %d0
     bne 1b
 
@@ -251,6 +251,8 @@ update_enemies:
     tst.b OFF_ENEMY_HURT(%a5, %d5.w)
     beq 2f
     subq.b #1, OFF_ENEMY_HURT(%a5, %d5.w)
+    cmp.b #ENEMY_SHOVE_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
+    blo 2f                      | the shove is over; it flashes on but carries on
     bsr enemy_shove
     bra 8f
 
@@ -273,7 +275,11 @@ update_enemies:
     bne 22f
     bsr boss_ai
     bra 8f
-22: cmp.w #BEH_ROPE, %d7
+22: cmp.w #BEH_KEESE, %d7
+    bne 24f
+    bsr keese_ai
+    bra 8f
+24: cmp.w #BEH_ROPE, %d7
     bne 23f
     bsr rope_ai
     tst.b OFF_ENEMY_STATE(%a5, %d5.w)
@@ -308,97 +314,120 @@ update_enemies:
     moveq #0, %d6
     move.b OFF_ENEMY_DIR(%a5, %d5.w), %d6
 
-    | Now and then turn, but only on a grid boundary, and not while charging.
-    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
-    bne 4f
+    | Monsters keep to the lanes of a 16-pixel grid. Only when a square has been
+    | crossed may one turn, and it has to find the square ahead open.
     move.b %d2, %d0
-    and.b #7, %d0
+    and.b #15, %d0
     bne 4f
     move.b %d3, %d0
-    and.b #7, %d0
-    cmp.b #5, %d0
+    and.b #15, %d0
+    cmp.b #13, %d0
     bne 4f
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 40f                     | a charging rope does not turn on a whim
     bsr rand8
     and.b #7, %d0
-    bne 4f
+    bne 40f
     bsr random_dir
+40: move.w %d6, %d4
+    bsr enemy_choose_dir
+    tst.w %d6
+    beq 45f
+    cmp.b %d4, %d6
+    beq 4f
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)       | a charging rope stops
+    move.b #24, OFF_ENEMY_STEP(%a5, %d5.w)  | a goriya looks elsewhere for a while
+    bra 4f
+45: clr.b OFF_ENEMY_STATE(%a5, %d5.w)       | boxed in: stand still
+    move.b #24, OFF_ENEMY_STEP(%a5, %d5.w)
+    bra 8f
 
 4:  btst #0, %d6
     beq 5f
     addq.w #1, %d2
-    bra 7f
+    bra 10f
 5:  btst #1, %d6
     beq 6f
     subq.w #1, %d2
-    bra 7f
+    bra 10f
 6:  btst #2, %d6
     beq 62f
     addq.w #1, %d3
-    bra 7f
+    bra 10f
 62: subq.w #1, %d3
-
-7:  bsr enemy_step_blocked
-    tst.w %d0
-    beq 10f
-    bsr random_dir              | blocked: try another way next time
-    move.b %d6, OFF_ENEMY_DIR(%a5, %d5.w)
-    clr.b OFF_ENEMY_STATE(%a5, %d5.w)       | and a charging rope stops
-    move.b #24, OFF_ENEMY_STEP(%a5, %d5.w)  | a goriya looks elsewhere for a while
-    bra 8f
 10: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
     move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
     move.b %d6, OFF_ENEMY_DIR(%a5, %d5.w)
     subq.w #1, %d7
-    bgt 4b
+    bgt 31b
 8:  addq.w #1, %d5
     bra 1b
 9:  movem.l (%sp)+, %d0-%d7/%a0-%a1
     rts
 
-| Knock-back for enemy d5 while it is hurt: four pixels a frame, stopping at a
-| wall. When the shove is over it settles back onto the grid.
+| Knock-back for enemy d5: four pixels a frame along the way it was hit, stopping
+| at a wall. A monster caught between squares is only shoved along its own lane.
 enemy_shove:
-    movem.l %d0-%d4/%d6, -(%sp)
+    movem.l %d0-%d4/%d6/%a0, -(%sp)
     moveq #0, %d6
     move.b OFF_ENEMY_SHOVE(%a5, %d5.w), %d6
     beq 9f
+    bsr enemy_behaviour
+    cmp.w #BEH_BOSS, %d0
+    beq 4f                      | Aquamentus and the keese are never shoved
+    cmp.w #BEH_KEESE, %d0
+    beq 4f
     moveq #0, %d2
     move.b OFF_ENEMY_X(%a5, %d5.w), %d2
     moveq #0, %d3
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
-    moveq #3, %d4
-1:  movem.w %d2-%d3, -(%sp)
-    btst #0, %d6
-    beq 11f
-    addq.w #1, %d2
-    bra 15f
-11: btst #1, %d6
+    move.b %d2, %d0
+    and.b #15, %d0
+    bne 11f
+    move.b %d3, %d0
+    and.b #15, %d0
+    cmp.b #13, %d0
     beq 12f
-    subq.w #1, %d2
-    bra 15f
-12: btst #2, %d6
-    beq 13f
-    addq.w #1, %d3
-    bra 15f
-13: subq.w #1, %d3
-15: bsr enemy_step_blocked
+11: move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
+    and.b #DIR_VERTICAL, %d0
+    move.b %d6, %d1
+    and.b #DIR_VERTICAL, %d1
+    cmp.b %d0, %d1
+    bne 3f                      | across its lane: no shove
+12: moveq #3, %d4
+1:  move.b %d2, %d0
+    and.b #15, %d0
+    bne 2f
+    move.b %d3, %d0
+    and.b #15, %d0
+    cmp.b #13, %d0
+    bne 2f
+    bsr enemy_cell_blocked      | at a square boundary the next square has to be open
     tst.w %d0
     bne 3f
-    addq.l #4, %sp
-    dbra %d4, 1b
-    bra 4f
-3:  movem.w (%sp)+, %d2-%d3
-    clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)
-4:  tst.b OFF_ENEMY_HURT(%a5, %d5.w)
-    bne 5f
-    and.w #0x00f8, %d2          | squares keep the tile test on the same cell
-    subq.w #5, %d3
-    and.w #0x00f8, %d3
-    addq.w #5, %d3
-    clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)
-5:  move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+2:  btst #0, %d6
+    beq 21f
+    addq.w #1, %d2
+    bra 25f
+21: btst #1, %d6
+    beq 22f
+    subq.w #1, %d2
+    bra 25f
+22: btst #2, %d6
+    beq 23f
+    addq.w #1, %d3
+    bra 25f
+23: subq.w #1, %d3
+25: dbra %d4, 1b
+    move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
     move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
-9:  movem.l (%sp)+, %d0-%d4/%d6
+    bra 9f
+3:  move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+    clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)
+    bra 9f
+4:  clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)
+9:  movem.l (%sp)+, %d0-%d4/%d6/%a0
     rts
 
 | d6.b = one of the four directions, chosen at random
@@ -409,22 +438,117 @@ random_dir:
     lsl.b %d0, %d6
     rts
 
-| Is the step to (d2, d3) blocked for monster d5? Keese fly over obstacles and
-| only the room edges stop them. Returns d0.w = 1 when blocked.
-enemy_step_blocked:
-    movem.l %d1/%a0, -(%sp)
-    moveq #0, %d0
-    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
-    cmpi.b #0xff, %d0
+| d6.b = the opposite of direction d6.b
+opposite_dir:
+    move.l %d0, -(%sp)
+    move.b %d6, %d0
+    and.b #(DIR_RIGHT + DIR_DOWN), %d6
+    add.b %d6, %d6
+    and.b #(DIR_LEFT + DIR_UP), %d0
+    lsr.b #1, %d0
+    or.b %d0, %d6
+    move.l (%sp)+, %d0
+    rts
+
+| A monster at a square boundary (d2 = X, d3 = Y) wants to go d6. If the square
+| ahead is shut it tries a random side, then the other side, then straight back,
+| as Walker_GetNextAltDir does. Returns d6 = the way to go, 0 when boxed in.
+enemy_choose_dir:
+    movem.l %d0-%d1/%d4, -(%sp)
+    move.w %d6, %d1                 | the way it was facing
+    moveq #0, %d4
+1:  bsr enemy_cell_blocked
+    tst.w %d0
+    beq 9f
+    addq.w #1, %d4
+    cmp.w #2, %d4
+    blo 2f
+    beq 3f
+    cmp.w #3, %d4
+    beq 4f
+    moveq #0, %d6
+    bra 9f
+2:  bsr rand8
+    and.w #1, %d0
+    move.w %d1, %d6
+    and.b #DIR_VERTICAL, %d6
+    bne 21f
+    moveq #DIR_DOWN, %d6            | facing sideways: a random way up or down
+    lsl.b %d0, %d6
+    bra 1b
+21: moveq #DIR_RIGHT, %d6           | facing up or down: a random way left or right
+    lsl.b %d0, %d6
+    bra 1b
+3:  bsr opposite_dir                | the other side
+    bra 1b
+4:  move.w %d1, %d6                 | straight back
+    bsr opposite_dir
+    bra 1b
+9:  movem.l (%sp)+, %d0-%d1/%d4
+    rts
+
+| The square one step from (d2, d3) in direction d6. Returns d0.w = 1 when it
+| is not free.
+enemy_cell_blocked:
+    movem.l %d2-%d3, -(%sp)
+    btst #0, %d6
     beq 1f
-    ltab mon_table, %a0
-    lsl.w #3, %d0
-    tst.b 5(%a0, %d0.w)
-    beq 1f
+    add.w #16, %d2
+    bra 5f
+1:  btst #1, %d6
+    beq 2f
+    sub.w #16, %d2
+    bra 5f
+2:  btst #2, %d6
+    beq 3f
+    add.w #16, %d3
+    bra 5f
+3:  btst #3, %d6
+    beq 4f
+    sub.w #16, %d3
+    bra 5f
+4:  moveq #1, %d0
+    bra 9f
+5:  bsr enemy_square_blocked
+9:  movem.l (%sp)+, %d2-%d3
+    rts
+
+| The 16x16 square whose origin is (d2, d3): is it outside the room, or does
+| any of its four tiles block? Returns d0.w = 1 when it is no place for a
+| walking monster.
+enemy_square_blocked:
+    movem.l %d1-%d5, -(%sp)
     bsr enemy_out_of_bounds
-    bra 2f
-1:  bsr enemy_blocked_at
-2:  movem.l (%sp)+, %d1/%a0
+    tst.w %d0
+    bne 9f
+    move.w %d3, %d4
+    sub.w #(NES_PLAY_AREA_TOP - 3), %d4
+    bmi 8f
+    lsr.w #3, %d4                   | first tile row
+    move.w %d2, %d5
+    lsr.w #3, %d5                   | first tile column
+    cmp.w #(PLAY_AREA_ROWS - 2), %d4
+    bhi 8f
+    cmp.w #(PLAY_AREA_COLS - 2), %d5
+    bhi 8f
+    moveq #3, %d1
+1:  move.w %d4, %d2
+    btst #1, %d1
+    beq 2f
+    addq.w #1, %d2
+2:  move.w %d5, %d3
+    btst #0, %d1
+    beq 3f
+    addq.w #1, %d3
+3:  bsr fetch_tile
+    bsr tile_blocks
+    tst.w %d0
+    bne 9f
+    dbra %d1, 1b
+    moveq #0, %d0
+    bra 9f
+8:  moveq #1, %d0
+9:  movem.l (%sp)+, %d1-%d5
     rts
 
 | d2.w = X, d3.w = Y. Returns d0.w = 1 outside the room's object bounds.

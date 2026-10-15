@@ -42,6 +42,8 @@ SCANCODES = {
     "k": 0x25,
     "b": 0x30,
     "space": 0x39,
+    "ctrl": 0x1D,
+    "alt": 0x38,
 }
 
 
@@ -315,10 +317,14 @@ def main() -> None:
     report = {
         name: ram[globals_addr + layout[name]]
         for name in ("ROOM_ID", "LINK_X", "LINK_Y", "LINK_DIR", "GAME_MODE", "LEVEL", "HOTSPOT_TILE", "COMMIT", "EXIT_GUARD",
-                     "HP_HALVES", "ENEMY_COUNT", "ENEMY_X", "ENEMY_Y", "ENEMY_DIR", "ENEMY_TYPE", "ENEMY_HP", "ENEMY_ACTIVE", "ITEM_ACTIVE", "ITEM_ID", "ITEM_X", "ITEM_Y", "IN_CELLAR", "HAS_SWORD", "BEAM_ACTIVE", "BEAM_X", "BEAM_Y", "INV_KEYS", "INV_RUPEES", "ATTACK", "LINK_HURT", "PROJ_KIND", "PROJ_X", "PROJ_Y", "LINK_HELD", "TRIFORCE", "ENEMY_STATE", "ENEMY_TIMER")
+                     "HP_HALVES", "ENEMY_COUNT", "ENEMY_X", "ENEMY_Y", "ENEMY_DIR", "ENEMY_TYPE", "ENEMY_HP", "ENEMY_ACTIVE", "ITEM_ACTIVE", "ITEM_ID", "ITEM_X", "ITEM_Y", "IN_CELLAR", "HAS_SWORD", "BEAM_ACTIVE", "BEAM_X", "BEAM_Y", "INV_KEYS", "INV_RUPEES", "INV_BOMBS", "ATTACK", "LINK_HURT", "PROJ_KIND", "PROJ_X", "PROJ_Y", "LINK_HELD", "TRIFORCE", "ENEMY_STATE", "ENEMY_TIMER")
     }
     print(f"video base {base:#08x}, wrote {args.out}")
     print(" ".join(f"{k}={v:#04x}" for k, v in report.items()))
+    count = ram[globals_addr + layout["ENEMY_COUNT"]]
+    print("ENEMIES " + " ".join(
+        f"({ram[globals_addr + layout['ENEMY_X'] + i]:#04x},{ram[globals_addr + layout['ENEMY_Y'] + i]:#04x})"
+        for i in range(count)))
     # Opened door masks of the rooms either side of the first locked door of Level 1.
     print(f"UW_OPEN[0x73]={ram[globals_addr + layout['UW_OPEN'] + 0x73]:#04x} "
           f"UW_OPEN[0x63]={ram[globals_addr + layout['UW_OPEN'] + 0x63]:#04x}")

@@ -10,7 +10,9 @@
     .equ BEH_GORIYA, 2
     .equ BEH_WALLMASTER, 3
     .equ BEH_BOSS, 4
+    .equ BEH_KEESE, 5
 
+    .equ ENEMY_SHOVE_FRAMES, 16     | 64 pixels at 4 a frame
     .equ MAX_PROJ, 8
     .equ PK_BOOMERANG, 1            | flying out
     .equ PK_RETURNING, 2            | coming back to the goriya
@@ -77,7 +79,7 @@ enemy_init_special:
     clr.b OFF_ENEMY_STATE(%a5, %d5.w)
     bra 9f
 1:  cmp.w #BEH_BOSS, %d0
-    bne 9f
+    bne 5f
     move.b #BOSS_START_X, OFF_ENEMY_X(%a5, %d5.w)
     move.b #BOSS_START_Y, OFF_ENEMY_Y(%a5, %d5.w)
     move.b #DIR_LEFT, OFF_ENEMY_DIR(%a5, %d5.w)
@@ -95,6 +97,20 @@ enemy_init_special:
     addq.w #1, %d1
     cmp.w #4, %d1
     blo 2b
+    bra 9f
+5:  cmp.w #BEH_KEESE, %d0
+    bne 9f
+    lea OFF_ENEMY_SPEED(%a5), %a0   | a keese starts slow, at $1F, and picks up speed
+    move.b #0x1f, 0(%a0, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    bsr rand8
+    and.w #7, %d0
+    lea keese_dirs(%pc), %a0
+    move.b 0(%a0, %d0.w), OFF_ENEMY_DIR(%a5, %d5.w)
 9:  movem.l (%sp)+, %d0-%d1/%a0
     rts
 
@@ -926,4 +942,218 @@ draw_boss_head:
     move.w %d4, %d0
     bsr draw_sprite
 9:  movem.l (%sp)+, %d0-%d5/%a0-%a1
+    rts
+
+| ----------------------------------------------------------------------- keese
+| Keese fly over everything, in eight directions, in the way ControlKeeseFlight
+| does: speed up to $C0, then at random chase Link, wander or slow right down to
+| a stop for a while, and start again. ENEMY_STATE is the flying state (0 speed
+| up, 1 decide, 2 chase, 3 wander, 4 slow down, 5 rest), ENEMY_TIMER the delay
+| before the next turn or the end of a rest, ENEMY_STEP the turns still to make.
+keese_dirs:
+    .byte 8, 9, 1, 5, 4, 6, 2, 10
+    .align 2
+
+keese_ai:
+    movem.l %d0-%d4/%a0-%a1, -(%sp)
+    lea OFF_ENEMY_SPEED(%a5), %a0
+    lea OFF_ENEMY_FRAC(%a5), %a1
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    beq 0f
+    subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
+0:  moveq #0, %d0
+    move.b OFF_ENEMY_STATE(%a5, %d5.w), %d0
+    beq 10f
+    cmp.b #1, %d0
+    beq 20f
+    cmp.b #2, %d0
+    beq 30f
+    cmp.b #3, %d0
+    beq 40f
+    cmp.b #4, %d0
+    beq 11f
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)       | resting
+    bne 60f
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 60f
+10: addq.b #1, 0(%a0, %d5.w)
+    bra 12f
+11: subq.b #1, 0(%a0, %d5.w)
+12: move.b 0(%a0, %d5.w), %d1
+    and.b #0xe0, %d1
+    bne 13f
+    bsr rand8                               | too slow to fly: rest for $40 to $7F frames
+    and.b #0x3f, %d0
+    or.b #0x40, %d0
+    move.b %d0, OFF_ENEMY_TIMER(%a5, %d5.w)
+    move.b #5, OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 60f
+13: cmp.b #0xc0, %d1
+    blo 60f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 60f
+20: bsr rand8
+    moveq #2, %d1
+    cmp.b #0xa0, %d0
+    bhs 21f
+    moveq #3, %d1
+    cmp.b #0x20, %d0
+    bhs 21f
+    moveq #4, %d1
+21: move.b %d1, OFF_ENEMY_STATE(%a5, %d5.w)
+    move.b #6, OFF_ENEMY_STEP(%a5, %d5.w)
+    bra 60f
+30: tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 60f
+    subq.b #1, OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 31f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 60f
+31: move.b #0x10, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bsr keese_turn_to_link
+    bra 60f
+40: tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 60f
+    subq.b #1, OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 41f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 60f
+41: move.b #0x10, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bsr keese_turn_random
+60: moveq #0, %d1                           | a pixel whenever the speed fills the fraction
+    move.b 0(%a0, %d5.w), %d1
+    and.b #0xe0, %d1
+    moveq #0, %d2
+    move.b 0(%a1, %d5.w), %d2
+    add.w %d1, %d2
+    move.b %d2, 0(%a1, %d5.w)
+    cmp.w #0x100, %d2
+    blo 99f
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
+    btst #0, %d4
+    beq 61f
+    addq.w #1, %d2
+61: btst #1, %d4
+    beq 62f
+    subq.w #1, %d2
+62: btst #2, %d4
+    beq 63f
+    addq.w #1, %d3
+63: btst #3, %d4
+    beq 64f
+    subq.w #1, %d3
+64: moveq #0, %d1                           | bounce off the walls of the room
+    move.b OFF_OBJ_LEFT(%a5), %d1
+    cmp.w %d1, %d2
+    bge 65f
+    move.w %d1, %d2
+    eori.b #3, %d4
+65: move.b OFF_OBJ_RIGHT(%a5), %d1
+    cmp.w %d1, %d2
+    ble 66f
+    move.w %d1, %d2
+    eori.b #3, %d4
+66: move.b OFF_OBJ_UP(%a5), %d1
+    cmp.w %d1, %d3
+    bge 67f
+    move.w %d1, %d3
+    eori.b #12, %d4
+67: move.b OFF_OBJ_DOWN(%a5), %d1
+    cmp.w %d1, %d3
+    ble 68f
+    move.w %d1, %d3
+    eori.b #12, %d4
+68: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+    move.b %d4, OFF_ENEMY_DIR(%a5, %d5.w)
+99: movem.l (%sp)+, %d0-%d4/%a0-%a1
+    rts
+
+| Returns d0.w = where the keese's direction sits in keese_dirs.
+keese_ring_index:
+    movem.l %d1/%a0, -(%sp)
+    lea keese_dirs(%pc), %a0
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d1
+    moveq #7, %d0
+1:  cmp.b 0(%a0, %d0.w), %d1
+    beq 9f
+    dbra %d0, 1b
+    moveq #0, %d0
+9:  movem.l (%sp)+, %d1/%a0
+    rts
+
+| d0.w = a place in keese_dirs (wrapping round): face that way.
+keese_set_ring:
+    move.l %a0, -(%sp)
+    and.w #7, %d0
+    lea keese_dirs(%pc), %a0
+    move.b 0(%a0, %d0.w), OFF_ENEMY_DIR(%a5, %d5.w)
+    movea.l (%sp)+, %a0
+    rts
+
+| Mostly carry on, sometimes turn a notch to one side or the other.
+keese_turn_random:
+    movem.l %d0-%d1, -(%sp)
+    bsr keese_ring_index
+    move.w %d0, %d1
+    bsr rand8
+    cmp.b #0xa0, %d0
+    bhs 9f
+    cmp.b #0x50, %d0
+    blo 1f
+    addq.w #1, %d1
+    bra 2f
+1:  subq.w #1, %d1
+2:  move.w %d1, %d0
+    bsr keese_set_ring
+9:  movem.l (%sp)+, %d0-%d1
+    rts
+
+| Turn a notch towards Link.
+keese_turn_to_link:
+    movem.l %d0-%d4/%a0, -(%sp)
+    moveq #0, %d3
+    moveq #0, %d0
+    move.b OFF_LINK_X(%a5), %d0
+    moveq #0, %d1
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d1
+    cmp.w %d1, %d0
+    beq 1f
+    bhi 11f
+    moveq #DIR_LEFT, %d3
+    bra 1f
+11: moveq #DIR_RIGHT, %d3
+1:  moveq #0, %d0
+    move.b OFF_LINK_Y(%a5), %d0
+    moveq #0, %d1
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d1
+    cmp.w %d1, %d0
+    beq 2f
+    bhi 21f
+    or.b #DIR_UP, %d3
+    bra 2f
+21: or.b #DIR_DOWN, %d3
+2:  tst.b %d3
+    beq 9f
+    lea keese_dirs(%pc), %a0
+    moveq #7, %d4
+3:  cmp.b 0(%a0, %d4.w), %d3
+    beq 4f
+    dbra %d4, 3b
+    bra 9f
+4:  bsr keese_ring_index
+    sub.w %d0, %d4
+    and.w #7, %d4
+    beq 9f
+    cmp.w #4, %d4
+    bhi 5f
+    addq.w #1, %d0
+    bra 6f
+5:  subq.w #1, %d0
+6:  bsr keese_set_ring
+9:  movem.l (%sp)+, %d0-%d4/%a0
     rts

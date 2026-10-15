@@ -237,7 +237,21 @@ read_input_dir:
     tst.b SCAN_W(%a0)
     beq 8f
 7:  ori.b #DIR_UP, %d0
-8:
+8:  move.b OFF_JOY0(%a5), %d1       | the joystick adds to the keys
+    or.b OFF_JOY1(%a5), %d1
+    btst #0, %d1
+    beq 81f
+    ori.b #DIR_UP, %d0
+81: btst #1, %d1
+    beq 82f
+    ori.b #DIR_DOWN, %d0
+82: btst #2, %d1
+    beq 83f
+    ori.b #DIR_LEFT, %d0
+83: btst #3, %d1
+    beq 84f
+    ori.b #DIR_RIGHT, %d0
+84:
     | A direction pressed this frame wins, so turning is immediate. Otherwise
     | keep the current one while it is still held.
     move.b OFF_PREV_INPUT_DIR(%a5), %d1

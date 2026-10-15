@@ -25,8 +25,8 @@ MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2}
 MONSTER_FLYERS = (0x1B,)
 
 # What the game does with a monster every frame, besides drawing it.
-BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS = range(5)
-MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA,
+BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS, BEHAVIOUR_KEESE = range(6)
+MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
                       0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS}
 
 # How each monster is drawn: (sprite layout, images, mode). The layout says how
@@ -77,6 +77,7 @@ class ActorData:
     drop_rates: bytes
     sword_sprites: bytes      # up, down, left, right
     proj_sprites: bytes       # 4 boomerang turns, 2 fireball frames, then 4 pieces for each Aquamentus image
+    hud_sword: bytes          # the sword as two status bar tiles, top then bottom
     room_info: list[bytes]    # 16 bytes per stored room
     keese_index: int = 0      # monster index of the keese the cellars are full of
 
@@ -153,6 +154,22 @@ def _item_frame(code, sp_tiles, bg_tiles, palette, item_id: int):
     else:
         right = _tile_rows(tiles, palette, row, top + 2)
     return _pack_masked(_join(left, right))
+
+
+def _hud_sword(code, sp_tiles, bg_tiles, palette) -> bytes:
+    """The wooden sword as the two 8x8 status bar tiles that hold its 8x16 picture."""
+    item_id = 0x01
+    slot = code["slot"][item_id]
+    tile = code["tiles"][code["offsets"][slot]]
+    base = code["palette"][slot]
+    attr = (base + (code["descriptor"][item_id] & 0x0F)) if slot in (0, 2, 4, 7, 0x0B) else base
+    row = 4 + (attr & 3)
+    tiles = bg_tiles if tile & 1 else sp_tiles
+    backdrop = palette.index(row, 0)
+    packed = bytearray()
+    for pixels in _tile_rows(tiles, palette, row, tile & 0xFE):
+        packed.extend(B.pack_hud_row([backdrop if p < 0 else p for p in pixels[:8]]))
+    return bytes(packed)
 
 
 def _sword_frames(palette) -> bytes:
@@ -249,6 +266,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         drop_rates=bytes(drop_rates),
         sword_sprites=_sword_frames(palette),
         proj_sprites=_projectile_sprites(sp_tiles, palette),
+        hud_sword=_hud_sword(code, sp_tiles, bg_tiles, palette),
         room_info=[_room_info(r, attrs, foe_counts, info) for r in room_ids],
         keese_index=MONSTER_TYPES.index(0x1B),
     )
@@ -363,5 +381,6 @@ def build_placeholder() -> ActorData:
         drop_rates=bytes(4),
         sword_sprites=frame * 4,
         proj_sprites=frame * 22,
+        hud_sword=bytes(64),
         room_info=[bytes([0, 0, 0xFF, 0, 0, 0] + [0xFF] * 8)],
     )

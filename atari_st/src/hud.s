@@ -42,7 +42,71 @@ draw_hud:
     bsr draw_hud_tile
 
     bsr draw_hud_hearts
+    bsr draw_hud_boxes
     movem.l (%sp)+, %d0-%d4
+    rts
+
+| The two item boxes, B and A, between the counters and the hearts. A holds the
+| sword once Link has it; B holds the bombs, which Space drops.
+    .equ HUD_B_COL, 12
+    .equ HUD_A_COL, 16
+
+draw_hud_boxes:
+    movem.l %d0-%d3/%a0, -(%sp)
+    moveq #HUD_B_COL, %d3
+    moveq #HUD_CH_B, %d0
+    bsr draw_hud_box
+    moveq #HUD_A_COL, %d3
+    moveq #HUD_CH_A, %d0
+    bsr draw_hud_box
+
+    tst.b OFF_INV_BOMBS(%a5)
+    beq 1f
+    moveq #(HUD_B_COL + 1), %d1
+    moveq #1, %d2
+    moveq #HUD_BOMB, %d0
+    bsr draw_hud_tile
+1:  tst.b OFF_HAS_SWORD(%a5)
+    beq 9f
+    ltab hud_sword, %a0
+    moveq #(HUD_A_COL + 1), %d1
+    moveq #1, %d2
+    bsr draw_hud_tile_ptr
+    lea HUD_TILE_BYTES(%a0), %a0
+    moveq #2, %d2
+    bsr draw_hud_tile_ptr
+9:  movem.l (%sp)+, %d0-%d3/%a0
+    rts
+
+| An empty box whose left edge is column d3.w, labelled with tile d0.w. The
+| ribbon is only three rows high, so there is no bottom edge.
+draw_hud_box:
+    movem.l %d0-%d2, -(%sp)
+    move.w %d0, -(%sp)
+    move.w %d3, %d1
+    moveq #0, %d2
+    moveq #HUD_BOX_TL, %d0
+    bsr draw_hud_tile
+    addq.w #1, %d1
+    move.w (%sp)+, %d0
+    bsr draw_hud_tile
+    addq.w #1, %d1
+    moveq #HUD_BOX_TR, %d0
+    bsr draw_hud_tile
+    moveq #1, %d2
+2:  move.w %d3, %d1
+    moveq #HUD_BOX_SIDE, %d0
+    bsr draw_hud_tile
+    addq.w #1, %d1
+    moveq #HUD_BLANK, %d0
+    bsr draw_hud_tile
+    addq.w #1, %d1
+    moveq #HUD_BOX_SIDE, %d0
+    bsr draw_hud_tile
+    addq.w #1, %d2
+    cmp.w #3, %d2
+    blo 2b
+    movem.l (%sp)+, %d0-%d2
     rts
 
 | One "<icon> X nn" counter. d3.w = icon tile, d4.b = value, d2.w = HUD row.
@@ -115,10 +179,17 @@ draw_hud_hearts:
 
 | Draw one 8x8 glyph. d0.w = tile index, d1.w = column 0..39, d2.w = HUD row.
 draw_hud_tile:
-    movem.l %d0-%d3/%d7/%a0-%a1, -(%sp)
+    movem.l %d0/%a0, -(%sp)
     ltab hud_tiles, %a0
     mulu.w #HUD_TILE_BYTES, %d0
     adda.l %d0, %a0
+    bsr draw_hud_tile_ptr
+    movem.l (%sp)+, %d0/%a0
+    rts
+
+| The same for a tile that is not one of the glyphs: a0 = its eight rows.
+draw_hud_tile_ptr:
+    movem.l %d0-%d3/%d7/%a0-%a1, -(%sp)
 
     movea.l OFF_SCREEN_PTR(%a5), %a1
     move.w %d2, %d3

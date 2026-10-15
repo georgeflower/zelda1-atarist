@@ -4,11 +4,13 @@
 | Simplifications against the original, to be revisited: one sword damage and
 | a placeholder blade sprite.
 
-    .equ SCAN_SPACE, 0x39
+    .equ SCAN_SPACE, 0x39           | B: the bombs
+    .equ SCAN_CTRL, 0x1d            | A, with the joystick's fire button and Alternate
+    .equ SCAN_ALT, 0x38
     .equ ATTACK_FRAMES, 12
     .equ SWORD_REACH, 12
-    .equ ENEMY_HURT_FRAMES, 16
-    .equ LINK_HURT_FRAMES, 24
+    .equ ENEMY_HURT_FRAMES, 32      | ObjInvincibilityTimer $10, counted down every second frame
+    .equ LINK_HURT_FRAMES, 48       | $18, likewise: about 0.8 seconds
     .equ LINK_SHOVE_PIXELS, 32
     .equ CONTACT_RANGE, 10
     .equ PICKUP_RANGE, 9
@@ -29,13 +31,19 @@
     .equ MAX_BOMBS, 8
 
 | ------------------------------------------------------------------- sword
-| Space starts a swing, once per key press, when Link owns a sword.
+| The joystick's fire button, Alternate (Control in Hatari) starts a swing, once
+| per press, when Link owns a sword.
 sword_input:
     movem.l %d0/%a0, -(%sp)
     lea OFF_KEY_STATES(%a5), %a0
-    tst.b SCAN_SPACE(%a0)
-    beq 2f
-    tst.b OFF_SPACE_HELD(%a5)
+    tst.b SCAN_ALT(%a0)
+    bne 1f
+    tst.b SCAN_CTRL(%a0)
+    bne 1f
+    move.b OFF_JOY0(%a5), %d0
+    or.b OFF_JOY1(%a5), %d0
+    bpl 2f                      | fire is bit 7
+1:  tst.b OFF_SPACE_HELD(%a5)
     bne 9f
     move.b #1, OFF_SPACE_HELD(%a5)
     tst.b OFF_HAS_SWORD(%a5)
@@ -560,9 +568,8 @@ link_dies:
     rts
 
 | ---------------------------------------------------------------------- bombs
-| B drops a bomb in front of Link. When the fuse runs out it hurts monsters
+| Space drops a bomb in front of Link. When the fuse runs out it hurts monsters
 | nearby and blows open a bombable wall next to it.
-    .equ SCAN_B, 0x30
     .equ BOMB_FUSE, 80
     .equ BOMB_RANGE, 24
     .equ BOMB_LANE_X, 0x78
@@ -573,7 +580,7 @@ link_dies:
 bomb_input:
     movem.l %d0-%d2/%a0, -(%sp)
     lea OFF_KEY_STATES(%a5), %a0
-    tst.b SCAN_B(%a0)
+    tst.b SCAN_SPACE(%a0)
     beq 2f
     tst.b OFF_B_HELD(%a5)
     bne 9f

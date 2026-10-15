@@ -106,6 +106,9 @@
     gvar BOMB_Y, 1
     gvar BOMB_VALID, 1
     gvar B_HELD, 1
+    gvar JOY0, 1                | IKBD joystick state: bits 0-3 up, down, left, right; bit 7 fire
+    gvar JOY1, 1
+    gvar IKBD_PKT, 1            | which byte of a joystick or mouse packet comes next
     gvar CAVE_PERSON, 1         | the old man is still in the cave
     gvar CAVE_TEXT_ON, 1        | his speech is still being typed, and Link is halted
     gvar CAVE_TEXT_IDX, 1
@@ -187,5 +190,7 @@
     gvar LINK_HELD, 1          | a wallmaster has him
     gvar TRIFORCE, 1           | the level's triforce piece is his
     gvar ENDING_TIMER, 1       | frames left of the triforce celebration
+    gvar ENEMY_SPEED, 8        | keese: flying speed
+    gvar ENEMY_FRAC, 8         | keese: position fraction
 
     .equ GLOBALS_BYTES, gvar_offset

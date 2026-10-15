@@ -118,6 +118,10 @@ HUD_GLYPHS = (
     ("RUPEE", 0xF7, HUD_ACCENT_ROW),
     ("KEY", 0xF9, HUD_ACCENT_ROW),
     ("BOMB", 0x61, HUD_ACCENT_ROW),
+    # The item boxes of the status bar.
+    ("BOX_TL", 0x69, HUD_TEXT_ROW),
+    ("BOX_TR", 0x6B, HUD_TEXT_ROW),
+    ("BOX_SIDE", 0x6C, HUD_TEXT_ROW),
     # Letters and punctuation for the people in caves; the NES code is the tile.
     *((f"CH_{chr(ord('A') + n)}", 0x0A + n, HUD_TEXT_ROW) for n in range(26)),
     ("CH_COMMA", 0x28, HUD_TEXT_ROW),
@@ -915,6 +919,7 @@ def write_underworld(out_dir: Path, uw) -> None:
     (out_dir / "drop_rates.bin").write_bytes(actors.drop_rates)
     (out_dir / "sword_sprites.bin").write_bytes(actors.sword_sprites)
     (out_dir / "proj_sprites.bin").write_bytes(actors.proj_sprites)
+    (out_dir / "hud_sword.bin").write_bytes(actors.hud_sword)
     (out_dir / "uw_room_info.bin").write_bytes(b"".join(actors.room_info))
     (out_dir / "uw_cellar_maps.bin").write_bytes(b"".join(uw.cellar_maps))
     (out_dir / "uw_cellar_info.bin").write_bytes(b"".join(uw.cellar_info))

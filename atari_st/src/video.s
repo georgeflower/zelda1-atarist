@@ -17,6 +17,12 @@ init_video:
     tst.b (%a1)
     bra 1b
 2:
+    | Joystick events on: its fire button is the sword.
+    movea.l #IKBD_ACIA_STATUS, %a0
+    movea.l #IKBD_ACIA_DATA, %a1
+21: btst #1, (%a0)
+    beq 21b
+    move.b #0x14, (%a1)
     lea OFF_OLD_PALETTE(%a5), %a0
     movea.l #PALETTE_BASE, %a1
     moveq #15, %d7

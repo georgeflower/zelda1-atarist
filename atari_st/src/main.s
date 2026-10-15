@@ -724,6 +724,8 @@ sword_sprites:
     .incbin "sword_sprites.bin"
 proj_sprites:
     .incbin "proj_sprites.bin"
+hud_sword:
+    .incbin "hud_sword.bin"
 mon_table:
     .incbin "mon_table.bin"
 item_index:

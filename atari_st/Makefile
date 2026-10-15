@@ -32,7 +32,7 @@ GENERATED := $(GENERATED_DIR)/assets.inc $(GENERATED_DIR)/metatiles.bin \
 	$(GENERATED_DIR)/mon_index.bin $(GENERATED_DIR)/item_sprites.bin \
 	$(GENERATED_DIR)/item_index.bin $(GENERATED_DIR)/drop_table.bin \
 	$(GENERATED_DIR)/drop_rates.bin $(GENERATED_DIR)/sword_sprites.bin \
-	$(GENERATED_DIR)/proj_sprites.bin \
+	$(GENERATED_DIR)/proj_sprites.bin $(GENERATED_DIR)/hud_sword.bin \
 	$(GENERATED_DIR)/uw_room_info.bin \
 	$(GENERATED_DIR)/asset_manifest.txt
 MUSIC_SRC := music/zelda_intro_by_qum.h
