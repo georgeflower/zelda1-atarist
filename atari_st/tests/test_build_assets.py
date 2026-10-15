@@ -311,10 +311,32 @@ class RomActorTests(unittest.TestCase):
         bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
         letters = {0x0A + n: chr(ord("A") + n) for n in range(26)}
         letters.update({0x24: " ", 0x25: " ", 0x29: "!", 0x2A: "'", 0x2C: "."})
-        text = "".join(letters[code & 0x3F] for code in bundle.cave_text)
+        cave = bundle.cave_text[: build_assets.PERSON_TEXT_BYTES]   # the dungeon people's speeches follow it
+        text = "".join(letters[code & 0x3F] for code in cave)
         self.assertEqual(" ".join(text.split()), "IT'S DANGEROUS TO GO ALONE! TAKE THIS.")
-        self.assertEqual(bundle.cave_text[-1] & 0xC0, 0xC0)   # the last character ends the speech
+        self.assertEqual(cave[-1] & 0xC0, 0xC0)               # the last character ends the speech
         self.assertEqual(len(bundle.cave_map), build_assets.OW_ROOM_COLS * build_assets.OW_ROOM_ROWS)
+
+    def test_level_one_old_man_sits_in_room_41_with_his_own_speech(self) -> None:
+        bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+        uw = bundle.uw
+        letters = {0x0A + n: chr(ord("A") + n) for n in range(26)}
+        letters.update({0x24: " ", 0x25: " ", 0x2C: "."})
+        offset = uw.actors.room_info[uw.room_index[0x41]][14]
+        self.assertGreaterEqual(offset, build_assets.PERSON_TEXT_BYTES)
+        speech = bytearray()
+        for code in bundle.cave_text[offset:]:
+            speech.append(code)
+            if code & 0xC0 == 0xC0:
+                break
+        text = "".join(letters[code & 0x3F] for code in speech)
+        self.assertEqual(" ".join(text.split()), "EASTMOST PENNINSULA IS THE SECRET.")
+        others = [
+            index
+            for index, record in enumerate(uw.actors.room_info)
+            if index != uw.room_index[0x41] and record[14] != self.actors.NO_PERSON
+        ]
+        self.assertEqual(others, [])
 
     def test_link_lifting_the_triforce_has_a_picture(self) -> None:
         # the end-of-level sequence draws Link with both arms up: item picture $3F, a symmetric pair of tiles

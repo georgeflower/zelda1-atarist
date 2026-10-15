@@ -243,5 +243,6 @@
     gvar INV_COMPASS, 1        | bit n: he has the compass of level n+1 (InvCompass)
     galign
     gvar MINIMAP_SIG, 2        | what the ribbon's map last showed: room id, flags, blink phase
+    gvar UW_PERSON, 1          | the dungeon room's old man: 0 nobody, 1 speaking, 2 has spoken
 
     .equ GLOBALS_BYTES, gvar_offset

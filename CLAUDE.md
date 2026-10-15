@@ -417,10 +417,17 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **Secret triggers** (`LevelBlock` attr F & 7): 1 kill all -> open shutters, 4 push block,
   7 kill all -> item appears; others in `Z_05.asm` (`CheckSecretTrigger`).
 - **Level 1 rooms** (reachable from `$73`): `$22` traps, `$23` goriya+key, `$33` stalfos+key,
-  `$35` Aquamentus + heart container, `$36` triforce, `$41` old man (`$4C` person, not
-  ported), `$42` gels + push block, `$43` map room, `$44` goriyas + **boomerang**, `$45`
+  `$35` Aquamentus + heart container, `$36` triforce, `$41` old man (`$4C` person, see
+  **Dungeon people**), `$42` gels + push block, `$43` map room, `$44` goriyas + **boomerang**, `$45`
   wallmasters, `$52` keese, `$53` stalfos, `$54` keese + compass, `$63`, `$72` keese,
   `$73` start, `$74` stalfos; cellar `$7F` (bow, 4 keese).
+- **Dungeon people** (`$4B..$52` in the room list; `actors.dungeon_people`): the speech is picked through
+  `UnderworldPersonTextSelectorsA/B` (`Z_01.asm`, by level) and `PersonTextAddrs`, appended to `cave_text.bin` after the
+  first cave's speech; the room record is 16 bytes and byte 14 is the speech offset (`$FF` = nobody). `uw_spawn` calls
+  `uw_person_begin` (`uw.s`): `UW_PERSON` 1 while speaking (Link held, `cave_talk` types the text), 2 afterwards.
+  `uw_bake_person` draws the man into the room buffers, `draw_effects` the two flames, `link_collide` blocks Link
+  going up past Y `$8E`. Not ported: hitting him to make the flames shoot, the "more bombs" (`$4F`) and
+  life-or-money (`$51`) people; the flame is the candle flame art.
 - **Item ids** (`ItemIdToSlot`): `00` bomb, `01` wood sword, `06` blue candle, `0A` bow, `0F` 5
   rupees, `16` compass, `17` map, `18` rupee, `19` key, `1A` heart container, `1B`
   triforce, `1D` boomerang, `22` heart, `23` fairy.
@@ -506,9 +513,9 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 Done in Level 1: overworld + first cave, doors/keys/shutters/bombable and false walls, stairs +
 cellar, stalfos/keese/gel/rope/goriya/wallmaster/Aquamentus/blade traps, sword + beam + bombs +
 boomerang + candle, drops with kill counters, knock-back and invincibility, push block, triforce
-ending, map and compass with the dungeon minimap, HUD with A/B boxes, Tab inventory screen, YM2149 music and sound effects.
+ending, map and compass with the dungeon minimap, the old man in room `$41`, HUD with A/B boxes, Tab inventory screen, YM2149 music and sound effects.
 
-Open items (user-visible gaps): the old man / people in dungeons (room `$41`); the overworld map on the
+Open items (user-visible gaps): the other dungeon people (more bombs, life or money, fireballs from the old man's flames); the overworld map on the
 ribbon; fireball art
 (placeholder); the clock and fairy drops; stairs-type push block (trigger 5, not in Level 1);
 visible block slide animation; the rest of the sound (title, ending, game-over and boss music, DPCM); then the rest of the overworld (real monsters,
