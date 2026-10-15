@@ -565,7 +565,7 @@ class RealBankTests(unittest.TestCase):
             out = Path(tmp)
             ym_convert.convert(ROOT / "music" / "zelda_intro_by_qum.h", ROOT / "music" / "ymplay.h", out)
             bank = mp.build_bank(out / "music_data.bin", out / "music_drums.bin", out / "music.inc",
-                                 rip.load_prg(rom), log=lambda *_: None)
+                                 rip.load_prg(rom), overworld="rip", log=lambda *_: None)
             engine = (out / "music_engine.bin").read_bytes()
         c = Cpu68k(bank, bank.drums, engine)
         self.addCleanup(c.close)
