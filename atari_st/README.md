@@ -54,12 +54,12 @@ Platform and rendering
   straight to the visible screen
 - keyboard input through an IKBD interrupt that queues every byte, so no key
   release is ever missed
-- YM2149 music and sound effects from a VBL hook: your arrangement for the overworld,
-  the ROM's dungeon and Level 9 themes, event fanfares and effects laid over the
+- YM2149 music and sound effects from a VBL hook: the NES original overworld theme (your arrangement
+  `zelda_intro_by_qum` with `make MUSIC_OVERWORLD=qum`), the ROM's dungeon and Level 9 themes, event fanfares and effects laid over the
   music (digidrums included): sword, boomerang, flame, bomb, stairs, pickups, hurt,
-  the low-life beep and the menu and cave-text clicks. Everything except the overworld song is ripped from
-  `ext/Original.nes` at build time; without the ROM (or `py65`) only the overworld
-  song plays
+  the low-life beep and the menu and cave-text clicks. Everything is ripped from
+  `ext/Original.nes` at build time; without the ROM (or `py65`) only your
+  overworld arrangement plays
 - status ribbon: hearts (with halves), rupee, key and bomb counters, in the
   original glyphs, and the B and A item boxes
 - the IKBD joystick (either port) can walk Link and fire the sword

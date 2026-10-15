@@ -51,8 +51,10 @@ MUSIC_SRC := music/zelda_intro_by_qum.h
 MUSIC_PLAYER := music/ymplay.h
 MUSIC_GENERATED := $(GENERATED_DIR)/music.inc $(GENERATED_DIR)/music_data.bin \
 	$(GENERATED_DIR)/music_drums.bin $(GENERATED_DIR)/music_engine.bin
-# The bank the game plays: the shipped overworld song plus every other track ripped from the ROM
-# (just the overworld song when there is no ROM or py65).
+# The bank the game plays: every track ripped from the ROM, with the NES original as the overworld song
+# (MUSIC_OVERWORLD=rip, the default) or the shipped arrangement zelda_intro_by_qum (MUSIC_OVERWORLD=qum).
+# Without the ROM or py65 the bank holds only the shipped overworld song.
+MUSIC_OVERWORLD ?= rip
 MUSIC_ROM := $(wildcard $(ROOT_DIR)/ext/Original.nes)
 MUSIC_PACKED := $(GENERATED_DIR)/music_bank.bin $(GENERATED_DIR)/music_drum_table.bin \
 	$(GENERATED_DIR)/music_ids.inc
@@ -77,11 +79,11 @@ FORCE_MUSIC_CAPABILITY_STAMP:
 
 $(MUSIC_CAPABILITY_STAMP): FORCE_MUSIC_CAPABILITY_STAMP
 	@mkdir -p $(BUILD_DIR)
-	@available=$$($(PYTHON) -c "import py65" >/dev/null 2>&1 && printf yes || printf no); \
+	@available=$$($(PYTHON) -c "import py65" >/dev/null 2>&1 && printf yes || printf no)" $(MUSIC_OVERWORLD)"; \
 	printf '%s\n' "$$available" | cmp -s - $@ 2>/dev/null || printf '%s\n' "$$available" > $@
 
 $(MUSIC_PACKED) &: $(TOOLS_DIR)/music_pack.py $(TOOLS_DIR)/nes_music_rip.py $(MUSIC_GENERATED) $(MUSIC_ROM) $(MUSIC_CAPABILITY_STAMP)
-	$(PYTHON) $(TOOLS_DIR)/music_pack.py $(if $(MUSIC_ROM),--rom $(MUSIC_ROM)) --song-dir $(GENERATED_DIR) --out-dir $(GENERATED_DIR)
+	$(PYTHON) $(TOOLS_DIR)/music_pack.py $(if $(MUSIC_ROM),--rom $(MUSIC_ROM)) --overworld $(MUSIC_OVERWORLD) --song-dir $(GENERATED_DIR) --out-dir $(GENERATED_DIR)
 
 $(OBJ): $(SOURCES) $(GENERATED) $(MUSIC_GENERATED) $(MUSIC_PACKED)
 	@mkdir -p $(BUILD_DIR)
