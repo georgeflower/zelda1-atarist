@@ -453,6 +453,7 @@ uw_enter_cellar:
     addq.b #1, %d4
     move.b %d4, OFF_IN_CELLAR(%a5)
     subq.b #1, %d4
+    sfx SFX_STAIRS
 
     | Link comes down the ladder on the side he came from.
     move.b #CELLAR_LADDER_LEFT, %d1
@@ -554,6 +555,7 @@ uw_leave_cellar:
     or.b #0x0d, %d1
     move.b %d1, OFF_LINK_Y(%a5)
     clr.b OFF_IN_CELLAR(%a5)
+    sfx SFX_STAIRS
     move.b #UW_BOUND_UP, OFF_BOUND_UP(%a5)
     move.b #UW_BOUND_UP, OFF_OBJ_UP(%a5)
     move.b #DIR_DOWN, OFF_LINK_DIR(%a5)

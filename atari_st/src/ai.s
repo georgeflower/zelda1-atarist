@@ -1372,6 +1372,7 @@ throw_boomerang:
     move.b %d2, PJ_Y(%a4, %d3.w)
     move.b %d0, PJ_DIR(%a4, %d3.w)
     move.b #BOOM_OUT_FRAMES, PJ_TIMER(%a4, %d3.w)
+    sfx SFX_ARROW
 9:  movem.l (%sp)+, %d0-%d3/%a4
     rts
 

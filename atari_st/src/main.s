@@ -367,6 +367,7 @@ enter_cave:
     clr.b OFF_CAVE_FIRE_VALID(%a5)
     bsr clear_enemies
     bsr clear_items
+    sfx SFX_STAIRS
     bsr cave_setup
     bsr cave_redraw
     clr.b OFF_ERASE_VALID(%a5)
@@ -517,6 +518,7 @@ cave_talk:
     move.l OFF_BG_CUR(%a5), OFF_SCREEN_PTR(%a5)
     bsr draw_hud_tile
     move.l (%sp)+, OFF_SCREEN_PTR(%a5)
+    sfx SFX_HEART                       | the text blip
     addq.b #1, OFF_CAVE_TEXT_COL(%a5)
     move.b #CAVE_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
     and.w #0xc0, %d4

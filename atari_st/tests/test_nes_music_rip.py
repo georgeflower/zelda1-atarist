@@ -164,6 +164,17 @@ class ConversionTests(unittest.TestCase):
             self.assertTrue(track.regs[f][7] & (1 << voice), "no tone under the drum")
         self.assertEqual(track.regs[1][7] & 0x38, 0x38)  # the YM noise generator stays off
 
+    def test_effect_stream_is_noise_on_voice_c_only(self) -> None:
+        frames = [rip.Frame(noise=(0, 5, 0)), rip.Frame(noise=(15, 5, 0)), rip.Frame(noise=(4, 12, 0))]
+        g = rip.to_effect_stream(rip.Rip(frames, 0, False), rip.CPU_CLOCK["pal"], "pal")
+        self.assertEqual([r[7] for r in g.regs], [0xFF, 0xDF, 0xDF])
+        self.assertEqual(g.regs[0][10], 0)
+        self.assertEqual(g.regs[1][10], rip.ym_volume(15, rip.NOISE_BASE))
+        self.assertLess(g.regs[2][10], g.regs[1][10])
+        self.assertEqual(g.regs[1][6], rip.noise_register(5, rip.CPU_CLOCK["pal"], "pal"))
+        self.assertEqual((g.trig, g.drums, g.looped), ([0, 0, 0], [], False))
+        self.assertTrue(all(len(r) == 14 and r[13] == 0xFF for r in g.regs))
+
     def test_equal_hits_share_one_drum(self) -> None:
         hit = self._hit(1)
         again = self._hit(1)
@@ -225,6 +236,23 @@ class RomTests(unittest.TestCase):
     def test_jingle_ends_and_game_over_repeats(self) -> None:
         self.assertFalse(self.rip("jingle_secret").looped)
         self.assertTrue(self.rip("jingle_game_over").looped)
+
+    def test_effect_sounds_are_short_noise_only_one_shots(self) -> None:
+        # the Effect channel (request $603): noise only, a sword swing is ~10 frames, a bomb blast ~24
+        for stem, lo, hi in (("sfx_sword", 8, 30), ("sfx_arrow", 4, 30), ("sfx_flame", 20, 60),
+                             ("sfx_stairs", 40, 80), ("sfx_bomb_blast", 20, 50)):
+            r = self.rip(stem)
+            self.assertFalse(r.looped, stem)
+            self.assertTrue(lo <= len(r.frames) <= hi, f"{stem} {len(r.frames)} frames")
+            self.assertTrue(all(f.pulse[0][0] == f.pulse[1][0] == 0 and f.tri == 0 for f in r.frames), stem)
+            self.assertTrue(any(f.noise[0] for f in r.frames), stem)
+            g = rip.to_effect_stream(r, rip.CPU_CLOCK["pal"], "pal")
+            self.assertEqual(len(g.regs), len(r.frames))
+            self.assertEqual(g.drums, [])
+            for row, frame in zip(g.regs, r.frames):
+                self.assertEqual(row[7], 0xDF if frame.noise[0] else 0xFF, stem)
+                self.assertEqual(row[10] > 0, frame.noise[0] > 0, stem)
+                self.assertTrue(row[6] == 0 or 1 <= row[6] <= 31, stem)
 
     def test_every_track_converts_in_both_drum_modes(self) -> None:
         for stem, kind, value, _ in rip.TRACKS:

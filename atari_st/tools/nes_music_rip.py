@@ -80,9 +80,15 @@ TRACKS: list[tuple[str, str, int, str]] = [
     ("sfx_heart", "tune0", 0x10, "Heart taken / text character"),
     ("sfx_bomb_set", "tune0", 0x20, "Bomb set / menu click"),
     ("sfx_heart_warning", "tune0", 0x40, "Low-hearts beep"),
+    # The Effect channel (request $603, DriveEffect): noise only, the game rewrites volume and period every frame.
+    ("sfx_sword", "effect", 0x01, "Sword swing"),
+    ("sfx_arrow", "effect", 0x02, "Arrow / boomerang"),
+    ("sfx_flame", "effect", 0x04, "Candle flame"),
+    ("sfx_stairs", "effect", 0x08, "Stairs"),
+    ("sfx_bomb_blast", "effect", 0x10, "Bomb blast"),
 ]
-REQUEST_ADDR = {"song": 0x600, "tune1": 0x602, "tune0": 0x604}
-STATE_ADDR = {"song": 0x609, "tune1": 0x607, "tune0": 0x605}
+REQUEST_ADDR = {"song": 0x600, "tune1": 0x602, "effect": 0x603, "tune0": 0x604}
+STATE_ADDR = {"song": 0x609, "tune1": 0x607, "effect": 0x606, "tune0": 0x605}
 
 
 # --------------------------------------------------------------------------- ROM and 6502
@@ -394,7 +400,7 @@ def rip_track(cpu: SoundCpu, kind: str, value: int, max_frames: int, tail: int =
             return Rip(frames, seen[key], True)
         seen[key] = index
         frames.append(apu.step(cpu.run_frame()))
-        if not (cpu.playing("song") or cpu.playing("tune0") or cpu.playing("tune1")):
+        if not (cpu.playing("song") or cpu.playing("tune0") or cpu.playing("tune1") or cpu.playing("effect")):
             idle += 1
             if idle > tail:
                 break
@@ -580,6 +586,26 @@ def to_game_stream(rip: Rip, clock: float, table: str, tri_volume: int = 13) -> 
         for f in range(d.start, end):
             regs[f][7] |= 1 << voice  # the drum owns the voice: no tone under it
     return GameTrack(regs, trig, drums, rip.loop_frame, rip.looped)
+
+
+def to_effect_stream(rip: Rip, clock: float, table: str) -> GameTrack:
+    """A noise-only sound effect as R6 (noise period), R7 (noise on, tones off) and R10 (volume) per frame.
+
+    The game kit plays it on voice C's noise, the voice the songs leave free for effects; frames where the
+    NES noise is silent have the noise gate closed and volume 0.
+    """
+    frames = rip.frames
+    regs = [[0] * 14 for _ in frames]
+    for f, frame in enumerate(frames):
+        r = regs[f]
+        vol, index, _mode = frame.noise
+        r[7] = 0xFF
+        r[13] = 0xFF
+        if vol > 0:
+            r[6] = noise_register(index, clock, table)
+            r[7] = 0xDF  # noise on voice C only
+            r[10] = ym_volume(vol, NOISE_BASE)
+    return GameTrack(regs, [0] * len(frames), [], rip.loop_frame, rip.looped)
 
 
 def rip_all(prg: bytes, only: list[str] | None = None, max_frames: int = 30000) -> dict[str, Rip]:

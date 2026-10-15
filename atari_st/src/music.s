@@ -62,6 +62,7 @@
     .equ CTX_SONG, OFF_MUS_CTX
     .equ CTX_A, OFF_MUS_CTX + MUSC_SIZE
     .equ CTX_B, OFF_MUS_CTX + 2 * MUSC_SIZE
+    .equ CTX_C, OFF_MUS_CTX + 3 * MUSC_SIZE
 
 | Supervisor mode, A6 = table_anchor.
 music_init:
@@ -81,7 +82,7 @@ music_init:
     adda.l #(music_bank - table_anchor), %a1
     move.l %a1, OFF_MUS_BANK(%a5)
 
-    moveq #2, %d1
+    moveq #3, %d1
     lea CTX_SONG(%a5), %a0
 1:  bsr music_ctx_end
     lea MUSC_SIZE(%a0), %a0
@@ -137,7 +138,20 @@ music_update:
     bra 9f
 4:  bsr music_stop
     bsr music_play
-9:  movem.l (%sp)+, %d0-%d1
+9:
+    | The low-life beep: asked for every frame while Link has one heart or less, it starts again
+    | whenever the voice-A effect slot is free (the original plays it when Tune0 is idle).
+    move.b OFF_HP_HALVES(%a5), %d0
+    beq 8f
+    cmp.b #2, %d0
+    bhi 8f
+    cmp.b #MODE_MENU, OFF_GAME_MODE(%a5)
+    beq 8f
+    cmpi.b #MUS_NONE, CTX_A + MUSC_ID(%a5)
+    bne 8f
+    moveq #SFX_HEART_WARNING, %d0
+    bsr music_play
+8:  movem.l (%sp)+, %d0-%d1
     rts
 
 | An event song (item fanfare, triforce, ...): it replaces the area music, and
@@ -236,7 +250,7 @@ music_vbl:
 music_tick:
     clr.b OFF_MUS_TRIG(%a5)
     lea CTX_SONG(%a5), %a3
-    moveq #2, %d4
+    moveq #3, %d4
     moveq #0, %d5               | counts the contexts still running
 1:  bsr music_step
     cmpi.b #MUS_NONE, MUSC_ID(%a3)
@@ -320,7 +334,21 @@ music_merge:
     move.w (%a0)+, (%a1)+
     overlay CTX_A, 0, 8, 0x09
     overlay CTX_B, 2, 9, 0x12
-    rts
+    | Kind C, a noise effect: it owns the noise period, voice C's volume and its two mixer bits while
+    | it makes a sound; its silent frames leave the song's bass alone.
+    cmpi.b #MUS_NONE, CTX_C + MUSC_ID(%a5)
+    beq 1f
+    tst.b CTX_C + MUSC_REGS + 10(%a5)
+    beq 1f
+    move.b CTX_C + MUSC_REGS + 6(%a5), OFF_MUS_OUT + 6(%a5)
+    move.b CTX_C + MUSC_REGS + 10(%a5), OFF_MUS_OUT + 10(%a5)
+    move.b OFF_MUS_OUT + 7(%a5), %d0
+    and.b #~0x24, %d0
+    move.b CTX_C + MUSC_REGS + 7(%a5), %d1
+    and.b #0x24, %d1
+    or.b %d1, %d0
+    move.b %d0, OFF_MUS_OUT + 7(%a5)
+1:  rts
 
 | Write MUS_OUT to the PSG and start or stop the frame's digidrum.
 | MUS_TRIG: 0 none, else ((voice + 1) << 6) | drum, drum 63 = stop.

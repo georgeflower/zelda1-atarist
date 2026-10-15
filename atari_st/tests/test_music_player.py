@@ -25,6 +25,7 @@ LD = "m68k-linux-gnu-ld"
 OBJCOPY = "m68k-linux-gnu-objcopy"
 NM = "m68k-linux-gnu-nm"
 BASE = 0x1000
+EFFECT_BITS = {mp.OVERLAY_A: 0x09, mp.OVERLAY_B: 0x12, mp.OVERLAY_C: 0x24}  # a mixer's tone and noise bits per voice
 
 
 def random_frames(rng: random.Random, n: int, voices=(0, 1, 2), drums: int = 0) -> tuple[list[list[int]], list[int]]:
@@ -234,11 +235,11 @@ def synthetic_bank(rng: random.Random):
     streams = {}
     for i, (name, kind, _) in enumerate(mp.TRACK_LIST):
         n = 30 + 3 * i
-        regs, trig = random_frames(rng, n, voices=(0, 1, 2) if kind == mp.SONG else ((0,) if kind == mp.OVERLAY_A else (1,)), drums=0)
+        regs, trig = random_frames(rng, n, voices=(0, 1, 2) if kind == mp.SONG else (kind - 1,), drums=0)
         if kind != mp.SONG:
             # an effect only has its own voice's registers
             for r in regs:
-                r[7] |= 0x3F & ~(0x09 if kind == mp.OVERLAY_A else 0x12) | 0xC0
+                r[7] |= 0x3F & ~EFFECT_BITS[kind] | 0xC0
         looping = kind == mp.SONG and name in ("MUS_OVERWORLD", "MUS_DUNGEON", "MUS_LEVEL9")
         loop_frame = 7 if looping else 0
         tracks.append(make_track(name, kind, regs, trig, loop_frame, looping))
@@ -309,15 +310,18 @@ class PlayerTests(unittest.TestCase):
         song = mp.TRACK_LIST.index(("MUS_OVERWORLD", mp.SONG, "song_overworld"))
         sfx_a = [n for n, _, _ in mp.TRACK_LIST].index("SFX_HARMED")
         sfx_b = [n for n, _, _ in mp.TRACK_LIST].index("SFX_RUPEE")
+        sfx_c = [n for n, _, _ in mp.TRACK_LIST].index("SFX_BOMB_BLAST")
         c.call("h_play", song)
         for _ in range(5):
             c.tick()
         c.call("h_play", sfx_a)
         c.call("h_play", sfx_b)
+        c.call("h_play", sfx_c)
         a_regs = self.streams[sfx_a][0]
         b_regs = self.streams[sfx_b][0]
+        c_regs = self.streams[sfx_c][0]
         t = 5
-        for k in range(max(len(a_regs), len(b_regs)) + 3):
+        for k in range(max(len(a_regs), len(b_regs), len(c_regs)) + 3):
             c.tick()
             base, _ = song_frame(self.streams, song, t)
             want = list(base[:13])
@@ -329,10 +333,31 @@ class PlayerTests(unittest.TestCase):
                 b = b_regs[k]
                 want[2], want[3], want[9] = b[2], b[3], b[9]
                 want[7] = (want[7] & ~0x12) | (b[7] & 0x12)
+            if k < len(c_regs) and c_regs[k][10]:  # a noise effect only takes voice C while it sounds
+                n = c_regs[k]
+                want[6], want[10] = n[6], n[10]
+                want[7] = (want[7] & ~0x24) | (n[7] & 0x24)
             self.assertEqual(c.out()[:13], want, f"effect frame {k}")
             t += 1
-        self.assertEqual((c.ctx_id(1), c.ctx_id(2)), (255, 255))
+        self.assertEqual((c.ctx_id(1), c.ctx_id(2), c.ctx_id(3)), (255, 255, 255))
         self.assertEqual(c.ctx_id(0), song)
+
+    def test_the_low_life_beep_follows_the_hearts(self) -> None:
+        c = self.cpu()
+        beep = [n for n, _, _ in mp.TRACK_LIST].index("SFX_HEART_WARNING")
+        for halves, mode, playing in ((6, 0, False), (3, 0, False), (2, 3, False), (0, 0, False), (2, 0, True), (1, 0, True)):
+            c.call("h_init")
+            c.set_glob8("OFF_HP_HALVES", halves)
+            c.set_glob8("OFF_GAME_MODE", mode)
+            c.call("h_update")
+            self.assertEqual(c.ctx_id(1) == beep, playing, f"halves {halves} mode {mode}")
+        c.call("h_init")
+        other = [n for n, _, _ in mp.TRACK_LIST].index("SFX_KEY")
+        c.set_glob8("OFF_HP_HALVES", 1)
+        c.set_glob8("OFF_GAME_MODE", 0)
+        c.call("h_play", other)
+        c.call("h_update")
+        self.assertEqual(c.ctx_id(1), other, "the beep waits for the voice")
 
     def test_a_new_effect_restarts_the_voice(self) -> None:
         c = self.cpu()
@@ -498,12 +523,19 @@ class BankBuildTests(unittest.TestCase):
         ow = bank.tracks[mp.OVERWORLD_ID]
         self.assertEqual(ow.frames, 4174)  # the shipped arrangement, untouched
         self.assertLessEqual(len(bank.drums), mp.MAX_DRUMS)
-        for kind, track in ((mp.OVERLAY_A, "SFX_HARMED"), (mp.OVERLAY_B, "SFX_RUPEE")):
+        beep = next(t for t in bank.tracks if t.name == "SFX_HEART_WARNING")
+        self.assertEqual(beep.frames, 19, "the beep keeps its pause")
+        for kind, track in ((mp.OVERLAY_A, "SFX_HARMED"), (mp.OVERLAY_B, "SFX_RUPEE"), (mp.OVERLAY_C, "SFX_SWORD"),
+                            (mp.OVERLAY_C, "SFX_STAIRS")):
             t = next(t for t in bank.tracks if t.name == track)
             self.assertEqual(t.kind, kind)
             self.assertFalse(t.loops)
             regs, trig = mp.unpack_stream(t.stream, t.frames)
             self.assertFalse(any(trig), "an effect must not start a digidrum")
+            if kind == mp.OVERLAY_C:  # noise on voice C only, never a tone
+                for row in regs:
+                    self.assertEqual(row[7] & 0x24, 0x04 if row[10] else 0x24, track)
+                    self.assertEqual((row[0], row[1], row[2], row[3], row[4], row[5]), (0,) * 6, track)
         self.assertTrue(next(t for t in bank.tracks if t.name == "MUS_DUNGEON").loops)
         # every digidrum a trigger names exists
         for t in bank.tracks:
@@ -554,7 +586,13 @@ class RealBankTests(unittest.TestCase):
                 if t.kind == mp.SONG:
                     self.assertEqual(got[:13], want[:13], f"{t.name} tick {tick}")
                 else:  # an effect owns one voice's tone, volume and mixer bits; the rest is the idle song's
-                    lo, vol, bits = (0, 8, 0x09) if t.kind == mp.OVERLAY_A else (2, 9, 0x12)
+                    bits = EFFECT_BITS[t.kind]
+                    if t.kind == mp.OVERLAY_C:
+                        if want[10]:  # its silent frames leave the song alone
+                            self.assertEqual((got[6], got[10], got[7] & bits), (want[6], want[10], want[7] & bits),
+                                             f"{t.name} tick {tick}")
+                        continue
+                    lo, vol = (0, 8) if t.kind == mp.OVERLAY_A else (2, 9)
                     self.assertEqual((got[lo], got[lo + 1], got[vol], got[7] & bits),
                                      (want[lo], want[lo + 1], want[vol], want[7] & bits), f"{t.name} tick {tick}")
             if not t.loops:
