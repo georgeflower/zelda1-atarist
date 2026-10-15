@@ -52,7 +52,8 @@ Platform and rendering
 - double-buffered play frames with per-sprite erase from a clean background
   copy, so busy rooms neither flicker nor lose Link; scrolls and caves draw
   straight to the visible screen
-- keyboard input through the IKBD ACIA
+- keyboard input through an IKBD interrupt that queues every byte, so no key
+  release is ever missed
 - the overworld plays a YM2149 song (digidrums included) from a VBL hook
 - status ribbon: hearts (with halves), rupee, key and bomb counters, in the
   original glyphs, and the B and A item boxes
@@ -183,6 +184,7 @@ Near term (finish Level 1)
 2. fireball art
 3. map and compass use, and the dungeon map on the ribbon
 4. the old man in room `$41` and the other dungeon people
+5. sound effects (only the overworld song plays), the clock and fairy drops
 
 Then the rest of the overworld
 
@@ -190,9 +192,8 @@ Then the rest of the overworld
    zoras and so on) and their behaviours
 7. the other caves: shops, hints, money-making games, doors that charge,
    shortcut stairs, and the secrets under trees, rocks and armos
-8. the inventory subscreen, item selection and the B-button item, with the
-   boomerang, bow and arrows, candles, recorder, raft, ladder, rings and
-   the magic items
+8. the rest of the inventory: the bow and arrows, recorder, raft, ladder,
+   rings and the magic items, on top of the Tab screen that exists now
 9. the animated pond (palette cycling)
 
 Then the game around it
