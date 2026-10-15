@@ -101,6 +101,7 @@ atari_st/                the port
 | `dev_run.sh` | build with a start room + capture (needs `$TOS`) |
 | `compare_render.py`, `render_map.py` | diff the renderer against a Python render; render maps |
 | `ym_convert.py` | converts the song + player header into `music_data.bin`, `music_engine.bin`, drums, `music.inc` |
+| `nes_music_rip.py` | runs the ROM's own sound engine (bank 0) in py65 and writes every song, jingle and sound effect as `.ym` (YM6, 50 Hz; noise drums or digidrums). Output is ROM-derived: `*.ym` is gitignored. `--list` shows the tracks |
 
 ## 4. The exact toolchain (this is how it is built and tested here)
 
@@ -168,6 +169,7 @@ then says `source=generated placeholder CHR`). With the real ROM it should not a
 
 ### Unit tests
 `atari_st/tests/` (`test_build_assets.py`, `test_actors.py`, `test_ym_convert.py`,
+`test_nes_music_rip.py` (needs `py65` for the ROM part, `ZELDA_ROM` or `ext/Original.nes`),
 ...). Run `python -m unittest discover -s atari_st\tests` (41 tests at the time of
 writing). They cover the asset pipeline and tables, not the 68000 code.
 

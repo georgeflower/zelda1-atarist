@@ -1,6 +1,7 @@
 *.dat
 *.bin
 *.nes
+*.ym
 *.o
 *.elf
 *.PRG
