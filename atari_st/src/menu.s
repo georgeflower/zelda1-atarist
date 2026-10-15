@@ -131,19 +131,19 @@ menu_draw:
     bsr menu_text
     lea menu_hint1(%pc), %a0
     moveq #9, %d1
-    moveq #16, %d2
+    moveq #18, %d2
     bsr menu_text
     lea menu_hint2(%pc), %a0
     moveq #9, %d1
-    moveq #18, %d2
+    moveq #20, %d2
     bsr menu_text
     lea menu_hint3(%pc), %a0
     moveq #9, %d1
-    moveq #20, %d2
+    moveq #22, %d2
     bsr menu_text
     lea menu_hint4(%pc), %a0
     moveq #9, %d1
-    moveq #22, %d2
+    moveq #24, %d2
     bsr menu_text
 
     moveq #B_BOMB, %d3                  | the three items Link might own
@@ -184,7 +184,21 @@ menu_draw:
 8:  addq.w #1, %d3
     cmp.w #B_CANDLE, %d3
     bls 3b
-    bsr menu_dungeon
+    tst.b OFF_INV_BOW(%a5)
+    beq 7f
+    ltab hud_items, %a0                 | the bow, under the boomerang (not a B item: no arrows yet)
+    adda.l #(HUD_ICON_BOW * 2 * HUD_TILE_BYTES), %a0
+    moveq #18, %d1
+    moveq #15, %d2
+    bsr draw_hud_tile_ptr
+    lea HUD_TILE_BYTES(%a0), %a0
+    moveq #16, %d2
+    bsr draw_hud_tile_ptr
+    lea menu_bow(%pc), %a0
+    moveq #20, %d1
+    moveq #16, %d2
+    bsr menu_text
+7:  bsr menu_dungeon
     movem.l (%sp)+, %d0-%d7/%a0-%a2
     rts
 
@@ -195,6 +209,7 @@ menu_draw:
     .equ MENU_MAP_ICON_COL, 29
     .equ HUD_ICON_COMPASS, 4
     .equ HUD_ICON_MAP, 5
+    .equ HUD_ICON_BOW, 6
 
 menu_dungeon:
     movem.l %d0-%d6/%a0-%a3, -(%sp)
@@ -288,6 +303,8 @@ menu_compass:
     .asciz "COMPASS"
 menu_map:
     .asciz "MAP"
+menu_bow:
+    .asciz "BOW"
 menu_hint1:
     .asciz "LEFT RIGHT CHOOSE THE B ITEM"
 menu_hint2:

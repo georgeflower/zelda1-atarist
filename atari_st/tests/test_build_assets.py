@@ -350,8 +350,8 @@ class RomActorTests(unittest.TestCase):
             self.assertEqual(mask >> 8, int(f"{mask & 255:08b}"[::-1], 2))
 
     def test_inventory_icons_follow_the_b_item_codes_then_compass_and_map(self) -> None:
-        # menu.s indexes hud_items directly: sword, bomb, boomerang, candle (the B codes), then compass, map
-        self.assertEqual(self.actors.HUD_ITEM_IDS[4:], (0x16, 0x17))
+        # menu.s indexes hud_items directly: sword, bomb, boomerang, candle (the B codes), then compass, map, bow
+        self.assertEqual(self.actors.HUD_ITEM_IDS[4:], (0x16, 0x17, 0x0A))
         self.assertEqual(len(self.data.hud_items), len(self.actors.HUD_ITEM_IDS) * 2 * build_assets.HUD_TILE_BYTES)
         for icon in (4, 5):
             tiles = self.data.hud_items[icon * 64 : (icon + 1) * 64]

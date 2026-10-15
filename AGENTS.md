@@ -335,7 +335,7 @@ time (no pre-shifted copies).
   maps NES text codes (digits 0-9, A-Z = `$0A`-`$23`, space `$24`, `.`=`$2C`,
   `-`=`$2F`) to glyphs; `menu_text` converts ASCII.
 - `hud_items.bin`: icons for A/B boxes, 2 tiles each, order **sword, bomb, boomerang,
-  candle** (so B item code n indexes it directly), then **compass, map** (Tab screen).
+  candle** (so B item code n indexes it directly), then **compass, map, bow** (Tab screen).
 
 ## 9. Input
 
@@ -388,7 +388,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   frames. Bomb pickup +4 (cap 8).
 - **Boomerang** (`UpdateArrowOrBoomerang`, `WieldBoomerang`): placed 16 px ahead, 3 px/frame
   for 49 px (limit `$31`) or until blocked, 3-frame spark, slow phase (1 px/frame, `$10`
-  frames), then returns to Link; one at a time; stun `ObjStunTimer` `$10` = 160 frames;
+  frames), then returns to Link (a wall only stops it while flying out: in the slow phase it stays put and the phase still runs out); one at a time; stun `ObjStunTimer` `$10` = 160 frames;
   kills monsters with HP 0 (gel, keese); picks up items; traps/boss ignore it. Art:
   item slot `$1D` tiles `$36,$38,$3A` + spark `$3C`, spin cycle `{0,1,2,1,0,1,2,1}` with
   flips. Stunned monsters do nothing and do no contact damage (`ENEMY_STUN`).
@@ -452,7 +452,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   60 Hz (`$FF820A` bit 1 clear) every 6th VBL holds them (`MUS_SKIP`).
 - **B item** (`B_ITEM`): 0 nothing, 1 bombs, 2 boomerang, 3 candle; `b_item_fix` keeps it on
   something owned. **Inventory screen** lists owned B items (bombs if count > 0); Left/Right
-  moves the "B" label. Opening it freezes everything.
+  moves the "B" label. The bow (`INV_BOW`, item `$0A` from the cellar) is only shown there: it is not a B item until arrows exist. Opening it freezes everything.
 - **Debug key K**: +1 key, +4 bombs (cap 8), candle. The owner wants it kept for now.
 
 ## 11. Asset pipeline facts

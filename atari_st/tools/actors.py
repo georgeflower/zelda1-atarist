@@ -74,7 +74,7 @@ LINK_LIFT_TILE = 0x78
 ITEM_IDS = (0x00, 0x01, 0x0A, 0x0F, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1D, 0x22, 0x06, LINK_LIFT_ID)
 BOOMERANG_ITEM = 0x1D
 FIRE_ANIM_INDEX = 0x41
-HUD_ITEM_IDS = (0x01, 0x00, BOOMERANG_ITEM, 0x06, 0x16, 0x17)    # sword, bomb, boomerang, candle, compass, map
+HUD_ITEM_IDS = (0x01, 0x00, BOOMERANG_ITEM, 0x06, 0x16, 0x17, 0x0A)    # sword, bomb, boomerang, candle, compass, map, bow
 
 UW_SP_COMMON = "dat/CommonSpritePatterns.dat"
 UW_SP_DEMO = "dat/DemoSpritePatterns.dat"
@@ -101,7 +101,7 @@ class ActorData:
     beam_sprites: bytes       # the sword's shot: up, down, left, right, each in four palette rows
     fx_sprites: bytes         # two bomb clouds, then four spark corners in four palette rows each
     proj_sprites: bytes       # 4 boomerang turns, 2 fireball frames, then 4 pieces for each Aquamentus image
-    hud_items: bytes          # sword, bomb, boomerang, candle, compass, map as two status bar tiles each, top then bottom
+    hud_items: bytes          # sword, bomb, boomerang, candle, compass, map, bow as two status bar tiles each, top then bottom
     room_info: list[bytes]    # ROOM_INFO_BYTES per stored room
     keese_index: int = 0      # monster index of the keese the cellars are full of
     person_text: bytes = b""  # the speeches of the level's dungeon people, appended to the first cave's text
@@ -514,6 +514,6 @@ def build_placeholder() -> ActorData:
         beam_sprites=frame * 16,
         fx_sprites=frame * 20,
         proj_sprites=frame * 27,
-        hud_items=bytes(384),
+        hud_items=bytes(448),
         room_info=[bytes([0, 0, 0xFF, 0, 0, 0] + [0xFF] * 10)],
     )

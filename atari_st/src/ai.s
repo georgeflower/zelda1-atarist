@@ -1606,10 +1606,13 @@ link_boom_update:
     move.w (%sp)+, %d3
     move.w (%sp)+, %d2
     tst.w %d0
-    bne 30f                         | blocked: it sparks where it is
-    move.b %d2, PJ_X(%a4, %d7.w)
+    beq 19f
+    cmp.w #PK_LBOOM_SLOW, %d5
+    bne 30f                         | a wall stops it flying out; hanging about it just stays put
+    bra 20f
+19: move.b %d2, PJ_X(%a4, %d7.w)
     move.b %d3, PJ_Y(%a4, %d7.w)
-    subq.b #1, PJ_TIMER(%a4, %d7.w)
+20: subq.b #1, PJ_TIMER(%a4, %d7.w)
     bne 60f
     cmp.w #PK_LBOOM_SLOW, %d5
     beq 18f
