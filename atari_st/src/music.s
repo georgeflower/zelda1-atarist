@@ -135,7 +135,8 @@ music_update:
     bne 4f
     bsr music_stop
     bra 9f
-4:  bsr music_play
+4:  bsr music_stop
+    bsr music_play
 9:  movem.l (%sp)+, %d0-%d1
     rts
 
