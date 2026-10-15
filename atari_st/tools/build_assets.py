@@ -921,7 +921,7 @@ def write_underworld(out_dir: Path, uw) -> None:
     (out_dir / "beam_sprites.bin").write_bytes(actors.beam_sprites)
     (out_dir / "fx_sprites.bin").write_bytes(actors.fx_sprites)
     (out_dir / "proj_sprites.bin").write_bytes(actors.proj_sprites)
-    (out_dir / "hud_sword.bin").write_bytes(actors.hud_sword)
+    (out_dir / "hud_items.bin").write_bytes(actors.hud_items)
     (out_dir / "uw_room_info.bin").write_bytes(b"".join(actors.room_info))
     (out_dir / "uw_cellar_maps.bin").write_bytes(b"".join(uw.cellar_maps))
     (out_dir / "uw_cellar_info.bin").write_bytes(b"".join(uw.cellar_info))

@@ -13,12 +13,14 @@ An early but playable slice, not yet a complete game.
 - walk all 128 overworld screens with the original movement and collision, and scroll between them
 - go into the first cave, hear the old man's speech and take the wooden sword
 - enter Level 1 and explore its rooms: locked doors, bombable and false walls, shutters that open when the monsters die
-- fight stalfos, keese, gels, ropes and goriya with the sword and its beam, plant bombs, and pick up the drops
-- collect keys, hearts, rupees, bombs and the level's items, and take the stairs to the cellar with the bow
+- fight stalfos, keese, gels, ropes, goriya, wallmasters, blade traps and Aquamentus with the sword and its beam, bombs, the boomerang and the candle, and pick up the drops
+- collect keys, hearts, rupees, bombs and the level's items, push the block that opens a shutter, take the stairs to the cellar with the bow, and finish the level with the triforce piece
 
-**Not there yet:** sound, the inventory screen and item use, the boss and several dungeon monsters, the real overworld monsters, other caves and shops, and the other eight dungeons.
+**Not there yet:** the map and compass, the real overworld monsters, other caves and shops, the dungeon people, and the other eight dungeons.
 
-Controls: arrow keys or `W` `A` `S` `D` to walk, `Space` to swing the sword, `B` to drop a bomb, `Esc` to quit.
+Controls: arrow keys or `W` `A` `S` `D` to walk, `Space` to swing the sword, `Ctrl` or `Alternate` to use the B item (bombs, boomerang, candle), `Tab` for the inventory screen, `Esc` to quit.
+
+Project notes for contributors and AI assistants (toolchain, testing, references, the layout of the code) are in `AGENTS.md` and `CLAUDE.md`.
 
 ## Roadmap
 

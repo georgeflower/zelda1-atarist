@@ -9,7 +9,7 @@ text out of a ROM you supply yourself.
 Status: an early but playable vertical slice. You can walk the whole
 overworld, fetch the wooden sword from the first cave, and fight through
 Level 1 to Aquamentus and the triforce piece. It is not yet a complete game:
-there is no inventory screen, only one dungeon, and no way to win.
+there is only one dungeon, and no way to win.
 
 How to play
 -----------
@@ -17,13 +17,16 @@ How to play
 | Key | Action |
 | --- | --- |
 | arrow keys, `W` `A` `S` `D` or the joystick | walk (in 8-pixel grid steps, like the original) |
-| joystick fire, `Alternate` (`Ctrl` in Hatari) | the sword, the NES A button (once you have it) |
-| `Space` | the B item: drop a bomb (once you have some) |
-| `K` | debug: one key and four bombs |
+| `Space`, joystick fire | the sword, the NES A button (once you have it) |
+| `Ctrl` or `Alternate` | the B item: bombs, the boomerang or the candle |
+| `Tab` | the inventory screen: Left and Right choose the B item, `Tab` goes back |
+| `K` | debug: one key, four bombs and the candle |
 | `Esc` | quit |
 
 The two item boxes on the ribbon show what each button holds: the sword under
-A once you have picked it up, and a bomb under B while you carry any.
+A once you have picked it up, and the chosen B item under B. The boomerang is
+in Level 1 (room `$44`, in the goriyas' room); the candle only comes from `K`
+for now.
 
 A typical run:
 
@@ -119,9 +122,23 @@ Combat and items
   level with them, fly at him as far as the middle of the room, and creep home;
   they hurt for a whole heart and nothing hurts them
 - the cave bonfires flicker, turning round every six frames
-- pickups with their effects: keys, hearts, heart containers, rupees, bombs
-  and the wooden sword. Maps, compasses, the bow and similar items are
-  collected but do nothing yet
+- boomerang: thrown the way Link faces from 16 pixels ahead, it flies three
+  pixels a frame for about 49 pixels (or until a wall), sparks, hangs about
+  for 16 frames and comes back; one at a time. A monster it touches is
+  stunned for 160 frames (it freezes and does no harm), or killed outright
+  if it has no hit points to speak of (keese, gels); it also picks up items.
+  Traps and Aquamentus ignore it
+- blue candle: a flame 16 pixels ahead that creeps another 16 pixels, stands
+  for 63 frames and burns the monsters it touches; once in each room
+- inventory screen (`Tab`): freezes the game and lists the bombs, boomerang
+  and candle Link owns; Left and Right move the B label
+- push block (room `$42`): once the monsters are dead, stand against the
+  block, lined up, and push for 16 frames. It swaps places with the floor
+  beyond it and the room's shutters open for good (they no longer open when
+  the last monster dies)
+- pickups with their effects: keys, hearts, heart containers, rupees, bombs,
+  the boomerang, the candle and the wooden sword. Maps, compasses, the bow
+  and similar items are collected but do nothing yet
 - Link is invincible and blinks for about 0.8 seconds after being hurt (the
   original's $18 timer ticks every second frame), and is knocked back 32
   pixels; monsters are knocked back up to 64 pixels when the sword hits them
@@ -141,18 +158,19 @@ Known gaps
 
 Things that behave differently from the original, or are stand-ins:
 
-- boomerang and fireball art is placeholder (Aquamentus himself is original)
-- monsters wander randomly apart from the behaviours above; there is no
-  stun (the boomerang and the clock are not Link's yet)
-- push-block and other secret triggers are not implemented; the shutters of
-  such rooms open when the monsters die instead
+- fireball art is placeholder (Aquamentus himself is original)
+- monsters wander randomly apart from the behaviours above; the clock is not
+  Link's yet
+- the push block slides in one jump rather than visibly, and only the
+  trigger-4 kind (open the shutters) exists; the stairs kind is not needed in
+  Level 1
 - the triforce piece is not shown being held up, and the level's completion is
   not yet recorded anywhere
-- `K` is a debug key standing in for the shops and secrets that give keys and
-  bombs
+- `K` is a debug key standing in for the shops and secrets that give keys,
+  bombs and the candle
 - the overworld's real monsters are not ported; only the placeholder blobs
-- the HUD item boxes only show the sword and bombs; there is no map, compass
-  or other item yet
+- the inventory screen only lists the B items; there is no map, compass or
+  other item yet, and no map on the ribbon
 - the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
   it back so the tempo stays right
 
@@ -161,11 +179,10 @@ Roadmap
 
 Near term (finish Level 1)
 
-1. a stun from the boomerang (and the B item to choose it)
-2. push-block and other secret triggers
-3. the triforce piece held up, and the level's completion recorded
-4. boomerang and fireball art
-5. map and compass use, and the dungeon map on the ribbon
+1. the triforce piece held up, and the level's completion recorded
+2. fireball art
+3. map and compass use, and the dungeon map on the ribbon
+4. the old man in room `$41` and the other dungeon people
 
 Then the rest of the overworld
 
@@ -316,6 +333,14 @@ Notes on the ST implementation
 - Sprites are shifted at run time rather than pre-shifted at build time.
   Sixteen pre-rotated copies would cost 40KB for Link alone; the shift costs a
   few thousand cycles against a 160,000-cycle frame.
+- The IKBD interrupt vector (`$118`) is replaced by a handler that queues every
+  byte in a ring buffer; the main loop parses the queue once a frame. The ACIA
+  holds a single byte, so polling it lost key releases and left Link walking.
+  The previous vector is restored on exit.
+- The tables are reached through `a6` = `table_anchor`, now placed after
+  `mon_sprites`: the tables before it must stay within 32KB back and
+  `room_maps` within 32KB ahead. Growing them past that makes the assembler
+  complain about an out-of-range displacement.
 
 Licensing notes
 ---------------

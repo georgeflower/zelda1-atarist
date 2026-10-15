@@ -81,6 +81,7 @@
     .equ MODE_PLAY, 0
     .equ MODE_SCROLL, 1
     .equ MODE_CAVE, 2
+    .equ MODE_MENU, 3
 
 | PlayerScreenEdgeBounds (Z_07.asm): Link leaves the overworld screen when he
 | reaches these coordinates. ObjectRoomBoundsOW is for other objects, not Link.
@@ -237,7 +238,11 @@ main_loop:
     beq 1f
     cmp.b #MODE_SCROLL, %d0
     beq 2f
+    cmp.b #MODE_MENU, %d0
+    beq 4f
     bsr update_cave
+    bra 3f
+4:  bsr update_menu
     bra 3f
 1:  bsr update_play
     bra 3f
@@ -665,8 +670,8 @@ swap_erase_state:
     xchg_state ERASE_OFFSET, OLD_ERASE_OFFSET, 4
     xchg_state BEAM_VALID, OLD_BEAM_VALID, 1
     xchg_state BEAM_ERASE_OFFSET, OLD_BEAM_ERASE_OFFSET, 4
-    xchg_state FX_VALID, OLD_FX_VALID, 8
-    xchg_state FX_ERASE_OFFSETS, OLD_FX_ERASE_OFFSETS, 32
+    xchg_state FX_VALID, OLD_FX_VALID, 12
+    xchg_state FX_ERASE_OFFSETS, OLD_FX_ERASE_OFFSETS, 48
     movem.l (%sp)+, %d0-%d1/%a0-%a1
     rts
 
@@ -679,7 +684,7 @@ clear_old_erase_state:
     clr.b OFF_OLD_BOMB_VALID(%a5)
     clr.b OFF_OLD_ERASE_VALID(%a5)
     clr.b OFF_OLD_BEAM_VALID(%a5)
-    clear_state OLD_FX_VALID, 8
+    clear_state OLD_FX_VALID, 12
     movem.l (%sp)+, %d0/%a0
     rts
 
@@ -693,7 +698,7 @@ clear_erase_state:
     clr.b OFF_BOMB_VALID(%a5)
     clr.b OFF_ERASE_VALID(%a5)
     clr.b OFF_BEAM_VALID(%a5)
-    clear_state FX_VALID, 8
+    clear_state FX_VALID, 12
     movem.l (%sp)+, %d0/%a0
     rts
 
@@ -706,8 +711,11 @@ update_play:
     bsr erase_enemies
     bsr erase_projectiles
     bsr erase_sprite
+    bsr menu_check_open
+    tst.b OFF_GAME_MODE(%a5)
+    bne 4f                   | the inventory screen is up
     bsr sword_input
-    bsr bomb_input
+    bsr b_item_input
     bsr link_update
     moveq #0, %d0
     move.b OFF_GAME_MODE(%a5), %d0
@@ -716,6 +724,7 @@ update_play:
     cmp.b #MODE_SCROLL, %d0
     beq update_scroll       | a room transition started this frame
     rts                      | cave entry already redrew the new background
+4:  rts
 3:
     bsr update_enemies
     bsr update_combat
@@ -739,6 +748,7 @@ update_play:
     .include "link.s"
     .include "uw.s"
     .include "hud.s"
+    .include "menu.s"
     .include "input.s"
     .include "music.s"
 
@@ -787,8 +797,8 @@ fx_sprites:
     .incbin "fx_sprites.bin"
 proj_sprites:
     .incbin "proj_sprites.bin"
-hud_sword:
-    .incbin "hud_sword.bin"
+hud_items:
+    .incbin "hud_items.bin"
 mon_table:
     .incbin "mon_table.bin"
 item_index:

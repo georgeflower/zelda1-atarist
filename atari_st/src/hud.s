@@ -60,15 +60,22 @@ draw_hud_boxes:
     moveq #HUD_CH_A, %d0
     bsr draw_hud_box
 
-    tst.b OFF_INV_BOMBS(%a5)
+    bsr b_item_fix
+    moveq #0, %d0
+    move.b OFF_B_ITEM(%a5), %d0
     beq 1f
+    ltab hud_items, %a0         | the pictures are in B item order: sword, bomb, boomerang, candle
+    mulu.w #(2 * HUD_TILE_BYTES), %d0
+    adda.l %d0, %a0
     moveq #(HUD_B_COL + 1), %d1
     moveq #1, %d2
-    moveq #HUD_BOMB, %d0
-    bsr draw_hud_tile
+    bsr draw_hud_tile_ptr
+    lea HUD_TILE_BYTES(%a0), %a0
+    moveq #2, %d2
+    bsr draw_hud_tile_ptr
 1:  tst.b OFF_HAS_SWORD(%a5)
     beq 9f
-    ltab hud_sword, %a0
+    ltab hud_items, %a0
     moveq #(HUD_A_COL + 1), %d1
     moveq #1, %d2
     bsr draw_hud_tile_ptr

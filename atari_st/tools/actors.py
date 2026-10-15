@@ -56,7 +56,10 @@ FRAME_BYTES = B.SPRITE_FRAME_BYTES
 NO_DROP_ROW = 0xFF
 ROOM_INFO_BYTES = 14
 
-ITEM_IDS = (0x00, 0x01, 0x0A, 0x0F, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1D, 0x22)
+ITEM_IDS = (0x00, 0x01, 0x0A, 0x0F, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1D, 0x22, 0x06)
+BOOMERANG_ITEM = 0x1D
+FIRE_ANIM_INDEX = 0x41
+HUD_ITEM_IDS = (0x01, 0x00, BOOMERANG_ITEM, 0x06)    # sword, bomb, boomerang, candle
 
 UW_SP_COMMON = "dat/CommonSpritePatterns.dat"
 UW_SP_DEMO = "dat/DemoSpritePatterns.dat"
@@ -83,7 +86,7 @@ class ActorData:
     beam_sprites: bytes       # the sword's shot: up, down, left, right, each in four palette rows
     fx_sprites: bytes         # two bomb clouds, then four spark corners in four palette rows each
     proj_sprites: bytes       # 4 boomerang turns, 2 fireball frames, then 4 pieces for each Aquamentus image
-    hud_sword: bytes          # the sword as two status bar tiles, top then bottom
+    hud_items: bytes          # sword, bomb, boomerang, candle as two status bar tiles each, top then bottom
     room_info: list[bytes]    # 16 bytes per stored room
     keese_index: int = 0      # monster index of the keese the cellars are full of
 
@@ -170,9 +173,8 @@ def _item_frame(code, sp_tiles, bg_tiles, palette, item_id: int):
     return _pack_masked(_item_rows(sp_tiles, bg_tiles, palette, tile, 4 + (attr & 3)))
 
 
-def _hud_sword(code, sp_tiles, bg_tiles, palette) -> bytes:
-    """The wooden sword as the two 8x8 status bar tiles that hold its 8x16 picture."""
-    item_id = 0x01
+def _hud_item(code, sp_tiles, bg_tiles, palette, item_id: int) -> bytes:
+    """An item as the two 8x8 status bar tiles that hold its 8x16 picture."""
     slot = code["slot"][item_id]
     tile = code["tiles"][code["offsets"][slot]]
     base = code["palette"][slot]
@@ -184,6 +186,23 @@ def _hud_sword(code, sp_tiles, bg_tiles, palette) -> bytes:
     for pixels in _tile_rows(tiles, palette, row, tile & 0xFE):
         packed.extend(B.pack_hud_row([backdrop if p < 0 else p for p in pixels[:8]]))
     return bytes(packed)
+
+
+def _hud_items(code, sp_tiles, bg_tiles, palette) -> bytes:
+    return b"".join(_hud_item(code, sp_tiles, bg_tiles, palette, i) for i in HUD_ITEM_IDS)
+
+
+def _boomerang_frames(code, sp_tiles, bg_tiles, palette) -> list[bytes]:
+    """Eight spinning images (BoomerangFrameCycle with its attribute cycle) and the spark."""
+    slot = code["slot"][BOOMERANG_ITEM]
+    first = code["offsets"][slot]
+    row = B.LINK_PALETTE_ROW + (code["palette"][slot] & 3)
+    images = [_item_rows(sp_tiles, bg_tiles, palette, code["tiles"][first + n], row) for n in range(4)]
+    cycle = ((0, False, False), (1, False, False), (2, False, False), (1, True, False),
+             (0, True, False), (1, True, True), (2, False, True), (1, False, True))
+    frames = [_pack_masked(_flip_rows(images[n], h, v)) for n, h, v in cycle]
+    frames.append(_pack_masked(images[3]))
+    return frames
 
 
 SWORD_TILE_VERTICAL = 0x20        # RDirectionToWeaponFrame: frame 0 for up and down ...
@@ -227,8 +246,14 @@ def _beam_frames(sp_tiles, bg_tiles, palette) -> bytes:
     )
 
 
-def _effect_frames(sp_tiles, bg_tiles, palette) -> bytes:
-    """Two bomb clouds, then the four corners of the shot's spark, each in four palette rows."""
+def _fire_rows(anim, heap, attr_heap, sp_tiles, palette) -> list[list[int]]:
+    base = anim[FIRE_ANIM_INDEX]
+    row = B.LINK_PALETTE_ROW + (attr_heap[base] & 3)
+    return _monster_image(sp_tiles, palette, row, heap[base], "wide")
+
+
+def _effect_frames(sp_tiles, bg_tiles, palette, fire_rows) -> bytes:
+    """Two bomb clouds, four spark corners in four palette rows each, then the candle fire and its mirror."""
     frames = [
         _pack_masked(_item_rows(sp_tiles, bg_tiles, palette, tile, B.LINK_PALETTE_ROW + 1))
         for tile in CLOUD_TILES
@@ -237,6 +262,8 @@ def _effect_frames(sp_tiles, bg_tiles, palette) -> bytes:
         for step in range(4):
             rows = _item_rows(sp_tiles, bg_tiles, palette, SPARK_TILE, B.LINK_PALETTE_ROW + step)
             frames.append(_pack_masked(_flip_rows(rows, h="h" in flips, v="v" in flips)))
+    frames.append(_pack_masked(fire_rows))
+    frames.append(_pack_masked([r[::-1] for r in fire_rows]))
     return b"".join(frames)
 
 
@@ -315,9 +342,9 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         drop_rates=bytes(drop_rates),
         sword_sprites=_sword_frames(sp_tiles, bg_tiles, palette),
         beam_sprites=_beam_frames(sp_tiles, bg_tiles, palette),
-        fx_sprites=_effect_frames(sp_tiles, bg_tiles, palette),
-        proj_sprites=_projectile_sprites(sp_tiles, palette),
-        hud_sword=_hud_sword(code, sp_tiles, bg_tiles, palette),
+        fx_sprites=_effect_frames(sp_tiles, bg_tiles, palette, _fire_rows(anim, heap, attr_heap, sp_tiles, palette)),
+        proj_sprites=_projectile_sprites(code, sp_tiles, bg_tiles, palette),
+        hud_items=_hud_items(code, sp_tiles, bg_tiles, palette),
         room_info=[_room_info(r, attrs, foe_counts, info) for r in room_ids],
         keese_index=MONSTER_TYPES.index(0x1B),
     )
@@ -368,22 +395,11 @@ def _boss_pieces(sp_tiles, palette) -> list[bytes]:
     return frames
 
 
-def _projectile_sprites(sp_tiles, palette) -> bytes:
-    """Four boomerang turns, two fireball frames, then the Aquamentus pieces. Placeholder shots."""
-    boom = palette.index(B.LINK_PALETTE_ROW + 1, 3)
-    boom_dark = palette.index(B.LINK_PALETTE_ROW + 1, 2)
+def _projectile_sprites(code, sp_tiles, bg_tiles, palette) -> bytes:
+    """Eight boomerang images and its spark, two fireball frames, then the Aquamentus pieces."""
     fire = palette.index(B.LINK_PALETTE_ROW + 2, 3)
     fire_dark = palette.index(B.LINK_PALETTE_ROW + 2, 2)
-    frames = []
-    for turn in range(4):
-        rows = _blank(16)
-        edges = (("top", "left"), ("top", "right"), ("bottom", "right"), ("bottom", "left"))[turn]
-        for k in range(8):
-            for t in range(2):
-                for edge in edges:
-                    y, x = {"top": (t, k), "bottom": (7 - t, k), "left": (k, t), "right": (k, 7 - t)}[edge]
-                    rows[4 + y][4 + x] = boom if t == 0 else boom_dark
-        frames.append(_pack_masked(rows))
+    frames = _boomerang_frames(code, sp_tiles, bg_tiles, palette)
     for phase in range(2):
         rows = _blank(16)
         for y in range(8):
@@ -434,8 +450,8 @@ def build_placeholder() -> ActorData:
         drop_rates=bytes(4),
         sword_sprites=frame * 4,
         beam_sprites=frame * 16,
-        fx_sprites=frame * 18,
-        proj_sprites=frame * 22,
-        hud_sword=bytes(64),
+        fx_sprites=frame * 20,
+        proj_sprites=frame * 27,
+        hud_items=bytes(256),
         room_info=[bytes([0, 0, 0xFF, 0, 0, 0] + [0xFF] * 8)],
     )

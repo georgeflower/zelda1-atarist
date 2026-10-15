@@ -22,15 +22,15 @@ class ActorTableTests(unittest.TestCase):
 
     def test_projectile_sprites_cover_shots_and_the_boss(self) -> None:
         data = actors.build_placeholder()
-        # 4 boomerang turns, 2 fireball frames, 4 images of 4 boss pieces.
-        self.assertEqual(len(data.proj_sprites), 22 * B.SPRITE_FRAME_BYTES)
+        # 8 boomerang turns and its spark, 2 fireball frames, 4 images of 4 boss pieces.
+        self.assertEqual(len(data.proj_sprites), 27 * B.SPRITE_FRAME_BYTES)
         self.assertEqual(len(data.mon_table) % 8, 0)
 
     def test_effect_sprites_have_every_frame_the_game_indexes(self) -> None:
         data = actors.build_placeholder()
         self.assertEqual(len(data.sword_sprites), 4 * B.SPRITE_FRAME_BYTES)
         self.assertEqual(len(data.beam_sprites), 16 * B.SPRITE_FRAME_BYTES)   # direction x palette row
-        self.assertEqual(len(data.fx_sprites), 18 * B.SPRITE_FRAME_BYTES)     # 2 clouds + 4 corners x 4 rows
+        self.assertEqual(len(data.fx_sprites), 20 * B.SPRITE_FRAME_BYTES)     # 2 clouds, 4 corners x 4 rows, 2 fires
 
     def test_trap_rooms_hold_four_or_six_traps(self) -> None:
         trap = actors.MONSTER_TYPES.index(0x49)

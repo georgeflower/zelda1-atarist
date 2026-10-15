@@ -11,7 +11,7 @@
     .equ DOORWAY_SLACK, 6
     .equ SCAN_K, 0x25
 
-| Temporary: K hands out a key and bombs, until every source of them exists.
+| Temporary: K hands out a key, bombs and the candle, until every source of them exists.
 debug_keys:
     movem.l %d0/%a0, -(%sp)
     lea OFF_KEY_STATES(%a5), %a0
@@ -20,10 +20,12 @@ debug_keys:
     tst.b OFF_K_HELD(%a5)
     bne 9f
     move.b #1, OFF_K_HELD(%a5)
+    move.b #1, OFF_INV_CANDLE(%a5)
     cmpi.b #8, OFF_INV_BOMBS(%a5)
     bhs 3f
     addq.b #4, OFF_INV_BOMBS(%a5)
-3:  cmpi.b #9, OFF_INV_KEYS(%a5)
+3:  bsr b_item_fix
+    cmpi.b #9, OFF_INV_KEYS(%a5)
     bhs 9f
     addq.b #1, OFF_INV_KEYS(%a5)
     move.b #1, OFF_HUD_DIRTY(%a5)

@@ -4,8 +4,8 @@
 | Simplifications against the original, to be revisited: one sword damage and
 | a placeholder blade sprite.
 
-    .equ SCAN_SPACE, 0x39           | B: the bombs
-    .equ SCAN_CTRL, 0x1d            | A, with the joystick's fire button and Alternate
+    .equ SCAN_SPACE, 0x39           | A: the sword, like the joystick's fire button
+    .equ SCAN_CTRL, 0x1d            | B: the selected item, like Alternate
     .equ SCAN_ALT, 0x38
     .equ ATTACK_FRAMES, 12
     .equ BEAM_PHASE, 3              | ATTACK value of the third phase, when the shot leaves
@@ -21,6 +21,8 @@
     .equ TRIGGER_KILL_ITEM, 7
 
     .equ ITEM_BOMBS, 0x00
+    .equ ITEM_BLUE_CANDLE, 0x06
+    .equ ITEM_BOOMERANG, 0x1d
     .equ ITEM_WOOD_SWORD, 0x01
     .equ ITEM_FIVE_RUPEES, 0x0f
     .equ ITEM_RUPEE, 0x18
@@ -35,14 +37,12 @@
     .equ MAX_BOMBS, 8
 
 | ------------------------------------------------------------------- sword
-| The joystick's fire button, Alternate (Control in Hatari) starts a swing, once
-| per press, when Link owns a sword.
+| The joystick's fire button and Space start a swing, once per press, when Link
+| owns a sword.
 sword_input:
     movem.l %d0/%a0, -(%sp)
     lea OFF_KEY_STATES(%a5), %a0
-    tst.b SCAN_ALT(%a0)
-    bne 1f
-    tst.b SCAN_CTRL(%a0)
+    tst.b SCAN_SPACE(%a0)
     bne 1f
     move.b OFF_JOY0(%a5), %d0
     or.b OFF_JOY1(%a5), %d0
@@ -347,7 +347,7 @@ erase_effects:
     bsr erase_at
     clr.b 0(%a1, %d3.w)
 2:  addq.w #1, %d3
-    cmp.w #8, %d3
+    cmp.w #12, %d3
     blo 1b
     movem.l (%sp)+, %d0/%d3/%a0-%a1
     rts
@@ -406,7 +406,19 @@ draw_effects:
     subq.w #1, %d6
     bpl 1b
 
-5:  moveq #0, %d7
+5:  tst.b OFF_FIRE_STATE(%a5)
+    beq 55f
+    moveq #8, %d6
+    moveq #0, %d1
+    move.b OFF_FIRE_X(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_FIRE_Y(%a5), %d2
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    lsr.w #2, %d0
+    and.w #1, %d0
+    add.w #FX_FIRE, %d0         | the flame turns round every four frames
+    bsr fx_put
+55: moveq #0, %d7
     move.b OFF_CLOUD_TIMER(%a5), %d7
     beq 9f
     moveq #0, %d5               | the first part of the cloud, then the thinner one
@@ -474,6 +486,8 @@ update_combat:
     bsr item_pickup
     bsr items_age
     bsr beam_update
+    bsr fire_update
+    bsr block_update
     bsr bomb_tick
     tst.b OFF_LEVEL(%a5)
     beq 9f
@@ -641,6 +655,9 @@ enemy_contact:
     bhs 9f
     tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
     beq 8f
+    lea OFF_ENEMY_STUN(%a5), %a0
+    tst.b 0(%a0, %d5.w)
+    bne 8f                      | a stunned monster does no harm
     moveq #0, %d3
     move.b OFF_ENEMY_X(%a5, %d5.w), %d3
     moveq #0, %d0
@@ -802,25 +819,111 @@ link_dies:
     .equ BOMB_DAMAGE, 4             | $40 damage points, in sword hits
     .equ SPARK_FIRST, 2
     .equ SPARK_LAST, 23
+    .equ FX_FIRE, 18                | the flame's two pictures in fx_sprites
+    .equ FIRE_MOVE_FRAMES, 32       | 16 pixels at half a pixel a frame
+    .equ FIRE_STAND_FRAMES, 63
+    .equ FIRE_RANGE, 14
     .equ BOMB_RANGE, 24
     .equ BOMB_LANE_X, 0x78
     .equ BOMB_LANE_Y, 0x8d
     .equ BOMB_DOOR_SLACK, 0x20
     .equ BOMB_DOOR_TYPE, 4
 
-bomb_input:
-    movem.l %d0-%d2/%a0, -(%sp)
+    .equ B_NOTHING, 0
+    .equ B_BOMB, 1
+    .equ B_BOOMERANG, 2
+    .equ B_CANDLE, 3
+
+| Control or Alternate use the B item: the bombs, the boomerang or the candle.
+b_item_input:
+    movem.l %d0/%a0, -(%sp)
     lea OFF_KEY_STATES(%a5), %a0
-    tst.b SCAN_SPACE(%a0)
-    beq 2f
-    tst.b OFF_B_HELD(%a5)
+    tst.b SCAN_CTRL(%a0)
+    bne 1f
+    tst.b SCAN_ALT(%a0)
+    beq 8f
+1:  tst.b OFF_B_HELD(%a5)
     bne 9f
     move.b #1, OFF_B_HELD(%a5)
+    tst.b OFF_GAME_MODE(%a5)
+    bne 9f
+    tst.b OFF_LINK_HELD(%a5)
+    bne 9f
+    bsr b_item_fix
+    moveq #0, %d0
+    move.b OFF_B_ITEM(%a5), %d0
+    cmp.w #B_BOMB, %d0
+    bne 2f
+    bsr place_bomb
+    bra 9f
+2:  cmp.w #B_BOOMERANG, %d0
+    bne 3f
+    bsr throw_boomerang
+    bra 9f
+3:  cmp.w #B_CANDLE, %d0
+    bne 9f
+    bsr use_candle
+    bra 9f
+8:  clr.b OFF_B_HELD(%a5)
+9:  movem.l (%sp)+, %d0/%a0
+    rts
+
+| d0.w = B item code: does Link own it?  Returns d0.w = 1 when he does.
+b_item_owned:
+    cmp.w #B_BOMB, %d0
+    bne 1f
+    moveq #0, %d0
+    tst.b OFF_INV_BOMBS(%a5)
+    beq 9f
+    moveq #1, %d0
+    rts
+1:  cmp.w #B_BOOMERANG, %d0
+    bne 2f
+    moveq #0, %d0
+    tst.b OFF_INV_BOOMERANG(%a5)
+    beq 9f
+    moveq #1, %d0
+    rts
+2:  cmp.w #B_CANDLE, %d0
+    bne 3f
+    moveq #0, %d0
+    tst.b OFF_INV_CANDLE(%a5)
+    beq 9f
+    moveq #1, %d0
+    rts
+3:  moveq #0, %d0
+9:  rts
+
+| The B button never rests on something Link does not have: it moves to the
+| first thing he does, or to nothing.
+b_item_fix:
+    movem.l %d0-%d1, -(%sp)
+    moveq #0, %d0
+    move.b OFF_B_ITEM(%a5), %d0
+    bsr b_item_owned
+    tst.w %d0
+    bne 9f
+    moveq #1, %d1
+1:  move.w %d1, %d0
+    bsr b_item_owned
+    tst.w %d0
+    bne 2f
+    addq.w #1, %d1
+    cmp.w #B_CANDLE, %d1
+    bls 1b
+    moveq #0, %d1
+2:  cmp.b OFF_B_ITEM(%a5), %d1
+    beq 9f
+    move.b %d1, OFF_B_ITEM(%a5)
+    move.b #1, OFF_HUD_DIRTY(%a5)
+9:  movem.l (%sp)+, %d0-%d1
+    rts
+
+place_bomb:
+    movem.l %d0-%d2, -(%sp)
     tst.b OFF_INV_BOMBS(%a5)
     beq 9f
     tst.b OFF_BOMB_TIMER(%a5)
-    bne 9f
-    tst.b OFF_GAME_MODE(%a5)
     bne 9f
     subq.b #1, OFF_INV_BOMBS(%a5)
     move.b #1, OFF_HUD_DIRTY(%a5)
@@ -840,9 +943,7 @@ bomb_input:
 6:  move.b %d1, OFF_BOMB_X(%a5)
     move.b %d2, OFF_BOMB_Y(%a5)
     move.b #BOMB_FUSE, OFF_BOMB_TIMER(%a5)
-    bra 9f
-2:  clr.b OFF_B_HELD(%a5)
-9:  movem.l (%sp)+, %d0-%d2/%a0
+9:  movem.l (%sp)+, %d0-%d2
     rts
 
 erase_bomb:
@@ -1008,6 +1109,9 @@ bomb_flash:
 clear_bomb:
     movem.l %d0/%a0-%a1, -(%sp)
     clr.b OFF_BOMB_TIMER(%a5)
+    clr.b OFF_FIRE_STATE(%a5)
+    clr.b OFF_CANDLE_USED(%a5)
+    clr.b OFF_BLOCK_STATE(%a5)
     clr.b OFF_CLOUD_TIMER(%a5)
     clr.b OFF_SPARK_K(%a5)
     tst.b OFF_FLASH_ON(%a5)
@@ -1019,6 +1123,127 @@ clear_bomb:
 1:  move.w (%a0)+, (%a1)+
     dbra %d0, 1b
 9:  movem.l (%sp)+, %d0/%a0-%a1
+    rts
+
+| ---------------------------------------------------------------------- candle
+| The blue candle lights a flame 16 pixels in front of Link once in each room.
+| It creeps ahead 16 pixels at half a pixel a frame, then stands for 63 frames,
+| burning every monster it touches.
+use_candle:
+    movem.l %d0-%d2, -(%sp)
+    tst.b OFF_CANDLE_USED(%a5)
+    bne 9f
+    tst.b OFF_FIRE_STATE(%a5)
+    bne 9f
+    move.b #1, OFF_CANDLE_USED(%a5)
+    moveq #0, %d1
+    move.b OFF_LINK_X(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_LINK_Y(%a5), %d2
+    move.b OFF_LINK_DIR(%a5), %d0
+    btst #0, %d0
+    beq 2f
+    add.w #16, %d1
+    bra 5f
+2:  btst #1, %d0
+    beq 3f
+    sub.w #16, %d1
+    bra 5f
+3:  btst #2, %d0
+    beq 4f
+    add.w #16, %d2
+    bra 5f
+4:  sub.w #16, %d2
+5:  move.b %d1, OFF_FIRE_X(%a5)
+    move.b %d2, OFF_FIRE_Y(%a5)
+    move.b %d0, OFF_FIRE_DIR(%a5)
+    move.b #FIRE_MOVE_FRAMES, OFF_FIRE_TIMER(%a5)
+    move.b #1, OFF_FIRE_STATE(%a5)
+9:  movem.l (%sp)+, %d0-%d2
+    rts
+
+fire_update:
+    movem.l %d0-%d6, -(%sp)
+    move.b OFF_FIRE_STATE(%a5), %d0
+    beq 9f
+    subq.b #1, OFF_FIRE_TIMER(%a5)
+    cmp.b #1, %d0
+    bne 7f
+    btst #0, (OFF_FRAME_COUNTER + 1)(%a5)
+    bne 6f                      | a pixel every other frame
+    moveq #0, %d2
+    move.b OFF_FIRE_X(%a5), %d2
+    moveq #0, %d3
+    move.b OFF_FIRE_Y(%a5), %d3
+    move.b OFF_FIRE_DIR(%a5), %d6
+    btst #0, %d6
+    beq 11f
+    addq.w #1, %d2
+    bra 15f
+11: btst #1, %d6
+    beq 12f
+    subq.w #1, %d2
+    bra 15f
+12: btst #2, %d6
+    beq 13f
+    addq.w #1, %d3
+    bra 15f
+13: subq.w #1, %d3
+15: move.w %d2, -(%sp)
+    move.w %d3, -(%sp)
+    btst #0, %d6
+    beq 16f
+    addq.w #8, %d2
+16: btst #2, %d6
+    beq 17f
+    addq.w #8, %d3
+17: bsr enemy_blocked_at
+    move.w (%sp)+, %d3
+    move.w (%sp)+, %d2
+    tst.w %d0
+    bne 18f                     | a wall: it stays where it is
+    move.b %d2, OFF_FIRE_X(%a5)
+    move.b %d3, OFF_FIRE_Y(%a5)
+6:  tst.b OFF_FIRE_TIMER(%a5)
+    bne 8f
+18: move.b #2, OFF_FIRE_STATE(%a5)
+    move.b #FIRE_STAND_FRAMES, OFF_FIRE_TIMER(%a5)
+    bra 8f
+7:  tst.b OFF_FIRE_TIMER(%a5)
+    bne 8f
+    clr.b OFF_FIRE_STATE(%a5)
+    bra 9f
+
+8:  moveq #0, %d5                   | burn what it touches
+21: cmp.b OFF_ENEMY_COUNT(%a5), %d5
+    bhs 9f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    beq 29f
+    tst.b OFF_ENEMY_HURT(%a5, %d5.w)
+    bne 29f
+    moveq #0, %d0
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d0
+    moveq #0, %d1
+    move.b OFF_FIRE_X(%a5), %d1
+    sub.w %d1, %d0
+    bpl 22f
+    neg.w %d0
+22: cmp.w #FIRE_RANGE, %d0
+    bhs 29f
+    moveq #0, %d0
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d0
+    moveq #0, %d1
+    move.b OFF_FIRE_Y(%a5), %d1
+    sub.w %d1, %d0
+    bpl 23f
+    neg.w %d0
+23: cmp.w #FIRE_RANGE, %d0
+    bhs 29f
+    move.b OFF_FIRE_DIR(%a5), OFF_ENEMY_SHOVE(%a5, %d5.w)
+    bsr hit_enemy
+29: addq.w #1, %d5
+    bra 21b
+9:  movem.l (%sp)+, %d0-%d6
     rts
 
 bomb_open_wall:
@@ -1258,7 +1483,15 @@ item_pickup:
 take_item:
     movem.l %d0-%d2, -(%sp)
     move.b #1, OFF_HUD_DIRTY(%a5)
-    cmp.b #ITEM_WOOD_SWORD, %d0
+    cmp.b #ITEM_BOOMERANG, %d0
+    bne 15f
+    move.b #1, OFF_INV_BOOMERANG(%a5)
+    bra 9f
+15: cmp.b #ITEM_BLUE_CANDLE, %d0
+    bne 16f
+    move.b #1, OFF_INV_CANDLE(%a5)
+    bra 9f
+16: cmp.b #ITEM_WOOD_SWORD, %d0
     bne 0f
     move.b #1, OFF_HAS_SWORD(%a5)
     bra 9f
@@ -1327,7 +1560,8 @@ take_item:
     move.b OFF_HEART_CONTAINERS(%a5), %d1
     add.w %d1, %d1
     move.b %d1, OFF_HP_HALVES(%a5)      | the level is won: full hearts
-9:  movem.l (%sp)+, %d0-%d2
+9:  bsr b_item_fix
+    movem.l (%sp)+, %d0-%d2
     rts
 
 | The celebration after the triforce piece: the backdrop flashes, then Link is
@@ -1370,7 +1604,10 @@ uw_check_clear:
     beq 9f                      | a blade trap (2) is not a monster to kill
     addq.w #1, %d1
     bra 1b
-2:  bsr uw_open_shutters
+2:  tst.b OFF_ROOM_TRIGGER(%a5)
+    cmpi.b #TRIGGER_PUSH_BLOCK, OFF_ROOM_TRIGGER(%a5)
+    beq 3f                      | this room's shutters wait for the block
+    bsr uw_open_shutters
     tst.w %d1
     beq 3f
     bsr uw_redraw_room
@@ -1381,6 +1618,201 @@ uw_check_clear:
     bne 9f
     move.b #2, OFF_ITEM_ACTIVE(%a5)
 9:  movem.l (%sp)+, %d0-%d1/%a0
+    rts
+
+| ---------------------------------------------------------------- push block
+| A trigger-4 room has one block that gives way once the monsters are dead:
+| Link has to stand against it, lined up, and keep pushing for 16 frames. It
+| then slides 16 pixels (here it swaps places with the floor there) and the
+| room's shutters open for good. BLOCK_X/Y are the origin of its top-left tile.
+    .equ TRIGGER_PUSH_BLOCK, 4
+    .equ BLOCK_TILE, 0xb0
+    .equ BLOCK_ROW_Y, 0x40          | the top of the play area, where tile row 0 starts
+    .equ BLOCK_PUSH_FRAMES, 16
+
+block_setup:
+    movem.l %d0-%d3, -(%sp)
+    clr.b OFF_BLOCK_STATE(%a5)
+    clr.b OFF_BLOCK_PUSH(%a5)
+    tst.b OFF_LEVEL(%a5)
+    beq 9f
+    tst.b OFF_IN_CELLAR(%a5)
+    bne 9f
+    cmpi.b #TRIGGER_PUSH_BLOCK, OFF_ROOM_TRIGGER(%a5)
+    bne 9f
+    moveq #4, %d3                   | FindAndCreatePushBlockObject: row 10, from column 4
+1:  moveq #10, %d2
+    bsr fetch_tile
+    cmp.w #BLOCK_TILE, %d0
+    beq 2f
+    addq.w #2, %d3
+    cmp.w #26, %d3
+    blo 1b
+    bra 9f
+2:  lsl.w #3, %d3
+    move.b %d3, OFF_BLOCK_X(%a5)
+    move.b #0x90, OFF_BLOCK_Y(%a5)
+    move.b #1, OFF_BLOCK_STATE(%a5)
+9:  movem.l (%sp)+, %d0-%d3
+    rts
+
+| Link is walking into a wall in direction d1.b: is it the block?
+block_push_tick:
+    movem.l %d0-%d5/%a0, -(%sp)
+    cmpi.b #1, OFF_BLOCK_STATE(%a5)
+    bne 9f
+    move.b %d1, %d5                 | the way he pushes
+    moveq #0, %d0
+    move.b OFF_ROOM_ID(%a5), %d0
+    lea OFF_UW_FLAGS(%a5), %a0
+    btst #0, 0(%a0, %d0.w)
+    beq 9f                          | the monsters are not all dead
+    moveq #0, %d2                   | Link, then the block
+    move.b OFF_LINK_X(%a5), %d2
+    moveq #0, %d3
+    move.b OFF_LINK_Y(%a5), %d3
+    addq.w #3, %d3
+    moveq #0, %d0
+    move.b OFF_BLOCK_X(%a5), %d0
+    moveq #0, %d1
+    move.b OFF_BLOCK_Y(%a5), %d1
+    cmp.w %d0, %d2
+    bne 3f
+    sub.w %d1, %d3                  | level in X: he pushes from below or above
+    bpl 1f
+    neg.w %d3
+    moveq #DIR_DOWN, %d4
+    bra 2f
+1:  moveq #DIR_UP, %d4
+2:  cmp.w #0x11, %d3
+    bhs 9f
+    bra 5f
+3:  cmp.w %d1, %d3
+    bne 9f
+    sub.w %d0, %d2                  | level in Y: he pushes from the right or the left
+    bpl 4f
+    neg.w %d2
+    moveq #DIR_RIGHT, %d4
+    bra 41f
+4:  moveq #DIR_LEFT, %d4
+41: cmp.w #0x11, %d2
+    bhs 9f
+5:  cmp.b %d4, %d5
+    bne 9f
+    move.b #1, OFF_BLOCK_TICK(%a5)
+    addq.b #1, OFF_BLOCK_PUSH(%a5)
+    cmpi.b #BLOCK_PUSH_FRAMES, OFF_BLOCK_PUSH(%a5)
+    blo 9f
+    bsr block_slide
+9:  movem.l (%sp)+, %d0-%d5/%a0
+    rts
+
+| Pushing only counts while it goes on without a break.
+block_update:
+    tst.b OFF_BLOCK_TICK(%a5)
+    bne 1f
+    clr.b OFF_BLOCK_PUSH(%a5)
+1:  clr.b OFF_BLOCK_TICK(%a5)
+    rts
+
+| The block moves 16 pixels the way d5.b says, if the floor there is free, and
+| the room's shutters open.
+block_slide:
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    move.w %d5, %d7
+    moveq #0, %d0
+    move.b OFF_BLOCK_X(%a5), %d0
+    lsr.w #3, %d0                   | its tile column and row
+    moveq #0, %d1
+    move.b OFF_BLOCK_Y(%a5), %d1
+    sub.w #BLOCK_ROW_Y, %d1
+    lsr.w #3, %d1
+    move.w %d0, %d4                 | where it is going
+    move.w %d1, %d5
+    btst #0, %d7
+    beq 1f
+    addq.w #2, %d4
+    bra 4f
+1:  btst #1, %d7
+    beq 2f
+    subq.w #2, %d4
+    bra 4f
+2:  btst #2, %d7
+    beq 3f
+    addq.w #2, %d5
+    bra 4f
+3:  subq.w #2, %d5
+4:  cmp.w #2, %d4
+    blt 9f
+    cmp.w #29, %d4
+    bgt 9f
+    cmp.w #2, %d5
+    blt 9f
+    cmp.w #19, %d5
+    bgt 9f
+    moveq #3, %d6
+5:  move.w %d5, %d2                 | all four tiles there have to be floor
+    btst #1, %d6
+    beq 51f
+    addq.w #1, %d2
+51: move.w %d4, %d3
+    btst #0, %d6
+    beq 52f
+    addq.w #1, %d3
+52: bsr fetch_tile
+    bsr tile_blocks
+    tst.w %d0
+    bne 9f
+    dbra %d6, 5b
+
+    move.b #2, OFF_BLOCK_STATE(%a5)
+    clr.b OFF_BLOCK_PUSH(%a5)
+    moveq #0, %d0                   | the shutters open, and the room is rebuilt
+    move.b OFF_ROOM_ID(%a5), %d0
+    bsr uw_open_shutters
+    bsr uw_redraw_room
+    moveq #0, %d0                   | then the block and the floor swap places
+    move.b OFF_BLOCK_X(%a5), %d0
+    lsr.w #3, %d0
+    moveq #0, %d1                   | uw_open_shutters answered in d1
+    move.b OFF_BLOCK_Y(%a5), %d1
+    sub.w #BLOCK_ROW_Y, %d1
+    lsr.w #3, %d1
+    lea OFF_UW_MAP(%a5), %a0
+    moveq #3, %d6
+6:  move.w %d1, %d2
+    btst #1, %d6
+    beq 61f
+    addq.w #1, %d2
+61: lsl.w #5, %d2
+    add.w %d0, %d2
+    btst #0, %d6
+    beq 62f
+    addq.w #1, %d2
+62: move.w %d5, %d3
+    btst #1, %d6
+    beq 63f
+    addq.w #1, %d3
+63: lsl.w #5, %d3
+    add.w %d4, %d3
+    btst #0, %d6
+    beq 64f
+    addq.w #1, %d3
+64: move.b 0(%a0, %d2.w), %d7
+    move.b 0(%a0, %d3.w), 0(%a0, %d2.w)
+    move.b %d7, 0(%a0, %d3.w)
+    dbra %d6, 6b
+    lsl.w #3, %d4
+    move.b %d4, OFF_BLOCK_X(%a5)
+    lsl.w #3, %d5
+    add.w #BLOCK_ROW_Y, %d5
+    move.b %d5, OFF_BLOCK_Y(%a5)
+    lea OFF_UW_MAP(%a5), %a0
+    movea.l OFF_BG_CUR(%a5), %a1
+    bsr uw_render_map
+    bsr show_background
+    clr.b OFF_ERASE_VALID(%a5)
+9:  movem.l (%sp)+, %d0-%d7/%a0-%a1
     rts
 
 | d0.w = room id. Marks every shutter of the room open; d1.w = 1 if one changed.

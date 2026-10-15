@@ -208,14 +208,31 @@
 
     | Effect sprites (spark corners and cloud puffs) have a slot each for erasing.
     galign
-    gvar FX_ERASE_OFFSETS, 32
-    gvar OLD_FX_ERASE_OFFSETS, 32
-    gvar FX_VALID, 8
-    gvar OLD_FX_VALID, 8
+    gvar FX_ERASE_OFFSETS, 48
+    gvar OLD_FX_ERASE_OFFSETS, 48
+    gvar FX_VALID, 12
+    gvar OLD_FX_VALID, 12
     gvar CAVE_FIRE_OFFSETS, 8  | where the two bonfires were drawn, to put the cave floor back
     gvar CAVE_FIRE_VALID, 1
 
     galign
     gvar OLD_IKBD_VEC, 4       | TOS' own IKBD interrupt handler
+
+    gvar INV_BOOMERANG, 1
+    gvar INV_CANDLE, 1
+    gvar B_ITEM, 1             | what the B button uses: 0 nothing, 1 bombs, 2 boomerang, 3 candle
+    gvar CANDLE_USED, 1        | the candle can be lit once in a room
+    gvar MENU_KEYS, 1          | keys the inventory screen saw last frame: 1 tab, 2 left, 4 right
+    gvar FIRE_STATE, 1         | the candle's flame: 0 none, 1 moving, 2 standing
+    gvar FIRE_X, 1
+    gvar FIRE_Y, 1
+    gvar FIRE_DIR, 1
+    gvar FIRE_TIMER, 1
+    gvar BLOCK_STATE, 1        | the room's push block: 0 none, 1 waiting, 2 pushed
+    gvar BLOCK_X, 1
+    gvar BLOCK_Y, 1
+    gvar BLOCK_PUSH, 1         | frames Link has been pushing it
+    gvar BLOCK_TICK, 1         | he pushed it this frame
+    gvar ENEMY_STUN, 8         | frames a monster stays stunned
 
     .equ GLOBALS_BYTES, gvar_offset

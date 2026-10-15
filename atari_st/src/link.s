@@ -94,6 +94,7 @@ link_pixel:
     beq 3f
     tst.b OFF_LEVEL(%a5)
     beq 5f                      | blocked: keep facing the wall
+    bsr block_push_tick         | a block may give way
     bsr uw_try_door             | a locked door may open
     bra 5f
 3:  bsr grid_distance

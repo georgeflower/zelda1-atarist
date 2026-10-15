@@ -93,6 +93,7 @@ uw_spawn:
     move.b 1(%a1), OFF_ROOM_TRIGGER(%a5)
     move.b 5(%a1), OFF_ROOM_UNSUPPORTED(%a5)
     bsr uw_setup_item
+    bsr block_setup
     lea OFF_UW_FLAGS(%a5), %a2
     btst #0, 0(%a2, %d0.w)
     bne 9b                      | already cleared: they stay dead
@@ -221,6 +222,10 @@ clear_enemies:
     moveq #(MAX_PROJ - 1), %d0
 5:  clr.b (%a0)+
     dbra %d0, 5b
+    lea OFF_ENEMY_STUN(%a5), %a0
+    moveq #(MAX_ENEMIES - 1), %d0
+6:  clr.b (%a0)+
+    dbra %d0, 6b
     clr.b OFF_WALL_TIMER(%a5)
     movem.l (%sp)+, %d0/%a0
     rts
@@ -257,7 +262,12 @@ update_enemies:
     bsr enemy_shove
     bra 8f
 
-2:  moveq #4, %d4               | frames between pixel steps
+2:  lea OFF_ENEMY_STUN(%a5), %a0
+    tst.b 0(%a0, %d5.w)
+    beq 29f
+    subq.b #1, 0(%a0, %d5.w)    | stunned: it does nothing at all
+    bra 8f
+29: moveq #4, %d4               | frames between pixel steps
     moveq #0, %d7               | behaviour
     moveq #0, %d0
     move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0

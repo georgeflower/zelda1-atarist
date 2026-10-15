@@ -19,6 +19,10 @@
     .equ PK_RETURNING, 2            | coming back to the goriya
     .equ PK_FIREBALL, 3
     .equ PK_PART, 4                 | a piece of Aquamentus
+    .equ PK_LBOOM, 5                | Link's boomerang: flying out
+    .equ PK_LBOOM_SPARK, 6          | it hit a wall, or reached its limit
+    .equ PK_LBOOM_SLOW, 7           | and hangs about
+    .equ PK_LBOOM_BACK, 8           | on its way back to Link
 
 | Field offsets from PROJ_KIND; each field is a row of MAX_PROJ bytes.
     .equ PJ_KIND, 0
@@ -39,9 +43,18 @@
     .error "globals.s lays the projectile fields out differently from ai.s"
     .endif
 
-    .equ PF_FIREBALL, 4             | frames in proj_sprites
-    .equ PF_BOSS, 6
+    .equ PF_BOOM_SPARK, 8           | frames in proj_sprites: 0-7 the boomerang turning, 8 its spark
+    .equ PF_FIREBALL, 9
+    .equ PF_BOSS, 11
     .equ PF_HIDDEN, 0xff
+
+    .equ BOOM_SPEED, 3              | pixels a frame out, two coming back
+    .equ BOOM_OUT_FRAMES, 17        | about 49 pixels, the wooden boomerang's reach
+    .equ BOOM_SPARK_FRAMES, 3
+    .equ BOOM_SLOW_FRAMES, 16
+    .equ BOOM_BACK_SPEED, 2
+    .equ BOOM_HIT_RANGE, 11
+    .equ STUN_FRAMES, 160           | ObjStunTimer $10, counted every tenth frame
 
     .equ BOOMERANG_QSPEED, 0xa0     | 2.5 pixels a frame
     .equ BOOMERANG_FRAMES, 33       | about $51 pixels out
@@ -645,7 +658,11 @@ update_projectiles:
     beq 8f
     cmp.b #PK_PART, %d0
     beq 50f
-    cmp.b #PK_FIREBALL, %d0
+    cmp.b #PK_LBOOM, %d0
+    blo 0f
+    bsr link_boom_update
+    bra 8f
+0:  cmp.b #PK_FIREBALL, %d0
     beq 40f
     cmp.b #PK_RETURNING, %d0
     beq 30f
@@ -886,14 +903,19 @@ draw_projectiles:
     beq 8f
     cmp.b #PK_PART, %d0
     beq 5f
-    move.w OFF_FRAME_COUNTER(%a5), %d1
-    lsr.w #2, %d1
+    cmp.b #PK_LBOOM_SPARK, %d0
+    bne 3f
+    moveq #PF_BOOM_SPARK, %d0
+    bra 6f
+3:  move.w OFF_FRAME_COUNTER(%a5), %d1
     cmp.b #PK_FIREBALL, %d0
     beq 4f
-    and.w #3, %d1                   | a boomerang spins
+    lsr.w #1, %d1
+    and.w #7, %d1                   | a boomerang spins: two frames to each turn
     move.w %d1, %d0
     bra 6f
-4:  and.w #1, %d1
+4:  lsr.w #2, %d1
+    and.w #1, %d1
     add.w #PF_FIREBALL, %d1
     move.w %d1, %d0
     bra 6f
@@ -1309,3 +1331,223 @@ trap_xs:
 trap_dirs:
     .byte 0x05, 0x09, 0x06, 0x0a, 0x01, 0x02
     .align 2
+
+| -------------------------------------------------------------- Link's boomerang
+| Thrown the way Link faces from 16 pixels in front of him, it flies three
+| pixels a frame for about 49 pixels, or until a wall stops it, sparks for
+| three frames, hangs about at a pixel a frame, and then comes back to him.
+| A monster it touches is stunned (or killed, if it has no hit points to speak
+| of) and it turns back at once. Items it touches are picked up.
+throw_boomerang:
+    movem.l %d0-%d3/%a4, -(%sp)
+    lea OFF_PROJ_KIND(%a5), %a4
+    moveq #(MAX_PROJ - 1), %d0
+1:  cmpi.b #PK_LBOOM, 0(%a4, %d0.w)
+    bhs 9f                          | only one at a time
+    dbra %d0, 1b
+    bsr proj_alloc
+    tst.w %d0
+    bmi 9f
+    move.w %d0, %d3
+    moveq #0, %d1
+    move.b OFF_LINK_X(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_LINK_Y(%a5), %d2
+    move.b OFF_LINK_DIR(%a5), %d0
+    btst #0, %d0
+    beq 2f
+    add.w #16, %d1
+    bra 5f
+2:  btst #1, %d0
+    beq 3f
+    sub.w #16, %d1
+    bra 5f
+3:  btst #2, %d0
+    beq 4f
+    add.w #16, %d2
+    bra 5f
+4:  sub.w #16, %d2
+5:  move.b #PK_LBOOM, PJ_KIND(%a4, %d3.w)
+    move.b %d1, PJ_X(%a4, %d3.w)
+    move.b %d2, PJ_Y(%a4, %d3.w)
+    move.b %d0, PJ_DIR(%a4, %d3.w)
+    move.b #BOOM_OUT_FRAMES, PJ_TIMER(%a4, %d3.w)
+9:  movem.l (%sp)+, %d0-%d3/%a4
+    rts
+
+| Projectile d7 (kind d0) of the boomerang, a4 = PROJ_KIND.
+link_boom_update:
+    movem.l %d0-%d6, -(%sp)
+    move.w %d0, %d5
+    moveq #0, %d2
+    move.b PJ_X(%a4, %d7.w), %d2
+    moveq #0, %d3
+    move.b PJ_Y(%a4, %d7.w), %d3
+    moveq #0, %d6
+    move.b PJ_DIR(%a4, %d7.w), %d6
+    cmp.w #PK_LBOOM_BACK, %d5
+    beq 50f
+    cmp.w #PK_LBOOM_SPARK, %d5
+    beq 40f
+
+    moveq #BOOM_SPEED, %d4          | flying out, or hanging about
+    cmp.w #PK_LBOOM_SLOW, %d5
+    bne 11f
+    moveq #1, %d4
+11: btst #0, %d6
+    beq 12f
+    add.w %d4, %d2
+    bra 15f
+12: btst #1, %d6
+    beq 13f
+    sub.w %d4, %d2
+    bra 15f
+13: btst #2, %d6
+    beq 14f
+    add.w %d4, %d3
+    bra 15f
+14: sub.w %d4, %d3
+15: move.w %d2, -(%sp)
+    move.w %d3, -(%sp)
+    btst #0, %d6                    | a wall is met by the leading edge
+    beq 16f
+    addq.w #8, %d2
+16: btst #2, %d6
+    beq 17f
+    addq.w #8, %d3
+17: bsr enemy_blocked_at
+    move.w (%sp)+, %d3
+    move.w (%sp)+, %d2
+    tst.w %d0
+    bne 30f                         | blocked: it sparks where it is
+    move.b %d2, PJ_X(%a4, %d7.w)
+    move.b %d3, PJ_Y(%a4, %d7.w)
+    subq.b #1, PJ_TIMER(%a4, %d7.w)
+    bne 60f
+    cmp.w #PK_LBOOM_SLOW, %d5
+    beq 18f
+30: move.b #PK_LBOOM_SPARK, PJ_KIND(%a4, %d7.w)
+    move.b #BOOM_SPARK_FRAMES, PJ_TIMER(%a4, %d7.w)
+    bra 60f
+18: move.b #PK_LBOOM_BACK, PJ_KIND(%a4, %d7.w)
+    bra 60f
+
+40: subq.b #1, PJ_TIMER(%a4, %d7.w)
+    bne 60f
+    move.b #PK_LBOOM_SLOW, PJ_KIND(%a4, %d7.w)
+    move.b #BOOM_SLOW_FRAMES, PJ_TIMER(%a4, %d7.w)
+    bra 60f
+
+50: moveq #0, %d0                   | back to Link, along both axes at once
+    move.b OFF_LINK_X(%a5), %d0
+    sub.w %d2, %d0
+    moveq #0, %d1
+    move.b OFF_LINK_Y(%a5), %d1
+    sub.w %d3, %d1
+    move.w %d0, %d4
+    bpl 51f
+    neg.w %d4
+51: cmp.w #8, %d4
+    bhi 53f
+    move.w %d1, %d4
+    bpl 52f
+    neg.w %d4
+52: cmp.w #8, %d4
+    bhi 53f
+    clr.b PJ_KIND(%a4, %d7.w)       | caught
+    bra 9f
+53: moveq #BOOM_BACK_SPEED, %d4
+    tst.w %d0
+    beq 54f
+    bmi 55f
+    cmp.w %d4, %d0
+    bhs 56f
+    move.w %d0, %d4
+56: add.w %d4, %d2
+    bra 54f
+55: neg.w %d0
+    moveq #BOOM_BACK_SPEED, %d4
+    cmp.w %d4, %d0
+    bhs 57f
+    move.w %d0, %d4
+57: sub.w %d4, %d2
+54: moveq #BOOM_BACK_SPEED, %d4
+    tst.w %d1
+    beq 58f
+    bmi 59f
+    cmp.w %d4, %d1
+    bhs 62f
+    move.w %d1, %d4
+62: add.w %d4, %d3
+    bra 58f
+59: neg.w %d1
+    moveq #BOOM_BACK_SPEED, %d4
+    cmp.w %d4, %d1
+    bhs 63f
+    move.w %d1, %d4
+63: sub.w %d4, %d3
+58: move.b %d2, PJ_X(%a4, %d7.w)
+    move.b %d3, PJ_Y(%a4, %d7.w)
+
+60: bsr boom_collide                | d2, d3 = where it is now
+    tst.w %d0
+    beq 9f
+    cmp.b #PK_LBOOM_BACK, PJ_KIND(%a4, %d7.w)
+    beq 9f
+    move.b #PK_LBOOM_BACK, PJ_KIND(%a4, %d7.w)
+9:  movem.l (%sp)+, %d0-%d6
+    rts
+
+| The boomerang at (d2, d3) meets monsters and items. Returns d0.w = 1 when it
+| struck a monster.
+boom_collide:
+    movem.l %d1-%d6/%a0, -(%sp)
+    moveq #0, %d6                   | the result
+    moveq #0, %d5
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
+    bhs 8f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    beq 7f
+    bsr enemy_behaviour
+    cmp.w #BEH_TRAP, %d0
+    beq 7f
+    cmp.w #BEH_BOSS, %d0
+    beq 7f
+    moveq #0, %d0
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d0
+    sub.w %d2, %d0
+    bpl 2f
+    neg.w %d0
+2:  cmp.w #BOOM_HIT_RANGE, %d0
+    bhs 7f
+    moveq #0, %d0
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d0
+    sub.w %d3, %d0
+    bpl 3f
+    neg.w %d0
+3:  cmp.w #BOOM_HIT_RANGE, %d0
+    bhs 7f
+    moveq #1, %d6
+    tst.b OFF_ENEMY_HP(%a5, %d5.w)
+    bne 4f
+    move.b #1, OFF_ENEMY_HP(%a5, %d5.w) | no hit points to speak of: one touch kills it
+    clr.b OFF_ENEMY_HURT(%a5, %d5.w)
+    clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)
+    movem.l %d2-%d3, -(%sp)
+    bsr hit_enemy
+    movem.l (%sp)+, %d2-%d3
+    bra 7f
+4:  lea OFF_ENEMY_STUN(%a5), %a0
+    move.b #STUN_FRAMES, 0(%a0, %d5.w)
+7:  addq.w #1, %d5
+    bra 1b
+8:  move.b OFF_LINK_X(%a5), %d1      | items: the boomerang takes them as Link would
+    move.b OFF_LINK_Y(%a5), %d4
+    move.b %d2, OFF_LINK_X(%a5)
+    move.b %d3, OFF_LINK_Y(%a5)
+    bsr item_pickup
+    move.b %d1, OFF_LINK_X(%a5)
+    move.b %d4, OFF_LINK_Y(%a5)
+    move.w %d6, %d0
+    movem.l (%sp)+, %d1-%d6/%a0
+    rts
