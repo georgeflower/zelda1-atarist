@@ -66,7 +66,7 @@ atari_st/                the port
   README.md              user-facing docs: features, known gaps, roadmap, notes
   src/*.s                68000 code (one assembly unit, main.s .includes the rest)
   tools/*.py             asset pipeline, PRG packer, Hatari screenshot harness
-  tests/*.py             unittest suites (81 tests)
+  tests/*.py             unittest suites (86 tests)
   music/                 YM2149 song source (zelda_intro_by_qum.h) + player (ymplay.h)
   build/                 OUTPUT (gitignored): generated/, ZELDAST.PRG, scratch, shots/
 ```
@@ -87,7 +87,7 @@ atari_st/                the port
 | `menu.s` | Tab inventory screen (MODE_MENU) |
 | `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `debug_keys` (K) |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
-| `music.s` | music and sound effects replayed from the VBL hook: three register-stream contexts (song, effect over voice A, effect over voice B) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`) |
+| `music.s` | music and sound effects replayed from the VBL hook: four register-stream contexts (song, effect over voice A, effect over voice B, noise effect over voice C) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`) |
 
 `atari_st/tools`:
 
@@ -177,7 +177,7 @@ then says `source=generated placeholder CHR`). With the real ROM it should not a
 `atari_st/tests/` (`test_build_assets.py`, `test_actors.py`, `test_ym_convert.py`,
 `test_nes_music_rip.py` (needs `py65` for the ROM part, `ZELDA_ROM` or `ext/Original.nes`),
 `test_music_player.py` (the packer, and `music.s` run on `machine68k` through `tests/music_harness.s`; needs the m68k binutils and `pip install machine68k`, the real-bank part also the ROM and `py65`),
-...). Run `python -m unittest discover -s atari_st\tests` (81 tests at the time of
+...). Run `python -m unittest discover -s atari_st\tests` (86 tests at the time of
 writing). They cover the asset pipeline and tables; the 68000 music player is the one piece of
 68000 code with unit tests.
 
@@ -411,11 +411,14 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   from a VBL hook (`music_vbl`, chains to TOS's handler). `music_update` (every frame) picks the
   area song from the state: overworld theme, dungeon theme (level 1-8), level 9 theme, silence in
   caves. Events call `music_play`/`music_event` through the `sfx` and `jingle` macros
-  (item pickup, triforce, Link hurt/dead, bomb, kill, shutters/bombed wall). `jingle` replaces the
-  song until it ends (`MUS_FORCED`); `sfx` takes over voice A or B for its length and hands the voice
-  back. Track ids are in the generated `music_ids.inc`. Not hooked yet: low-health beep
-  (`SFX_HEART_WARNING`), title/ending/Ganon/Zelda/game-over songs, recorder and parry (no
-  game events for them yet), and the DPCM samples (never ripped). The streams are for 50 Hz; at
+  (item pickup, triforce, Link hurt/dead, bomb set and blast, kill, shutters/bombed wall, sword swing,
+  boomerang throw, candle flame, stairs/cellar/cave entry, menu click, cave text blips). `jingle` replaces the
+  song until it ends (`MUS_FORCED`); `sfx` takes over voice A, B or (noise effects: sword, boomerang, flame,
+  stairs, bomb blast, ripped from the Effect channel `$603`) voice C for its length and hands the voice
+  back. `music_update` also repeats the low-life beep (`SFX_HEART_WARNING`, 6 frames of beep + the
+  original's pause) while `HP_HALVES` is 1-2. Track ids are in the generated `music_ids.inc`. Not hooked
+  yet: title/ending/Ganon/Zelda/game-over songs, recorder, parry and magic (no game events for them yet),
+  the sea ambience, and the DPCM samples (never ripped). The streams are for 50 Hz; at
   60 Hz (`$FF820A` bit 1 clear) every 6th VBL holds them (`MUS_SKIP`).
 - **B item** (`B_ITEM`): 0 nothing, 1 bombs, 2 boomerang, 3 candle; `b_item_fix` keeps it on
   something owned. **Inventory screen** lists owned B items (bombs if count > 0); Left/Right
@@ -457,7 +460,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **New floor item**: add the id to `ITEM_IDS` and handle it in `take_item` (combat.s).
 - **New B item**: add a `B_*` code, a `b_item_owned` case, a `b_item_input` dispatch, a HUD icon
   id in `HUD_ITEM_IDS` (same index as the code) and a menu entry in `menu.s`.
-- **New sound event**: call `sfx SFX_NAME` (an effect over voice A or B, ids in the generated
+- **New sound event**: call `sfx SFX_NAME` (an effect over voice A, B or C, ids in the generated
   `build/generated/music_ids.inc`, names in `tools/music_pack.py` `TRACK_LIST`) or `jingle MUS_NAME` (an event song
   that replaces the area music until it ends) at the place in the 68000 code where it happens; both macros
   keep every register. A new track: add it to `TRACK_LIST` and `nes_music_rip.py` `TRACKS`, and bump nothing
@@ -492,7 +495,7 @@ Open items (user-visible gaps): triforce piece held up + level completion record
 runs mode `$12`: "end level" song, curtain, Link lifting the triforce); map and compass items and
 the dungeon minimap on the ribbon; the old man / people in dungeons (room `$41`); fireball art
 (placeholder); the clock and fairy drops; stairs-type push block (trigger 5, not in Level 1);
-visible block slide animation; the rest of the sound (title, ending, game-over and boss music, low-health beep, DPCM); then the rest of the overworld (real monsters,
+visible block slide animation; the rest of the sound (title, ending, game-over and boss music, DPCM); then the rest of the overworld (real monsters,
 shops, caves, secrets), inventory items (bow/arrows, recorder, ladder, raft, rings, ...), other
 eight dungeons, title/game-over/save.
 

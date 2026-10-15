@@ -99,6 +99,7 @@ menu_move:
     dbra %d0, 1b
     bra 9f                              | nothing else to choose
 4:  move.b %d2, OFF_B_ITEM(%a5)
+    sfx SFX_RUPEE                       | the selection click
     move.b #1, OFF_HUD_DIRTY(%a5)
     bsr menu_draw
 9:  movem.l (%sp)+, %d0/%d2

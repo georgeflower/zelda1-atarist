@@ -30,7 +30,11 @@ from pathlib import Path
 NREGS = 14
 
 # kind of a track: how the player uses it
-SONG, OVERLAY_A, OVERLAY_B = 0, 1, 2
+SONG, OVERLAY_A, OVERLAY_B, OVERLAY_C = 0, 1, 2, 3  # C: noise effects (R6, R10 and the noise gate on voice C)
+
+# The low-life beep repeats whenever it has finished, so the original's pause after the beep is part of
+# it: 6 frames of sound, then silence until frame 19 (the engine's own length) before it may start again.
+KEEP_FRAMES = {"SFX_HEART_WARNING": 19}
 
 # (id name, kind, rip stem, shown in music_ids.inc as). Order = track id.
 TRACK_LIST: list[tuple[str, int, str]] = [
@@ -58,6 +62,11 @@ TRACK_LIST: list[tuple[str, int, str]] = [
     ("SFX_ITEM_TAKEN", OVERLAY_B, "jingle_item_taken"),
     ("SFX_RECORDER", OVERLAY_B, "jingle_recorder"),
     ("SFX_MONSTER_DIED", OVERLAY_B, "jingle_monster_died"),
+    ("SFX_SWORD", OVERLAY_C, "sfx_sword"),
+    ("SFX_ARROW", OVERLAY_C, "sfx_arrow"),
+    ("SFX_FLAME", OVERLAY_C, "sfx_flame"),
+    ("SFX_STAIRS", OVERLAY_C, "sfx_stairs"),
+    ("SFX_BOMB_BLAST", OVERLAY_C, "sfx_bomb_blast"),
 ]
 OVERWORLD_ID = 0
 MAX_DRUMS = 62  # trigger code 63 stops a drum
@@ -258,13 +267,19 @@ def build_bank(
     for track, (name, kind, stem) in zip(tracks, TRACK_LIST):
         if track.frames:  # the shipped overworld song
             continue
-        game = rip.to_game_stream(ripped[stem], clk, clock, tri_volume)
+        if kind == OVERLAY_C:
+            game = rip.to_effect_stream(ripped[stem], clk, clock)
+        else:
+            game = rip.to_game_stream(ripped[stem], clk, clock, tri_volume)
         regs, trig = game.regs, list(game.trig)
         n = len(regs)
         if kind == SONG and not game.looped:
             n = _trim_tail(regs, trig, (0, 1, 2), 2)
+        elif kind == OVERLAY_C:
+            n = _trim_tail(regs, trig, (2,), 1)  # the effect sounds on voice C's volume register (R10)
         elif kind != SONG:
             n = _trim_tail(regs, trig, (kind - 1,), 1)
+        n = max(n, min(KEEP_FRAMES.get(name, 0), len(regs)))
         loop_frame = game.loop_frame if game.looped else 0
         regs, trig = regs[:n], trig[:n]
         if loop_frame >= n:

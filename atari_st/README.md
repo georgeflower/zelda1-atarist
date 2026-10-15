@@ -56,7 +56,8 @@ Platform and rendering
   release is ever missed
 - YM2149 music and sound effects from a VBL hook: your arrangement for the overworld,
   the ROM's dungeon and Level 9 themes, event fanfares and effects laid over the
-  music (digidrums included). Everything except the overworld song is ripped from
+  music (digidrums included): sword, boomerang, flame, bomb, stairs, pickups, hurt,
+  the low-life beep and the menu and cave-text clicks. Everything except the overworld song is ripped from
   `ext/Original.nes` at build time; without the ROM (or `py65`) only the overworld
   song plays
 - status ribbon: hearts (with halves), rupee, key and bomb counters, in the
@@ -191,7 +192,7 @@ Near term (finish Level 1)
 2. fireball art
 3. map and compass use, and the dungeon map on the ribbon
 4. the old man in room `$41` and the other dungeon people
-5. the rest of the sound (title, ending and game-over songs, the low-health beep,
+5. the rest of the sound (title, ending and game-over songs,
    boss roars, DPCM samples), the clock and fairy drops
 
 Then the rest of the overworld

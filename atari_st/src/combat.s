@@ -59,6 +59,7 @@ sword_input:
     tst.b OFF_LINK_HELD(%a5)
     bne 9f
     move.b #ATTACK_FRAMES, OFF_ATTACK(%a5)
+    sfx SFX_SWORD
     bra 9f
 2:  clr.b OFF_SPACE_HELD(%a5)
 9:  movem.l (%sp)+, %d0/%a0
@@ -999,6 +1000,7 @@ bomb_tick:
     move.b OFF_BOMB_X(%a5), OFF_CLOUD_X(%a5)
     move.b OFF_BOMB_Y(%a5), OFF_CLOUD_Y(%a5)
     move.b #BOMB_CLOUD_FRAMES, OFF_CLOUD_TIMER(%a5)
+    sfx SFX_BOMB_BLAST
 1:  tst.b OFF_CLOUD_TIMER(%a5)
     beq 8f
     cmpi.b #BOMB_AFTER_FRAMES, OFF_CLOUD_TIMER(%a5)
@@ -1163,6 +1165,7 @@ use_candle:
     move.b %d0, OFF_FIRE_DIR(%a5)
     move.b #FIRE_MOVE_FRAMES, OFF_FIRE_TIMER(%a5)
     move.b #1, OFF_FIRE_STATE(%a5)
+    sfx SFX_FLAME
 9:  movem.l (%sp)+, %d0-%d2
     rts
 
