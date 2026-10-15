@@ -8,6 +8,7 @@
     .equ SCAN_CTRL, 0x1d            | A, with the joystick's fire button and Alternate
     .equ SCAN_ALT, 0x38
     .equ ATTACK_FRAMES, 12
+    .equ BEAM_PHASE, 3              | ATTACK value of the third phase, when the shot leaves
     .equ SWORD_REACH, 12
     .equ ENEMY_HURT_FRAMES, 32      | ObjInvincibilityTimer $10, counted down every second frame
     .equ LINK_HURT_FRAMES, 48       | $18, likewise: about 0.8 seconds
@@ -28,6 +29,9 @@
     .equ ITEM_TRIFORCE, 0x1b
     .equ TRIFORCE_FRAMES, 150
     .equ ITEM_HEART, 0x22
+    .equ ITEM_FAIRY, 0x23
+    .equ HELP_KILLS, 10
+    .equ FAIRY_KILLS, 0x10
     .equ MAX_BOMBS, 8
 
 | ------------------------------------------------------------------- sword
@@ -55,7 +59,6 @@ sword_input:
     tst.b OFF_LINK_HELD(%a5)
     bne 9f
     move.b #ATTACK_FRAMES, OFF_ATTACK(%a5)
-    bsr beam_launch
     bra 9f
 2:  clr.b OFF_SPACE_HELD(%a5)
 9:  movem.l (%sp)+, %d0/%a0
@@ -98,13 +101,38 @@ erase_sword:
 9:  rts
 
 draw_sword:
-    movem.l %d0-%d4/%a0-%a1, -(%sp)
-    tst.b OFF_ATTACK(%a5)
+    movem.l %d0-%d5/%a0-%a1, -(%sp)
+    moveq #0, %d3
+    move.b OFF_ATTACK(%a5), %d3
     beq 9f
-    bsr sword_pos
-    mulu.w #SPRITE_FRAME_BYTES, %d0
+    moveq #(ATTACK_FRAMES - 1), %d4
+    sub.w %d3, %d4              | 0 for the frame the swing starts on
+    beq 9f                      | the sword is not out yet
+    moveq #0, %d3               | extended for eight frames, then drawn back in
+    cmp.w #8, %d4
+    ble 1f
+    moveq #8, %d3
+    cmp.w #9, %d4
+    beq 1f
+    moveq #16, %d3
+1:  bsr sword_pos                | d0 = which way it points
+    move.w %d0, %d5
+    add.w %d0, %d0
+    add.w %d0, %d3
+    lea sword_offsets(%pc), %a0
+    moveq #0, %d1
+    move.b OFF_LINK_X(%a5), %d1
+    move.b 0(%a0, %d3.w), %d4
+    ext.w %d4
+    add.w %d4, %d1
+    moveq #0, %d2
+    move.b OFF_LINK_Y(%a5), %d2
+    move.b 1(%a0, %d3.w), %d4
+    ext.w %d4
+    add.w %d4, %d2
+    mulu.w #SPRITE_FRAME_BYTES, %d5
     ltab sword_sprites, %a0
-    adda.l %d0, %a0
+    adda.l %d5, %a0
     bsr sprite_offset
     tst.w %d4
     bmi 9f
@@ -114,8 +142,16 @@ draw_sword:
     adda.l %d1, %a1
     move.w %d4, %d0
     bsr draw_sprite
-9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
+9:  movem.l (%sp)+, %d0-%d5/%a0-%a1
     rts
+
+| PlayerToWeaponOffsetsX/Y for the three drawn phases (fully out, drawn back,
+| almost in), each as X, Y for up, down, left, right.
+sword_offsets:
+    .byte -1, -10, 1, 13, -11, 3, 11, 3
+    .byte -1, -9, 1, 9, -7, 3, 7, 3
+    .byte -1, -1, 1, 5, -3, 3, 3, 3
+    .align 2
 
 | ------------------------------------------------------------- sword beam
 | With all hearts full (or short by half a heart) a swing also sends the sword
@@ -127,6 +163,8 @@ beam_launch:
     movem.l %d0-%d4, -(%sp)
     tst.b OFF_BEAM_ACTIVE(%a5)
     bne 9f
+    tst.b OFF_SPARK_K(%a5)
+    bne 9f                      | the last shot is still spreading out
     moveq #0, %d0
     move.b OFF_HEART_CONTAINERS(%a5), %d0
     add.w %d0, %d0
@@ -163,7 +201,13 @@ beam_launch:
 
 beam_update:
     movem.l %d0-%d6/%a0, -(%sp)
-    tst.b OFF_BEAM_ACTIVE(%a5)
+    tst.b OFF_SPARK_K(%a5)
+    beq 0f
+    addq.b #1, OFF_SPARK_K(%a5)
+    cmpi.b #SPARK_LAST, OFF_SPARK_K(%a5)
+    bls 0f
+    clr.b OFF_SPARK_K(%a5)
+0:  tst.b OFF_BEAM_ACTIVE(%a5)
     beq 9f
     moveq #0, %d2
     move.b OFF_BEAM_X(%a5), %d2
@@ -228,6 +272,9 @@ beam_update:
 7:  addq.w #1, %d6
     bra 5b
 8:  clr.b OFF_BEAM_ACTIVE(%a5)
+    move.b OFF_BEAM_X(%a5), OFF_SPARK_X(%a5)
+    move.b OFF_BEAM_Y(%a5), OFF_SPARK_Y(%a5)
+    move.b #SPARK_FIRST, OFF_SPARK_K(%a5)
 9:  movem.l (%sp)+, %d0-%d6/%a0
     rts
 
@@ -256,14 +303,23 @@ draw_beam:
     btst #2, %d3
     bne 1f
     moveq #0, %d0
-1:  mulu.w #SPRITE_FRAME_BYTES, %d0
-    ltab sword_sprites, %a0
+1:  lsl.w #2, %d0                       | four palette rows per direction, cycled every frame
+    move.w OFF_FRAME_COUNTER(%a5), %d1
+    and.w #3, %d1
+    add.w %d1, %d0
+    mulu.w #SPRITE_FRAME_BYTES, %d0
+    ltab beam_sprites, %a0
     adda.l %d0, %a0
     moveq #0, %d1
     moveq #0, %d2
     move.b OFF_BEAM_X(%a5), %d1
     move.b OFF_BEAM_Y(%a5), %d2
-    bsr sprite_offset
+    btst #3, %d3
+    bne 2f
+    btst #2, %d3
+    bne 2f
+    addq.w #3, %d2                      | a sideways shot is drawn three pixels lower
+2:  bsr sprite_offset
     tst.w %d4
     bmi 9f
     move.l %d1, OFF_BEAM_ERASE_OFFSET(%a5)
@@ -274,6 +330,124 @@ draw_beam:
     bsr draw_sprite
 9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
     rts
+
+| ------------------------------------------------------------------ effects
+| The sword shot's spark (slots 0-3, one per corner) and the bomb's cloud (slot 4
+| in the middle, 5-7 the puffs round it) are drawn from fx_sprites.
+erase_effects:
+    movem.l %d0/%d3/%a0-%a1, -(%sp)
+    lea OFF_FX_ERASE_OFFSETS(%a5), %a0
+    lea OFF_FX_VALID(%a5), %a1
+    moveq #0, %d3
+1:  tst.b 0(%a1, %d3.w)
+    beq 2f
+    move.w %d3, %d0
+    lsl.w #2, %d0
+    move.l 0(%a0, %d0.w), %d0
+    bsr erase_at
+    clr.b 0(%a1, %d3.w)
+2:  addq.w #1, %d3
+    cmp.w #8, %d3
+    blo 1b
+    movem.l (%sp)+, %d0/%d3/%a0-%a1
+    rts
+
+| d0.w = frame in fx_sprites, d1.w = X, d2.w = Y, d6.w = slot.
+fx_put:
+    movem.l %d0-%d4/%a0-%a2, -(%sp)
+    mulu.w #SPRITE_FRAME_BYTES, %d0
+    ltab fx_sprites, %a0
+    adda.l %d0, %a0
+    bsr sprite_offset
+    tst.w %d4
+    bmi 9f
+    move.w %d6, %d0
+    lsl.w #2, %d0
+    lea OFF_FX_ERASE_OFFSETS(%a5), %a2
+    move.l %d1, 0(%a2, %d0.w)
+    lea OFF_FX_VALID(%a5), %a2
+    move.b #1, 0(%a2, %d6.w)
+    movea.l OFF_SCREEN_PTR(%a5), %a1
+    adda.l %d1, %a1
+    move.w %d4, %d0
+    bsr draw_sprite
+9:  movem.l (%sp)+, %d0-%d4/%a0-%a2
+    rts
+
+draw_effects:
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    moveq #0, %d7
+    move.b OFF_SPARK_K(%a5), %d7
+    beq 5f
+    moveq #3, %d6               | the corners: 3 up-left, 2 down-left, 1 down-right, 0 up-right
+1:  moveq #0, %d1
+    move.b OFF_SPARK_X(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_SPARK_Y(%a5), %d2
+    cmp.w #2, %d6
+    bhs 2f
+    add.w %d7, %d1
+    bra 3f
+2:  sub.w %d7, %d1
+3:  cmp.w #1, %d6
+    blo 4f
+    cmp.w #2, %d6
+    bhi 4f
+    add.w %d7, %d2
+    bra 41f
+4:  sub.w %d7, %d2
+41: move.w OFF_FRAME_COUNTER(%a5), %d0
+    and.w #3, %d0
+    move.w %d6, %d3
+    lsl.w #2, %d3
+    add.w %d3, %d0
+    addq.w #2, %d0
+    bsr fx_put
+    subq.w #1, %d6
+    bpl 1b
+
+5:  moveq #0, %d7
+    move.b OFF_CLOUD_TIMER(%a5), %d7
+    beq 9f
+    moveq #0, %d5               | the first part of the cloud, then the thinner one
+    cmp.w #BOMB_AFTER_FRAMES, %d7
+    bhi 6f
+    moveq #1, %d5
+6:  moveq #4, %d6
+    moveq #0, %d1
+    move.b OFF_CLOUD_X(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_CLOUD_Y(%a5), %d2
+    move.w %d5, %d0
+    bsr fx_put
+    lea cloud_puffs(%pc), %a0
+    btst #0, (OFF_FRAME_COUNTER + 1)(%a5)
+    beq 7f
+    lea 6(%a0), %a0
+7:  moveq #2, %d4
+8:  addq.w #1, %d6
+    moveq #0, %d1
+    move.b OFF_CLOUD_X(%a5), %d1
+    move.b (%a0)+, %d3
+    ext.w %d3
+    add.w %d3, %d1
+    moveq #0, %d2
+    move.b OFF_CLOUD_Y(%a5), %d2
+    move.b (%a0)+, %d3
+    ext.w %d3
+    add.w %d3, %d2
+    move.w %d5, %d0
+    bsr fx_put
+    dbra %d4, 8b
+9:  movem.l (%sp)+, %d0-%d7/%a0-%a1
+    rts
+
+| BombCloudOffsetsX/Y: where the three puffs go round the bomb, in two sets
+| that take turns every frame.
+cloud_puffs:
+    .byte -7, -13, 14, 0, 7, 14
+    .byte 7, -13, -13, 0, -7, 14
+    .align 2
 
 | Link blinks while he is invincible.
 draw_link_blink:
@@ -292,9 +466,13 @@ update_combat:
 1:  tst.b OFF_ATTACK(%a5)
     beq 2f
     bsr sword_hits
-    subq.b #1, OFF_ATTACK(%a5)
+    cmpi.b #BEAM_PHASE, OFF_ATTACK(%a5)
+    bne 11f
+    bsr beam_launch
+11: subq.b #1, OFF_ATTACK(%a5)
 2:  bsr enemy_contact
     bsr item_pickup
+    bsr items_age
     bsr beam_update
     bsr bomb_tick
     tst.b OFF_LEVEL(%a5)
@@ -308,6 +486,10 @@ update_combat:
 | Every enemy within SWORD_REACH of the blade on both axes takes a hit.
 sword_hits:
     movem.l %d0-%d6/%a0, -(%sp)
+    cmpi.b #(ATTACK_FRAMES - 1), OFF_ATTACK(%a5)
+    bhi 9f                      | the blade only cuts while it is fully out
+    cmpi.b #4, OFF_ATTACK(%a5)
+    blo 9f
     bsr sword_pos
     moveq #0, %d5
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
@@ -339,7 +521,14 @@ sword_hits:
 
 | Enemy d5 takes a hit and is killed when its hit points run out.
 hit_enemy:
-    move.b #ENEMY_HURT_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
+    movem.l %d0/%a0, -(%sp)
+    bsr enemy_behaviour
+    cmp.w #BEH_TRAP, %d0
+    movem.l (%sp)+, %d0/%a0
+    bne 1f
+    clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | nothing hurts a blade trap
+    rts
+1:  move.b #ENEMY_HURT_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
     move.b OFF_ENEMY_HP(%a5, %d5.w), %d0
     cmp.b #1, %d0
     bls kill_enemy
@@ -347,39 +536,71 @@ hit_enemy:
     move.b %d0, OFF_ENEMY_HP(%a5, %d5.w)
     rts
 
-| Remove enemy d5 and roll for a drop from the table row of its group.
+| Remove enemy d5, count the kill and roll for a drop the way HandleMonsterDied
+| and SetUpDroppedItem do. Ten kills in a row without being hurt guarantee a
+| drop (a bomb if the tenth was a bomb kill, else five rupees), and the
+| sixteenth is a fairy, which this port has no picture for yet.
 kill_enemy:
     clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    addq.b #1, OFF_WORLD_KILLS(%a5)
+    cmpi.b #HELP_KILLS, OFF_HELP_COUNT(%a5)
+    bhs 1f
+    addq.b #1, OFF_HELP_COUNT(%a5)
+    cmpi.b #HELP_KILLS, OFF_HELP_COUNT(%a5)
+    bne 1f
+    tst.b OFF_HIT_BY_BOMB(%a5)
+    beq 1f
+    addq.b #1, OFF_HELP_VALUE(%a5)
+1:  moveq #0, %d0                       | the column moves on before the lookup
+    move.b OFF_KILL_CYCLE(%a5), %d0
+    addq.w #1, %d0
+    cmp.w #KILL_CYCLE_LENGTH, %d0
+    blo 2f
+    moveq #0, %d0
+2:  move.b %d0, OFF_KILL_CYCLE(%a5)
+
     moveq #0, %d0
     move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
     moveq #3, %d1
     cmpi.b #0xff, %d0
-    beq 1f
+    beq 4f
     ltab mon_table, %a0
     lsl.w #3, %d0
     moveq #0, %d1
     move.b 4(%a0, %d0.w), %d1
     cmpi.b #0xff, %d1
     beq 9f                      | this kind never drops anything
-1:  bsr rand8
-    ltab drop_rates, %a0
-    cmp.b 0(%a0, %d1.w), %d0
-    bhs 4f
-    mulu.w #KILL_CYCLE_LENGTH, %d1
+    tst.w %d5
+    bne 4f
+    cmpi.b #0x2a, 0(%a0, %d0.w)
+    beq 9f                      | a stalfos in the first slot may carry the room's item
+4:  move.w %d1, %d2
+    mulu.w #KILL_CYCLE_LENGTH, %d2
     moveq #0, %d0
     move.b OFF_KILL_CYCLE(%a5), %d0
-    add.w %d0, %d1
+    add.w %d0, %d2
     ltab drop_table, %a0
     moveq #0, %d0
-    move.b 0(%a0, %d1.w), %d0
+    move.b 0(%a0, %d2.w), %d2           | d2 = the item the table offers
+    cmpi.b #FAIRY_KILLS, OFF_WORLD_KILLS(%a5)
+    bne 5f
+    moveq #ITEM_FAIRY, %d2
+    bra 7f
+5:  cmpi.b #HELP_KILLS, OFF_HELP_COUNT(%a5)
+    blo 6f
+    moveq #ITEM_FIVE_RUPEES, %d2
+    tst.b OFF_HELP_VALUE(%a5)
+    beq 7f
+    moveq #ITEM_BOMBS, %d2
+7:  clr.b OFF_HELP_COUNT(%a5)
+    clr.b OFF_HELP_VALUE(%a5)
+    bra 8f
+6:  bsr rand8
+    ltab drop_rates, %a0
+    cmp.b 0(%a0, %d1.w), %d0
+    bhs 9f
+8:  move.b %d2, %d0
     bsr spawn_drop
-4:  moveq #0, %d0
-    move.b OFF_KILL_CYCLE(%a5), %d0
-    addq.w #1, %d0
-    cmp.w #KILL_CYCLE_LENGTH, %d0
-    blo 5f
-    moveq #0, %d0
-5:  move.b %d0, OFF_KILL_CYCLE(%a5)
 9:  rts
 
 | Drop item d0.b where enemy d5 died, if there is a picture for it and a free slot.
@@ -403,6 +624,8 @@ spawn_drop:
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
     move.b %d2, OFF_ITEM_Y(%a5, %d1.w)
     move.b #1, OFF_ITEM_ACTIVE(%a5, %d1.w)
+    lea OFF_ITEM_LIFE(%a5), %a0
+    move.b #0xff, 0(%a0, %d1.w)
 9:  movem.l (%sp)+, %d1-%d2/%a0
     rts
 
@@ -521,6 +744,9 @@ link_shove_from:
 hurt_link:
     move.l %d0, -(%sp)
     move.b #LINK_HURT_FRAMES, OFF_LINK_HURT(%a5)
+    clr.b OFF_WORLD_KILLS(%a5)          | being hurt starts the kill streak over
+    clr.b OFF_HELP_COUNT(%a5)
+    clr.b OFF_HELP_VALUE(%a5)
     moveq #0, %d0
     move.b OFF_HP_HALVES(%a5), %d0
     sub.w %d1, %d0
@@ -570,7 +796,12 @@ link_dies:
 | ---------------------------------------------------------------------- bombs
 | Space drops a bomb in front of Link. When the fuse runs out it hurts monsters
 | nearby and blows open a bombable wall next to it.
-    .equ BOMB_FUSE, 80
+    .equ BOMB_FUSE, 48              | state 2: the bomb itself
+    .equ BOMB_CLOUD_FRAMES, 36      | states 3 and 4: the cloud
+    .equ BOMB_AFTER_FRAMES, 12      | state 4: the cloud is thinning out
+    .equ BOMB_DAMAGE, 4             | $40 damage points, in sword hits
+    .equ SPARK_FIRST, 2
+    .equ SPARK_LAST, 23
     .equ BOMB_RANGE, 24
     .equ BOMB_LANE_X, 0x78
     .equ BOMB_LANE_Y, 0x8d
@@ -652,30 +883,45 @@ draw_bomb:
 9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
     rts
 
+| The fuse runs out into a cloud that lasts BOMB_CLOUD_FRAMES: for the first
+| BOMB_BLAST_FRAMES it hurts every monster near it (and the screen flashes),
+| and when the second part starts it blows open a bombable wall.
 bomb_tick:
     tst.b OFF_BOMB_TIMER(%a5)
-    beq 9f
+    beq 1f
     subq.b #1, OFF_BOMB_TIMER(%a5)
     bne 9f
-    bsr bomb_explode
+    move.b OFF_BOMB_X(%a5), OFF_CLOUD_X(%a5)
+    move.b OFF_BOMB_Y(%a5), OFF_CLOUD_Y(%a5)
+    move.b #BOMB_CLOUD_FRAMES, OFF_CLOUD_TIMER(%a5)
+1:  tst.b OFF_CLOUD_TIMER(%a5)
+    beq 8f
+    cmpi.b #BOMB_AFTER_FRAMES, OFF_CLOUD_TIMER(%a5)
+    bhi 2f
+    bne 3f
+    bsr bomb_open_wall
+    bra 3f
+2:  bsr bomb_hurt_enemies
+3:  subq.b #1, OFF_CLOUD_TIMER(%a5)
+8:  bsr bomb_flash
 9:  rts
 
-bomb_explode:
-    movem.l %d0-%d6/%a0-%a2, -(%sp)
-    moveq #0, %d1
-    move.b OFF_BOMB_X(%a5), %d1
-    moveq #0, %d2
-    move.b OFF_BOMB_Y(%a5), %d2
-
-    moveq #0, %d5               | monsters within reach are hit hard
-1:  moveq #0, %d1               | killing a monster clobbers d1 and d2
-    move.b OFF_BOMB_X(%a5), %d1
-    moveq #0, %d2
-    move.b OFF_BOMB_Y(%a5), %d2
-    cmp.b OFF_ENEMY_COUNT(%a5), %d5
+| Every monster within BOMB_RANGE of the cloud that is not already hurt takes
+| four hits' worth of damage.
+bomb_hurt_enemies:
+    movem.l %d0-%d5, -(%sp)
+    move.b #1, OFF_HIT_BY_BOMB(%a5)
+    moveq #0, %d5
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
     bhs 5f
     tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
     beq 4f
+    tst.b OFF_ENEMY_HURT(%a5, %d5.w)
+    bne 4f
+    moveq #0, %d1
+    move.b OFF_CLOUD_X(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_CLOUD_Y(%a5), %d2
     moveq #0, %d3
     move.b OFF_ENEMY_X(%a5, %d5.w), %d3
     sub.w %d1, %d3
@@ -690,21 +936,101 @@ bomb_explode:
     neg.w %d3
 3:  cmp.w #BOMB_RANGE, %d3
     bhs 4f
-    move.b #1, OFF_ENEMY_HP(%a5, %d5.w)
-    clr.b OFF_ENEMY_HURT(%a5, %d5.w)
     clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)
+    moveq #0, %d0
+    move.b OFF_ENEMY_HP(%a5, %d5.w), %d0
+    cmp.w #BOMB_DAMAGE, %d0
+    bhi 31f
+    moveq #1, %d0               | it has less than that left: the hit below finishes it
+    bra 32f
+31: sub.w #(BOMB_DAMAGE - 1), %d0
+32: move.b %d0, OFF_ENEMY_HP(%a5, %d5.w)
     bsr hit_enemy
 4:  addq.w #1, %d5
     bra 1b
+5:  clr.b OFF_HIT_BY_BOMB(%a5)
+    movem.l (%sp)+, %d0-%d5
+    rts
 
-5:  tst.b OFF_LEVEL(%a5)
+| The screen goes grey for four frames, twice, as the cloud opens.
+bomb_flash:
+    movem.l %d0-%d2/%a0-%a1, -(%sp)
+    moveq #0, %d0
+    move.b OFF_CLOUD_TIMER(%a5), %d0
+    sub.w #BOMB_AFTER_FRAMES, %d0
+    moveq #0, %d1               | 1 when this frame is grey
+    cmp.w #19, %d0
+    blt 1f
+    cmp.w #22, %d0
+    bgt 1f
+    moveq #1, %d1
+    bra 2f
+1:  cmp.w #14, %d0
+    blt 2f
+    cmp.w #17, %d0
+    bgt 2f
+    moveq #1, %d1
+2:  cmp.b OFF_FLASH_ON(%a5), %d1
+    beq 9f
+    move.b %d1, OFF_FLASH_ON(%a5)
+    ltab room_palette, %a0
+    movea.l #PALETTE_BASE, %a1
+    moveq #15, %d2
+3:  moveq #0, %d0
+    move.w (%a0)+, %d0
+    tst.b %d1
+    beq 4f
+    move.w %d0, -(%sp)          | grey = the mean of the three channels
+    lsr.w #8, %d0
+    and.w #7, %d0
+    move.w (%sp), %d1
+    lsr.w #4, %d1
+    and.w #7, %d1
+    add.w %d1, %d0
+    move.w (%sp)+, %d1
+    and.w #7, %d1
+    add.w %d1, %d0
+    divu.w #3, %d0
+    and.w #7, %d0
+    move.w %d0, %d1
+    lsl.w #4, %d1
+    or.w %d1, %d0
+    lsl.w #4, %d1
+    or.w %d1, %d0
+    moveq #1, %d1
+4:  move.w %d0, (%a1)+
+    dbra %d2, 3b
+9:  movem.l (%sp)+, %d0-%d2/%a0-%a1
+    rts
+
+| Entering another room: the bomb, its cloud and the shot's spark stay behind
+| (the grey flash is undone).
+clear_bomb:
+    movem.l %d0/%a0-%a1, -(%sp)
+    clr.b OFF_BOMB_TIMER(%a5)
+    clr.b OFF_CLOUD_TIMER(%a5)
+    clr.b OFF_SPARK_K(%a5)
+    tst.b OFF_FLASH_ON(%a5)
+    beq 9f
+    clr.b OFF_FLASH_ON(%a5)
+    ltab room_palette, %a0
+    movea.l #PALETTE_BASE, %a1
+    moveq #15, %d0
+1:  move.w (%a0)+, (%a1)+
+    dbra %d0, 1b
+9:  movem.l (%sp)+, %d0/%a0-%a1
+    rts
+
+bomb_open_wall:
+    movem.l %d0-%d6/%a0-%a2, -(%sp)
+    tst.b OFF_LEVEL(%a5)
     beq 9f
     tst.b OFF_IN_CELLAR(%a5)
     bne 9f
-    moveq #0, %d1               | killing monsters clobbered these
-    move.b OFF_BOMB_X(%a5), %d1
+    moveq #0, %d1
+    move.b OFF_CLOUD_X(%a5), %d1
     moveq #0, %d2
-    move.b OFF_BOMB_Y(%a5), %d2
+    move.b OFF_CLOUD_Y(%a5), %d2
     | Which wall is the bomb next to?
     move.w %d2, %d3
     sub.w #BOMB_LANE_Y, %d3
@@ -756,6 +1082,24 @@ bomb_explode:
     rts
 
 | ---------------------------------------------------------------------- items
+| A dropped item lasts $FF counts, one every second frame.
+items_age:
+    movem.l %d0-%d1/%a0, -(%sp)
+    btst #0, OFF_FRAME_COUNTER+1(%a5)
+    beq 9f
+    lea OFF_ITEM_LIFE(%a5), %a0
+    moveq #1, %d1
+1:  cmpi.b #1, OFF_ITEM_ACTIVE(%a5, %d1.w)
+    bne 2f
+    subq.b #1, 0(%a0, %d1.w)
+    bne 2f
+    clr.b OFF_ITEM_ACTIVE(%a5, %d1.w)
+2:  addq.w #1, %d1
+    cmp.w #ITEM_SLOTS, %d1
+    blo 1b
+9:  movem.l (%sp)+, %d0-%d1/%a0
+    rts
+
 clear_items:
     movem.l %d0/%a0, -(%sp)
     lea OFF_ITEM_ACTIVE(%a5), %a0
@@ -793,7 +1137,15 @@ draw_items:
     beq 8f
     cmp.b #ROOM_ITEM_HIDDEN, %d0
     beq 8f
-    moveq #0, %d0
+    cmp.b #1, %d0
+    bne 10f
+    lea OFF_ITEM_LIFE(%a5), %a0
+    move.b 0(%a0, %d3.w), %d1
+    cmp.b #0xf0, %d1
+    blo 10f
+    btst #0, %d1
+    beq 8f                      | a new drop flickers
+10: moveq #0, %d0
     move.b OFF_ITEM_ID(%a5, %d3.w), %d0
     ltab item_index, %a0
     moveq #0, %d1
@@ -857,7 +1209,12 @@ item_pickup:
     beq 8f
     cmp.b #ROOM_ITEM_HIDDEN, %d0
     beq 8f
-    moveq #0, %d1
+    cmp.b #1, %d0
+    bne 10f
+    lea OFF_ITEM_LIFE(%a5), %a0
+    cmpi.b #0xf0, 0(%a0, %d3.w)
+    bhs 8f                      | too soon after the drop to be picked up
+10: moveq #0, %d1
     move.b OFF_ITEM_X(%a5, %d3.w), %d1
     moveq #0, %d0
     move.b OFF_LINK_X(%a5), %d0
@@ -1009,8 +1366,8 @@ uw_check_clear:
     moveq #0, %d1
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d1
     bhs 2f
-    tst.b OFF_ENEMY_ACTIVE(%a5, %d1.w)
-    bne 9f
+    cmpi.b #1, OFF_ENEMY_ACTIVE(%a5, %d1.w)
+    beq 9f                      | a blade trap (2) is not a monster to kill
     addq.w #1, %d1
     bra 1b
 2:  bsr uw_open_shutters

@@ -200,6 +200,7 @@ clear_enemies:
     movem.l %d0/%a0, -(%sp)
     clr.b OFF_ENEMY_COUNT(%a5)
     clr.b OFF_BEAM_ACTIVE(%a5)
+    bsr clear_bomb
     lea OFF_ENEMY_ACTIVE(%a5), %a0
     moveq #(MAX_ENEMIES - 1), %d0
 1:  clr.b (%a0)+
@@ -267,7 +268,11 @@ update_enemies:
     moveq #0, %d4
     move.b 2(%a0, %d0.w), %d4
     move.b 7(%a0, %d0.w), %d7
-    cmp.w #BEH_WALLMASTER, %d7
+    cmp.w #BEH_TRAP, %d7
+    bne 20f
+    bsr trap_ai
+    bra 8f
+20: cmp.w #BEH_WALLMASTER, %d7
     bne 21f
     bsr wallmaster_ai
     bra 8f
@@ -637,6 +642,8 @@ draw_enemies:
     beq 30f
     cmp.w #6, %d2
     beq 32f
+    cmp.w #7, %d2
+    beq 19f                     | the blade trap has one picture
     move.w %d4, %d1             | keese: wings beat
     lsr.w #2, %d1
     and.w #1, %d1

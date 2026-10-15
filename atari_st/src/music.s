@@ -80,7 +80,16 @@ music_vbl:
     lea globals(%pc), %a5
     tst.b OFF_MUS_ON(%a5)
     beq 1f
-    bsr music_step
+    btst #1, 0x00ff820a         | sync mode bit: set for 50 Hz
+    bne 3f
+    move.b OFF_MUS_SKIP(%a5), %d0
+    addq.b #1, %d0
+    cmp.b #6, %d0
+    blo 4f
+    moveq #0, %d0
+4:  move.b %d0, OFF_MUS_SKIP(%a5)
+    beq 2f                      | every sixth VBL holds the song so 60 Hz keeps its tempo
+3:  bsr music_step
     bsr music_write
     bra 2f
 1:  bsr music_silence

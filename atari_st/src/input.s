@@ -25,15 +25,16 @@
     .equ PKT_SKIP1, 4
 
 poll_keyboard:
-    movem.l %d0-%d1/%a0, -(%sp)
-1:  movea.l #IKBD_ACIA_STATUS, %a0
-    move.b (%a0), %d0
-    btst #0, %d0
+    movem.l %d0-%d2/%a0-%a1, -(%sp)
+    lea ikbd_state(%pc), %a1
+1:  moveq #0, %d2
+    move.b 1(%a1), %d2          | tail: the next byte the interrupt left for us
+    cmp.b (%a1), %d2
     beq 9f
-
     moveq #0, %d0
-    movea.l #IKBD_ACIA_DATA, %a0
-    move.b (%a0), %d0
+    move.b 2(%a1, %d2.w), %d0
+    addq.b #1, %d2
+    move.b %d2, 1(%a1)
 
     move.b OFF_IKBD_PKT(%a5), %d1
     beq 4f
@@ -81,5 +82,29 @@ poll_keyboard:
     clr.b 0(%a0, %d0.w)
     bra 1b
 
-9:  movem.l (%sp)+, %d0-%d1/%a0
+9:  movem.l (%sp)+, %d0-%d2/%a0-%a1
     rts
+
+| The IKBD interrupt. The ACIA holds a single byte, and the game only looks at
+| it once a frame, so two keys changing within a frame lost a byte -- a missed
+| key release left Link walking by himself. Every byte is queued here instead,
+| in a 256-byte ring: ikbd_state holds the head, the tail, then the ring.
+ikbd_isr:
+    movem.l %d0-%d1/%a0, -(%sp)
+    lea ikbd_state(%pc), %a0
+1:  move.b IKBD_ACIA_STATUS, %d0
+    btst #0, %d0
+    beq 3f
+    move.b IKBD_ACIA_DATA, %d0
+    moveq #0, %d1
+    move.b (%a0), %d1
+    move.b %d0, 2(%a0, %d1.w)
+    addq.b #1, %d1
+    move.b %d1, (%a0)
+    bra 1b
+3:  btst #0, MIDI_ACIA_STATUS   | the MIDI port shares the interrupt: empty it too
+    beq 4f
+    tst.b MIDI_ACIA_DATA
+4:  bclr #6, MFP_ISRB
+    movem.l (%sp)+, %d0-%d1/%a0
+    rte

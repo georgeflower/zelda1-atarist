@@ -11,6 +11,7 @@
     .equ BEH_WALLMASTER, 3
     .equ BEH_BOSS, 4
     .equ BEH_KEESE, 5
+    .equ BEH_TRAP, 6
 
     .equ ENEMY_SHOVE_FRAMES, 16     | 64 pixels at 4 a frame
     .equ MAX_PROJ, 8
@@ -99,7 +100,7 @@ enemy_init_special:
     blo 2b
     bra 9f
 5:  cmp.w #BEH_KEESE, %d0
-    bne 9f
+    bne 6f
     lea OFF_ENEMY_SPEED(%a5), %a0   | a keese starts slow, at $1F, and picks up speed
     move.b #0x1f, 0(%a0, %d5.w)
     lea OFF_ENEMY_FRAC(%a5), %a0
@@ -111,6 +112,16 @@ enemy_init_special:
     and.w #7, %d0
     lea keese_dirs(%pc), %a0
     move.b 0(%a0, %d0.w), OFF_ENEMY_DIR(%a5, %d5.w)
+    bra 9f
+6:  cmp.w #BEH_TRAP, %d0
+    bne 9f
+    lea trap_xs(%pc), %a0           | where InitTrap_Full puts the traps
+    move.b 0(%a0, %d5.w), OFF_ENEMY_X(%a5, %d5.w)
+    move.b 6(%a0, %d5.w), OFF_ENEMY_Y(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    move.b #2, OFF_ENEMY_ACTIVE(%a5, %d5.w)     | alive for good: it never counts as a monster of the room
 9:  movem.l (%sp)+, %d0-%d1/%a0
     rts
 
@@ -1157,3 +1168,144 @@ keese_turn_to_link:
 6:  bsr keese_set_ring
 9:  movem.l (%sp)+, %d0-%d4/%a0
     rts
+
+| ----------------------------------------------------------------------- traps
+| A blade trap waits in its corner (or the middle of a side wall) until Link is
+| level with it, then flies at him as far as the room's middle line and creeps
+| back, as UpdateTrap_Full does. ENEMY_STATE: 0 waiting, 1 flying out at $70/64
+| of a pixel a frame, 2 coming home at $20/64. ENEMY_STEP is the coordinate it
+| started from, ENEMY_FRAC the fraction of a pixel carried over.
+    .equ TRAP_OUT_SPEED, 0x70
+    .equ TRAP_BACK_SPEED, 0x20
+    .equ TRAP_SENSE, 0x0e
+    .equ TRAP_MIDDLE_X, 0x78
+    .equ TRAP_MIDDLE_Y, 0x90
+    .equ TRAP_STOP, 5
+
+trap_ai:
+    movem.l %d0-%d4/%d6/%a0, -(%sp)
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 5f
+
+    moveq #0, %d1                   | waiting: is Link level with it, either way?
+    move.b OFF_LINK_Y(%a5), %d1
+    sub.w %d3, %d1
+    bpl 1f
+    neg.w %d1
+1:  cmp.w #TRAP_SENSE, %d1
+    bhs 2f
+    moveq #0, %d1
+    move.b OFF_LINK_X(%a5), %d1
+    cmp.w %d2, %d1
+    beq 2f
+    bhi 12f
+    moveq #DIR_LEFT, %d4
+    bra 13f
+12: moveq #DIR_RIGHT, %d4
+13: move.w %d2, %d1
+    bra 4f
+2:  moveq #0, %d1
+    move.b OFF_LINK_X(%a5), %d1
+    sub.w %d2, %d1
+    bpl 21f
+    neg.w %d1
+21: cmp.w #TRAP_SENSE, %d1
+    bhs 9f
+    moveq #0, %d1
+    move.b OFF_LINK_Y(%a5), %d1
+    cmp.w %d3, %d1
+    beq 9f
+    bhi 22f
+    moveq #DIR_UP, %d4
+    bra 23f
+22: moveq #DIR_DOWN, %d4
+23: move.w %d3, %d1
+4:  move.b %d1, OFF_ENEMY_STEP(%a5, %d5.w)
+    move.b %d4, OFF_ENEMY_DIR(%a5, %d5.w)
+    lea trap_dirs(%pc), %a0
+    and.b 0(%a0, %d5.w), %d4        | each trap only goes the ways its corner allows
+    beq 9f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    bra 9f
+
+5:  moveq #TRAP_OUT_SPEED, %d0      | flying out or coming home
+    cmpi.b #2, OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 51f
+    moveq #TRAP_BACK_SPEED, %d0
+51: lea OFF_ENEMY_FRAC(%a5), %a0
+    moveq #0, %d1
+    move.b 0(%a0, %d5.w), %d1
+    add.w %d1, %d0
+    move.w %d0, %d1
+    and.w #63, %d1
+    move.b %d1, 0(%a0, %d5.w)
+    lsr.w #6, %d0                   | whole pixels this frame
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
+    btst #0, %d4
+    beq 52f
+    add.w %d0, %d2
+    bra 6f
+52: btst #1, %d4
+    beq 53f
+    sub.w %d0, %d2
+    bra 6f
+53: btst #2, %d4
+    beq 54f
+    add.w %d0, %d3
+    bra 6f
+54: sub.w %d0, %d3
+6:  move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+    move.w %d2, %d1                 | the coordinate it travels along, and where it is bound
+    move.w #TRAP_MIDDLE_X, %d0
+    and.b #(DIR_UP + DIR_DOWN), %d4
+    beq 61f
+    move.w %d3, %d1
+    move.w #TRAP_MIDDLE_Y, %d0
+61: cmpi.b #2, OFF_ENEMY_STATE(%a5, %d5.w)
+    beq 7f
+    sub.w %d0, %d1
+    bpl 62f
+    neg.w %d1
+62: cmp.w #TRAP_STOP, %d1
+    bhs 9f
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d6
+    bsr opposite_dir
+    move.b %d6, OFF_ENEMY_DIR(%a5, %d5.w)
+    move.b #2, OFF_ENEMY_STATE(%a5, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    bra 9f
+7:  moveq #0, %d0                   | home again (or past it): settle exactly on the start
+    move.b OFF_ENEMY_STEP(%a5, %d5.w), %d0
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
+    move.b %d4, %d6
+    and.b #(DIR_LEFT + DIR_UP), %d6
+    bne 71f
+    cmp.w %d0, %d1
+    blo 9f
+    bra 72f
+71: cmp.w %d0, %d1
+    bhi 9f
+72: clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    and.b #(DIR_UP + DIR_DOWN), %d4
+    bne 73f
+    move.b %d0, OFF_ENEMY_X(%a5, %d5.w)
+    bra 9f
+73: move.b %d0, OFF_ENEMY_Y(%a5, %d5.w)
+9:  movem.l (%sp)+, %d0-%d4/%d6/%a0
+    rts
+
+| TrapXs, TrapYs (together) and TrapAllowedDirs.
+trap_xs:
+    .byte 0x20, 0x20, 0xd0, 0xd0, 0x40, 0xb0
+    .byte 0x5d, 0xbd, 0x5d, 0xbd, 0x8d, 0x8d
+trap_dirs:
+    .byte 0x05, 0x09, 0x06, 0x0a, 0x01, 0x02
+    .align 2

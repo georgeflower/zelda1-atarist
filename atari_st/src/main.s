@@ -142,6 +142,10 @@
     .equ MFP_IERB, 0x00fffa09
     .equ MFP_IMRB, 0x00fffa15
     .equ MFP_IKBD_BIT, 0x40
+    .equ MFP_ISRB, 0x00fffa11
+    .equ MIDI_ACIA_STATUS, 0x00fffc04
+    .equ MIDI_ACIA_DATA, 0x00fffc06
+    .equ IKBD_VECTOR, 0x00000118
 
     .equ GEMDOS_PTERM0, 0x00
     .equ GEMDOS_MALLOC, 0x48
@@ -338,6 +342,7 @@ enter_room:
 
 enter_cave:
     clr.b OFF_COMMIT(%a5)
+    clr.b OFF_CAVE_FIRE_VALID(%a5)
     bsr clear_enemies
     bsr clear_items
     bsr cave_setup
@@ -378,14 +383,6 @@ cave_redraw:
     movem.l %d0-%d2, -(%sp)
     movea.l OFF_BG_CUR(%a5), %a1
     bsr render_cave_room
-    moveq #1, %d0
-    move.w #0x48, %d1
-    move.w #CAVE_PERSON_Y, %d2
-    bsr cave_bake_sprite
-    moveq #1, %d0
-    move.w #0xa8, %d1
-    move.w #CAVE_PERSON_Y, %d2
-    bsr cave_bake_sprite
     tst.b OFF_CAVE_PERSON(%a5)
     beq 1f
     moveq #0, %d0
@@ -393,7 +390,60 @@ cave_redraw:
     move.w #CAVE_PERSON_Y, %d2
     bsr cave_bake_sprite
 1:  bsr show_background
+    bsr draw_cave_fires
     movem.l (%sp)+, %d0-%d2
+    rts
+
+| The bonfires flicker: their picture turns round every six frames. They are
+| drawn over the clean room each frame rather than baked into it.
+erase_cave_fires:
+    movem.l %d0/%d3/%a0, -(%sp)
+    tst.b OFF_CAVE_FIRE_VALID(%a5)
+    beq 9f
+    lea OFF_CAVE_FIRE_OFFSETS(%a5), %a0
+    moveq #1, %d3
+1:  move.w %d3, %d0
+    lsl.w #2, %d0
+    move.l 0(%a0, %d0.w), %d0
+    bsr erase_at
+    dbra %d3, 1b
+    clr.b OFF_CAVE_FIRE_VALID(%a5)
+9:  movem.l (%sp)+, %d0/%d3/%a0
+    rts
+
+draw_cave_fires:
+    movem.l %d0-%d4/%a0-%a2, -(%sp)
+    moveq #0, %d0
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    divu.w #6, %d0
+    and.w #1, %d0
+    addq.w #1, %d0              | cave_sprites: 1 the fire, 2 the fire turned round
+    mulu.w #SPRITE_FRAME_BYTES, %d0
+    ltab cave_sprites, %a0
+    adda.l %d0, %a0
+    lea OFF_CAVE_FIRE_OFFSETS(%a5), %a2
+    moveq #0, %d3
+1:  moveq #0, %d1
+    move.w #0x48, %d1
+    tst.w %d3
+    beq 2f
+    move.w #0xa8, %d1
+2:  move.w #CAVE_PERSON_Y, %d2
+    bsr sprite_offset
+    tst.w %d4
+    bmi 9f
+    move.w %d3, %d0
+    lsl.w #2, %d0
+    move.l %d1, 0(%a2, %d0.w)
+    movea.l OFF_SCREEN_PTR(%a5), %a1
+    adda.l %d1, %a1
+    move.w %d4, %d0
+    bsr draw_sprite
+    addq.w #1, %d3
+    cmp.w #2, %d3
+    blo 1b
+    move.b #1, OFF_CAVE_FIRE_VALID(%a5)
+9:  movem.l (%sp)+, %d0-%d4/%a0-%a2
     rts
 
 | Paint cave sprite d0 into the clean room, so erasing Link never wipes it.
@@ -615,6 +665,8 @@ swap_erase_state:
     xchg_state ERASE_OFFSET, OLD_ERASE_OFFSET, 4
     xchg_state BEAM_VALID, OLD_BEAM_VALID, 1
     xchg_state BEAM_ERASE_OFFSET, OLD_BEAM_ERASE_OFFSET, 4
+    xchg_state FX_VALID, OLD_FX_VALID, 8
+    xchg_state FX_ERASE_OFFSETS, OLD_FX_ERASE_OFFSETS, 32
     movem.l (%sp)+, %d0-%d1/%a0-%a1
     rts
 
@@ -627,6 +679,7 @@ clear_old_erase_state:
     clr.b OFF_OLD_BOMB_VALID(%a5)
     clr.b OFF_OLD_ERASE_VALID(%a5)
     clr.b OFF_OLD_BEAM_VALID(%a5)
+    clear_state OLD_FX_VALID, 8
     movem.l (%sp)+, %d0/%a0
     rts
 
@@ -640,11 +693,13 @@ clear_erase_state:
     clr.b OFF_BOMB_VALID(%a5)
     clr.b OFF_ERASE_VALID(%a5)
     clr.b OFF_BEAM_VALID(%a5)
+    clear_state FX_VALID, 8
     movem.l (%sp)+, %d0/%a0
     rts
 
 update_play:
     bsr erase_beam
+    bsr erase_effects
     bsr erase_bomb
     bsr erase_sword
     bsr erase_items
@@ -671,6 +726,7 @@ update_play:
     bsr draw_projectiles
     bsr draw_link_blink
     bsr draw_beam
+    bsr draw_effects
     bsr draw_sword
     bra present_frame
 
@@ -689,14 +745,6 @@ update_play:
 | ---------------------------------------------------------------------------
     .section .rodata
     .align 2
-hud_tiles:
-    .incbin "hud_tiles.bin"
-link_sprites:
-    .incbin "link_sprites.bin"
-enemy_sprites:
-    .incbin "enemy_sprites.bin"
-metatile_tiles:
-    .incbin "metatile_tiles.bin"
 uw_tiles:
     .incbin "uw_tiles.bin"
 uw_tile_nes:
@@ -713,15 +761,30 @@ uw_doors:
 uw_rooms:
     .incbin "uw_rooms.bin"
     .align 2
-table_anchor:
-    | Actor tables sit right after the anchor, so they are within reach of
-    | the signed 16-bit displacement from it.
 mon_sprites:
     .incbin "mon_sprites.bin"
 item_sprites:
     .incbin "item_sprites.bin"
+    .align 2
+table_anchor:
+    | Every table is reached from here by a signed 16-bit displacement, so the
+    | anchor sits in the middle of them: the tables before it are about 32K
+    | back and those after it have the other half to grow into.
+hud_tiles:
+    .incbin "hud_tiles.bin"
+link_sprites:
+    .incbin "link_sprites.bin"
+enemy_sprites:
+    .incbin "enemy_sprites.bin"
+metatile_tiles:
+    .incbin "metatile_tiles.bin"
+    .align 2
 sword_sprites:
     .incbin "sword_sprites.bin"
+beam_sprites:
+    .incbin "beam_sprites.bin"
+fx_sprites:
+    .incbin "fx_sprites.bin"
 proj_sprites:
     .incbin "proj_sprites.bin"
 hud_sword:
@@ -777,6 +840,9 @@ ymdrum_code:
     .incbin "music_engine.bin"
 music_old_vbl:
     .long 0
+    | head, tail, then the ring the IKBD interrupt fills (see ikbd_isr)
+ikbd_state:
+    .space 258
 
     | The stack lives in .data rather than after .rodata because _start reaches
     | it with a PC-relative lea, which the 68000 limits to a signed 16-bit

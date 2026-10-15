@@ -102,11 +102,23 @@ Level 1 (underworld)
 
 Combat and items
 
-- sword: hurts monsters, and killed monsters roll the original drop table
-  (hearts, rupees, bombs)
-- sword beam: with full hearts, or half a heart short, a swing also fires a
-  beam that flies until it hits a wall or a monster
-- bombs: a fuse, then damage to nearby monsters and to bombable walls
+- sword: drawn from the original tiles in its four phases, and it only cuts
+  while fully out; killed monsters roll the original drop table (hearts,
+  rupees, bombs, the clock and fairy are not drawn yet) with its kill counter:
+  ten kills without being hurt guarantee a drop, a bomb if the tenth was a
+  bomb kill, five rupees otherwise. Drops flicker, wait about half a second
+  before they can be taken, and vanish after about eight
+- sword beam: with full hearts, or half a heart short, the third phase of a
+  swing fires a beam that flashes through the four sprite palettes until it
+  hits a wall or a monster, and then spreads out as the original's spark
+- bombs: 48 frames of fuse, then a 36-frame cloud (four sprites, three puffs
+  that swap sides every frame): for the first 24 the screen flashes grey twice
+  and every monster near it takes four hits' worth of damage, at the start of
+  the last 12 a bombable wall opens. A bomb stays in the room it was dropped in
+- blade traps (room `$22`): four of them wait in the corners until Link is
+  level with them, fly at him as far as the middle of the room, and creep home;
+  they hurt for a whole heart and nothing hurts them
+- the cave bonfires flicker, turning round every six frames
 - pickups with their effects: keys, hearts, heart containers, rupees, bombs
   and the wooden sword. Maps, compasses, the bow and similar items are
   collected but do nothing yet
@@ -129,11 +141,9 @@ Known gaps
 
 Things that behave differently from the original, or are stand-ins:
 
-- sword, bomb, boomerang and fireball art is placeholder (Aquamentus himself is
-  original), there is no explosion cloud, no sword beam spark, and the
-  bonfires do not flicker
+- boomerang and fireball art is placeholder (Aquamentus himself is original)
 - monsters wander randomly apart from the behaviours above; there is no
-  stun (the boomerang and the clock are not Link's yet) and no traps
+  stun (the boomerang and the clock are not Link's yet)
 - push-block and other secret triggers are not implemented; the shutters of
   such rooms open when the monsters die instead
 - the triforce piece is not shown being held up, and the level's completion is
@@ -141,18 +151,20 @@ Things that behave differently from the original, or are stand-ins:
 - `K` is a debug key standing in for the shops and secrets that give keys and
   bombs
 - the overworld's real monsters are not ported; only the placeholder blobs
-- the HUD does not show the sword or any other item
-- the song is for 50 Hz; at 60 Hz it plays about a fifth too fast
+- the HUD item boxes only show the sword and bombs; there is no map, compass
+  or other item yet
+- the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
+  it back so the tempo stays right
 
 Roadmap
 -------
 
 Near term (finish Level 1)
 
-1. traps, and a stun from the boomerang
+1. a stun from the boomerang (and the B item to choose it)
 2. push-block and other secret triggers
 3. the triforce piece held up, and the level's completion recorded
-4. real sword, beam, bomb, boomerang and fireball art and the bomb explosion
+4. boomerang and fireball art
 5. map and compass use, and the dungeon map on the ribbon
 
 Then the rest of the overworld

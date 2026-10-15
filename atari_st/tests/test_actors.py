@@ -26,6 +26,19 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(len(data.proj_sprites), 22 * B.SPRITE_FRAME_BYTES)
         self.assertEqual(len(data.mon_table) % 8, 0)
 
+    def test_effect_sprites_have_every_frame_the_game_indexes(self) -> None:
+        data = actors.build_placeholder()
+        self.assertEqual(len(data.sword_sprites), 4 * B.SPRITE_FRAME_BYTES)
+        self.assertEqual(len(data.beam_sprites), 16 * B.SPRITE_FRAME_BYTES)   # direction x palette row
+        self.assertEqual(len(data.fx_sprites), 18 * B.SPRITE_FRAME_BYTES)     # 2 clouds + 4 corners x 4 rows
+
+    def test_trap_rooms_hold_four_or_six_traps(self) -> None:
+        trap = actors.MONSTER_TYPES.index(0x49)
+        attrs = ([0x0A], [0x80], [0], [0])      # list id $4A: attribute C & $3F plus $40 from attribute D
+        record = actors._room_info(0, attrs, [3, 5, 6, 8], bytes(64))
+        self.assertEqual(list(record[6:10]), [trap] * 4)
+        self.assertEqual(record[0], 4)
+
 
 if __name__ == "__main__":
     unittest.main()

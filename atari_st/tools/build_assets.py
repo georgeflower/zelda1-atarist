@@ -918,6 +918,8 @@ def write_underworld(out_dir: Path, uw) -> None:
     (out_dir / "drop_table.bin").write_bytes(actors.drop_table)
     (out_dir / "drop_rates.bin").write_bytes(actors.drop_rates)
     (out_dir / "sword_sprites.bin").write_bytes(actors.sword_sprites)
+    (out_dir / "beam_sprites.bin").write_bytes(actors.beam_sprites)
+    (out_dir / "fx_sprites.bin").write_bytes(actors.fx_sprites)
     (out_dir / "proj_sprites.bin").write_bytes(actors.proj_sprites)
     (out_dir / "hud_sword.bin").write_bytes(actors.hud_sword)
     (out_dir / "uw_room_info.bin").write_bytes(b"".join(actors.room_info))

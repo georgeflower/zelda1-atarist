@@ -1,13 +1,13 @@
 | Video setup, room rendering and scroll composition.
 
 init_video:
-    | Stop TOS' IKBD handler from consuming the scan codes we poll for.
-    movea.l #MFP_IERB, %a0
-    move.b (%a0), OFF_OLD_IERB(%a5)
-    andi.b #~MFP_IKBD_BIT, (%a0)
-    movea.l #MFP_IMRB, %a0
-    move.b (%a0), OFF_OLD_IMRB(%a5)
-    andi.b #~MFP_IKBD_BIT, (%a0)
+    | Replace TOS' IKBD interrupt handler with one that queues every byte for poll_keyboard.
+    move.w %sr, %d0
+    ori.w #0x0700, %sr
+    move.l IKBD_VECTOR, OFF_OLD_IKBD_VEC(%a5)
+    lea ikbd_isr(%pc), %a0
+    move.l %a0, IKBD_VECTOR
+    move.w %d0, %sr
 
     movea.l #IKBD_ACIA_STATUS, %a0
     movea.l #IKBD_ACIA_DATA, %a1
@@ -16,7 +16,9 @@ init_video:
     beq 2f
     tst.b (%a1)
     bra 1b
-2:
+2:  lea ikbd_state(%pc), %a0
+    clr.w (%a0)                 | whatever the interrupt queued meanwhile is stale
+
     | Joystick events on: its fire button is the sword.
     movea.l #IKBD_ACIA_STATUS, %a0
     movea.l #IKBD_ACIA_DATA, %a1
@@ -78,10 +80,10 @@ restore_video:
     movea.l #VIDEO_BASE_HI, %a1
     move.b OFF_OLD_SCREEN_HI(%a5), (%a1)
 
-    movea.l #MFP_IMRB, %a0
-    move.b OFF_OLD_IMRB(%a5), (%a0)
-    movea.l #MFP_IERB, %a0
-    move.b OFF_OLD_IERB(%a5), (%a0)
+    move.w %sr, %d0
+    ori.w #0x0700, %sr
+    move.l OFF_OLD_IKBD_VEC(%a5), IKBD_VECTOR
+    move.w %d0, %sr
     rts
 
 wait_vbl:

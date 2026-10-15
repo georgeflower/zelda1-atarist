@@ -192,5 +192,30 @@
     gvar ENDING_TIMER, 1       | frames left of the triforce celebration
     gvar ENEMY_SPEED, 8        | keese: flying speed
     gvar ENEMY_FRAC, 8         | keese: position fraction
+    gvar MUS_SKIP, 1           | counts VBLs at 60 Hz; the song is written for 50
+    gvar WORLD_KILLS, 1        | WorldKillCount
+    gvar HELP_COUNT, 1         | HelpDropCount: kills since Link was last hurt, up to 10
+    gvar HELP_VALUE, 1         | the tenth was a bomb kill: the help drop is a bomb
+    gvar HIT_BY_BOMB, 1        | the hit being dealt comes from a bomb
+    gvar ITEM_LIFE, 3          | a dropped item's lifetime: $FF counting down every second frame
+    gvar CLOUD_TIMER, 1        | frames left of the bomb's cloud
+    gvar CLOUD_X, 1
+    gvar CLOUD_Y, 1
+    gvar FLASH_ON, 1           | the screen is grey for the bomb's flash
+    gvar SPARK_K, 1            | the sword shot's spark: how far its corners have spread, 0 for none
+    gvar SPARK_X, 1
+    gvar SPARK_Y, 1
+
+    | Effect sprites (spark corners and cloud puffs) have a slot each for erasing.
+    galign
+    gvar FX_ERASE_OFFSETS, 32
+    gvar OLD_FX_ERASE_OFFSETS, 32
+    gvar FX_VALID, 8
+    gvar OLD_FX_VALID, 8
+    gvar CAVE_FIRE_OFFSETS, 8  | where the two bonfires were drawn, to put the cave floor back
+    gvar CAVE_FIRE_VALID, 1
+
+    galign
+    gvar OLD_IKBD_VEC, 4       | TOS' own IKBD interrupt handler
 
     .equ GLOBALS_BYTES, gvar_offset

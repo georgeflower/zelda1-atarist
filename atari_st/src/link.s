@@ -549,6 +549,7 @@ update_cave:
     movem.l %d0-%d3, -(%sp)
     bsr erase_items
     bsr erase_sprite
+    bsr erase_cave_fires
     bsr cave_talk
     tst.b OFF_CAVE_TEXT_ON(%a5)
     bne 2f                      | Link waits while the old man speaks
@@ -562,7 +563,8 @@ update_cave:
     bne 9f
     bsr item_pickup
     bsr cave_check_taken
-2:  bsr draw_items
+2:  bsr draw_cave_fires
+    bsr draw_items
     bsr draw_link
 9:  movem.l (%sp)+, %d0-%d3
     rts

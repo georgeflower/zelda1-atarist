@@ -14,20 +14,20 @@ import build_assets as B
 
 # Monsters this port draws and moves so far (Level 1's repertoire). Others in a
 # room (traps, and the monsters of later levels) are left out for now.
-MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D)
+MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49)
 # Frames between one-pixel steps: the 6502's quarter-speed $20 is half a pixel
 # a frame; keese are quicker, gels and wallmasters slower. Aquamentus moves a
 # pixel every eighth frame.
-MONSTER_PERIOD = {0x06: 2, 0x15: 3, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8}
+MONSTER_PERIOD = {0x06: 2, 0x15: 3, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8, 0x49: 1}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
-MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2}
+MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2}
 # Keese ignore walls and blocks and are only held in by the room edges.
 MONSTER_FLYERS = (0x1B,)
 
 # What the game does with a monster every frame, besides drawing it.
-BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS, BEHAVIOUR_KEESE = range(6)
+BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS, BEHAVIOUR_KEESE, BEHAVIOUR_TRAP = range(7)
 MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
-                      0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS}
+                      0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP}
 
 # How each monster is drawn: (sprite layout, images, mode). The layout says how
 # the two 8x16 halves of an image are put together; the mode tells the game
@@ -40,6 +40,7 @@ MODE_GEL = 3        # two narrow images, swapped every two frames
 MODE_KEESE = 4      # two mirrored images, wings beating
 MODE_WALLMASTER = 5  # open and closed hand, swapped every eight frames
 MODE_BOSS = 6       # drawn from the boss pieces instead
+MODE_STATIC = 7     # one picture, never mirrored: the blade trap
 MONSTER_DRAW = {
     0x06: ("wide", 4, MODE_WALKER),
     0x15: ("narrow", 2, MODE_GEL),
@@ -48,6 +49,7 @@ MONSTER_DRAW = {
     0x2A: ("wide", 1, MODE_STALFOS),
     0x27: ("wide", 2, MODE_WALLMASTER),
     0x3D: ("wide", 1, MODE_BOSS),
+    0x49: ("mirror", 1, MODE_STATIC),
 }
 MONSTER_IMAGES = 4          # image slots per monster, each stored plain and flipped
 FRAME_BYTES = B.SPRITE_FRAME_BYTES
@@ -57,6 +59,8 @@ ROOM_INFO_BYTES = 14
 ITEM_IDS = (0x00, 0x01, 0x0A, 0x0F, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1D, 0x22)
 
 UW_SP_COMMON = "dat/CommonSpritePatterns.dat"
+UW_SP_DEMO = "dat/DemoSpritePatterns.dat"
+UW_SP_DEMO_FIRST = 0x70
 UW_SP_BLOCK = ("dat/PatternBlockUWSP.dat", 0x8E)
 UW_SP_LEVEL_BLOCKS = {1: "dat/PatternBlockUWSP127.dat", 2: "dat/PatternBlockUWSP127.dat",
                       7: "dat/PatternBlockUWSP127.dat"}
@@ -76,6 +80,8 @@ class ActorData:
     drop_table: bytes
     drop_rates: bytes
     sword_sprites: bytes      # up, down, left, right
+    beam_sprites: bytes       # the sword's shot: up, down, left, right, each in four palette rows
+    fx_sprites: bytes         # two bomb clouds, then four spark corners in four palette rows each
     proj_sprites: bytes       # 4 boomerang turns, 2 fireball frames, then 4 pieces for each Aquamentus image
     hud_sword: bytes          # the sword as two status bar tiles, top then bottom
     room_info: list[bytes]    # 16 bytes per stored room
@@ -125,13 +131,33 @@ def _blank(width: int) -> list[list[int]]:
 
 
 def _sprite_table(source_root: Path, level: int):
+    # Tiles $70-$8D (the sword's sideways blade, the bomb cloud) are never loaded
+    # by the level code: they are what the title demo left at $0700 in CHR RAM.
+    demo = B.require_binary(source_root, UW_SP_DEMO)[: UW_SP_BLOCK[1] * 16 - UW_SP_DEMO_FIRST * 16]
     parts = [(0, B.require_binary(source_root, UW_SP_COMMON)),
+             (UW_SP_DEMO_FIRST, demo),
              (UW_SP_BLOCK[1], B.require_binary(source_root, UW_SP_BLOCK[0]))]
     if level in UW_SP_LEVEL_BLOCKS:
         parts.append((UW_SP_LEVEL_FIRST, B.require_binary(source_root, UW_SP_LEVEL_BLOCKS[level])))
     if level in UW_SP_BOSS_BLOCKS:
         parts.append((UW_SP_BOSS_FIRST, B.require_binary(source_root, UW_SP_BOSS_BLOCKS[level])))
     return B.assemble_pattern_table(parts)
+
+
+def _item_rows(sp_tiles, bg_tiles, palette, tile: int, row: int) -> list[list[int]]:
+    """The 16x16 picture Anim_WriteSpecificItemSprites makes of an item tile."""
+    # Odd tile numbers select the second pattern table, which holds the misc tiles.
+    tiles = bg_tiles if tile & 1 else sp_tiles
+    top = tile & 0xFE
+    narrow = tile == 0xF3 or 0x20 <= tile < 0x62
+    left = _tile_rows(tiles, palette, row, top)
+    if narrow:
+        return [[-1] * 4 + r[:8] + [-1] * 4 for r in left]
+    if tile < 0x7C:
+        right = _tile_rows(tiles, palette, row, top, flip=True)
+    else:
+        right = _tile_rows(tiles, palette, row, top + 2)
+    return _join(left, right)
 
 
 def _item_frame(code, sp_tiles, bg_tiles, palette, item_id: int):
@@ -141,19 +167,7 @@ def _item_frame(code, sp_tiles, bg_tiles, palette, item_id: int):
     descriptor = code["descriptor"][item_id]
     base = code["palette"][slot]
     attr = (base + (descriptor & 0x0F)) if slot in (0, 2, 4, 7, 0x0B) else base
-    row = 4 + (attr & 3)
-    # Odd tile numbers select the second pattern table, which holds the misc tiles.
-    tiles = bg_tiles if tile & 1 else sp_tiles
-    top = tile & 0xFE
-    narrow = tile == 0xF3 or 0x20 <= tile < 0x62
-    left = _tile_rows(tiles, palette, row, top)
-    if narrow:
-        return _pack_masked([[-1] * 4 + r[:8] + [-1] * 4 for r in left])
-    if tile < 0x7C:
-        right = _tile_rows(tiles, palette, row, top, flip=True)
-    else:
-        right = _tile_rows(tiles, palette, row, top + 2)
-    return _pack_masked(_join(left, right))
+    return _pack_masked(_item_rows(sp_tiles, bg_tiles, palette, tile, 4 + (attr & 3)))
 
 
 def _hud_sword(code, sp_tiles, bg_tiles, palette) -> bytes:
@@ -172,22 +186,57 @@ def _hud_sword(code, sp_tiles, bg_tiles, palette) -> bytes:
     return bytes(packed)
 
 
-def _sword_frames(palette) -> bytes:
-    """Placeholder blades: white with a brown grip, until the real art is ported."""
-    blade, grip = 1, 5
-    frames = []
-    for direction in ("up", "down", "left", "right"):
-        rows = _blank(16)
-        for step in range(11):
-            if direction in ("up", "down"):
-                y = step if direction == "down" else 15 - step
-                for x in (7, 8):
-                    rows[y][x] = grip if step < 3 else blade
-            else:
-                x = step if direction == "right" else 15 - step
-                for y in (7, 8):
-                    rows[y][x] = grip if step < 3 else blade
-        frames.append(_pack_masked(rows))
+SWORD_TILE_VERTICAL = 0x20        # RDirectionToWeaponFrame: frame 0 for up and down ...
+SWORD_TILE_HORIZONTAL = 0x82      # ... frame 1 for left and right (Anim_ItemFrameTiles)
+SPARK_TILE = 0x30
+CLOUD_TILES = (0x70, 0x72)
+SPARK_CORNER_FLIPS = (("h",), ("h", "v"), ("v",), ())    # SwordShotSpreadBaseAttr, by loop index
+
+
+def _flip_rows(rows: list[list[int]], h: bool, v: bool) -> list[list[int]]:
+    if v:
+        rows = rows[::-1]
+    return [r[::-1] for r in rows] if h else rows
+
+
+def _weapon_rows(sp_tiles, bg_tiles, palette, direction: str, row: int) -> list[list[int]]:
+    """The sword (and the shot that copies it) for one direction, as UpdateSwordOrRod flips it."""
+    vertical = direction in ("up", "down")
+    tile = SWORD_TILE_VERTICAL if vertical else SWORD_TILE_HORIZONTAL
+    rows = _item_rows(sp_tiles, bg_tiles, palette, tile, row)
+    return _flip_rows(rows, h=direction == "left", v=direction == "down")
+
+
+WEAPON_DIRECTIONS = ("up", "down", "left", "right")
+
+
+def _sword_frames(sp_tiles, bg_tiles, palette) -> bytes:
+    """Link's wooden sword (palette row 0 of the sprites) facing up, down, left, right."""
+    return b"".join(
+        _pack_masked(_weapon_rows(sp_tiles, bg_tiles, palette, d, B.LINK_PALETTE_ROW))
+        for d in WEAPON_DIRECTIONS
+    )
+
+
+def _beam_frames(sp_tiles, bg_tiles, palette) -> bytes:
+    """The sword's shot: the same picture, cycling through all four palette rows (direction, row)."""
+    return b"".join(
+        _pack_masked(_weapon_rows(sp_tiles, bg_tiles, palette, d, B.LINK_PALETTE_ROW + step))
+        for d in WEAPON_DIRECTIONS
+        for step in range(4)
+    )
+
+
+def _effect_frames(sp_tiles, bg_tiles, palette) -> bytes:
+    """Two bomb clouds, then the four corners of the shot's spark, each in four palette rows."""
+    frames = [
+        _pack_masked(_item_rows(sp_tiles, bg_tiles, palette, tile, B.LINK_PALETTE_ROW + 1))
+        for tile in CLOUD_TILES
+    ]
+    for flips in SPARK_CORNER_FLIPS:
+        for step in range(4):
+            rows = _item_rows(sp_tiles, bg_tiles, palette, SPARK_TILE, B.LINK_PALETTE_ROW + step)
+            frames.append(_pack_masked(_flip_rows(rows, h="h" in flips, v="v" in flips)))
     return b"".join(frames)
 
 
@@ -264,7 +313,9 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         item_index=bytes(item_index),
         drop_table=bytes(drop_table),
         drop_rates=bytes(drop_rates),
-        sword_sprites=_sword_frames(palette),
+        sword_sprites=_sword_frames(sp_tiles, bg_tiles, palette),
+        beam_sprites=_beam_frames(sp_tiles, bg_tiles, palette),
+        fx_sprites=_effect_frames(sp_tiles, bg_tiles, palette),
         proj_sprites=_projectile_sprites(sp_tiles, palette),
         hud_sword=_hud_sword(code, sp_tiles, bg_tiles, palette),
         room_info=[_room_info(r, attrs, foe_counts, info) for r in room_ids],
@@ -352,6 +403,8 @@ def _room_info(room: int, attrs, foe_counts, info) -> bytes:
     if 0x32 <= list_id < 0x62:
         count = 1
     types = [list_id] * count if 0 < list_id < 0x62 else []
+    if list_id in (0x49, 0x4A):
+        types = [0x49] * (6 if list_id == 0x49 else 4)    # InitTrap_Full makes six or four traps
     monsters = [MONSTER_TYPES.index(t) for t in types if t in MONSTER_TYPES][:8]
     # CheckHasLivingMonsters ignores bubbles ($2B-$2D) and everything from $49 up,
     # which includes the traps; any other monster has to be killed before the room clears.
@@ -380,6 +433,8 @@ def build_placeholder() -> ActorData:
         drop_table=bytes(40),
         drop_rates=bytes(4),
         sword_sprites=frame * 4,
+        beam_sprites=frame * 16,
+        fx_sprites=frame * 18,
         proj_sprites=frame * 22,
         hud_sword=bytes(64),
         room_info=[bytes([0, 0, 0xFF, 0, 0, 0] + [0xFF] * 8)],
