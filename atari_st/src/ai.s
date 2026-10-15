@@ -12,6 +12,7 @@
     .equ BEH_BOSS, 4
     .equ BEH_KEESE, 5
     .equ BEH_TRAP, 6
+    .equ BEH_GEL, 7
 
     .equ ENEMY_SHOVE_FRAMES, 16     | 64 pixels at 4 a frame
     .equ MAX_PROJ, 8
@@ -164,13 +165,13 @@ rope_ai:
     moveq #0, %d2
     move.b OFF_ENEMY_X(%a5, %d5.w), %d2
     move.b %d2, %d0
-    and.b #7, %d0
+    and.b #15, %d0
     bne 9f
     moveq #0, %d3
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
     move.b %d3, %d0
-    and.b #7, %d0
-    cmp.b #5, %d0
+    and.b #15, %d0
+    cmp.b #13, %d0
     bne 9f
     moveq #0, %d0
     move.b OFF_LINK_X(%a5), %d0
@@ -202,43 +203,217 @@ rope_ai:
 9:  movem.l (%sp)+, %d0-%d3
     rts
 
-| -------------------------------------------------------------------- goriya
-| A goriya that is lined up with Link within $51 pixels turns to face him and
-| now and then throws its boomerang, then stands still until it comes back.
-|
-| d5 = monster. Returns d0.w = 1 while it must not move.
-goriya_ai:
-    movem.l %d1-%d4, -(%sp)
-    moveq #1, %d0
-    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
-    bne 9f
+| ------------------------------------------------------------ wandering
+| Z_04.asm Wanderer_TargetPlayer. At every square boundary a wanderer rolls
+| against its turn rate: with a roll at or under it, a monster level with
+| Link (within 8 pixels across or along) turns straight toward him; otherwise,
+| or when it is not level, it turns toward him sideways once its turn timer has
+| run out. Every turn sets the timer to a random value. Walls are dealt with
+| by the caller (enemy_choose_dir). Stalfos use rate $80 and gels $20, so a
+| stalfos closes in on Link and a gel mostly keeps going.
+
+| A monster stands exactly on a square boundary. d5 = monster; returns d0.w = 1.
+enemy_at_boundary:
+    move.l %d1, -(%sp)
     moveq #0, %d0
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d1
+    and.b #15, %d1
+    bne 9f
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d1
+    and.b #15, %d1
+    cmp.b #13, %d1
+    bne 9f
+    moveq #1, %d0
+9:  move.l (%sp)+, %d1
+    rts
+
+| d5 = monster, d1.w = turn rate. Runs the turn timer, then the turn.
+wander_tick:
+    movem.l %d0-%d4/%a0, -(%sp)
+    move.w %d1, %d4
+    lea OFF_ENEMY_TURN(%a5), %a0
+    tst.b 0(%a0, %d5.w)
+    beq 1f
+    subq.b #1, 0(%a0, %d5.w)
+1:  bsr enemy_at_boundary
+    tst.w %d0
+    beq 9f
+    bsr rand8
+    cmp.b %d0, %d4
+    blo 5f                          | rolled over the rate: only the timer can turn it
+    moveq #0, %d1
+    move.b OFF_LINK_X(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    sub.w %d2, %d1
+    bpl 2f
+    neg.w %d1
+2:  cmp.w #9, %d1
+    blo 20f                         | in his column: turn vertically
+    moveq #0, %d1
+    move.b OFF_LINK_Y(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
+    sub.w %d2, %d1
+    bpl 3f
+    neg.w %d1
+3:  cmp.w #9, %d1
+    blo 30f                         | in his row: turn horizontally
+5:  clr.b 8(%a0, %d5.w)             | not aiming at him
+    tst.b 0(%a0, %d5.w)
+    bne 9f
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
+    and.b #DIR_VERTICAL, %d0
+    bne 30f                         | it was going up or down: now sideways
+20: moveq #DIR_UP, %d0              | toward Link, up or down
+    move.b OFF_LINK_Y(%a5), %d1
+    cmp.b OFF_ENEMY_Y(%a5, %d5.w), %d1
+    blo 40f
+    moveq #DIR_DOWN, %d0
+    bra 40f
+30: moveq #DIR_RIGHT, %d0           | toward Link, left or right
+    move.b OFF_LINK_X(%a5), %d1
+    cmp.b OFF_ENEMY_X(%a5, %d5.w), %d1
+    bhs 40f
+    moveq #DIR_LEFT, %d0
+40: move.b %d0, OFF_ENEMY_DIR(%a5, %d5.w)
+    bsr rand8
+    move.b %d0, 0(%a0, %d5.w)       | the next turn comes when this runs out
+    move.b #1, 8(%a0, %d5.w)
+9:  movem.l (%sp)+, %d0-%d4/%a0
+    rts
+
+| ------------------------------------------------------------------ gels
+| UpdateNormalZolOrGel: a gel crosses a square at a pixel a frame and then
+| rests at its edge for $08, $18, $28 or $38 frames (ENEMY_TIMER), turning at
+| rate $20. d5 = monster. Returns d0.w = 1 while it rests.
+gel_ai:
     tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
     beq 1f
     subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
-1:  tst.b OFF_ENEMY_STEP(%a5, %d5.w)
-    beq 11f
-    subq.b #1, OFF_ENEMY_STEP(%a5, %d5.w)   | just turned back from a wall: let it wander a moment
-    bra 9f
-11: moveq #0, %d1
-    move.b OFF_ENEMY_X(%a5, %d5.w), %d1
-    move.b %d1, %d2
-    and.b #7, %d2
+1:  moveq #1, %d0
+    cmpi.b #5, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bhs 9f
+    move.w #0x20, %d1
+    bsr wander_tick
+    moveq #0, %d0
+9:  rts
+
+| After a gel has stepped: at a square boundary with nothing running it rests.
+gel_pause:
+    movem.l %d0/%a0, -(%sp)
+    bsr enemy_behaviour
+    cmp.w #BEH_GEL, %d0
     bne 9f
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 9f
+    bsr enemy_at_boundary
+    tst.w %d0
+    beq 9f
+    bsr rand8
+    and.w #3, %d0
+    lea gel_delays(%pc), %a0
+    move.b 0(%a0, %d0.w), OFF_ENEMY_TIMER(%a5, %d5.w)
+9:  movem.l (%sp)+, %d0/%a0
+    rts
+
+gel_delays:
+    .byte 0x08, 0x18, 0x28, 0x38
+    .align 2
+
+| ---------------------------------------------------------------------- rope
+| UpdateRope: whenever its timer (a random 0 to $3F frames) has run out and
+| it is not charging, a rope on a square boundary turns to a free side: a
+| random one of the two across, the other, then straight back, never ahead.
+rope_turn:
+    movem.l %d0/%a0, -(%sp)
+    lea OFF_ENEMY_TURN(%a5), %a0
+    tst.b 0(%a0, %d5.w)
+    beq 1f
+    subq.b #1, 0(%a0, %d5.w)
+    bra 9f
+1:  tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 9f                          | charging
+    bsr rand8
+    and.b #0x3f, %d0
+    move.b %d0, 0(%a0, %d5.w)
+    bsr enemy_at_boundary
+    tst.w %d0
+    beq 9f
+    bsr enemy_face_unblocked
+9:  movem.l (%sp)+, %d0/%a0
+    rts
+
+| d5 = monster on a square boundary: face the first free way of Walker_GetNextAltDir.
+enemy_face_unblocked:
+    movem.l %d0-%d4/%d6, -(%sp)
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
     moveq #0, %d3
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
-    move.b %d3, %d2
-    and.b #7, %d2
-    cmp.b #5, %d2
+    moveq #0, %d1
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d1
+    bsr rand8
+    and.w #1, %d0
+    moveq #0, %d6
+    move.b %d1, %d6
+    and.b #DIR_VERTICAL, %d6
+    bne 1f
+    moveq #DIR_DOWN, %d6            | going sideways: up or down, at random
+    bra 2f
+1:  moveq #DIR_RIGHT, %d6           | going up or down: left or right
+2:  lsl.b %d0, %d6
+    move.w %d6, %d4
+    bsr enemy_cell_blocked
+    tst.w %d0
+    beq 8f
+    move.w %d4, %d6
+    bsr opposite_dir                | the other side
+    move.w %d6, %d4
+    bsr enemy_cell_blocked
+    tst.w %d0
+    beq 8f
+    move.w %d1, %d6
+    bsr opposite_dir                | straight back
+    move.w %d6, %d4
+    bsr enemy_cell_blocked
+    tst.w %d0
     bne 9f
+8:  move.b %d4, OFF_ENEMY_DIR(%a5, %d5.w)
+9:  movem.l (%sp)+, %d0-%d4/%d6
+    rts
+
+| -------------------------------------------------------------------- goriya
+| UpdateGoriya. At every square boundary a goriya with Link within $51 pixels
+| along the longer of the two ways turns to face him and wants to throw its
+| boomerang; otherwise it keeps its heading and only turns at walls. A red
+| goriya (the only kind here) acts on the wish only when its roll comes up $23
+| or $77, two frames in 256, and not before its timer has run out. After a
+| throw it stands still until the boomerang is back.
+|
+| d5 = monster. Returns d0.w = 1 while it must not move.
+goriya_ai:
+    movem.l %d1-%d4/%a0, -(%sp)
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    beq 1f
+    subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
+1:  tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 8f                          | its boomerang is out
+    lea OFF_ENEMY_TURN(%a5), %a0
+    bsr enemy_at_boundary
+    tst.w %d0
+    beq 6f                          | between squares: the wish stays as it was
+    clr.b 8(%a0, %d5.w)
+    moveq #0, %d1
+    move.b OFF_LINK_X(%a5), %d1
     moveq #0, %d2
-    move.b OFF_LINK_X(%a5), %d2
-    sub.w %d2, %d1
-    neg.w %d1                       | d1 = how far right of the goriya Link is
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    sub.w %d2, %d1                  | d1 = how far right of the goriya Link is
+    moveq #0, %d3
+    move.b OFF_LINK_Y(%a5), %d3
     moveq #0, %d2
-    move.b OFF_LINK_Y(%a5), %d2
-    sub.w %d2, %d3
-    neg.w %d3                       | d3 = how far below
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
+    sub.w %d2, %d3                  | d3 = how far below
     move.w %d1, %d2
     bpl 2f
     neg.w %d2
@@ -248,31 +423,40 @@ goriya_ai:
 3:  cmp.w %d2, %d4                  | the longer way decides the direction
     blo 5f
     cmp.w #BOOMERANG_RANGE, %d4
-    bhs 9f
+    bhs 6f
     moveq #DIR_UP, %d2
     tst.w %d3
     bmi 7f
     moveq #DIR_DOWN, %d2
     bra 7f
 5:  cmp.w #BOOMERANG_RANGE, %d2
-    bhs 9f
+    bhs 6f
     moveq #DIR_LEFT, %d2
     tst.w %d1
     bmi 7f
     moveq #DIR_RIGHT, %d2
 7:  move.b %d2, OFF_ENEMY_DIR(%a5, %d5.w)
-    bsr goriya_throw
-9:  movem.l (%sp)+, %d1-%d4
+    move.b #1, 8(%a0, %d5.w)
+6:  tst.b 8(%a0, %d5.w)
+    beq 9f
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 9f
+    bsr rand8
+    cmp.b #0x23, %d0
+    beq 4f
+    cmp.b #0x77, %d0
+    bne 9f
+4:  bsr goriya_throw
+9:  moveq #0, %d0
+    movem.l (%sp)+, %d1-%d4/%a0
+    rts
+8:  moveq #1, %d0
+    movem.l (%sp)+, %d1-%d4/%a0
     rts
 
 goriya_throw:
     movem.l %d0-%d1/%a4, -(%sp)
-    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
-    bne 9f
-    bsr rand8
-    cmp.b #32, %d0                  | the original tries every frame at 2 in 256; a grid-aligned call is rarer
-    bhs 9f
-1:  bsr proj_alloc
+    bsr proj_alloc
     tst.w %d0
     bmi 9f
     lea OFF_PROJ_KIND(%a5), %a4
@@ -293,6 +477,11 @@ goriya_throw:
 3:  move.b #BOOMERANG_FRAMES, PJ_TIMER(%a4, %d0.w)
     move.b %d5, PJ_OWNER(%a4, %d0.w)
     move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    lea OFF_ENEMY_TURN(%a5), %a4
+    clr.b 8(%a4, %d5.w)             | the wish is spent
+    bsr rand8
+    and.b #0x3f, %d0
+    move.b %d0, OFF_ENEMY_TIMER(%a5, %d5.w)     | and it waits this long before the next throw
 9:  movem.l (%sp)+, %d0-%d1/%a4
     rts
 
@@ -701,9 +890,6 @@ update_projectiles:
     cmp.w #6, %d6
     bhs 33f
     clr.b OFF_ENEMY_STATE(%a5, %d1.w)       | caught
-    bsr rand8
-    and.b #0x3f, %d0
-    move.b %d0, OFF_ENEMY_TIMER(%a5, %d1.w)
 39: clr.b PJ_KIND(%a4, %d7.w)
     bra 8f
 33: clr.b PJ_QX(%a4, %d7.w)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -19,6 +20,20 @@ class ActorTableTests(unittest.TestCase):
     def test_behaviours_belong_to_known_monsters(self) -> None:
         for nes_type in actors.MONSTER_BEHAVIOUR:
             self.assertIn(nes_type, actors.MONSTER_TYPES)
+
+    def test_behaviour_numbers_match_the_assembly_equates(self) -> None:
+        source = (Path(__file__).resolve().parents[1] / "src" / "ai.s").read_text(encoding="utf-8")
+        for name in ("WANDER", "ROPE", "GORIYA", "WALLMASTER", "BOSS", "KEESE", "TRAP", "GEL"):
+            match = re.search(rf"\.equ BEH_{name}, (\d+)", source)
+            self.assertIsNotNone(match, name)
+            self.assertEqual(int(match.group(1)), getattr(actors, f"BEHAVIOUR_{name}"), name)
+
+    def test_a_gel_walks_a_pixel_a_frame_and_rests_between_squares(self) -> None:
+        # quarter-speed $40 (UpdateNormalZolOrGel); the rests are the game's ZolGelDelays
+        self.assertEqual(actors.MONSTER_PERIOD[0x15], 1)
+        self.assertEqual(actors.MONSTER_BEHAVIOUR[0x15], actors.BEHAVIOUR_GEL)
+        source = (Path(__file__).resolve().parents[1] / "src" / "ai.s").read_text(encoding="utf-8")
+        self.assertIn(".byte 0x08, 0x18, 0x28, 0x38", source)
 
     def test_projectile_sprites_cover_shots_and_the_boss(self) -> None:
         data = actors.build_placeholder()

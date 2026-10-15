@@ -237,6 +237,10 @@ clear_enemies:
     moveq #(MAX_ENEMIES - 1), %d0
 6:  clr.b (%a0)+
     dbra %d0, 6b
+    lea OFF_ENEMY_TURN(%a5), %a0            | turn timers and want-to-shoot flags
+    moveq #(MAX_ENEMIES * 2 - 1), %d0
+7:  clr.b (%a0)+
+    dbra %d0, 7b
     clr.b OFF_WALL_TIMER(%a5)
     movem.l (%sp)+, %d0/%a0
     rts
@@ -307,16 +311,28 @@ update_enemies:
     bra 8f
 24: cmp.w #BEH_ROPE, %d7
     bne 23f
+    bsr rope_turn
     bsr rope_ai
     tst.b OFF_ENEMY_STATE(%a5, %d5.w)
     beq 3f
     moveq #1, %d4               | charging: a pixel every frame, and more
     bra 3f
 23: cmp.w #BEH_GORIYA, %d7
-    bne 3f
+    bne 25f
     bsr goriya_ai
     tst.w %d0
     bne 8f                      | waiting for its boomerang
+    bra 3f
+25: cmp.w #BEH_GEL, %d7
+    bne 26f
+    bsr gel_ai
+    tst.w %d0
+    bne 8f                      | resting at the edge of a square
+    bra 3f
+26: cmp.w #BEH_WANDER, %d7
+    bne 3f
+    move.w #0x80, %d1           | a stalfos turns toward Link at rate $80
+    bsr wander_tick
 3:  moveq #0, %d1
     move.w OFF_FRAME_COUNTER(%a5), %d1
     add.w %d5, %d1
@@ -349,23 +365,15 @@ update_enemies:
     and.b #15, %d0
     cmp.b #13, %d0
     bne 4f
-    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
-    bne 40f                     | a charging rope does not turn on a whim
-    bsr rand8
-    and.b #7, %d0
-    bne 40f
-    bsr random_dir
-40: move.w %d6, %d4
-    bsr enemy_choose_dir
+    move.w %d6, %d4             | the heading was chosen by the monster's own turning above;
+    bsr enemy_choose_dir        | all that is left here is the square ahead being shut
     tst.w %d6
     beq 45f
     cmp.b %d4, %d6
     beq 4f
     clr.b OFF_ENEMY_STATE(%a5, %d5.w)       | a charging rope stops
-    move.b #24, OFF_ENEMY_STEP(%a5, %d5.w)  | a goriya looks elsewhere for a while
     bra 4f
 45: clr.b OFF_ENEMY_STATE(%a5, %d5.w)       | boxed in: stand still
-    move.b #24, OFF_ENEMY_STEP(%a5, %d5.w)
     bra 8f
 
 4:  btst #0, %d6
@@ -386,6 +394,7 @@ update_enemies:
     move.b %d6, OFF_ENEMY_DIR(%a5, %d5.w)
     subq.w #1, %d7
     bgt 31b
+    bsr gel_pause               | a gel rests at the edge of the square it has crossed
 8:  addq.w #1, %d5
     bra 1b
 9:  movem.l (%sp)+, %d0-%d7/%a0-%a1
@@ -454,14 +463,6 @@ enemy_shove:
     bra 9f
 4:  clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)
 9:  movem.l (%sp)+, %d0-%d4/%d6/%a0
-    rts
-
-| d6.b = one of the four directions, chosen at random
-random_dir:
-    bsr rand8
-    and.b #3, %d0
-    moveq #1, %d6
-    lsl.b %d0, %d6
     rts
 
 | d6.b = the opposite of direction d6.b

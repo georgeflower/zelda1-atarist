@@ -361,7 +361,13 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **Movement**: Link moves in 8-px grid steps, decisions only on boundaries; collision
   per `GetCollidableTile` (hotspot `$B` below the top); UW first unwalkable tile `$78`.
 - **Walking monsters**: 16-px lanes; turn/choose only when X&15==0 and Y&15==13; blocked
-  -> random perpendicular, other perpendicular, reverse, stop. Keese: `ControlKeeseFlight`
+  -> random perpendicular, other perpendicular, reverse, stop. The turns themselves follow the ROM
+  (`ai.s`): stalfos/gels `Wanderer_TargetPlayer` (`wander_tick`; rate `$80` / `$20`, turn timer in `ENEMY_TURN`:
+  level with Link within 8 px -> straight at him, else sideways toward him when the timer ends); goriya
+  `UpdateGoriya` (faces Link only if within `$51` on the longer axis, keeps its heading otherwise; the red
+  one throws on rolls `$23`/`$77`, 2 frames in 256, only with `ENEMY_WANT` set at a boundary; the throw timer
+  is set when it throws); rope `UpdateRope` (timer `rand&$3F`, `enemy_face_unblocked` never ahead; rush
+  only from a boundary); gel moves 1 px/frame and rests `$08/$18/$28/$38` frames at each square edge. Keese: `ControlKeeseFlight`
   state machine (accelerate to `$C0`, chase/wander, slow, rest), fly over blocks, 8 dirs.
 - **Damage/invincibility**: Link `ObjInvincibilityTimer` `$18` counted every 2nd frame =
   48 frames, shove 32 px; monsters `$10` = 32 frames, shove up to 64 px at 4 px/frame.
