@@ -160,7 +160,7 @@
     | Music: three register-stream contexts (song, voice A effect, voice B effect), see music.s
     galign
     .equ MUSC_SIZE, 32
-    gvar MUS_CTX, (3 * MUSC_SIZE)
+    gvar MUS_CTX, 96           | 3 * MUSC_SIZE; the screenshot harness parses plain numbers
     gvar MUS_BANK, 4           | music_bank, as an absolute address
     gvar MUS_ENGINE, 4
     gvar MUS_OUT, 14           | the PSG registers R0-R13 as last merged
