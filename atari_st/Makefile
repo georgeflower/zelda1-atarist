@@ -71,7 +71,16 @@ $(MUSIC_GENERATED) &: $(TOOLS_DIR)/ym_convert.py $(MUSIC_SRC) $(MUSIC_PLAYER)
 	@mkdir -p $(GENERATED_DIR)
 	$(PYTHON) $(TOOLS_DIR)/ym_convert.py --song $(MUSIC_SRC) --player $(MUSIC_PLAYER) --out-dir $(GENERATED_DIR)
 
-$(MUSIC_PACKED) &: $(TOOLS_DIR)/music_pack.py $(TOOLS_DIR)/nes_music_rip.py $(MUSIC_GENERATED) $(MUSIC_ROM)
+MUSIC_CAPABILITY_STAMP := $(BUILD_DIR)/music_capability.stamp
+.PHONY: FORCE_MUSIC_CAPABILITY_STAMP
+FORCE_MUSIC_CAPABILITY_STAMP:
+
+$(MUSIC_CAPABILITY_STAMP): FORCE_MUSIC_CAPABILITY_STAMP
+	@mkdir -p $(BUILD_DIR)
+	@available=$$($(PYTHON) -c "import py65" >/dev/null 2>&1 && printf yes || printf no); \
+	printf '%s\n' "$$available" | cmp -s - $@ 2>/dev/null || printf '%s\n' "$$available" > $@
+
+$(MUSIC_PACKED) &: $(TOOLS_DIR)/music_pack.py $(TOOLS_DIR)/nes_music_rip.py $(MUSIC_GENERATED) $(MUSIC_ROM) $(MUSIC_CAPABILITY_STAMP)
 	$(PYTHON) $(TOOLS_DIR)/music_pack.py $(if $(MUSIC_ROM),--rom $(MUSIC_ROM)) --song-dir $(GENERATED_DIR) --out-dir $(GENERATED_DIR)
 
 $(OBJ): $(SOURCES) $(GENERATED) $(MUSIC_GENERATED) $(MUSIC_PACKED)
