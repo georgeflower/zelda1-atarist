@@ -23,6 +23,7 @@
     .equ ITEM_BOMBS, 0x00
     .equ ITEM_BLUE_CANDLE, 0x06
     .equ ITEM_BOOMERANG, 0x1d
+    .equ ITEM_BOW, 0x0a
     .equ ITEM_WOOD_SWORD, 0x01
     .equ ITEM_FIVE_RUPEES, 0x0f
     .equ ITEM_RUPEE, 0x18
@@ -1525,7 +1526,12 @@ take_item:
     move.b #1, OFF_INV_BOOMERANG(%a5)
     jingle MUS_ITEM
     bra 9f
-15: cmp.b #ITEM_BLUE_CANDLE, %d0
+15: cmp.b #ITEM_BOW, %d0
+    bne 17f
+    move.b #1, OFF_INV_BOW(%a5)
+    jingle MUS_ITEM
+    bra 9f
+17: cmp.b #ITEM_BLUE_CANDLE, %d0
     bne 16f
     move.b #1, OFF_INV_CANDLE(%a5)
     jingle MUS_ITEM

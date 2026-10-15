@@ -152,7 +152,7 @@ Combat and items
   beyond it and the room's shutters open for good (they no longer open when
   the last monster dies)
 - pickups with their effects: keys, hearts, heart containers, rupees, bombs,
-  the boomerang, the candle, the wooden sword, the map and the compass. The
+  the boomerang, the candle, the wooden sword, the map, the compass and the bow. The
   bow and similar items are collected but do nothing yet
 - the dungeon map in the corner of the ribbon: the level's rooms as grey boxes
   once you have the map, a green box where Link is, and with the compass the
