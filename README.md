@@ -50,4 +50,4 @@ See `atari_st/README.md` for prerequisites, Hatari launch and the test harness.
 
 ## Credits
 
-This project builds on the disassembly work of Aldo Nunez, whose reverse-engineering and documentation are the foundation of this code base.
+Built from aldonunez’s labelled Zelda 1 disassembly and camthesaxman’s zeldasource, cross-checked against the zeldadungeon.net walkthrough, with the graphics, rooms and music read from a ROM you supply yourself, and structure borrowed from my own Quanoid Atari ST code and YM2149 player, tested in Hatari.
