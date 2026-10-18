@@ -13,6 +13,10 @@
     .equ BEH_KEESE, 5
     .equ BEH_TRAP, 6
     .equ BEH_GEL, 7
+    .equ BEH_OCTOROK, 8
+    .equ BEH_MOBLIN, 9
+    .equ BEH_LYNEL, 10
+    .equ BEH_OCTOROK_BLUE, 11
 
     .equ ENEMY_SHOVE_FRAMES, 16     | 64 pixels at 4 a frame
     .equ MAX_PROJ, 8
@@ -441,6 +445,9 @@ goriya_ai:
     beq 9f
     tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
     bne 9f
+    bsr enemy_behaviour
+    cmp.w #BEH_LYNEL, %d0
+    beq 9f                          | a lynel does not throw
     bsr rand8
     cmp.b #0x23, %d0
     beq 4f

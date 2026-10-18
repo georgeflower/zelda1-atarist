@@ -329,9 +329,30 @@ class RomActorTests(unittest.TestCase):
     def test_every_monster_has_eight_frames_and_a_table_row(self) -> None:
         count = len(self.actors.MONSTER_TYPES)
         self.assertEqual(len(self.data.mon_table), count * 8)
-        self.assertEqual(
-            len(self.data.mon_sprites), count * self.actors.MONSTER_IMAGES * 2 * build_assets.SPRITE_FRAME_BYTES
-        )
+        frames = len(self.data.mon_sprites) // build_assets.SPRITE_FRAME_BYTES
+        self.assertEqual(len(self.data.mon_sprites) % build_assets.SPRITE_FRAME_BYTES, 0)
+        self.assertEqual(len(self.data.mon_art), count * 2)
+        for index, nes_type in enumerate(self.actors.MONSTER_TYPES):
+            start = int.from_bytes(self.data.mon_art[index * 2 : index * 2 + 2], "big")
+            images = self.actors.MONSTER_DRAW[nes_type][1]
+            used = self.actors.OCTOROK_IMAGES if images == self.actors.OCTOROK_IMAGES else self.actors.MONSTER_IMAGES
+            self.assertLessEqual(start + used * 2, frames, nes_type)
+
+    def test_the_slow_and_fast_octorok_share_their_art(self) -> None:
+        index = {t: i for i, t in enumerate(self.actors.MONSTER_TYPES)}
+        start = lambda t: self.data.mon_art[index[t] * 2 : index[t] * 2 + 2]
+        self.assertEqual(start(0x07), start(0x08))
+
+    def test_overworld_records_count_and_index_known_monsters(self) -> None:
+        info = build_assets.load_assets(ROM_ROOT, require_source=True).ow_room_info
+        self.assertEqual(len(info), 128 * self.actors.OW_ROOM_INFO_BYTES)
+        for room in range(128):
+            record = info[room * 16 : room * 16 + 16]
+            self.assertLessEqual(record[0], self.actors.OW_MAX_MONSTERS)
+            for monster in record[6 : 6 + record[0]]:
+                self.assertIn(self.actors.MONSTER_TYPES[monster], self.actors.OVERWORLD_MONSTERS)
+        self.assertEqual(info[0x78 * 16], 4)        # four red octoroks
+        self.assertGreaterEqual(info[0x05 * 16], 1)
 
     def test_monster_periods_are_never_zero(self) -> None:
         for row in range(len(self.actors.MONSTER_TYPES)):

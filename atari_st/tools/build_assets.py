@@ -460,6 +460,7 @@ class AssetBundle:
     cave_map: bytes = bytes(OW_ROOM_COLS * OW_ROOM_ROWS)
     cave_sprites: bytes = bytes(CAVE_SPRITE_FRAMES * SPRITE_FRAME_BYTES)
     cave_text: bytes = bytes((0xEC,))
+    ow_room_info: bytes = bytes(128 * 16)   # overworld screens: monster count, flags, monster indices (actors.py)
     level_palettes: tuple = ()      # nine rows of 16 ST colours, one per dungeon (empty = reuse `palette`)
 
 
@@ -685,7 +686,12 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
         cave_sprites = build_cave_sprites(source_root, sprite_tiles, palette_map)
         cave_text = require_binary(source_root, PERSON_TEXT_NAME)[:PERSON_TEXT_BYTES]
         uw_tiles = load_uw_background_tiles(source_root)
-        uw = underworld.build_level(source_root, 1, uw_tiles, palette_bytes, palette_map)
+        uw = underworld.build_level(source_root, 1, uw_tiles, palette_bytes, palette_map, sprite_tiles)
+        import actors
+
+        ow_room_info = actors.overworld_room_info(
+            source_root, room_attrs_a, room_attrs_c, room_attrs_d, room_attrs_f, foe_counts
+        )
         level_palettes = tuple(underworld.level_palettes(source_root, palette_bytes, palette_map))
         cave_text += uw.actors.person_text      # the level's old men speak from the same text
         return AssetBundle(
@@ -696,6 +702,7 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
             cave_text=cave_text,
             palette=palette_map,
             level_palettes=level_palettes,
+            ow_room_info=ow_room_info,
             bg_tiles=bg_tiles,
             sprite_tiles=sprite_tiles,
             rooms=rooms,
@@ -917,6 +924,7 @@ def write_underworld(out_dir: Path, uw) -> None:
     actors = uw.actors
     (out_dir / "mon_sprites.bin").write_bytes(actors.mon_sprites)
     (out_dir / "mon_table.bin").write_bytes(actors.mon_table)
+    (out_dir / "mon_art.bin").write_bytes(actors.mon_art)
     (out_dir / "mon_index.bin").write_bytes(actors.mon_index)
     (out_dir / "item_sprites.bin").write_bytes(actors.item_sprites)
     (out_dir / "item_index.bin").write_bytes(actors.item_index)
@@ -968,6 +976,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "metatiles.bin").write_bytes(render_metatiles(bundle))
     (out_dir / "link_sprites.bin").write_bytes(render_sprites(bundle))
+    (out_dir / "ow_room_info.bin").write_bytes(bundle.ow_room_info)
     (out_dir / "enemy_sprites.bin").write_bytes(render_enemy_sprites())
     (out_dir / "hud_tiles.bin").write_bytes(render_hud_tiles(bundle))
     # The big tables ship as binaries rather than .byte directives: 22KB of

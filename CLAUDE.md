@@ -251,7 +251,7 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
   the whole run**; read-only tables are reached with the **`ltab sym, %aN`** macro
   (`lea sym - table_anchor(%a6), %aN`). Nothing else may use `a6`.
 - The 68000's signed 16-bit displacement limits table reach to +-32 KB from the
-  anchor. `table_anchor` sits right after `mon_sprites`: tables before it (assets
+  anchor. `table_anchor` sits after `uw_rooms` and `item_sprites`: tables before it (assets
   include, `uw_tiles`, `uw_rooms`, ...) must stay within 32 KB back (about 5 KB
   slack), `room_maps` (largest, last) must stay within 32 KB ahead (about 3 KB
   slack). Overflow = assembler "out of range" error. Move tables across the anchor
@@ -490,7 +490,12 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `(F & $30) >> 4`.
 - Mon table (`mon_table.bin`, 8 bytes/monster): nes type, hp, period, damage, drop row, flies,
   draw mode, behaviour. Monsters ported: `06` goriya, `15` gel, `1B` keese, `28` rope, `2A`
-  stalfos, `27` wallmaster, `3D` Aquamentus, `49` trap. Draw modes in `actors.py`
+  stalfos, `27` wallmaster, `3D` Aquamentus, `49` trap, and the overworld's `01`/`02` lynel,
+  `03`/`04` moblin, `07`-`0A` octorok. `mon_art.bin` gives, per monster, the first frame of its
+  art in `mon_sprites` (octoroks have six images). `mon_sprites` is the last table, past the
+  anchor's reach, found through the `MON_SPR` pointer set by `init_pointers`. The overworld
+  has `ow_room_info.bin` (128 x 16 bytes: count, flags, monster indices from byte 6) that
+  `spawn_from_record` in `enemy.s` shares with the underworld's `uw_room_info`. Draw modes in `actors.py`
   (`MODE_*`), behaviours `BEH_*` in `ai.s` (keep both in step).
 - Tests parse and recompute these tables, so changing a table size usually needs the test
   updated (e.g. `proj_sprites` is 27 frames, `fx_sprites` 20, `beam_sprites` 16, `sword_sprites` 4).
@@ -530,7 +535,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 
 ## 14. Status and what is next
 
-Done in Level 1: overworld + first cave, doors/keys/shutters/bombable and false walls, stairs +
+Done in Level 1: overworld + first cave, overworld octoroks/moblins/lynels (walking only), doors/keys/shutters/bombable and false walls, stairs +
 cellar, stalfos/keese/gel/rope/goriya/wallmaster/Aquamentus/blade traps, sword + beam + bombs +
 boomerang + candle, drops with kill counters, knock-back and invincibility, push block, triforce
 ending, map and compass with the dungeon minimap, the old man in room `$41`, HUD with A/B boxes, Tab inventory screen, YM2149 music and sound effects.
@@ -538,7 +543,7 @@ ending, map and compass with the dungeon minimap, the old man in room `$41`, HUD
 Open items (user-visible gaps): the other dungeon people (more bombs, life or money, fireballs from the old man's flames); the overworld map on the
 ribbon; fireball art
 (placeholder); the clock and fairy drops; stairs-type push block (trigger 5, not in Level 1);
-visible block slide animation; the rest of the sound (title, ending, game-over and boss music, DPCM); then the rest of the overworld (real monsters,
+visible block slide animation; the rest of the sound (title, ending, game-over and boss music, DPCM); then the rest of the overworld (the other monsters and the walkers' shooting,
 shops, caves, secrets), inventory items (bow/arrows, recorder, ladder, raft, rings, ...), other
 eight dungeons, title/game-over/save.
 

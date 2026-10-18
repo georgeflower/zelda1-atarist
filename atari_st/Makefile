@@ -45,7 +45,8 @@ GENERATED := $(GENERATED_DIR)/assets.inc $(GENERATED_DIR)/metatiles.bin \
 	$(GENERATED_DIR)/drop_rates.bin $(GENERATED_DIR)/sword_sprites.bin \
 	$(GENERATED_DIR)/proj_sprites.bin $(GENERATED_DIR)/hud_items.bin \
 	$(GENERATED_DIR)/beam_sprites.bin $(GENERATED_DIR)/fx_sprites.bin \
-	$(GENERATED_DIR)/uw_room_info.bin \
+	$(GENERATED_DIR)/uw_room_info.bin $(GENERATED_DIR)/mon_art.bin \
+	$(GENERATED_DIR)/ow_room_info.bin \
 	$(GENERATED_DIR)/asset_manifest.txt
 MUSIC_SRC := music/zelda_intro_by_qum.h
 MUSIC_PLAYER := music/ymplay.h
