@@ -257,10 +257,12 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
   overworld silently draws garbage. `tools/check_reach.py` (run by the Makefile after linking) fails the
   build when an `ltab` symbol is out of range; far tables use `adda.l #(sym - table_anchor)` instead
   (music_drums, music_bank, mon_sprites). Move tables across the anchor if you add data.
-- The same 16-bit PC-relative limit applies from code to `.data`: `_start` reaches `globals` at about
-  31.3 KB of 32.7 KB (about 1.3 KB of code headroom left). `.data` order is `music_old_vbl`, `ikbd_state`,
-  stack, `globals_marker`, `globals`, `ymdrum_code`; keep big things after `globals`. Link error
-  "relocation truncated to fit: R_68K_PC16 against .data" means this budget is spent.
+- **Image layout** (`link.ld`): `_start` (a `bra.w`), then `.data` (stack, `globals`, `music_old_vbl`, `ikbd_state`,
+  `ymdrum_code`), then the code, then `.rodata`. Code reaches `.data` by PC-relative displacement (signed 16 bit),
+  so the modules that do (`input.s`, `music.s`, `video.s`, `_start`) are included first in `main.s`; every other
+  module only uses `a5` and can grow until a `bsr`/`bra` between two modules is more than 32 KB long (the link
+  error is "relocation truncated to fit: R_68K_PC16"). Code headroom was 1.3 KB before this layout and is now
+  roughly 30 KB.
 - `d8(%a5,%dn)` addressing has an **8-bit displacement**: an array indexed that
   way must start below offset 128 (the per-actor arrays are at the front of
   `globals.s`, `ENEMY_STEP` is the last that fits). For anything else `lea` the

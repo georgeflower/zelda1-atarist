@@ -444,7 +444,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 
 - **R1 Palettes.** Settled for the dungeons: slot-stable per-level palettes (section 3). The title and story screens still need their own rows when they are built.
 - **R2 PAL / 50 Hz.** Verified in a 50 Hz Hatari (section 3); a real PAL STFM is untried. The music is tuned for 50 Hz and skips one in six VBLs at 60 Hz.
-- **R3 Memory and addressing reach.** After step 2 the anchor sits just before `fx_sprites` (about 5 KB back, 6 KB ahead) and `tools/check_reach.py` fails the build when an `ltab` table is out of the signed 16-bit range (GNU as silently wraps instead). The code is also near its limit: `_start` reaches `globals` at about 31.3 KB of 32.7 KB, so only about 1.3 KB of code can still be added before data must move or a second base register is needed. Eight more levels will not fit without re-planning.
+- **R3 Memory and addressing reach.** After step 2 the anchor sits just before `fx_sprites` (about 5 KB back, 6 KB ahead) and `tools/check_reach.py` fails the build when an `ltab` table is out of the signed 16-bit range (GNU as silently wraps instead). The image now starts with `.data` and the code can grow by about 30 KB (`AGENTS.md` section 6). Eight more levels will not fit without re-planning.
 - **R4 Sprite budget.** 16x16 masked sprites with runtime shifting; Gleeok, Patra and Moldorm are multi-object bosses and can blow the frame budget at 8 MHz.
 - **R5 Copyright.** All ROM-derived data stays out of the repo. The dump tool and the generated tables here are for planning; commit the tool, not its output.
 
