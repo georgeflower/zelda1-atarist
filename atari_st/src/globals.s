@@ -252,4 +252,7 @@
 
     gvar PAL_LEVEL, 1          | the level whose palette the ST is showing (0 = overworld); palette_sync follows OFF_LEVEL
 
+    galign
+    gvar MON_SPR, 4            | the monster pictures (mon_sprites), found at start-up: see init_pointers
+
     .equ GLOBALS_BYTES, gvar_offset

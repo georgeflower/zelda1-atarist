@@ -15,23 +15,34 @@ import build_assets as B
 
 # Monsters this port draws and moves so far (Level 1's repertoire). Others in a
 # room (traps, and the monsters of later levels) are left out for now.
-MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49)
+MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
+                 0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A)
+# The ones of them that live on the overworld: lynels (blue, red), moblins (blue, red) and octoroks
+# (red slow, red fast, blue slow, blue fast). Their art comes from the overworld's sprite pattern table.
+OVERWORLD_MONSTERS = (0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A)
 # Frames between one-pixel steps: the 6502's quarter-speed $20 is half a pixel
 # a frame; keese are quicker and wallmasters slower. A gel walks a pixel a frame (quarter-speed
 # $40) but rests at the edge of every square. Aquamentus moves a
 # pixel every eighth frame.
-MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8, 0x49: 1}
+MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8, 0x49: 1,
+                  # lynels and moblins walk at quarter-speed $20; octoroks too, the fast ones at $40
+                  0x01: 2, 0x02: 2, 0x03: 2, 0x04: 2, 0x07: 2, 0x08: 1, 0x09: 2, 0x0A: 1}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
-MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2}
+MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
+                  # ObjTypeToDamagePoints: blue lynel $02 (two hearts), red lynel $01, the rest $80
+                  0x01: 4, 0x02: 2, 0x03: 1, 0x04: 1, 0x07: 1, 0x08: 1, 0x09: 1, 0x0A: 1}
 # Keese ignore walls and blocks and are only held in by the room edges.
 MONSTER_FLYERS = (0x1B,)
 
 # What the game does with a monster every frame, besides drawing it.
 (BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS,
- BEHAVIOUR_KEESE, BEHAVIOUR_TRAP, BEHAVIOUR_GEL) = range(8)
+ BEHAVIOUR_KEESE, BEHAVIOUR_TRAP, BEHAVIOUR_GEL, BEHAVIOUR_OCTOROK, BEHAVIOUR_MOBLIN,
+ BEHAVIOUR_LYNEL, BEHAVIOUR_OCTOROK_BLUE) = range(12)
 MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
                       0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP,
-                      0x15: BEHAVIOUR_GEL}
+                      0x15: BEHAVIOUR_GEL, 0x01: BEHAVIOUR_LYNEL, 0x02: BEHAVIOUR_LYNEL,
+                      0x03: BEHAVIOUR_MOBLIN, 0x04: BEHAVIOUR_MOBLIN, 0x07: BEHAVIOUR_OCTOROK,
+                      0x08: BEHAVIOUR_OCTOROK, 0x09: BEHAVIOUR_OCTOROK_BLUE, 0x0A: BEHAVIOUR_OCTOROK_BLUE}
 
 # How each monster is drawn: (sprite layout, images, mode). The layout says how
 # the two 8x16 halves of an image are put together; the mode tells the game
@@ -45,6 +56,7 @@ MODE_KEESE = 4      # two mirrored images, wings beating
 MODE_WALLMASTER = 5  # open and closed hand, swapped every eight frames
 MODE_BOSS = 6       # drawn from the boss pieces instead
 MODE_STATIC = 7     # one picture, never mirrored: the blade trap
+MODE_OCTOROK = 8    # six images: side, front, back, each in two animation sets
 MONSTER_DRAW = {
     0x06: ("wide", 4, MODE_WALKER),
     0x15: ("narrow", 2, MODE_GEL),
@@ -54,8 +66,20 @@ MONSTER_DRAW = {
     0x27: ("wide", 2, MODE_WALLMASTER),
     0x3D: ("wide", 1, MODE_BOSS),
     0x49: ("mirror", 1, MODE_STATIC),
+    0x01: ("wide", 4, MODE_WALKER),
+    0x02: ("wide", 4, MODE_WALKER),
+    0x03: ("wide", 4, MODE_WALKER),
+    0x04: ("wide", 4, MODE_WALKER),
+    0x07: ("octorok", 6, MODE_OCTOROK),
+    0x08: ("octorok", 6, MODE_OCTOROK),
+    0x09: ("octorok", 6, MODE_OCTOROK),
+    0x0A: ("octorok", 6, MODE_OCTOROK),
 }
-MONSTER_IMAGES = 4          # image slots per monster, each stored plain and flipped
+MONSTER_IMAGES = 4          # image slots of an ordinary monster, each stored plain and flipped
+OCTOROK_IMAGES = 6          # side, front and back, in two animation sets (mon_art says where each art starts)
+# Octorok frames in ObjAnimFrameHeap order: side, back, front for set one, then the same for set two. The back
+# is the front turned upside down (attribute bit 7); the game draws sideways ones plain and mirrors the others.
+OCTOROK_FRAME_ORDER = (0, 3, 2, 5, 1, 4)    # image 0 side A, 1 side B, 2 front A, 3 front B, 4 back A, 5 back B
 FRAME_BYTES = B.SPRITE_FRAME_BYTES
 NO_DROP_ROW = 0xFF
 ROOM_INFO_BYTES = 16
@@ -92,6 +116,7 @@ UW_SP_BOSS_FIRST = 0xC0
 class ActorData:
     mon_sprites: bytes        # monster, frame, flip -> one masked 16x16 frame
     mon_table: bytes          # 8 bytes per monster: type, hp, period, damage, drop row, flies, draw mode, behaviour
+    mon_art: bytes            # per monster, a big-endian word: the number of its first frame in mon_sprites
     mon_index: bytes          # NES object type -> monster index, 0xFF for none
     item_sprites: bytes       # one masked 16x16 frame per item
     item_index: bytes         # item id (0..63) -> item index, 0xFF for none
@@ -283,7 +308,22 @@ def _effect_frames(sp_tiles, bg_tiles, palette, fire_rows) -> bytes:
     return b"".join(frames)
 
 
-def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, attrs, info) -> ActorData:
+def _octorok_images(tiles, palette, anim_base: int, heap, attr_heap) -> list[list[list[int]]]:
+    """The six octorok images in the order the draw code uses: side A and B, front A and B, back A and B."""
+    images = []
+    for frame in OCTOROK_FRAME_ORDER:
+        tile = heap[anim_base + frame]
+        attr = attr_heap[anim_base + frame]
+        row = B.LINK_PALETTE_ROW + (attr & 3)
+        layout = "wide" if frame in (0, 3) else "mirror"
+        rows = _monster_image(tiles, palette, row, tile, layout)
+        if attr & 0x80:
+            rows = rows[::-1]           # the back view is the front turned upside down
+        images.append(rows)
+    return images
+
+
+def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, attrs, info, ow_sp_tiles=None) -> ActorData:
     asm1 = (source_root / "src" / "Z_01.asm").read_text(encoding="utf-8", errors="replace")
     asm4 = (source_root / "src" / "Z_04.asm").read_text(encoding="utf-8", errors="replace")
     asm7 = (source_root / "src" / "Z_07.asm").read_text(encoding="utf-8", errors="replace")
@@ -307,29 +347,45 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
 
     sp_tiles = _sprite_table(source_root, level)
     sprites = bytearray()
+    arts: dict[bytes, int] = {}         # identical art (the slow and fast octorok) is stored once
+    mon_art = bytearray()
     table = bytearray()
     mon_index = bytearray([0xFF]) * 256
     for index, nes_type in enumerate(MONSTER_TYPES):
         mon_index[nes_type] = index
         base = anim[nes_type + 1]
         layout, image_count, mode = MONSTER_DRAW[nes_type]
-        images = []
-        for image in range(MONSTER_IMAGES):
-            frame = min(image, image_count - 1)
-            tile = heap[base + frame]
-            row = B.LINK_PALETTE_ROW + (attr_heap[base + frame] & 3)
-            if mode == MODE_BOSS:
-                images.append(_blank(16))
-            elif mode == MODE_WALLMASTER and frame == 1:
-                # The closed hand reuses Keese art on the left; the game patches it to the open hand's.
-                left = _tile_rows(sp_tiles, palette, row, heap[base])
-                right = _tile_rows(sp_tiles, palette, row, tile + 2)
-                images.append(_join(left, right))
-            else:
-                images.append(_monster_image(sp_tiles, palette, row, tile, layout))
+        tiles = sp_tiles
+        if nes_type in OVERWORLD_MONSTERS:
+            if ow_sp_tiles is None:
+                raise SystemExit("The overworld sprite patterns are needed to draw the overworld monsters")
+            tiles = ow_sp_tiles
+        if mode == MODE_OCTOROK:
+            images = _octorok_images(tiles, palette, base, heap, attr_heap)
+        else:
+            images = []
+            for image in range(MONSTER_IMAGES):
+                frame = min(image, image_count - 1)
+                tile = heap[base + frame]
+                row = B.LINK_PALETTE_ROW + (attr_heap[base + frame] & 3)
+                if mode == MODE_BOSS:
+                    images.append(_blank(16))
+                elif mode == MODE_WALLMASTER and frame == 1:
+                    # The closed hand reuses Keese art on the left; the game patches it to the open hand's.
+                    left = _tile_rows(tiles, palette, row, heap[base])
+                    right = _tile_rows(tiles, palette, row, tile + 2)
+                    images.append(_join(left, right))
+                else:
+                    images.append(_monster_image(tiles, palette, row, tile, layout))
+        art = bytearray()
         for rows in images:
-            sprites.extend(_pack_masked(rows))
-            sprites.extend(_pack_masked([r[::-1] for r in rows]))
+            art.extend(_pack_masked(rows))
+            art.extend(_pack_masked([r[::-1] for r in rows]))
+        key = bytes(art)
+        if key not in arts:
+            arts[key] = len(sprites) // FRAME_BYTES
+            sprites.extend(art)
+        mon_art.extend(arts[key].to_bytes(2, "big"))
         hp_byte = hp_pairs[nes_type >> 1]
         hp = (hp_byte >> 4) if nes_type % 2 == 0 else (hp_byte & 0x0F)
         drop_row = NO_DROP_ROW
@@ -356,6 +412,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
     return ActorData(
         mon_sprites=bytes(sprites),
         mon_table=bytes(table),
+        mon_art=bytes(mon_art),
         mon_index=bytes(mon_index),
         item_sprites=bytes(items),
         item_index=bytes(item_index),
@@ -500,11 +557,59 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON) -> b
     return bytes(record)
 
 
+OW_ROOM_INFO_BYTES = 16
+OW_ROOM_EDGE_SPAWN = 1         # flags bit 0: the monsters come in from the screen edge (attribute F bit 3)
+OW_ROOM_ZORAS = 2              # flags bit 1: a Zora lives in the water (attribute A bit 3)
+OW_MAX_MONSTERS = 6            # the biggest foe count of the overworld (LevelInfo foe counts are 1, 4, 5, 6)
+
+
+def overworld_monster_lists(source_root: Path) -> list[list[int]]:
+    """ObjLists: the monster types of each list id from $62 up."""
+    blob = B.require_binary(source_root, "dat/ObjLists.dat")
+    inc = (source_root / "src" / "dat" / "ObjListAddrs.inc").read_text(encoding="utf-8", errors="replace")
+    starts = [int(m) for m in re.findall(r"ObjLists\+(\d+)", inc)]
+    ends = starts[1:] + [len(blob)]
+    return [list(blob[a:b]) for a, b in zip(starts, ends)]
+
+
+def overworld_room_types(lists, attr_c: int, attr_d: int, foe_counts) -> list[int]:
+    """The NES monster types RoomObjCount x ObjType holds for a screen (before the room history trims them)."""
+    list_id = (attr_c & 0x3F) | (0x40 if attr_d & 0x80 else 0)
+    count = foe_counts[attr_c >> 6]
+    if 0x32 <= list_id < 0x62:
+        count = 1                       # bosses and other things that do not come back
+    if list_id == 0:
+        return []
+    if list_id < 0x62:
+        return [list_id] * count
+    return lists[list_id - 0x62][:count]
+
+
+def overworld_room_info(source_root: Path, attrs_a, attrs_c, attrs_d, attrs_f, foe_counts) -> bytes:
+    """128 records of OW_ROOM_INFO_BYTES: count, flags, then the monster indices from byte 6 (as uw_room_info).
+
+    Only the types this port can draw and move are kept; the others (peahats, leevers, zoras, ghinis,
+    armos, boulders) are left out until they are ported. The count is the foe count the game would place.
+    """
+    lists = overworld_monster_lists(source_root)
+    records = bytearray()
+    for room in range(len(attrs_c)):
+        types = overworld_room_types(lists, attrs_c[room], attrs_d[room], foe_counts)
+        monsters = [MONSTER_TYPES.index(t) for t in types if t in OVERWORLD_MONSTERS][:OW_MAX_MONSTERS]
+        flags = (OW_ROOM_EDGE_SPAWN if attrs_f[room] & 8 else 0) | (OW_ROOM_ZORAS if attrs_a[room] & 8 else 0)
+        record = bytearray([len(monsters), flags, 0xFF, 0, 0, 0])
+        record.extend(monsters)
+        record.extend([0xFF] * (OW_ROOM_INFO_BYTES - len(record)))
+        records.extend(record)
+    return bytes(records)
+
+
 def build_placeholder() -> ActorData:
     frame = _pack_masked([[1] * 16 for _ in range(16)])
     return ActorData(
         mon_sprites=frame * (MONSTER_IMAGES * 2),
         mon_table=bytes((0x2A, 2, 2, 1, 0, 0, 0, 0)),
+        mon_art=bytes(2),
         mon_index=bytes([0xFF]) * 256,
         item_sprites=frame,
         item_index=bytes([0xFF]) * 64,

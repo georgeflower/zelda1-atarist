@@ -25,61 +25,13 @@ spawn_room_enemies:
     tst.b OFF_LEVEL(%a5)
     bne uw_spawn
 
-    moveq #0, %d0
+    moveq #0, %d0                   | overworld: the screen's record in ow_room_info
     move.b OFF_ROOM_ID(%a5), %d0
-    ltab room_attr_c, %a0
-    moveq #0, %d1
-    move.b 0(%a0, %d0.w), %d1
-    move.w %d1, %d2
-    andi.w #0x003f, %d2
-
-    ltab room_attr_d, %a0
-    btst #7, 0(%a0, %d0.w)
-    beq 1f
-    ori.w #0x0040, %d2
-1:  cmpi.w #ENEMY_TEMPLATE_07, %d2
-    bne 9f
-
-    lsr.w #6, %d1
-    andi.w #3, %d1
-    ltab foe_counts, %a0
-    moveq #0, %d2
-    move.b 0(%a0, %d1.w), %d2
-    cmpi.w #MAX_ENEMIES, %d2
-    bls 2f
-    moveq #MAX_ENEMIES, %d2
-2:  move.b %d2, OFF_ENEMY_COUNT(%a5)
-    beq 9f
-
-    moveq #0, %d3
-    move.b OFF_LINK_DIR(%a5), %d3
-    bsr enemy_spawn_list_index
-    lea enemy_spawn_lists(%pc), %a0
-    mulu.w #9, %d0
-    adda.w %d0, %a0
-
-    moveq #0, %d3
-3:  cmp.b OFF_ENEMY_COUNT(%a5), %d3
-    bhs 9f
-    moveq #0, %d0
-    move.b 0(%a0, %d3.w), %d0
-
     move.w %d0, %d1
     lsl.w #4, %d1
-    move.b %d1, OFF_ENEMY_X(%a5, %d3.w)
-    andi.w #0x00f0, %d0
-    ori.w #0x000d, %d0
-    move.b %d0, OFF_ENEMY_Y(%a5, %d3.w)
-
-    move.b #1, OFF_ENEMY_ACTIVE(%a5, %d3.w)
-    move.b #0xff, OFF_ENEMY_TYPE(%a5, %d3.w)
-    move.b %d3, %d0
-    andi.b #3, %d0
-    moveq #1, %d1
-    lsl.b %d0, %d1
-    move.b %d1, OFF_ENEMY_DIR(%a5, %d3.w)
-    addq.w #1, %d3
-    bra 3b
+    ltab ow_room_info, %a1
+    adda.w %d1, %a1
+    bra spawn_from_record
 9:  movem.l (%sp)+, %d0-%d7/%a0-%a2
     rts
 
@@ -108,6 +60,11 @@ uw_spawn:
     lea OFF_UW_FLAGS(%a5), %a2
     btst #0, 0(%a2, %d0.w)
     bne 9b                      | already cleared: they stay dead
+    bra spawn_from_record
+
+| a1 = a room record (monster count at 0, monster indices from 6): place them
+| on the first safe spawn spots. Used by both worlds.
+spawn_from_record:
     moveq #0, %d1
     move.b (%a1), %d1           | monsters to place
     beq 9b
@@ -331,10 +288,22 @@ update_enemies:
     tst.w %d0
     bne 8f                      | resting at the edge of a square
     bra 3f
-26: cmp.w #BEH_WANDER, %d7
+26: cmp.w #BEH_LYNEL, %d7
+    bne 27f
+    bsr goriya_ai               | a lynel walks like a goriya (its sword beam comes later)
+    bra 3f
+27: moveq #0x70, %d1            | a red octorok turns toward Link at rate $70
+    cmp.w #BEH_OCTOROK, %d7
+    beq 28f
+    move.w #0xa0, %d1           | blue octoroks and moblins at $A0
+    cmp.w #BEH_OCTOROK_BLUE, %d7
+    beq 28f
+    cmp.w #BEH_MOBLIN, %d7
+    beq 28f
+    move.w #0x80, %d1           | a stalfos at $80
+    cmp.w #BEH_WANDER, %d7
     bne 3f
-    move.w #0x80, %d1           | a stalfos turns toward Link at rate $80
-    bsr wander_tick
+28: bsr wander_tick
 3:  moveq #0, %d1
     move.w OFF_FRAME_COUNTER(%a5), %d1
     add.w %d5, %d1
@@ -668,6 +637,8 @@ draw_enemies:
     beq 32f
     cmp.w #7, %d2
     beq 19f                     | the blade trap has one picture
+    cmp.w #8, %d2
+    beq 33f
     move.w %d4, %d1             | keese: wings beat
     lsr.w #2, %d1
     and.w #1, %d1
@@ -717,13 +688,30 @@ draw_enemies:
     bra 19f
 32: bsr draw_boss_head         | Aquamentus is drawn from his own pieces
     bra 8f
+33: move.w %d4, %d1             | octorok: two animation sets, swapped every eight frames
+    lsr.w #3, %d1
+    and.w #1, %d1
+    moveq #0, %d2
+    move.b OFF_ENEMY_DIR(%a5, %d3.w), %d2
+    btst #2, %d2
+    beq 34f
+    addq.w #2, %d1              | facing down: the front
+    bra 19f
+34: btst #3, %d2
+    beq 35f
+    addq.w #4, %d1              | facing up: the back
+    bra 19f
+35: btst #0, %d2
+    beq 19f
+    moveq #1, %d5               | its side view looks left; mirror it to face right
 19: add.w %d1, %d1
-    add.w %d5, %d1
-    lsl.w #3, %d0
-    add.w %d1, %d0
-    mulu.w #SPRITE_FRAME_BYTES, %d0
-    ltab mon_sprites, %a0
-    adda.l %d0, %a0
+    add.w %d5, %d1              | frame within the monster's art
+    ltab mon_art, %a0
+    add.w %d0, %d0
+    add.w 0(%a0, %d0.w), %d1
+    mulu.w #SPRITE_FRAME_BYTES, %d1
+    movea.l OFF_MON_SPR(%a5), %a0
+    adda.l %d1, %a0
     bra 4f
 
 2:  move.w OFF_FRAME_COUNTER(%a5), %d1

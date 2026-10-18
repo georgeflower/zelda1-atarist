@@ -23,10 +23,33 @@ class ActorTableTests(unittest.TestCase):
 
     def test_behaviour_numbers_match_the_assembly_equates(self) -> None:
         source = (Path(__file__).resolve().parents[1] / "src" / "ai.s").read_text(encoding="utf-8")
-        for name in ("WANDER", "ROPE", "GORIYA", "WALLMASTER", "BOSS", "KEESE", "TRAP", "GEL"):
+        for name in ("WANDER", "ROPE", "GORIYA", "WALLMASTER", "BOSS", "KEESE", "TRAP", "GEL",
+                     "OCTOROK", "MOBLIN", "LYNEL", "OCTOROK_BLUE"):
             match = re.search(rf"\.equ BEH_{name}, (\d+)", source)
             self.assertIsNotNone(match, name)
             self.assertEqual(int(match.group(1)), getattr(actors, f"BEHAVIOUR_{name}"), name)
+
+    def test_overworld_walkers_are_listed_with_their_data(self) -> None:
+        for nes_type in actors.OVERWORLD_MONSTERS:
+            self.assertIn(nes_type, actors.MONSTER_TYPES)
+            self.assertIn(nes_type, actors.MONSTER_BEHAVIOUR)
+        # blue lynel hits for two hearts, red for one; octoroks and moblins for half a heart
+        self.assertEqual(actors.MONSTER_DAMAGE[0x01], 4)
+        self.assertEqual(actors.MONSTER_DAMAGE[0x02], 2)
+        self.assertEqual(actors.MONSTER_DAMAGE[0x07], 1)
+
+    def test_overworld_screens_name_their_monsters_from_the_list_ids(self) -> None:
+        foe_counts = [1, 4, 5, 6]
+        lists = [[0x07, 0x07, 0x0B, 0x01]]          # list id $62: two octoroks, something unported, a lynel
+        # attribute C & $3F = $22 plus attribute D bit 7 is list $62; the top two bits pick the foe count
+        self.assertEqual(actors.overworld_room_types(lists, 0x22 | (1 << 6), 0x80, foe_counts), [0x07, 0x07, 0x0B, 0x01])
+        # a single type fills the whole count: four red octoroks
+        self.assertEqual(actors.overworld_room_types(lists, 0x07 | (1 << 6), 0x00, foe_counts), [0x07] * 4)
+        self.assertEqual(actors.overworld_room_types(lists, 0x00, 0x00, foe_counts), [])
+
+    def test_a_placeholder_has_a_picture_start_for_every_monster(self) -> None:
+        data = actors.build_placeholder()
+        self.assertEqual(len(data.mon_art), 2 * (len(data.mon_table) // 8))
 
     def test_a_gel_walks_a_pixel_a_frame_and_rests_between_squares(self) -> None:
         # quarter-speed $40 (UpdateNormalZolOrGel); the rests are the game's ZolGelDelays

@@ -78,8 +78,9 @@ Overworld
   without a person
 - the game starts just below the first cave; dying refills the hearts and
   returns Link there
-- repeated-template rooms (template `$07`) spawn simple wandering placeholder
-  blobs, so the overworld has something to hit
+- octoroks, moblins and lynels walk on the screens where the original puts them
+  (they do not shoot yet, and the room-history and edge-spawn rules are not
+  ported); the other overworld monsters are still missing
 
 Level 1 (underworld)
 
@@ -188,7 +189,7 @@ Things that behave differently from the original, or are stand-ins:
   Level 1
 - `K` is a debug key standing in for the shops and secrets that give keys,
   bombs and the candle
-- the overworld's real monsters are not ported; only the placeholder blobs
+- the overworld's peahats, leevers, zoras, ghinis, armos, boulders and tektites are not ported, and the walkers do not shoot
 - the inventory screen lists the B items, the compass and the map; the other
   items are not there yet, and the overworld has no map on the ribbon
 - the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed
@@ -369,8 +370,8 @@ Notes on the ST implementation
   byte in a ring buffer; the main loop parses the queue once a frame. The ACIA
   holds a single byte, so polling it lost key releases and left Link walking.
   The previous vector is restored on exit.
-- The tables are reached through `a6` = `table_anchor`, now placed after
-  `mon_sprites`: the tables before it must stay within 32KB back and
+- The tables are reached through `a6` = `table_anchor`, placed after
+  `item_sprites` (`mon_sprites` is the last table, found through a pointer): the tables before it must stay within 32KB back and
   `room_maps` within 32KB ahead. Growing them past that makes the assembler
   complain about an out-of-range displacement.
 

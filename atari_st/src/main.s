@@ -187,6 +187,7 @@ _start:
     | Clear the variable block before anything is stored in it; bsr leaves the
     | stack alone, so the basepage is still at 4(sp) afterwards.
     bsr init_state
+    bsr init_pointers
 
     | GEMDOS passes the basepage at 4(sp).
     movea.l 4(%sp), %a0
@@ -792,6 +793,14 @@ init_anchor:
     adda.l #(table_anchor - room_palette), %a6
     rts
 
+    | The monster pictures are the last table, past what the anchor can address, so they are found
+    | through a pointer: the anchor plus a link-time distance.
+init_pointers:
+    movea.l %a6, %a0
+    adda.l #(mon_sprites - table_anchor), %a0
+    move.l %a0, OFF_MON_SPR(%a5)
+    rts
+
     .section .rodata
     .align 2
 uw_tiles:
@@ -810,8 +819,6 @@ uw_doors:
 uw_rooms:
     .incbin "uw_rooms.bin"
     .align 2
-mon_sprites:
-    .incbin "mon_sprites.bin"
 item_sprites:
     .incbin "item_sprites.bin"
     .align 2
@@ -840,6 +847,11 @@ hud_items:
     .incbin "hud_items.bin"
 mon_table:
     .incbin "mon_table.bin"
+    .align 2
+mon_art:
+    .incbin "mon_art.bin"
+ow_room_info:
+    .incbin "ow_room_info.bin"
 item_index:
     .incbin "item_index.bin"
 drop_table:
@@ -875,6 +887,9 @@ music_drums:
     .align 2
 music_bank:
     .incbin "music_bank.bin"
+    .align 2
+mon_sprites:
+    .incbin "mon_sprites.bin"
 
     .section .data
     .align 2

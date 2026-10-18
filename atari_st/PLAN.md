@@ -35,7 +35,9 @@ Remaining, in the words of your request:
 | #17 | Holding an item up (sword, boomerang, bow, candle): fanfare, arms-up Link for `$80` frames | M5 |
 | #18 | M0 palette strategy (risk R1): slot-stable per-level palettes for all nine dungeons; M0 PAL check (risk R2): 50 Hz run in Hatari | M0 |
 
-Still open from M0: the table-dump tool, the reach budget (R3) and the golden images. Nothing of M1 (hidden spots), M2 (real overworld monsters) or M4 (overworld specials) has been started, and only the first cave of M3.
+| #20 | Overworld walkers (M2 step 1): octoroks (red, blue, slow, fast), moblins and lynels on their real screens, from a per-screen table (`ow_room_info`); art from the overworld sprite patterns | M2 |
+
+Still open from M0: the table-dump tool, the reach budget (R3) and the golden images. M2 has its first step (walkers); projectiles, drops by kill history, edge-spawn screens and the special movers are still to do. Nothing of M1 (hidden spots) or M4 (overworld specials) has been started, and only the first cave of M3.
 
 ## 2. Order of work
 
@@ -43,7 +45,7 @@ Still open from M0: the table-dump tool, the reach budget (R3) and the golden im
 |---|---|---|---|---|
 | M0 | Foundations: table-dump tool, palette strategy, PAL timing, regression screenshots | - | S | partly: palettes and PAL done (#18) |
 | M1 | **Hidden bomb/fire/push spots fixed** (the visible bug) | M0 | M | not started |
-| M2 | Overworld enemies, spawn rules, drops | M0 | L | not started (drop counters exist) |
+| M2 | Overworld enemies, spawn rules, drops | M0 | L | step 1 done: octoroks, moblins, lynels walk (no shooting yet) |
 | M3 | Caves: people, shops, hints, money game, door repair, take-any-road, old woman | M1 | L | first cave and the Level 1 old man |
 | M4 | Overworld specials: armos, bracelet rocks, gravestones, docks/raft, ladder, recorder + whirlwind, Lost Woods/Hills, fairy ponds | M1, M2 | L | not started |
 | M5 | Items, inventory screen, HUD, every B item and passive item | M3 | L | partly: Level 1 items, HUD, Tab screen |
@@ -151,7 +153,10 @@ Appendix B1 lists every screen with its monsters and count, plus the Zora, edge-
 
 ### 5.4 Work items
 
-- [ ] Add each type to `MONSTER_TYPES` in `actors.py` with the HP/damage above, sprite frames from the CHR data, a draw mode and a behaviour in `ai.s` (recipe in `AGENTS.md` section 12).
+- [x] **Step 1 (done): data plus plain walkers.** Octorok (`$07`-`$0A`), moblin (`$03`, `$04`) and lynel (`$01`, `$02`) are in `MONSTER_TYPES`; octoroks have their own draw mode (`MODE_OCTOROK`: side, front and back views in two animation sets, art mirrored to face right) and `mon_art` says where each monster's art starts in `mon_sprites` (the slow and fast octorok share it). Red/blue octoroks turn at `$70`/`$A0`, moblins `$A0`, lynels walk like goriyas without throwing. Every overworld screen has a 16-byte record in `ow_room_info.bin` (count, flags for edge-spawn and Zora, monster indices), expanded from the ROM's monster lists. Peahats, leevers, zoras, ghinis, armos, boulders and tektites spawn nothing yet.
+- [ ] **Step 2: projectiles, drops, edge-spawn ring, kill history.** Rock, arrow and sword beam; drop rows checked for the new types; the edge-spawn walk (`FindNextEdgeSpawnCell`; now these screens spawn on entry); the room-history rule (`ModifyObjCountByHistoryOW`).
+- [ ] **Step 3: special movers.** Leever, peahat, zora, ghini, tektite (jumper physics).
+- [ ] (original item, kept for reference) Add each type to `MONSTER_TYPES` in `actors.py` with the HP/damage above, sprite frames from the CHR data, a draw mode and a behaviour in `ai.s` (recipe in `AGENTS.md` section 12).
 - [ ] Overworld sprite pattern tables: unlike the underworld, the overworld swaps pattern blocks by region. List the blocks needed (octorok/moblin/lynel/tektite/leever/peahat/zora/ghini/armos/boulders) and load them at room entry.
 - [ ] Build `room_monsters.bin` for the overworld the same way `actors.py` builds it for dungeon rooms, including the edge-spawn flag and the Zora flag.
 - [ ] Drops: extend the drop table rows for every new type; fairy (kill 16) and clock drops need their pickups (section 8).
