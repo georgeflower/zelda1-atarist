@@ -783,6 +783,7 @@ update_play:
     .include "video.s"
     .include "sprite.s"
     .include "ai.s"
+    .include "movers.s"
     .include "enemy.s"
     .include "combat.s"
     .include "link.s"

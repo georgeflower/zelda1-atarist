@@ -17,6 +17,13 @@
     .equ BEH_MOBLIN, 9
     .equ BEH_LYNEL, 10
     .equ BEH_OCTOROK_BLUE, 11
+    .equ BEH_TEKTITE, 12            | the movers of movers.s
+    .equ BEH_LEEVER, 13
+    .equ BEH_ZORA, 14
+    .equ BEH_PEAHAT, 15
+    .equ BEH_GHINI, 16
+    .equ BEH_BOULDER, 17
+    .equ BEH_BOULDER_SET, 18
 
     .equ ENEMY_SHOVE_FRAMES, 16     | 64 pixels at 4 a frame
     .equ MAX_PROJ, 8
@@ -143,7 +150,7 @@ enemy_init_special:
     move.b 0(%a0, %d0.w), OFF_ENEMY_DIR(%a5, %d5.w)
     bra 9f
 6:  cmp.w #BEH_TRAP, %d0
-    bne 9f
+    bne 7f
     lea trap_xs(%pc), %a0           | where InitTrap_Full puts the traps
     move.b 0(%a0, %d5.w), OFF_ENEMY_X(%a5, %d5.w)
     move.b 6(%a0, %d5.w), OFF_ENEMY_Y(%a5, %d5.w)
@@ -151,6 +158,10 @@ enemy_init_special:
     lea OFF_ENEMY_FRAC(%a5), %a0
     clr.b 0(%a0, %d5.w)
     move.b #2, OFF_ENEMY_ACTIVE(%a5, %d5.w)     | alive for good: it never counts as a monster of the room
+    bra 9f
+7:  cmp.w #BEH_TEKTITE, %d0
+    blo 9f
+    bsr mover_init
 9:  movem.l (%sp)+, %d0-%d1/%a0
     rts
 
@@ -844,6 +855,27 @@ boss_ai:
 | Three fireballs aimed at Link, which fan out as they fly.
 boss_fire:
     movem.l %d0-%d4/%d6-%d7/%a0, -(%sp)
+    bsr fireball_aim
+    moveq #0, %d4
+    bsr boss_spawn_fireball
+    moveq #1, %d4
+    bsr boss_spawn_fireball
+    moveq #-1, %d4
+    bsr boss_spawn_fireball
+    movem.l (%sp)+, %d0-%d4/%d6-%d7/%a0
+    rts
+
+| A zora spits a single fireball at Link.
+zora_fire:
+    movem.l %d0-%d4/%d6-%d7/%a0, -(%sp)
+    bsr fireball_aim
+    moveq #0, %d4
+    bsr boss_spawn_fireball
+    movem.l (%sp)+, %d0-%d4/%d6-%d7/%a0
+    rts
+
+| The way from monster d5's mouth to Link: d3 = the directions, d6 = horizontal and d7 = vertical speed.
+fireball_aim:
     moveq #0, %d0
     move.b OFF_LINK_X(%a5), %d0
     moveq #0, %d1
@@ -876,13 +908,6 @@ boss_fire:
 3:  lea fireball_speeds(%pc), %a0
     move.b 8(%a0, %d6.w), %d7       | vertical speed
     move.b 0(%a0, %d6.w), %d6       | horizontal speed
-    moveq #0, %d4
-    bsr boss_spawn_fireball
-    moveq #1, %d4
-    bsr boss_spawn_fireball
-    moveq #-1, %d4
-    bsr boss_spawn_fireball
-    movem.l (%sp)+, %d0-%d4/%d6-%d7/%a0
     rts
 
 | d3 = directions, d6 = horizontal and d7 = vertical speed, d4 = Y drift
@@ -1538,30 +1563,9 @@ keese_ai:
 63: btst #3, %d4
     beq 64f
     subq.w #1, %d3
-64: moveq #0, %d1                           | bounce off the walls of the room
-    move.b OFF_OBJ_LEFT(%a5), %d1
-    cmp.w %d1, %d2
-    bge 65f
-    move.w %d1, %d2
-    eori.b #3, %d4
-65: move.b OFF_OBJ_RIGHT(%a5), %d1
-    cmp.w %d1, %d2
-    ble 66f
-    move.w %d1, %d2
-    eori.b #3, %d4
-66: move.b OFF_OBJ_UP(%a5), %d1
-    cmp.w %d1, %d3
-    bge 67f
-    move.w %d1, %d3
-    eori.b #12, %d4
-67: move.b OFF_OBJ_DOWN(%a5), %d1
-    cmp.w %d1, %d3
-    ble 68f
-    move.w %d1, %d3
-    eori.b #12, %d4
-68: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+64: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
     move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
-    move.b %d4, OFF_ENEMY_DIR(%a5, %d5.w)
+    bsr flyer_bound                             | a bound of the room turns it right round (BoundFlyer)
 99: movem.l (%sp)+, %d0-%d4/%a0-%a1
     rts
 
@@ -1607,48 +1611,7 @@ keese_turn_random:
 
 | Turn a notch towards Link.
 keese_turn_to_link:
-    movem.l %d0-%d4/%a0, -(%sp)
-    moveq #0, %d3
-    moveq #0, %d0
-    move.b OFF_LINK_X(%a5), %d0
-    moveq #0, %d1
-    move.b OFF_ENEMY_X(%a5, %d5.w), %d1
-    cmp.w %d1, %d0
-    beq 1f
-    bhi 11f
-    moveq #DIR_LEFT, %d3
-    bra 1f
-11: moveq #DIR_RIGHT, %d3
-1:  moveq #0, %d0
-    move.b OFF_LINK_Y(%a5), %d0
-    moveq #0, %d1
-    move.b OFF_ENEMY_Y(%a5, %d5.w), %d1
-    cmp.w %d1, %d0
-    beq 2f
-    bhi 21f
-    or.b #DIR_UP, %d3
-    bra 2f
-21: or.b #DIR_DOWN, %d3
-2:  tst.b %d3
-    beq 9f
-    lea keese_dirs(%pc), %a0
-    moveq #7, %d4
-3:  cmp.b 0(%a0, %d4.w), %d3
-    beq 4f
-    dbra %d4, 3b
-    bra 9f
-4:  bsr keese_ring_index
-    sub.w %d0, %d4
-    and.w #7, %d4
-    beq 9f
-    cmp.w #4, %d4
-    bhi 5f
-    addq.w #1, %d0
-    bra 6f
-5:  subq.w #1, %d0
-6:  bsr keese_set_ring
-9:  movem.l (%sp)+, %d0-%d4/%a0
-    rts
+    bra turn_towards8
 
 | ----------------------------------------------------------------------- traps
 | A blade trap waits in its corner (or the middle of a side wall) until Link is
@@ -1976,6 +1939,8 @@ boom_collide:
     beq 7f
     cmp.w #BEH_BOSS, %d0
     beq 7f
+    bsr enemy_untouchable
+    bne 7f
     moveq #0, %d0
     move.b OFF_ENEMY_X(%a5, %d5.w), %d0
     sub.w %d2, %d0
