@@ -862,9 +862,41 @@ def render_metatiles(bundle: AssetBundle) -> bytes:
     )
 
 
+class _TunicPalette:
+    """The palette with Link's first colour (pixel value 1: the green tunic) swapped for a ring's."""
+
+    def __init__(self, palette: PaletteMap, st_index: int | None) -> None:
+        self.palette = palette
+        self.st_index = st_index
+        self.st_colors = palette.st_colors
+
+    def index(self, row: int, pixel: int) -> int:
+        if self.st_index is not None and row == LINK_PALETTE_ROW and pixel == 1:
+            return self.st_index
+        return self.palette.index(row, pixel)
+
+
+def link_tunic_indices(palette: PaletteMap) -> tuple[int | None, int | None, int | None]:
+    """ST palette entries for the tunic with no ring, the blue ring ($32) and the red ring ($16).
+
+    The ROM patches the tunic's colour with LinkColors_CommonCode. The blue is not among the sixteen ST colours
+    (the nearest by value would be the white), so the entry nearest in hue is used: the water's blue.
+    """
+    red = palette.st_colors.index(nes_color_to_st(0x16))
+    blue = min(
+        (i for i, c in enumerate(palette.st_colors) if (c & 7) > (c >> 8) + 2 and (c & 7) >= 4),
+        key=lambda i: abs((palette.st_colors[i] & 7) - 7) + abs(((palette.st_colors[i] >> 4) & 7) - 5),
+    )
+    return (None, blue, red)
+
+
+LINK_TUNIC_SETS = 3     # no ring, blue ring, red ring
+
+
 def render_sprites(bundle: AssetBundle) -> bytes:
     return b"".join(
-        build_sprite_frame(bundle.sprite_tiles, bundle.palette, LINK_PALETTE_ROW, first_tile, flip)
+        build_sprite_frame(bundle.sprite_tiles, _TunicPalette(bundle.palette, tunic), LINK_PALETTE_ROW, first_tile, flip)
+        for tunic in link_tunic_indices(bundle.palette)
         for _, first_tile, flip in LINK_FRAMES
     )
 
@@ -1072,6 +1104,10 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
             format_bytes("room_attr_f", bundle.room_attrs_f),
             "",
             format_bytes("foe_counts", bundle.foe_counts),
+            "",
+            format_bytes("item_slot", bundle.uw.actors.item_slot),
+            "",
+            format_bytes("item_desc", bundle.uw.actors.item_desc),
             "    .align 2",
             "    .section .text",
             "",
@@ -1087,7 +1123,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
         room_bytes={room_bytes}
         metatile_count={metatile_count}
         metatile_bytes={METATILE_BYTES}
-        sprite_frame_count={len(LINK_FRAMES)}
+        sprite_frame_count={len(LINK_FRAMES) * LINK_TUNIC_SETS}
         sprite_frame_bytes={SPRITE_FRAME_BYTES}
         hud_tile_count={len(HUD_GLYPHS)}
         hud_tile_bytes={HUD_TILE_BYTES}

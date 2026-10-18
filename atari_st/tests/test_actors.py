@@ -30,6 +30,31 @@ class ActorTableTests(unittest.TestCase):
             self.assertIsNotNone(match, name)
             self.assertEqual(int(match.group(1)), getattr(actors, f"BEHAVIOUR_{name}"), name)
 
+    def test_b_item_tables_agree_with_the_b_codes(self) -> None:
+        src = Path(__file__).resolve().parents[1] / "src"
+        items = (src / "items.s").read_text(encoding="utf-8")
+        last = int(re.search(r"\.equ B_LAST, (\d+)", items).group(1))
+
+        def bytes_of(label: str, text: str) -> list[int]:
+            block = re.search(rf"^{label}:\n((?:\s+\.byte [^\n]*\n)+)", text, re.M).group(1)
+            return [int(v, 0) for line in block.splitlines() for v in line.split("|")[0].replace(".byte", "").split(",")]
+
+        slots = bytes_of("b_slots", items)
+        self.assertEqual(len(slots), 3 * (last + 1))          # slot, second slot, "both needed" per code
+        icons = bytes_of("b_icons", items)
+        self.assertEqual(len(icons), last + 1)
+        for code in range(1, last + 1):
+            self.assertLess(icons[code], len(actors.HUD_ITEM_IDS))
+            self.assertLess(slots[3 * code], 32)
+            self.assertLess(slots[3 * code + 1], 32)
+        menu = (src / "menu.s").read_text(encoding="utf-8")
+        names = re.search(r"menu_names:\n(.*?)\s+\.align", menu, re.S).group(1)
+        self.assertEqual(len(re.findall(r"\.asciz", names)), last)
+        # a name plus its padding is ten bytes, so menu_draw can index the table by code * 10
+        total = sum(len(m) + 1 for m in re.findall(r'\.asciz "([^"]*)"', names)) + sum(
+            int(n) for n in re.findall(r"\.space (\d+)", names))
+        self.assertEqual(total, 10 * last)
+
     def test_overworld_walkers_are_listed_with_their_data(self) -> None:
         for nes_type in actors.OVERWORLD_MONSTERS:
             self.assertIn(nes_type, actors.MONSTER_TYPES)
@@ -98,7 +123,7 @@ class ActorTableTests(unittest.TestCase):
 
     def test_effect_sprites_have_every_frame_the_game_indexes(self) -> None:
         data = actors.build_placeholder()
-        self.assertEqual(len(data.sword_sprites), 4 * B.SPRITE_FRAME_BYTES)
+        self.assertEqual(len(data.sword_sprites), 16 * B.SPRITE_FRAME_BYTES)  # four directions x (three swords + the rod)
         self.assertEqual(len(data.beam_sprites), 16 * B.SPRITE_FRAME_BYTES)   # direction x palette row
         self.assertEqual(len(data.fx_sprites), 20 * B.SPRITE_FRAME_BYTES)     # 2 clouds, 4 corners x 4 rows, 2 fires
 

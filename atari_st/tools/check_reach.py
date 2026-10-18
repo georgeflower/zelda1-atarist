@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Check that every table the code reaches through the a6 anchor is within 16-bit reach.
+"""Check the tables the code reaches through the a6 anchor.
 
-`ltab sym, %aN` assembles to `lea sym - table_anchor(%a6), %aN`. GNU as accepts displacements up to
-65535 for that field without complaint, so a table that has crept more than 32767 bytes ahead of the
-anchor silently wraps to the wrong address (the overworld then draws garbage). This reads the linked
-ELF's symbols and fails the build when any symbol named in an `ltab` is out of the signed range.
+`ltab sym, %aN` assembles to `move.l #(sym - table_anchor), %aN` and `adda.l %a6, %aN`: a 32-bit distance, so
+the tables may sit anywhere in the image. (It used to be a `lea` with a 16-bit displacement, and a table more
+than 32767 bytes from the anchor silently wrapped to the wrong address.) This reads the linked ELF's symbols,
+fails the build when a symbol named in an `ltab` does not exist, and reports how far the tables spread; it
+fails only if that spread could no longer be a 32-bit distance, and warns when the old 16-bit reach is passed.
 """
 from __future__ import annotations
 
@@ -50,11 +51,9 @@ def main() -> None:
         distance = symbols[name] - anchor
         far_back = min(far_back, distance)
         far_ahead = max(far_ahead, distance)
-        if not -32768 <= distance <= 32767:
-            bad.append(f"{name} ({where}) is {distance:+d} bytes from table_anchor")
     if bad:
-        sys.exit("Tables out of reach of the anchor (move table_anchor or the tables):\n  " + "\n  ".join(bad))
-    print(f"Table reach ok: {len(used)} tables, back {-far_back} / 32768, ahead {far_ahead} / 32767")
+        sys.exit("Tables the code names but the image lacks:\n  " + "\n  ".join(bad))
+    print(f"Tables ok: {len(used)} tables, furthest back {-far_back}, furthest ahead {far_ahead} bytes from table_anchor")
 
 
 if __name__ == "__main__":

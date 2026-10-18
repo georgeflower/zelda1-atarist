@@ -65,7 +65,8 @@ draw_hud_boxes:
     moveq #0, %d0
     move.b OFF_B_ITEM(%a5), %d0
     beq 1f
-    ltab hud_items, %a0         | the pictures are in B item order: sword, bomb, boomerang, candle
+    bsr b_icon                  | its picture in hud_items (a red candle, magic boomerang, red potion differ)
+    ltab hud_items, %a0
     mulu.w #(2 * HUD_TILE_BYTES), %d0
     adda.l %d0, %a0
     moveq #(HUD_B_COL + 1), %d1
@@ -74,9 +75,14 @@ draw_hud_boxes:
     lea HUD_TILE_BYTES(%a0), %a0
     moveq #2, %d2
     bsr draw_hud_tile_ptr
-1:  tst.b OFF_HAS_SWORD(%a5)
+1:  moveq #0, %d0
+    move.b OFF_HAS_SWORD(%a5), %d0
     beq 9f
+    lea a_icons(%pc), %a0
+    move.b -1(%a0, %d0.w), %d0  | the sword's picture by grade
     ltab hud_items, %a0
+    mulu.w #(2 * HUD_TILE_BYTES), %d0
+    adda.l %d0, %a0
     moveq #(HUD_A_COL + 1), %d1
     moveq #1, %d2
     bsr draw_hud_tile_ptr
@@ -85,6 +91,10 @@ draw_hud_boxes:
     bsr draw_hud_tile_ptr
 9:  movem.l (%sp)+, %d0-%d3/%a0
     rts
+
+a_icons:
+    .byte 0, 14, 15, 15             | wooden, white and magic sword in hud_items
+    .align 2
 
 | An empty box whose left edge is column d3.w, labelled with tile d0.w. The
 | ribbon is only three rows high, so there is no bottom edge.

@@ -126,10 +126,17 @@ PERSON_SELECTOR_LABELS = {1: "A", 2: "A", 3: "B", 4: "B", 5: "A", 6: "B", 7: "A"
 # Anim_ItemFrameTiles) that DrawLinkLiftingItem shows while he holds the triforce piece.
 LINK_LIFT_ID = 0x3F
 LINK_LIFT_TILE = 0x78
-ITEM_IDS = (0x00, 0x01, 0x0A, 0x0F, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1D, 0x22, 0x06, LINK_LIFT_ID)
+ITEM_COUNT = 0x24             # every item id of the game: bombs to the fairy
+ITEM_IDS = tuple(range(ITEM_COUNT)) + (LINK_LIFT_ID,)
 BOOMERANG_ITEM = 0x1D
 FIRE_ANIM_INDEX = 0x41
-HUD_ITEM_IDS = (0x01, 0x00, BOOMERANG_ITEM, 0x06, 0x16, 0x17, 0x0A)    # sword, bomb, boomerang, candle, compass, map, bow
+# The status bar and inventory pictures, two 8x8 tiles each. menu.s and hud.s index them: 0-3 are the B item codes
+# of the first four B items (sword, bomb, boomerang, candle), then compass, map and bow, then the rest.
+HUD_ITEM_IDS = (0x01, 0x00, BOOMERANG_ITEM, 0x06, 0x16, 0x17, 0x0A,
+                0x05, 0x04, 0x1F, 0x20, 0x10,         # 7 recorder, 8 food, 9 blue potion, 10 red potion, 11 rod
+                0x1E, 0x07, 0x02, 0x03,               # 12 magic boomerang, 13 red candle, 14 white sword, 15 magic sword
+                0x08, 0x09, 0x0C, 0x11, 0x12, 0x13,   # 16 arrow, 17 silver arrow, 18 raft, 19 book, 20 blue ring, 21 red ring
+                0x0D, 0x0B, 0x14, 0x1C, 0x15)         # 22 ladder, 23 magic key, 24 bracelet, 25 magic shield, 26 letter
 
 UW_SP_COMMON = "dat/CommonSpritePatterns.dat"
 UW_SP_DEMO = "dat/DemoSpritePatterns.dat"
@@ -153,13 +160,15 @@ class ActorData:
     item_index: bytes         # item id (0..63) -> item index, 0xFF for none
     drop_table: bytes
     drop_rates: bytes
-    sword_sprites: bytes      # up, down, left, right
+    sword_sprites: bytes      # up, down, left, right for the wooden, white and magic sword, then the rod
     beam_sprites: bytes       # the sword's shot: up, down, left, right, each in four palette rows
     fx_sprites: bytes         # two bomb clouds, then four spark corners in four palette rows each
     proj_sprites: bytes       # 4 boomerang turns, 2 fireball frames, then 4 pieces for each Aquamentus image
     hud_items: bytes          # sword, bomb, boomerang, candle, compass, map, bow as two status bar tiles each, top then bottom
     room_info: list[bytes]    # ROOM_INFO_BYTES per stored room
     keese_index: int = 0      # monster index of the keese the cellars are full of
+    item_slot: bytes = b""    # ItemIdToSlot: the Items byte an item id goes into
+    item_desc: bytes = b""    # ItemIdToDescriptor: class in the high nibble (0 own, 1 amount, 2 grade), value in the low
     person_text: bytes = b""  # the speeches of the level's dungeon people, appended to the first cave's text
 
 
@@ -290,21 +299,28 @@ def _flip_rows(rows: list[list[int]], h: bool, v: bool) -> list[list[int]]:
     return [r[::-1] for r in rows] if h else rows
 
 
-def _weapon_rows(sp_tiles, bg_tiles, palette, direction: str, row: int) -> list[list[int]]:
+def _weapon_rows(sp_tiles, bg_tiles, palette, direction: str, row: int,
+                 tiles: tuple[int, int] = (SWORD_TILE_VERTICAL, SWORD_TILE_HORIZONTAL)) -> list[list[int]]:
     """The sword (and the shot that copies it) for one direction, as UpdateSwordOrRod flips it."""
     vertical = direction in ("up", "down")
-    tile = SWORD_TILE_VERTICAL if vertical else SWORD_TILE_HORIZONTAL
+    tile = tiles[0] if vertical else tiles[1]
     rows = _item_rows(sp_tiles, bg_tiles, palette, tile, row)
     return _flip_rows(rows, h=direction == "left", v=direction == "down")
 
 
 WEAPON_DIRECTIONS = ("up", "down", "left", "right")
+ROD_TILES = (0x4A, 0x8A)          # the rod's two pictures, Anim_ItemFrameTiles from Anim_ItemFrameOffsets[8]
+SWORD_SETS = 4                    # wooden, white and magic sword, then the rod
 
 
 def _sword_frames(sp_tiles, bg_tiles, palette) -> bytes:
-    """Link's wooden sword (palette row 0 of the sprites) facing up, down, left, right."""
+    """Link's sword facing up, down, left, right: one set a grade (the palette row is the grade - 1, as
+    UpdateSwordOrRod adds it), then the magic rod (its base attribute with bit 0 set: row 5)."""
+    rows = [(B.LINK_PALETTE_ROW, None), (B.LINK_PALETTE_ROW + 1, None), (B.LINK_PALETTE_ROW + 2, None),
+            (B.LINK_PALETTE_ROW + 1, ROD_TILES)]
     return b"".join(
-        _pack_masked(_weapon_rows(sp_tiles, bg_tiles, palette, d, B.LINK_PALETTE_ROW))
+        _pack_masked(_weapon_rows(sp_tiles, bg_tiles, palette, d, row, tiles or (SWORD_TILE_VERTICAL, SWORD_TILE_HORIZONTAL)))
+        for row, tiles in rows
         for d in WEAPON_DIRECTIONS
     )
 
@@ -457,6 +473,8 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         room_info=[_room_info(r, attrs, foe_counts, info, person_offsets.get(r, NO_PERSON)) for r in room_ids],
         person_text=person_blob,
         keese_index=MONSTER_TYPES.index(0x1B),
+        item_slot=bytes(code["slot"][:ITEM_COUNT]),
+        item_desc=bytes(code["descriptor"][:ITEM_COUNT]),
     )
 
 
@@ -672,10 +690,12 @@ def build_placeholder() -> ActorData:
         item_index=bytes([0xFF]) * 64,
         drop_table=bytes(40),
         drop_rates=bytes(4),
-        sword_sprites=frame * 4,
+        sword_sprites=frame * (4 * SWORD_SETS),
         beam_sprites=frame * 16,
         fx_sprites=frame * 20,
         proj_sprites=frame * 32,
-        hud_items=bytes(448),
+        hud_items=bytes(len(HUD_ITEM_IDS) * 2 * B.HUD_TILE_BYTES),
         room_info=[bytes([0, 0, 0xFF, 0, 0, 0] + [0xFF] * 10)],
+        item_slot=bytes(ITEM_COUNT),
+        item_desc=bytes(ITEM_COUNT),
     )

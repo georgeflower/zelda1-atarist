@@ -428,12 +428,20 @@ class RomActorTests(unittest.TestCase):
             self.assertEqual(mask >> 8, int(f"{mask & 255:08b}"[::-1], 2))
 
     def test_inventory_icons_follow_the_b_item_codes_then_compass_and_map(self) -> None:
-        # menu.s indexes hud_items directly: sword, bomb, boomerang, candle (the B codes), then compass, map, bow
-        self.assertEqual(self.actors.HUD_ITEM_IDS[4:], (0x16, 0x17, 0x0A))
-        self.assertEqual(len(self.data.hud_items), len(self.actors.HUD_ITEM_IDS) * 2 * build_assets.HUD_TILE_BYTES)
-        for icon in (4, 5):
+        # items.s (b_icons, a_icons), menu.s (passive_icons) and hud.s index hud_items directly
+        ids = self.actors.HUD_ITEM_IDS
+        self.assertEqual(ids[:4], (0x01, 0x00, 0x1D, 0x06))  # sword, bomb, boomerang, candle: the first B codes
+        self.assertEqual(ids[4:7], (0x16, 0x17, 0x0A))  # compass, map, bow
+        expected = {  # icon index -> item id, as the 68000 tables use them
+            7: 0x05, 8: 0x04, 9: 0x1F, 10: 0x20, 11: 0x10, 12: 0x1E, 13: 0x07, 14: 0x02, 15: 0x03,
+            18: 0x0C, 19: 0x11, 20: 0x12, 21: 0x13, 22: 0x0D, 23: 0x0B, 24: 0x14, 25: 0x1C, 26: 0x15,
+        }
+        for icon, item in expected.items():
+            self.assertEqual(ids[icon], item, f"icon {icon}")
+        self.assertEqual(len(self.data.hud_items), len(ids) * 2 * build_assets.HUD_TILE_BYTES)
+        for icon in range(len(ids)):
             tiles = self.data.hud_items[icon * 64 : (icon + 1) * 64]
-            self.assertTrue(any(tiles[:32]) and any(tiles[32:]) or any(tiles), "the icon is not blank")
+            self.assertTrue(any(tiles), f"icon {icon} is blank")
 
     def test_floor_items_have_art(self) -> None:
         for item_id in self.actors.ITEM_IDS:
