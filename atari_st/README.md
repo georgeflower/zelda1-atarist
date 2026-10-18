@@ -79,8 +79,10 @@ Overworld
 - the game starts just below the first cave; dying refills the hearts and
   returns Link there
 - octoroks, moblins and lynels walk on the screens where the original puts them
-  (they do not shoot yet, and the room-history and edge-spawn rules are not
-  ported); the other overworld monsters are still missing
+  and shoot as in the original (rocks, arrows, the lynel's sword shot; the
+  sword parries rocks and arrows); screens with edge spawns bring the monsters
+  in from the border, and monsters you kill stay dead for a few screens (the
+  original's room history); the other overworld monsters are still missing
 
 Level 1 (underworld)
 
@@ -189,7 +191,7 @@ Things that behave differently from the original, or are stand-ins:
   Level 1
 - `K` is a debug key standing in for the shops and secrets that give keys,
   bombs and the candle
-- the overworld's peahats, leevers, zoras, ghinis, armos, boulders and tektites are not ported, and the walkers do not shoot
+- the overworld's peahats, leevers, zoras, ghinis, armos, boulders and tektites are not ported
 - the inventory screen lists the B items, the compass and the map; the other
   items are not there yet, and the overworld has no map on the ribbon
 - the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed

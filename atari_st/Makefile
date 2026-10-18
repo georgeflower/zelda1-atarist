@@ -21,6 +21,7 @@ TOOLCHAIN_PREFIX ?= m68k-linux-gnu-
 AS := $(TOOLCHAIN_PREFIX)as
 LD := $(TOOLCHAIN_PREFIX)ld
 OBJCOPY := $(TOOLCHAIN_PREFIX)objcopy
+NM := $(TOOLCHAIN_PREFIX)nm
 PYTHON ?= python3
 
 ASFLAGS := -m68000 -I $(GENERATED_DIR) -I $(SRC_DIR)
@@ -92,6 +93,7 @@ $(OBJ): $(SOURCES) $(GENERATED) $(MUSIC_GENERATED) $(MUSIC_PACKED)
 
 $(ELF): $(OBJ) link.ld
 	$(LD) $(LDFLAGS) -o $@ $(OBJ)
+	$(PYTHON) $(TOOLS_DIR)/check_reach.py --nm $(NM) $@ $(SOURCES)
 
 $(BIN): $(ELF)
 	$(OBJCOPY) -O binary $< $@

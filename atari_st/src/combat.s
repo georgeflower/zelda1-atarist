@@ -588,6 +588,7 @@ hit_enemy:
 kill_enemy:
     sfx SFX_MONSTER_DIED
     clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    addq.b #1, OFF_ROOM_KILLS(%a5)         | the screen remembers it (RoomKillCount)
     addq.b #1, OFF_WORLD_KILLS(%a5)
     cmpi.b #HELP_KILLS, OFF_HELP_COUNT(%a5)
     bhs 1f
@@ -812,7 +813,12 @@ hurt_link:
 
 | Out of hearts: full health and back to the start of the overworld.
 link_dies:
-    movem.l %d0-%d1, -(%sp)
+    movem.l %d0-%d1/%a0, -(%sp)
+    lea OFF_ROOM_HIST(%a5), %a0         | ClearRoomHistory: every screen starts afresh
+    moveq #5, %d0
+0:  clr.b (%a0)+
+    dbra %d0, 0b
+    clr.b OFF_ROOM_HIST_I(%a5)
     jingle MUS_DEATH
     moveq #0, %d0
     move.b OFF_HEART_CONTAINERS(%a5), %d0
@@ -841,7 +847,7 @@ link_dies:
     move.b #START_DIR, OFF_LINK_DIR(%a5)
     bsr enter_room
     move.b #1, OFF_HUD_DIRTY(%a5)
-    movem.l (%sp)+, %d0-%d1
+    movem.l (%sp)+, %d0-%d1/%a0
     rts
 
 | ---------------------------------------------------------------------- bombs
