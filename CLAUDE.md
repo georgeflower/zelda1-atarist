@@ -66,7 +66,7 @@ atari_st/                the port
   README.md              user-facing docs: features, known gaps, roadmap, notes
   src/*.s                68000 code (one assembly unit, main.s .includes the rest)
   tools/*.py             asset pipeline, PRG packer, Hatari screenshot harness
-  tests/*.py             unittest suites (99 tests)
+  tests/*.py             unittest suites (106 tests)
   music/                 YM2149 song source (zelda_intro_by_qum.h) + player (ymplay.h)
   build/                 OUTPUT (gitignored): generated/, ZELDAST.PRG, scratch, shots/
 ```
@@ -177,7 +177,7 @@ then says `source=generated placeholder CHR`). With the real ROM it should not a
 `atari_st/tests/` (`test_build_assets.py`, `test_actors.py`, `test_ym_convert.py`,
 `test_nes_music_rip.py` (needs `py65` for the ROM part, `ZELDA_ROM` or `ext/Original.nes`),
 `test_music_player.py` (the packer, and `music.s` run on `machine68k` through `tests/music_harness.s`; needs the m68k binutils and `pip install machine68k`, the real-bank part also the ROM and `py65`),
-...). Run `python -m unittest discover -s atari_st\tests` (99 tests at the time of
+...). Run `python -m unittest discover -s atari_st\tests` (106 tests at the time of
 writing). They cover the asset pipeline and tables; the 68000 music player is the one piece of
 68000 code with unit tests.
 
@@ -251,11 +251,16 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
   the whole run**; read-only tables are reached with the **`ltab sym, %aN`** macro
   (`lea sym - table_anchor(%a6), %aN`). Nothing else may use `a6`.
 - The 68000's signed 16-bit displacement limits table reach to +-32 KB from the
-  anchor. `table_anchor` sits after `uw_rooms` and `item_sprites`: tables before it (assets
-  include, `uw_tiles`, `uw_rooms`, ...) must stay within 32 KB back (about 5 KB
-  slack), `room_maps` (largest, last) must stay within 32 KB ahead (about 3 KB
-  slack). Overflow = assembler "out of range" error. Move tables across the anchor
-  if you add data.
+  anchor. `table_anchor` sits just before `fx_sprites` (in `main.s`): tables before it must stay within
+  32 KB back (about 5 KB slack), `room_maps` (largest, last) within 32 KB ahead (about 6 KB slack).
+  **GNU as does not report overflow: it accepts displacements up to 65535 and wraps them**, so the
+  overworld silently draws garbage. `tools/check_reach.py` (run by the Makefile after linking) fails the
+  build when an `ltab` symbol is out of range; far tables use `adda.l #(sym - table_anchor)` instead
+  (music_drums, music_bank, mon_sprites). Move tables across the anchor if you add data.
+- The same 16-bit PC-relative limit applies from code to `.data`: `_start` reaches `globals` at about
+  31.3 KB of 32.7 KB (about 1.3 KB of code headroom left). `.data` order is `music_old_vbl`, `ikbd_state`,
+  stack, `globals_marker`, `globals`, `ymdrum_code`; keep big things after `globals`. Link error
+  "relocation truncated to fit: R_68K_PC16 against .data" means this budget is spent.
 - `d8(%a5,%dn)` addressing has an **8-bit displacement**: an array indexed that
   way must start below offset 128 (the per-actor arrays are at the front of
   `globals.s`, `ENEMY_STEP` is the last that fits). For anything else `lea` the
@@ -492,13 +497,13 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   draw mode, behaviour. Monsters ported: `06` goriya, `15` gel, `1B` keese, `28` rope, `2A`
   stalfos, `27` wallmaster, `3D` Aquamentus, `49` trap, and the overworld's `01`/`02` lynel,
   `03`/`04` moblin, `07`-`0A` octorok. `mon_art.bin` gives, per monster, the first frame of its
-  art in `mon_sprites` (octoroks have six images). `mon_sprites` is the last table, past the
+  art in `mon_sprites` (octoroks have six images; `proj_sprites` ends with the rock and four arrows, `PF_ROCK`/`PF_ARROW`). `mon_sprites` is the last table, past the
   anchor's reach, found through the `MON_SPR` pointer set by `init_pointers`. The overworld
   has `ow_room_info.bin` (128 x 16 bytes: count, flags, monster indices from byte 6) that
   `spawn_from_record` in `enemy.s` shares with the underworld's `uw_room_info`. Draw modes in `actors.py`
   (`MODE_*`), behaviours `BEH_*` in `ai.s` (keep both in step).
 - Tests parse and recompute these tables, so changing a table size usually needs the test
-  updated (e.g. `proj_sprites` is 27 frames, `fx_sprites` 20, `beam_sprites` 16, `sword_sprites` 4).
+  updated (e.g. `proj_sprites` is 32 frames, `fx_sprites` 20, `beam_sprites` 16, `sword_sprites` 4).
 
 ## 12. How to add things (recipes)
 
@@ -535,7 +540,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 
 ## 14. Status and what is next
 
-Done in Level 1: overworld + first cave, overworld octoroks/moblins/lynels (walking only), doors/keys/shutters/bombable and false walls, stairs +
+Done in Level 1: overworld + first cave, overworld octoroks/moblins/lynels (walking, shooting, edge spawns, kill history), doors/keys/shutters/bombable and false walls, stairs +
 cellar, stalfos/keese/gel/rope/goriya/wallmaster/Aquamentus/blade traps, sword + beam + bombs +
 boomerang + candle, drops with kill counters, knock-back and invincibility, push block, triforce
 ending, map and compass with the dungeon minimap, the old man in room `$41`, HUD with A/B boxes, Tab inventory screen, YM2149 music and sound effects.
@@ -543,7 +548,7 @@ ending, map and compass with the dungeon minimap, the old man in room `$41`, HUD
 Open items (user-visible gaps): the other dungeon people (more bombs, life or money, fireballs from the old man's flames); the overworld map on the
 ribbon; fireball art
 (placeholder); the clock and fairy drops; stairs-type push block (trigger 5, not in Level 1);
-visible block slide animation; the rest of the sound (title, ending, game-over and boss music, DPCM); then the rest of the overworld (the other monsters and the walkers' shooting,
+visible block slide animation; the rest of the sound (title, ending, game-over and boss music, DPCM); then the rest of the overworld (the other monsters,
 shops, caves, secrets), inventory items (bow/arrows, recorder, ladder, raft, rings, ...), other
 eight dungeons, title/game-over/save.
 

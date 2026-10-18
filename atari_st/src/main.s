@@ -822,10 +822,6 @@ uw_rooms:
 item_sprites:
     .incbin "item_sprites.bin"
     .align 2
-table_anchor:
-    | Every table is reached from here by a signed 16-bit displacement, so the
-    | anchor sits in the middle of them: the tables before it are about 32K
-    | back and those after it have the other half to grow into.
 hud_tiles:
     .incbin "hud_tiles.bin"
 link_sprites:
@@ -839,6 +835,10 @@ sword_sprites:
     .incbin "sword_sprites.bin"
 beam_sprites:
     .incbin "beam_sprites.bin"
+table_anchor:
+    | Every table is reached from here by a signed 16-bit displacement, so the
+    | anchor sits in the middle of them. tools/check_reach.py fails the build when a table
+    | is out of reach (the assembler would not notice a table 32768 to 65535 bytes ahead).
 fx_sprites:
     .incbin "fx_sprites.bin"
 proj_sprites:
@@ -897,6 +897,14 @@ mon_sprites:
     | it with a PC-relative lea, which the 68000 limits to a signed 16-bit
     | displacement. It comes first in .data (and .data before the big tables), so
     | it stays in range however large the code grows.
+    | Variables that code near the start of the program reaches go before the stack: the code is
+    | ~27 KB, so anything after the stack would be out of PC-relative reach of it.
+music_old_vbl:
+    .long 0
+    | head, tail, then the ring the IKBD interrupt fills (see ikbd_isr)
+ikbd_state:
+    .space 258
+    .align 2
 stack_bottom:
     .space STACK_BYTES
 stack_top:
@@ -911,9 +919,5 @@ globals:
     .align 2
 ymdrum_code:
     .incbin "music_engine.bin"
-music_old_vbl:
-    .long 0
-    | head, tail, then the ring the IKBD interrupt fills (see ikbd_isr)
-ikbd_state:
-    .space 258
+
 

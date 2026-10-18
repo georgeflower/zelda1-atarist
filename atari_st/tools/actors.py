@@ -421,7 +421,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         sword_sprites=_sword_frames(sp_tiles, bg_tiles, palette),
         beam_sprites=_beam_frames(sp_tiles, bg_tiles, palette),
         fx_sprites=_effect_frames(sp_tiles, bg_tiles, palette, _fire_rows(anim, heap, attr_heap, sp_tiles, palette)),
-        proj_sprites=_projectile_sprites(code, sp_tiles, bg_tiles, palette),
+        proj_sprites=_projectile_sprites(code, sp_tiles, bg_tiles, palette, ow_sp_tiles or sp_tiles, heap, attr_heap, anim),
         hud_items=_hud_items(code, sp_tiles, bg_tiles, palette),
         room_info=[_room_info(r, attrs, foe_counts, info, person_offsets.get(r, NO_PERSON)) for r in room_ids],
         person_text=person_blob,
@@ -474,8 +474,32 @@ def _boss_pieces(sp_tiles, palette) -> list[bytes]:
     return frames
 
 
-def _projectile_sprites(code, sp_tiles, bg_tiles, palette) -> bytes:
-    """Eight boomerang images and its spark, two fireball frames, then the Aquamentus pieces."""
+ROCK_TYPE = 0x53            # the octorok's flying rock
+ARROW_SLOT = 2              # the item slot of the arrow (Anim_ItemFrameOffsets)
+MONSTER_ARROW_ROW = 2       # a monster's arrow adds 2 to the base attribute: palette row 6
+
+
+def _rock_frame(heap, attr_heap, anim, ow_sp_tiles, palette) -> bytes:
+    """The flying rock: image 0 of its animation, always palette row 0, drawn four pixels in (8 wide)."""
+    base = anim[ROCK_TYPE + 1]
+    rows = _monster_image(ow_sp_tiles, palette, B.LINK_PALETTE_ROW, heap[base], "narrow")
+    return _pack_masked(rows)
+
+
+def _arrow_frames(code, sp_tiles, bg_tiles, palette) -> bytes:
+    """A monster's arrow flying up, down, left and right (frame 0 is vertical, frame 1 sideways)."""
+    first = code["offsets"][ARROW_SLOT]
+    row = B.LINK_PALETTE_ROW + MONSTER_ARROW_ROW
+    frames = []
+    for direction in WEAPON_DIRECTIONS:
+        tile = code["tiles"][first + (0 if direction in ("up", "down") else 1)]
+        rows = _item_rows(sp_tiles, bg_tiles, palette, tile, row)
+        frames.append(_pack_masked(_flip_rows(rows, h=direction == "left", v=direction == "down")))
+    return b"".join(frames)
+
+
+def _projectile_sprites(code, sp_tiles, bg_tiles, palette, ow_sp_tiles, heap, attr_heap, anim) -> bytes:
+    """Eight boomerang images and its spark, two fireball frames, the Aquamentus pieces, a rock, four arrows."""
     fire = palette.index(B.LINK_PALETTE_ROW + 2, 3)
     fire_dark = palette.index(B.LINK_PALETTE_ROW + 2, 2)
     frames = _boomerang_frames(code, sp_tiles, bg_tiles, palette)
@@ -487,7 +511,9 @@ def _projectile_sprites(code, sp_tiles, bg_tiles, palette) -> bytes:
                 if distance <= 36:
                     rows[4 + y][4 + x] = fire if (distance <= 16) == (phase == 0) else fire_dark
         frames.append(_pack_masked(rows))
-    return b"".join(frames) + b"".join(_boss_pieces(sp_tiles, palette))
+    return (b"".join(frames) + b"".join(_boss_pieces(sp_tiles, palette))
+            + _rock_frame(heap, attr_heap, anim, ow_sp_tiles, palette)
+            + _arrow_frames(code, sp_tiles, bg_tiles, palette))
 
 
 def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_bytes: int):
@@ -618,7 +644,7 @@ def build_placeholder() -> ActorData:
         sword_sprites=frame * 4,
         beam_sprites=frame * 16,
         fx_sprites=frame * 20,
-        proj_sprites=frame * 27,
+        proj_sprites=frame * 32,
         hud_items=bytes(448),
         room_info=[bytes([0, 0, 0xFF, 0, 0, 0] + [0xFF] * 10)],
     )

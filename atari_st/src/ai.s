@@ -28,6 +28,9 @@
     .equ PK_LBOOM_SPARK, 6          | it hit a wall, or reached its limit
     .equ PK_LBOOM_SLOW, 7           | and hangs about
     .equ PK_LBOOM_BACK, 8           | on its way back to Link
+    .equ PK_ROCK, 9                 | an octorok's rock
+    .equ PK_ARROW, 10               | a moblin's arrow
+    .equ PK_SWORDSHOT, 11           | a lynel's sword shot
 
 | Field offsets from PROJ_KIND; each field is a row of MAX_PROJ bytes.
     .equ PJ_KIND, 0
@@ -51,6 +54,14 @@
     .equ PF_BOOM_SPARK, 8           | frames in proj_sprites: 0-7 the boomerang turning, 8 its spark
     .equ PF_FIREBALL, 9
     .equ PF_BOSS, 11
+    .equ PF_ROCK, 27                | after the 16 boss pieces: the rock, then four arrows (up, down, left, right)
+    .equ PF_ARROW, 28
+    .equ SHOT_LIMIT, 4              | ActiveMonsterShots
+    .equ SHOT_SPEED, 192            | a rock or sword shot flies 3 pixels a frame, an arrow 2
+    .equ ARROW_SPEED, 128
+    .equ SHOT_BOUNCE_FRAMES, 16     | a parried shot is pushed back 2 pixels a frame for this long
+    .equ SHOOT_TIME, 0x30
+    .equ SHOOT_AT, 0x10
     .equ PF_HIDDEN, 0xff
 
     .equ BOOM_SPEED, 3              | pixels a frame out, two coming back
@@ -492,6 +503,113 @@ goriya_throw:
 9:  movem.l (%sp)+, %d0-%d1/%a4
     rts
 
+| ------------------------------------------------------- overworld shooters
+| _TryShooting. An octorok, moblin or lynel that wants to shoot (it has turned toward Link, see
+| wander_tick and goriya_ai) starts a $30-frame pause, standing still, and shoots at $10 if it
+| still wants to. The blue ones (types 1, 3, 9, $A) start the pause as soon as they want to, the red
+| ones only on a roll of $F8 or more. A monster that is hurt does not shoot. A rock flies as an
+| octorok's, an arrow as a moblin's, a sword shot as a lynel's; at most SHOT_LIMIT are in the air.
+|
+| d5 = monster. Returns d0.w = 1 while it must stand still.
+walker_shoot:
+    movem.l %d1-%d4/%a0-%a2, -(%sp)
+    moveq #0, %d0
+    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
+    lsl.w #3, %d0
+    ltab mon_table, %a2
+    move.b 0(%a2, %d0.w), %d2       | the monster's NES type
+    lea OFF_ENEMY_SHOOT(%a5), %a1
+    lea OFF_ENEMY_TURN(%a5), %a0
+    cmp.b #1, %d2
+    beq 1f
+    cmp.b #3, %d2
+    beq 1f
+    cmp.b #9, %d2
+    beq 1f
+    cmp.b #10, %d2
+    beq 1f
+    tst.b 0(%a1, %d5.w)
+    bne 1f                          | already in the middle of one
+    bsr rand8
+    cmp.b #0xf8, %d0
+    blo 8f
+1:  moveq #0, %d1
+    tst.b OFF_ENEMY_HURT(%a5, %d5.w)
+    bne 2f
+    move.b 0(%a1, %d5.w), %d1
+    subq.w #1, %d1
+    bpl 2f
+    tst.b 8(%a0, %d5.w)
+    beq 8f
+    moveq #SHOOT_TIME, %d1
+2:  move.b %d1, 0(%a1, %d5.w)
+    beq 8f
+    cmp.b #SHOOT_AT, %d1
+    bne 7f
+    lea OFF_ENEMY_STUN(%a5), %a1
+    tst.b 0(%a1, %d5.w)
+    bne 7f
+    bsr walker_fire
+    tst.w %d0
+    beq 8f
+    clr.b 8(%a0, %d5.w)
+7:  moveq #1, %d0
+    bra 9f
+8:  moveq #0, %d0
+9:  movem.l (%sp)+, %d1-%d4/%a0-%a2
+    rts
+
+| d5 = the shooter. Launches its shot in the direction it faces from where it stands. Returns
+| d0.w = 1 if there was room for one.
+walker_fire:
+    movem.l %d1-%d3/%a0/%a4, -(%sp)
+    lea OFF_PROJ_KIND(%a5), %a4
+    moveq #0, %d1                   | shots already in the air
+    moveq #0, %d2
+1:  move.b PJ_KIND(%a4, %d2.w), %d3
+    cmp.b #PK_ROCK, %d3
+    blo 2f
+    addq.w #1, %d1
+2:  addq.w #1, %d2
+    cmp.w #MAX_PROJ, %d2
+    blo 1b
+    cmp.w #SHOT_LIMIT, %d1
+    bhs 8f
+    bsr enemy_behaviour             | which shot is the monster's own?
+    move.w #SHOT_SPEED, %d2
+    moveq #PK_ROCK, %d1
+    cmp.w #BEH_MOBLIN, %d0
+    bne 3f
+    moveq #PK_ARROW, %d1
+    move.w #ARROW_SPEED, %d2
+    bra 4f
+3:  cmp.w #BEH_LYNEL, %d0
+    bne 4f
+    moveq #PK_SWORDSHOT, %d1
+4:  bsr proj_alloc
+    tst.w %d0
+    bmi 8f
+    move.b %d1, PJ_KIND(%a4, %d0.w)
+    move.b OFF_ENEMY_X(%a5, %d5.w), PJ_X(%a4, %d0.w)
+    move.b OFF_ENEMY_Y(%a5, %d5.w), PJ_Y(%a4, %d0.w)
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d3
+    move.b %d3, PJ_DIR(%a4, %d0.w)
+    clr.b PJ_FRACX(%a4, %d0.w)
+    clr.b PJ_FRACY(%a4, %d0.w)
+    clr.b PJ_QX(%a4, %d0.w)
+    clr.b PJ_QY(%a4, %d0.w)
+    clr.b PJ_TIMER(%a4, %d0.w)
+    and.b #DIR_VERTICAL, %d3
+    bne 6f
+    move.b %d2, PJ_QX(%a4, %d0.w)
+    bra 7f
+6:  move.b %d2, PJ_QY(%a4, %d0.w)
+7:  moveq #1, %d0
+    bra 9f
+8:  moveq #0, %d0
+9:  movem.l (%sp)+, %d1-%d3/%a0/%a4
+    rts
+
 | ------------------------------------------------------------------ wallmaster
 | Wallmasters wait inside the walls. When Link stands against one they come
 | out in front of him, crawl seven squares along the wall and go back in;
@@ -854,6 +972,8 @@ update_projectiles:
     beq 8f
     cmp.b #PK_PART, %d0
     beq 50f
+    cmp.b #PK_ROCK, %d0
+    bhs 70f
     cmp.b #PK_LBOOM, %d0
     blo 0f
     bsr link_boom_update
@@ -947,10 +1067,80 @@ update_projectiles:
     bra 8f
 
 60: bsr proj_hit_link
+    bra 8f
+
+70: | A monster's shot (rock, arrow, sword shot). Parried, it is pushed back and fades.
+    tst.b PJ_TIMER(%a4, %d7.w)
+    bne 75f
+    bsr proj_move
+    tst.w %d0
+    bne 79f                         | the edge of the room
+    cmpi.b #PK_SWORDSHOT, PJ_KIND(%a4, %d7.w)
+    beq 60b                         | a sword shot flies through walls
+    bsr shot_blocked
+    tst.w %d0
+    bne 79f                         | rocks and arrows stop at a wall
+    bra 60b
+75: addq.b #1, PJ_TIMER(%a4, %d7.w)
+    cmpi.b #(SHOT_BOUNCE_FRAMES + 1), PJ_TIMER(%a4, %d7.w)
+    bhs 79f
+    moveq #0, %d2
+    move.b PJ_X(%a4, %d7.w), %d2
+    moveq #0, %d3
+    move.b PJ_Y(%a4, %d7.w), %d3
+    move.b PJ_OWNER(%a4, %d7.w), %d1    | the way Link faced
+    btst #0, %d1
+    beq 76f
+    addq.w #2, %d2
+76: btst #1, %d1
+    beq 77f
+    subq.w #2, %d2
+77: btst #2, %d1
+    beq 78f
+    addq.w #2, %d3
+78: btst #3, %d1
+    beq 72f
+    subq.w #2, %d3
+72: moveq #0, %d0
+    move.b OFF_OBJ_LEFT(%a5), %d0
+    cmp.w %d0, %d2
+    blt 79f
+    move.b OFF_OBJ_RIGHT(%a5), %d0
+    cmp.w %d0, %d2
+    bgt 79f
+    move.b OFF_OBJ_UP(%a5), %d0
+    cmp.w %d0, %d3
+    blt 79f
+    move.b OFF_OBJ_DOWN(%a5), %d0
+    cmp.w %d0, %d3
+    bgt 79f
+    move.b %d2, PJ_X(%a4, %d7.w)
+    move.b %d3, PJ_Y(%a4, %d7.w)
+    bra 8f
+79: clr.b PJ_KIND(%a4, %d7.w)
 8:  addq.w #1, %d7
     cmp.w #MAX_PROJ, %d7
     blo 1b
     movem.l (%sp)+, %d0-%d7/%a0-%a4
+    rts
+
+| Is the tile a rock or arrow (projectile d7) has run into a wall? Like Link's shot, the leading
+| edge counts: 8 pixels past the origin going right or down. Returns d0.w = 1 when blocked.
+shot_blocked:
+    movem.l %d1-%d3, -(%sp)
+    moveq #0, %d2
+    move.b PJ_X(%a4, %d7.w), %d2
+    moveq #0, %d3
+    move.b PJ_Y(%a4, %d7.w), %d3
+    move.b PJ_DIR(%a4, %d7.w), %d1
+    btst #0, %d1
+    beq 1f
+    addq.w #8, %d2
+1:  btst #2, %d1
+    beq 2f
+    addq.w #8, %d3
+2:  bsr enemy_blocked_at
+    movem.l (%sp)+, %d1-%d3
     rts
 
 | Move projectile d7 by its speeds. Returns d0.w = 1 when it reached the edge
@@ -1052,6 +1242,8 @@ proj_hit_link:
     neg.w %d1
 3:  cmp.w #PROJ_RANGE, %d1
     bhs 9f
+    cmp.b #PK_ROCK, %d3
+    bhs shot_meets_link
     bsr link_shove_from             | d0 = its X, d2 = its Y
     moveq #1, %d1
     cmp.b #PK_FIREBALL, %d3
@@ -1067,6 +1259,39 @@ proj_hit_link:
     clr.b PJ_KIND(%a4, %d7.w)
     bra 9f
 5:  move.b #PK_RETURNING, PJ_KIND(%a4, %d7.w)
+9:  movem.l (%sp)+, %d0-%d3
+    rts
+
+| A monster's shot (d3 = its kind) has reached Link, who is not invincible. Rocks and arrows
+| bounce off him when he stands idle facing them; anything else costs hearts (a rock or
+| arrow half a heart, a sword shot two) and is gone.
+shot_meets_link:
+    tst.b OFF_ATTACK(%a5)
+    bne 5f                          | not idle: no parrying
+    cmp.b #PK_SWORDSHOT, %d3
+    beq 5f                          | only the magic shield stops a sword shot
+    move.b OFF_LINK_DIR(%a5), %d1
+    or.b PJ_DIR(%a4, %d7.w), %d1
+    and.b #0x0c, %d1
+    cmp.b #0x0c, %d1
+    beq 4f
+    move.b OFF_LINK_DIR(%a5), %d1
+    or.b PJ_DIR(%a4, %d7.w), %d1
+    and.b #0x03, %d1
+    cmp.b #0x03, %d1
+    bne 5f                          | not facing each other
+4:  move.b OFF_LINK_DIR(%a5), PJ_OWNER(%a4, %d7.w)  | the way it is pushed back
+    move.b #1, PJ_TIMER(%a4, %d7.w)
+    bra 9f
+5:  bsr link_shove_from
+    moveq #1, %d1
+    cmp.b #PK_SWORDSHOT, %d3
+    bne 6f
+    moveq #4, %d1
+6:  movem.l %d7/%a4, -(%sp)
+    bsr hurt_link
+    movem.l (%sp)+, %d7/%a4
+    clr.b PJ_KIND(%a4, %d7.w)
 9:  movem.l (%sp)+, %d0-%d3
     rts
 
@@ -1096,6 +1321,8 @@ draw_projectiles:
     beq 8f
     cmp.b #PK_PART, %d0
     beq 5f
+    cmp.b #PK_ROCK, %d0
+    bhs 20f
     cmp.b #PK_LBOOM_SPARK, %d0
     bne 3f
     moveq #PF_BOOM_SPARK, %d0
@@ -1112,6 +1339,45 @@ draw_projectiles:
     add.w #PF_FIREBALL, %d1
     move.w %d1, %d0
     bra 6f
+20: | a monster's shot: which way it points picks the picture
+    move.b PJ_DIR(%a4, %d7.w), %d3
+    moveq #0, %d5                   | 0 up, 1 down, 2 left, 3 right
+    btst #3, %d3
+    bne 21f
+    moveq #1, %d5
+    btst #2, %d3
+    bne 21f
+    moveq #2, %d5
+    btst #1, %d3
+    bne 21f
+    moveq #3, %d5
+21: moveq #0, %d1
+    move.b PJ_X(%a4, %d7.w), %d1
+    moveq #0, %d2
+    move.b PJ_Y(%a4, %d7.w), %d2
+    cmp.b #PK_ROCK, %d0
+    bne 22f
+    move.w #PF_ROCK, %d0
+    ltab proj_sprites, %a0
+    bra 25f
+22: cmp.w #2, %d5
+    blo 23f
+    addq.w #3, %d2                  | a sideways shot is drawn three pixels lower
+23: cmp.b #PK_ARROW, %d0
+    bne 24f
+    move.w %d5, %d0
+    add.w #PF_ARROW, %d0
+    ltab proj_sprites, %a0
+    bra 25f
+24: move.w %d5, %d0                 | a sword shot: the beam's picture, a palette row a frame
+    lsl.w #2, %d0
+    move.w OFF_FRAME_COUNTER(%a5), %d3
+    and.w #3, %d3
+    add.w %d3, %d0
+    ltab beam_sprites, %a0
+25: mulu.w #SPRITE_FRAME_BYTES, %d0
+    adda.l %d0, %a0
+    bra 63f
 5:  moveq #0, %d0
     move.b PJ_TIMER(%a4, %d7.w), %d0
     cmp.w #PF_HIDDEN, %d0
@@ -1123,7 +1389,7 @@ draw_projectiles:
     move.b PJ_X(%a4, %d7.w), %d1
     moveq #0, %d2
     move.b PJ_Y(%a4, %d7.w), %d2
-    bsr sprite_offset
+63: bsr sprite_offset
     tst.w %d4
     bmi 8f
     move.w %d7, %d0

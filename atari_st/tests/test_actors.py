@@ -60,9 +60,26 @@ class ActorTableTests(unittest.TestCase):
 
     def test_projectile_sprites_cover_shots_and_the_boss(self) -> None:
         data = actors.build_placeholder()
-        # 8 boomerang turns and its spark, 2 fireball frames, 4 images of 4 boss pieces.
-        self.assertEqual(len(data.proj_sprites), 27 * B.SPRITE_FRAME_BYTES)
+        # 8 boomerang turns and its spark, 2 fireball frames, 4 images of 4 boss pieces, a rock, 4 arrows.
+        self.assertEqual(len(data.proj_sprites), 32 * B.SPRITE_FRAME_BYTES)
         self.assertEqual(len(data.mon_table) % 8, 0)
+
+    def test_shot_frames_follow_the_boss_pieces_in_proj_sprites(self) -> None:
+        source = (Path(__file__).resolve().parents[1] / "src" / "ai.s").read_text(encoding="utf-8")
+        equ = {name: int(value) for name, value in re.findall(r"\.equ (\w+), (\d+)", source)}
+        self.assertEqual(equ["PF_ARROW"], equ["PF_ROCK"] + 1)
+        # rock + four arrows are the last five frames of the 32-frame table
+        self.assertEqual(equ["PF_ARROW"] + 4, 32)
+        self.assertEqual((equ["PK_ROCK"], equ["PK_ARROW"], equ["PK_SWORDSHOT"]), (9, 10, 11))
+        self.assertEqual(equ["SHOT_LIMIT"], 4)
+        # the sword shot flies as fast as the rock, the arrow slower (1/64 px per frame)
+        self.assertEqual((equ["SHOT_SPEED"], equ["ARROW_SPEED"]), (192, 128))
+
+    def test_the_reach_check_finds_ltab_symbols(self) -> None:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+        import check_reach
+        self.assertEqual(check_reach.LTAB.match("    ltab room_maps, %a0 | note").group(1), "room_maps")
+        self.assertIsNone(check_reach.LTAB.match("    lea room_maps(%pc), %a0"))
 
     def test_effect_sprites_have_every_frame_the_game_indexes(self) -> None:
         data = actors.build_placeholder()

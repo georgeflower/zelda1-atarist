@@ -247,12 +247,25 @@
     galign
     gvar ENEMY_TURN, 8         | frames until a wanderer may turn toward Link again (ObjTurnTimer)
     gvar ENEMY_WANT, 8         | a goriya that has Link in range (ObjWantsToShoot)
+    gvar ENEMY_SHOOT, 8        | an overworld walker's shooting timer: $30 down to 0, it shoots at $10 (ObjShootTimer)
     gvar LIFT_TIMER, 1         | frames left of Link holding a new weapon up (ItemLiftTimer)
     gvar INV_BOW, 1            | he has the bow (InvBow); arrows are not in yet, so it only shows on the Tab screen
 
     gvar PAL_LEVEL, 1          | the level whose palette the ST is showing (0 = overworld); palette_sync follows OFF_LEVEL
 
+    gvar ROOM_HIST, 6          | the last six overworld screens entered (RoomHistory)
+    gvar ROOM_HIST_I, 1        | where the next one goes (CurRoomHistoryIndex)
+    gvar ROOM_KILLS, 1         | monsters killed on this screen so far (RoomKillCount)
+    gvar ROOM_OBJ, 1           | how many monsters this screen started with (RoomObjCount)
+    gvar SPAWNED_ROOM, 1       | the overworld screen whose monsters are on show
+    gvar SPAWNED_VALID, 1      | SPAWNED_ROOM holds one
+    gvar EDGE_PENDING, 1       | monsters still to walk in from the edge of the screen
+    gvar EDGE_NEXT, 1          | the slot the next one takes
+    gvar EDGE_TIMER, 1         | tenths of a second until the next one comes (MonstersFromEdgesLongTimer)
+    gvar EDGE_CELL, 1          | the last edge square a monster came in at (CurEdgeSpawnCell), 0 = the first one, $40
+    gvar OW_KILLS, 128         | per overworld screen, low three bits: kills remembered (the room flags' kill count)
     galign
+    gvar EDGE_REC, 4           | the record of the screen whose monsters are coming in from the edge
     gvar MON_SPR, 4            | the monster pictures (mon_sprites), found at start-up: see init_pointers
 
     .equ GLOBALS_BYTES, gvar_offset
