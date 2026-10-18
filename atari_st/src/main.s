@@ -18,10 +18,12 @@
     .endif
 
 | A6 holds table_anchor for the whole run. The read-only tables total more than
-| a signed 16-bit PC-relative displacement can reach from the code, so they are
-| addressed as signed offsets from an anchor placed in the middle of them.
+| a signed 16-bit displacement can reach, so a table is found as the anchor plus a 32-bit
+| link-time distance (twelve cycles more than a lea with a 16-bit displacement, and no limit on how
+| far from the anchor, or from each other, the tables may sit). The condition codes are untouched.
     .macro ltab sym, reg
-    lea \sym - table_anchor(%a6), \reg
+    move.l #(\sym - table_anchor), \reg
+    adda.l %a6, \reg
     .endm
 
 | Sound: sfx plays an effect over the music, jingle an event song that replaces it
@@ -356,6 +358,7 @@ init_buffers:
 | Render the current room into bg_cur and show it.
 enter_room:
     clr.b OFF_COMMIT(%a5)
+    clr.b OFF_INV_CLOCK(%a5)            | the clock lasts until he leaves the screen (ResetPlayerState)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
     movea.l OFF_BG_CUR(%a5), %a1
@@ -762,6 +765,8 @@ update_play:
 4:  rts
 3:
     bsr uw_person_update
+    bsr items_update
+    bsr chase_target_update
     bsr update_enemies
     bsr update_combat
     bsr update_projectiles
@@ -786,17 +791,13 @@ update_play:
     .include "movers.s"
     .include "enemy.s"
     .include "combat.s"
-    .include "link.s"
-    .include "uw.s"
-    .include "hud.s"
-    .include "menu.s"
+    .include "items.s"
 
-| ---------------------------------------------------------------------------
     | room_palette is the first read-only table and close enough for a PC-relative
     | lea from here; the anchor in the middle of the tables is then a link-time constant
-    | away. This routine sits after all the other code (link.ld places .text.late
-    | right after .text) so that code size never pushes room_palette out of reach.
-    .section .text.late, "ax"
+    | away. This routine sits in the middle of the code: game_start reaches it by a
+    | 16-bit branch and it reaches room_palette by a 16-bit displacement, however large the code grows
+    | (up to 64 KB).
 init_anchor:
     lea room_palette(%pc), %a6
     adda.l #(table_anchor - room_palette), %a6
@@ -809,6 +810,13 @@ init_pointers:
     adda.l #(mon_sprites - table_anchor), %a0
     move.l %a0, OFF_MON_SPR(%a5)
     rts
+
+    .include "link.s"
+    .include "uw.s"
+    .include "hud.s"
+    .include "menu.s"
+
+| ---------------------------------------------------------------------------
 
     .section .rodata
     .align 2

@@ -115,6 +115,10 @@ draw_link:
     beq 4f
     moveq #LINK_FRAME_DOWN_A, %d0
 4:  add.b OFF_LINK_ANIM_FRAME(%a5), %d0
+    moveq #0, %d1
+    move.b OFF_INV_RING(%a5), %d1    | the ring's tunic: three sets of eight frames
+    lsl.w #3, %d1
+    add.w %d1, %d0
     mulu.w #SPRITE_FRAME_BYTES, %d0
     ltab link_sprites, %a0
     adda.l %d0, %a0

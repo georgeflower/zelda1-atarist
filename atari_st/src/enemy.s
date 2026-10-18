@@ -437,7 +437,9 @@ update_enemies:
     bsr enemy_shove
     bra 8f
 
-2:  lea OFF_ENEMY_STUN(%a5), %a0
+2:  tst.b OFF_INV_CLOCK(%a5)
+    bne 8f                      | the clock: every monster stands still
+    lea OFF_ENEMY_STUN(%a5), %a0
     tst.b 0(%a0, %d5.w)
     beq 29f
     subq.b #1, 0(%a0, %d5.w)    | stunned: it does nothing at all

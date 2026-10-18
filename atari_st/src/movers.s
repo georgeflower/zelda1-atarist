@@ -452,14 +452,14 @@ flyer_control:
 turn_towards8:
     movem.l %d0-%d4/%d6-%d7/%a0, -(%sp)
     moveq #0, %d4                       | the direction to Link
-    move.b OFF_LINK_X(%a5), %d0
+    move.b OFF_CHASE_X(%a5), %d0
     cmp.b OFF_ENEMY_X(%a5, %d5.w), %d0
     beq 1f
     bhi 11f
     moveq #DIR_LEFT, %d4
     bra 1f
 11: moveq #DIR_RIGHT, %d4
-1:  move.b OFF_LINK_Y(%a5), %d0
+1:  move.b OFF_CHASE_Y(%a5), %d0
     cmp.b OFF_ENEMY_Y(%a5, %d5.w), %d0
     beq 2f
     bhi 21f

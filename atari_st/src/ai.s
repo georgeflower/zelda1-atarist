@@ -38,6 +38,9 @@
     .equ PK_ROCK, 9                 | an octorok's rock
     .equ PK_ARROW, 10               | a moblin's arrow
     .equ PK_SWORDSHOT, 11           | a lynel's sword shot
+    .equ PK_LARROW, 12              | Link's arrow
+    .equ PK_LARROW_SPARK, 13        | it struck something
+    .equ PK_LMAGIC, 14              | the rod's magic shot
 
 | Field offsets from PROJ_KIND; each field is a row of MAX_PROJ bytes.
     .equ PJ_KIND, 0
@@ -72,6 +75,7 @@
     .equ PF_HIDDEN, 0xff
 
     .equ BOOM_SPEED, 3              | pixels a frame out, two coming back
+    .equ BOOM_MAGIC_FRAMES, 85
     .equ BOOM_OUT_FRAMES, 17        | about 49 pixels, the wooden boomerang's reach
     .equ BOOM_SPARK_FRAMES, 3
     .equ BOOM_SLOW_FRAMES, 16
@@ -268,7 +272,7 @@ wander_tick:
     cmp.b %d0, %d4
     blo 5f                          | rolled over the rate: only the timer can turn it
     moveq #0, %d1
-    move.b OFF_LINK_X(%a5), %d1
+    move.b OFF_CHASE_X(%a5), %d1
     moveq #0, %d2
     move.b OFF_ENEMY_X(%a5, %d5.w), %d2
     sub.w %d2, %d1
@@ -277,7 +281,7 @@ wander_tick:
 2:  cmp.w #9, %d1
     blo 20f                         | in his column: turn vertically
     moveq #0, %d1
-    move.b OFF_LINK_Y(%a5), %d1
+    move.b OFF_CHASE_Y(%a5), %d1
     moveq #0, %d2
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
     sub.w %d2, %d1
@@ -292,13 +296,13 @@ wander_tick:
     and.b #DIR_VERTICAL, %d0
     bne 30f                         | it was going up or down: now sideways
 20: moveq #DIR_UP, %d0              | toward Link, up or down
-    move.b OFF_LINK_Y(%a5), %d1
+    move.b OFF_CHASE_Y(%a5), %d1
     cmp.b OFF_ENEMY_Y(%a5, %d5.w), %d1
     blo 40f
     moveq #DIR_DOWN, %d0
     bra 40f
 30: moveq #DIR_RIGHT, %d0           | toward Link, left or right
-    move.b OFF_LINK_X(%a5), %d1
+    move.b OFF_CHASE_X(%a5), %d1
     cmp.b OFF_ENEMY_X(%a5, %d5.w), %d1
     bhs 40f
     moveq #DIR_LEFT, %d0
@@ -431,12 +435,12 @@ goriya_ai:
     beq 6f                          | between squares: the wish stays as it was
     clr.b 8(%a0, %d5.w)
     moveq #0, %d1
-    move.b OFF_LINK_X(%a5), %d1
+    move.b OFF_CHASE_X(%a5), %d1
     moveq #0, %d2
     move.b OFF_ENEMY_X(%a5, %d5.w), %d2
     sub.w %d2, %d1                  | d1 = how far right of the goriya Link is
     moveq #0, %d3
-    move.b OFF_LINK_Y(%a5), %d3
+    move.b OFF_CHASE_Y(%a5), %d3
     moveq #0, %d2
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
     sub.w %d2, %d3                  | d3 = how far below
@@ -580,6 +584,8 @@ walker_fire:
 1:  move.b PJ_KIND(%a4, %d2.w), %d3
     cmp.b #PK_ROCK, %d3
     blo 2f
+    cmp.b #PK_SWORDSHOT, %d3
+    bhi 2f                          | Link's own shots do not count
     addq.w #1, %d1
 2:  addq.w #1, %d2
     cmp.w #MAX_PROJ, %d2
@@ -997,7 +1003,11 @@ update_projectiles:
     beq 8f
     cmp.b #PK_PART, %d0
     beq 50f
-    cmp.b #PK_ROCK, %d0
+    cmp.b #PK_LARROW, %d0
+    blo 0f
+    bsr lshot_update                | Link's arrow or magic shot
+    bra 8f
+0:  cmp.b #PK_ROCK, %d0
     bhs 70f
     cmp.b #PK_LBOOM, %d0
     blo 0f
@@ -1241,6 +1251,8 @@ proj_hit_link:
     movem.l %d0-%d3, -(%sp)
     tst.b OFF_LINK_HURT(%a5)
     bne 9f
+    tst.b OFF_INV_CLOCK(%a5)
+    bne 9f
     tst.b OFF_LINK_HELD(%a5)
     bne 9f
     move.b PJ_KIND(%a4, %d7.w), %d3
@@ -1269,7 +1281,11 @@ proj_hit_link:
     bhs 9f
     cmp.b #PK_ROCK, %d3
     bhs shot_meets_link
-    bsr link_shove_from             | d0 = its X, d2 = its Y
+    cmp.b #PK_FIREBALL, %d3
+    bne 31f
+    tst.b OFF_INV_MAGIC_SHIELD(%a5) | the magic shield stops fireballs too
+    bne shot_meets_link
+31: bsr link_shove_from             | d0 = its X, d2 = its Y
     moveq #1, %d1
     cmp.b #PK_FIREBALL, %d3
     beq 4f
@@ -1293,8 +1309,16 @@ proj_hit_link:
 shot_meets_link:
     tst.b OFF_ATTACK(%a5)
     bne 5f                          | not idle: no parrying
-    cmp.b #PK_SWORDSHOT, %d3
+    cmp.b #PK_ROCK, %d3
+    bhs 51f
+    cmp.b #PK_FIREBALL, %d3
+    bne 5f
+    bra 52f                         | (a fireball only gets here with the shield)
+51: cmp.b #PK_SWORDSHOT, %d3
+    bne 52f
+    tst.b OFF_INV_MAGIC_SHIELD(%a5)
     beq 5f                          | only the magic shield stops a sword shot
+52:
     move.b OFF_LINK_DIR(%a5), %d1
     or.b PJ_DIR(%a4, %d7.w), %d1
     and.b #0x0c, %d1
@@ -1305,7 +1329,12 @@ shot_meets_link:
     and.b #0x03, %d1
     cmp.b #0x03, %d1
     bne 5f                          | not facing each other
-4:  move.b OFF_LINK_DIR(%a5), PJ_OWNER(%a4, %d7.w)  | the way it is pushed back
+4:  sfx SFX_PARRY
+    cmp.b #PK_FIREBALL, %d3
+    bne 41f
+    clr.b PJ_KIND(%a4, %d7.w)       | a fireball just goes out
+    bra 9f
+41: move.b OFF_LINK_DIR(%a5), PJ_OWNER(%a4, %d7.w)  | the way it is pushed back
     move.b #1, PJ_TIMER(%a4, %d7.w)
     bra 9f
 5:  bsr link_shove_from
@@ -1346,7 +1375,15 @@ draw_projectiles:
     beq 8f
     cmp.b #PK_PART, %d0
     beq 5f
-    cmp.b #PK_ROCK, %d0
+    cmp.b #PK_LARROW, %d0
+    blo 19f
+    cmp.b #PK_LARROW_SPARK, %d0         | Link's arrow and magic shot borrow the monsters' pictures
+    bne 18f
+    moveq #PF_BOOM_SPARK, %d0
+    bra 6f
+18: bsr lshot_picture
+    bra 20f
+19: cmp.b #PK_ROCK, %d0
     bhs 20f
     cmp.b #PK_LBOOM_SPARK, %d0
     bne 3f
@@ -1764,9 +1801,12 @@ throw_boomerang:
     movem.l %d0-%d3/%a4, -(%sp)
     lea OFF_PROJ_KIND(%a5), %a4
     moveq #(MAX_PROJ - 1), %d0
-1:  cmpi.b #PK_LBOOM, 0(%a4, %d0.w)
-    bhs 9f                          | only one at a time
-    dbra %d0, 1b
+1:  move.b 0(%a4, %d0.w), %d1
+    cmp.b #PK_LBOOM, %d1
+    blo 2f
+    cmp.b #PK_LBOOM_BACK, %d1
+    bls 9f                          | only one at a time
+2:  dbra %d0, 1b
     bsr proj_alloc
     tst.w %d0
     bmi 9f
@@ -1793,7 +1833,11 @@ throw_boomerang:
     move.b %d1, PJ_X(%a4, %d3.w)
     move.b %d2, PJ_Y(%a4, %d3.w)
     move.b %d0, PJ_DIR(%a4, %d3.w)
-    move.b #BOOM_OUT_FRAMES, PJ_TIMER(%a4, %d3.w)
+    moveq #BOOM_OUT_FRAMES, %d0
+    tst.b OFF_INV_MAGIC_BOOMERANG(%a5)
+    beq 6f
+    moveq #BOOM_MAGIC_FRAMES, %d0       | BoomerangLimits: $31 for the wooden one, $FF for the magic one
+6:  move.b %d0, PJ_TIMER(%a4, %d3.w)
     sfx SFX_ARROW
 9:  movem.l (%sp)+, %d0-%d3/%a4
     rts

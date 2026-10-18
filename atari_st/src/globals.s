@@ -80,14 +80,35 @@
     gvar EXIT_REQUESTED, 1
     gvar HEART_CONTAINERS, 1
     gvar HP_HALVES, 1           | Link's life in half hearts
+    gvar HIT_DAMAGE, 1          | hits' worth of the blow hit_enemy is about to deal; 0 means one
+    gvar HP_FRAC, 1             | how far below that count he really is, in 128ths of a half heart (a ring halves the blows)
     gvar INV_RUPEES, 1
     gvar INV_KEYS, 1
-    gvar INV_BOMBS, 1
     gvar HOTSPOT_TILE, 1
     gvar CAVE_SOURCE_ROOM, 1
     gvar CAVE_DOOR_X, 1
     gvar ENEMY_COUNT, 1
-    gvar HAS_SWORD, 1
+    gvar ITEMS, 32              | the original's Items block, one byte per item slot (sword grade, bombs, ...)
+    .equ OFF_HAS_SWORD, OFF_ITEMS + 0           | sword grade: 0 none, 1 wood, 2 white, 3 magic
+    .equ OFF_INV_BOMBS, OFF_ITEMS + 1
+    .equ OFF_INV_ARROW, OFF_ITEMS + 2           | 0 none, 1 wooden, 2 silver
+    .equ OFF_INV_BOW, OFF_ITEMS + 3
+    .equ OFF_INV_CANDLE, OFF_ITEMS + 4          | 1 blue (once a screen), 2 red
+    .equ OFF_INV_RECORDER, OFF_ITEMS + 5
+    .equ OFF_INV_FOOD, OFF_ITEMS + 6
+    .equ OFF_INV_POTION, OFF_ITEMS + 7          | 0 none, 1 blue, 2 red (two bottles at most)
+    .equ OFF_INV_ROD, OFF_ITEMS + 8
+    .equ OFF_INV_RAFT, OFF_ITEMS + 9
+    .equ OFF_INV_BOOK, OFF_ITEMS + 10
+    .equ OFF_INV_RING, OFF_ITEMS + 11           | 0 none, 1 blue, 2 red
+    .equ OFF_INV_LADDER, OFF_ITEMS + 12
+    .equ OFF_INV_MAGIC_KEY, OFF_ITEMS + 13
+    .equ OFF_INV_BRACELET, OFF_ITEMS + 14
+    .equ OFF_INV_LETTER, OFF_ITEMS + 15
+    .equ OFF_INV_CLOCK, OFF_ITEMS + 21          | the clock: monsters freeze until Link leaves the screen
+    .equ OFF_INV_BOOMERANG, OFF_ITEMS + 29
+    .equ OFF_INV_MAGIC_BOOMERANG, OFF_ITEMS + 30
+    .equ OFF_INV_MAGIC_SHIELD, OFF_ITEMS + 31
     gvar ATTACK, 1              | frames left of a sword swing
     gvar SWORD_VALID, 1
     gvar SPACE_HELD, 1
@@ -219,8 +240,6 @@
     galign
     gvar OLD_IKBD_VEC, 4       | TOS' own IKBD interrupt handler
 
-    gvar INV_BOOMERANG, 1
-    gvar INV_CANDLE, 1
     gvar B_ITEM, 1             | what the B button uses: 0 nothing, 1 bombs, 2 boomerang, 3 candle
     gvar CANDLE_USED, 1        | the candle can be lit once in a room
     gvar MENU_KEYS, 1          | keys the inventory screen saw last frame: 1 tab, 2 left, 4 right
@@ -249,7 +268,6 @@
     gvar ENEMY_WANT, 8         | a goriya that has Link in range (ObjWantsToShoot)
     gvar ENEMY_SHOOT, 8        | an overworld walker's shooting timer: $30 down to 0, it shoots at $10 (ObjShootTimer)
     gvar LIFT_TIMER, 1         | frames left of Link holding a new weapon up (ItemLiftTimer)
-    gvar INV_BOW, 1            | he has the bow (InvBow); arrows are not in yet, so it only shows on the Tab screen
 
     gvar PAL_LEVEL, 1          | the level whose palette the ST is showing (0 = overworld); palette_sync follows OFF_LEVEL
 
@@ -278,6 +296,13 @@
     gvar RED_LEEVERS, 1        | ActiveRedLeeverCount
     gvar ZORA_ACTIVE, 1        | ZoraActive
     gvar BOULDERS, 1           | ActiveBoulders
+    gvar ATTACK_ROD, 1         | the swing is the rod's
+    gvar HEART_FILL, 1         | a potion is filling his hearts
+    gvar HEART_FILL_T, 1
+    gvar FLUTE_TIMER, 1        | the recorder's tune is playing
+    gvar FOOD_TIMER, 1         | the food is on the floor
+    gvar CHASE_X, 1            | ChaseTargetX/Y: Link, or the food
+    gvar CHASE_Y, 1
     galign
     gvar EDGE_REC, 4           | the record of the screen whose monsters are coming in from the edge
     gvar MON_SPR, 4            | the monster pictures (mon_sprites), found at start-up: see init_pointers
