@@ -331,9 +331,16 @@ def main() -> None:
               f"{i:02x}:{ram[globals_addr + layout['OW_KILLS'] + i]:#04x}" for i in range(128)
               if ram[globals_addr + layout['OW_KILLS'] + i]))
     count = ram[globals_addr + layout["ENEMY_COUNT"]]
+    def enemy_byte(name, i):
+        return ram[globals_addr + layout[name] + i]
+
     print("ENEMIES " + " ".join(
-        f"({ram[globals_addr + layout['ENEMY_X'] + i]:#04x},{ram[globals_addr + layout['ENEMY_Y'] + i]:#04x})"
+        f"[{i}:({enemy_byte('ENEMY_X', i):#04x},{enemy_byte('ENEMY_Y', i):#04x}) t={enemy_byte('ENEMY_TYPE', i):02x} "
+        f"s={enemy_byte('ENEMY_STATE', i):02x} tm={enemy_byte('ENEMY_TIMER', i):02x} hp={enemy_byte('ENEMY_HP', i):02x} "
+        f"a={enemy_byte('ENEMY_ACTIVE', i)}]"
         for i in range(count)))
+    if "ZORA_ACTIVE" in layout:
+        print(f"ZORA_ACTIVE={ram[globals_addr + layout['ZORA_ACTIVE']]} BOULDERS={ram[globals_addr + layout['BOULDERS']]}")
     # Opened door masks of the rooms either side of the first locked door of Level 1.
     print(f"UW_OPEN[0x73]={ram[globals_addr + layout['UW_OPEN'] + 0x73]:#04x} "
           f"UW_OPEN[0x63]={ram[globals_addr + layout['UW_OPEN'] + 0x63]:#04x}")

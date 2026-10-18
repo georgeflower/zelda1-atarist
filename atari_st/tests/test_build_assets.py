@@ -334,8 +334,8 @@ class RomActorTests(unittest.TestCase):
         self.assertEqual(len(self.data.mon_art), count * 2)
         for index, nes_type in enumerate(self.actors.MONSTER_TYPES):
             start = int.from_bytes(self.data.mon_art[index * 2 : index * 2 + 2], "big")
-            images = self.actors.MONSTER_DRAW[nes_type][1]
-            used = self.actors.OCTOROK_IMAGES if images == self.actors.OCTOROK_IMAGES else self.actors.MONSTER_IMAGES
+            _, images, mode = self.actors.MONSTER_DRAW[nes_type]
+            used = images if mode in self.actors.FRAME_MODES or images == self.actors.OCTOROK_IMAGES else self.actors.MONSTER_IMAGES
             self.assertLessEqual(start + used * 2, frames, nes_type)
 
     def test_the_slow_and_fast_octorok_share_their_art(self) -> None:

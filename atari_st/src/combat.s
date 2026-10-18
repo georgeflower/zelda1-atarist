@@ -263,6 +263,10 @@ beam_update:
     beq 7f
     tst.b OFF_ENEMY_HURT(%a5, %d6.w)
     bne 7f
+    exg %d5, %d6
+    bsr enemy_untouchable
+    exg %d5, %d6
+    bne 7f
     moveq #0, %d0
     move.b OFF_ENEMY_X(%a5, %d6.w), %d0
     sub.w %d4, %d0
@@ -543,6 +547,8 @@ sword_hits:
     beq 8f
     tst.b OFF_ENEMY_HURT(%a5, %d5.w)
     bne 8f
+    bsr enemy_untouchable
+    bne 8f                      | burrowed, submerged or flying high: the blade passes through
     moveq #0, %d3
     move.b OFF_ENEMY_X(%a5, %d5.w), %d3
     sub.w %d1, %d3
@@ -588,8 +594,11 @@ hit_enemy:
 kill_enemy:
     sfx SFX_MONSTER_DIED
     clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    bsr mover_died                          | a red leever stops being counted; a zora's death is not the screen's
+    tst.w %d0
+    beq 0f
     addq.b #1, OFF_ROOM_KILLS(%a5)         | the screen remembers it (RoomKillCount)
-    addq.b #1, OFF_WORLD_KILLS(%a5)
+0:    addq.b #1, OFF_WORLD_KILLS(%a5)
     cmpi.b #HELP_KILLS, OFF_HELP_COUNT(%a5)
     bhs 1f
     addq.b #1, OFF_HELP_COUNT(%a5)
@@ -691,6 +700,9 @@ enemy_contact:
     lea OFF_ENEMY_STUN(%a5), %a0
     tst.b 0(%a0, %d5.w)
     bne 8f                      | a stunned monster does no harm
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    btst #1, 0(%a0, %d5.w)
+    bne 8f                      | nor does one under the ground or the water
     moveq #0, %d3
     move.b OFF_ENEMY_X(%a5, %d5.w), %d3
     moveq #0, %d0
@@ -739,7 +751,12 @@ link_knockback:
     moveq #0, %d2
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
     bsr link_shove_from
-    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
+    bsr enemy_behaviour
+    cmp.w #BEH_GHINI, %d0
+    beq 1f
+    cmp.w #BEH_TEKTITE, %d0
+    bhs 9f                      | jumpers, flyers and burrowers keep their way
+1:  move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
     move.b %d0, %d2
     and.b #(DIR_RIGHT + DIR_DOWN), %d0
     add.b %d0, %d0
@@ -1061,6 +1078,8 @@ bomb_hurt_enemies:
     beq 4f
     tst.b OFF_ENEMY_HURT(%a5, %d5.w)
     bne 4f
+    bsr enemy_untouchable
+    bne 4f
     moveq #0, %d1
     move.b OFF_CLOUD_X(%a5), %d1
     moveq #0, %d2
@@ -1263,6 +1282,8 @@ fire_update:
     tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
     beq 29f
     tst.b OFF_ENEMY_HURT(%a5, %d5.w)
+    bne 29f
+    bsr enemy_untouchable
     bne 29f
     moveq #0, %d0
     move.b OFF_ENEMY_X(%a5, %d5.w), %d0

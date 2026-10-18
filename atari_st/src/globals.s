@@ -264,6 +264,20 @@
     gvar EDGE_TIMER, 1         | tenths of a second until the next one comes (MonstersFromEdgesLongTimer)
     gvar EDGE_CELL, 1          | the last edge square a monster came in at (CurEdgeSpawnCell), 0 = the first one, $40
     gvar OW_KILLS, 128         | per overworld screen, low three bits: kills remembered (the room flags' kill count)
+    | The movers (movers.s): per-monster fields of tektites, boulders, leevers, zoras and peahats. They are
+    | one block so clear_enemies can wipe them together; the four counters follow the eight rows.
+    gvar ENEMY_GHOST, 8        | bit 0: weapons pass through it; bit 1: it does Link no harm (burrowed, submerged, flying high)
+    gvar ENEMY_ANIMC, 8        | animation counter (ObjAnimCounter)
+    gvar ENEMY_ANIMF, 8        | animation frame, 0 or 1 (ObjAnimFrame)
+    gvar ENEMY_JY, 8           | a jumper's vertical speed, whole pixels (signed)
+    gvar ENEMY_JF, 8           | and its fraction
+    gvar ENEMY_REV, 8          | how many jumps in a row ran into a room bound (Jumper_ObjReversalCount)
+    gvar ENEMY_TGT, 8          | where the jump is to land (Jumper_ObjTargetY)
+    gvar ENEMY_DIST, 8         | a flyer's distance travelled (Flyer_ObjDistTraveled)
+    gvar RED_LEEVER_LONG, 1    | RedLeeverLongTimer, in tenths of a second
+    gvar RED_LEEVERS, 1        | ActiveRedLeeverCount
+    gvar ZORA_ACTIVE, 1        | ZoraActive
+    gvar BOULDERS, 1           | ActiveBoulders
     galign
     gvar EDGE_REC, 4           | the record of the screen whose monsters are coming in from the edge
     gvar MON_SPR, 4            | the monster pictures (mon_sprites), found at start-up: see init_pointers

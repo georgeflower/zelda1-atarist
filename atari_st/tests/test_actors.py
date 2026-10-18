@@ -24,7 +24,8 @@ class ActorTableTests(unittest.TestCase):
     def test_behaviour_numbers_match_the_assembly_equates(self) -> None:
         source = (Path(__file__).resolve().parents[1] / "src" / "ai.s").read_text(encoding="utf-8")
         for name in ("WANDER", "ROPE", "GORIYA", "WALLMASTER", "BOSS", "KEESE", "TRAP", "GEL",
-                     "OCTOROK", "MOBLIN", "LYNEL", "OCTOROK_BLUE"):
+                     "OCTOROK", "MOBLIN", "LYNEL", "OCTOROK_BLUE", "TEKTITE", "LEEVER", "ZORA",
+                     "PEAHAT", "GHINI", "BOULDER", "BOULDER_SET"):
             match = re.search(rf"\.equ BEH_{name}, (\d+)", source)
             self.assertIsNotNone(match, name)
             self.assertEqual(int(match.group(1)), getattr(actors, f"BEHAVIOUR_{name}"), name)
@@ -46,6 +47,20 @@ class ActorTableTests(unittest.TestCase):
         # a single type fills the whole count: four red octoroks
         self.assertEqual(actors.overworld_room_types(lists, 0x07 | (1 << 6), 0x00, foe_counts), [0x07] * 4)
         self.assertEqual(actors.overworld_room_types(lists, 0x00, 0x00, foe_counts), [])
+
+    def test_the_movers_are_listed_with_their_behaviours_and_damage(self) -> None:
+        for nes_type, behaviour in ((0x0D, actors.BEHAVIOUR_TEKTITE), (0x0E, actors.BEHAVIOUR_TEKTITE),
+                                    (0x0F, actors.BEHAVIOUR_LEEVER), (0x10, actors.BEHAVIOUR_LEEVER),
+                                    (0x11, actors.BEHAVIOUR_ZORA), (0x1A, actors.BEHAVIOUR_PEAHAT),
+                                    (0x21, actors.BEHAVIOUR_GHINI), (0x20, actors.BEHAVIOUR_BOULDER),
+                                    (0x1F, actors.BEHAVIOUR_BOULDER_SET)):
+            self.assertIn(nes_type, actors.OVERWORLD_MONSTERS)
+            self.assertEqual(actors.MONSTER_BEHAVIOUR[nes_type], behaviour, hex(nes_type))
+        # ObjTypeToDamagePoints: the boulder set hurts nobody, peahats and zoras one half heart
+        self.assertEqual(actors.MONSTER_DAMAGE[0x1F], 0)
+        self.assertEqual(actors.MONSTER_DAMAGE[0x1A], 1)
+        self.assertEqual(actors.MONSTER_DAMAGE[0x21], 2)
+        self.assertIn(0x1A, actors.MONSTER_FLYERS)
 
     def test_a_placeholder_has_a_picture_start_for_every_monster(self) -> None:
         data = actors.build_placeholder()

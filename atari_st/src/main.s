@@ -176,9 +176,15 @@
     .equ BP_BSS_LEN, 28
     .equ BASEPAGE_BYTES, 256
 
-    .section .text
+    | The image starts with .data (variables and stack, see link.ld), then the code, so the first
+    | instruction is this jump over them.
+    .section .text.boot, "ax"
     .globl _start
 _start:
+    bra.w game_start
+
+    .section .text
+game_start:
     lea globals(%pc), %a5
     | The table anchor is set up by a routine at the very end of the code (init_anchor),
     | which is the only place close enough to the tables for a PC-relative lea: code,
@@ -770,17 +776,20 @@ update_play:
     bra present_frame
 
 
+    | input.s, music.s and video.s reach .data (in front of the code) by PC-relative displacements, so
+    | they come first; the rest only uses a5 and may grow without limit but the 16-bit branches.
+    .include "input.s"
+    .include "music.s"
     .include "video.s"
     .include "sprite.s"
     .include "ai.s"
+    .include "movers.s"
     .include "enemy.s"
     .include "combat.s"
     .include "link.s"
     .include "uw.s"
     .include "hud.s"
     .include "menu.s"
-    .include "input.s"
-    .include "music.s"
 
 | ---------------------------------------------------------------------------
     | room_palette is the first read-only table and close enough for a PC-relative
@@ -893,18 +902,10 @@ mon_sprites:
 
     .section .data
     .align 2
-    | The stack lives in .data rather than after .rodata because _start reaches
-    | it with a PC-relative lea, which the 68000 limits to a signed 16-bit
-    | displacement. It comes first in .data (and .data before the big tables), so
-    | it stays in range however large the code grows.
-    | Variables that code near the start of the program reaches go before the stack: the code is
-    | ~27 KB, so anything after the stack would be out of PC-relative reach of it.
-music_old_vbl:
-    .long 0
-    | head, tail, then the ring the IKBD interrupt fills (see ikbd_isr)
-ikbd_state:
-    .space 258
-    .align 2
+    | .data is the first thing in the image (link.ld), so code reaches it with PC-relative
+    | displacements as long as it lies within 32 KB of it. The stack is only used by _start, so it
+    | goes first; what the rest of the code touches by PC (ikbd_state, music_old_vbl, the digidrum
+    | engine) goes after it, nearest to the code.
 stack_bottom:
     .space STACK_BYTES
 stack_top:
@@ -914,10 +915,13 @@ globals_marker:
     .ascii "ZELDAST1"
 globals:
     .space GLOBALS_BYTES
-
+    .align 2
+music_old_vbl:
+    .long 0
+    | head, tail, then the ring the IKBD interrupt fills (see ikbd_isr)
+ikbd_state:
+    .space 258
     | The digidrum engine writes to itself, so it has to live in RAM.
     .align 2
 ymdrum_code:
     .incbin "music_engine.bin"
-
-

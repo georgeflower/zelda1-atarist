@@ -968,6 +968,8 @@ def underworld_equates(uw) -> list[str]:
         f".equ CELLAR_COUNT, {len(uw.cellar_info)}",
         f".equ CELLAR_INFO_BYTES, {underworld.CELLAR_INFO_BYTES}",
         f".equ MON_KEESE, {uw.actors.keese_index}",
+        f".equ MON_BOULDER, {uw.actors.mon_index[0x20]}",
+        f".equ MON_ZORA, {uw.actors.mon_index[0x11]}",
         f".equ DEV_START_UW, {int(os.environ.get('ZELDA_START_UW', '0xFF'), 0)}",
     ]
 
