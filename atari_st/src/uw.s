@@ -739,10 +739,12 @@ uw_try_door:
     bne 9f                          | already opened
     cmpi.b #4, %d6
     beq 8f                          | bombable: needs a bomb
+    tst.b OFF_INV_MAGIC_KEY(%a5)
+    bne 22f                         | the magic key opens every door and is never used up
     tst.b OFF_INV_KEYS(%a5)
     beq 8f
     subq.b #1, OFF_INV_KEYS(%a5)
-    bsr uw_open_door_pair
+22: bsr uw_open_door_pair
     move.b #1, OFF_HUD_DIRTY(%a5)
     bsr uw_redraw_room
     bra 8f

@@ -277,6 +277,81 @@ class RomAllDungeonsTests(unittest.TestCase):
             self.assertIn(uw.triforce_room, stored, level)
             self.assertIn(uw.start_room, stored, level)
 
+    STEP = (1, -1, 16, -16)
+    OPPOSITE = (1, 0, 3, 2)
+
+    def _reach(self, uw, opened):
+        """The rooms Link gets to from the start through the doors (E, W, S, N) and the tunnels, with these locked doors open."""
+        def door(room, direction):
+            return uw.door_types[uw.room_index[room]][direction]
+
+        tunnels = [(c[0], c[1]) for c in uw.cellar_info if c[0] < 128 and c[1] < 128]
+        seen, todo = {uw.start_room}, [uw.start_room]
+        while todo:
+            room = todo.pop()
+            for direction in range(4):
+                kind = door(room, direction)
+                target = room + self.STEP[direction]
+                if kind == 1 or not 0 <= target < 128 or uw.room_index[target] == 0xFF:
+                    continue
+                if direction < 2 and target // 16 != room // 16:
+                    continue
+                pair = frozenset(((room, direction), (target, self.OPPOSITE[direction])))
+                if kind in (5, 6) and pair not in opened:
+                    continue
+                if target not in seen:
+                    seen.add(target)
+                    todo.append(target)
+            for a, b in tunnels:
+                for here, there in ((a, b), (b, a)):
+                    if room == here and there not in seen:
+                        seen.add(there)
+                        todo.append(there)
+        return seen
+
+    def _locked_pairs(self, uw):
+        pairs = set()
+        for room in range(128):
+            if uw.room_index[room] == 0xFF:
+                continue
+            for direction in range(4):
+                target = room + self.STEP[direction]
+                if uw.door_types[uw.room_index[room]][direction] in (5, 6) and 0 <= target < 128:
+                    pairs.add(frozenset(((room, direction), (target, self.OPPOSITE[direction]))))
+        return pairs
+
+    def test_every_room_of_every_dungeon_can_be_reached_through_its_doors(self) -> None:
+        for level, count in self.ROOMS.items():
+            uw = self.bundle.levels[level - 1]
+            everything = self._reach(uw, self._locked_pairs(uw))
+            self.assertEqual(len(everything), count, (level, sorted(map(hex, everything))))
+
+    def test_the_keys_of_levels_one_to_eight_are_enough_to_open_every_room(self) -> None:
+        # Level 9 has sixteen locked doors and four keys: it is the magic key's level
+        for level in range(1, 9):
+            uw = self.bundle.levels[level - 1]
+            locked = sorted(self._locked_pairs(uw), key=sorted)
+            keys_in = lambda rooms: sum(
+                1 for r in rooms if uw.actors.room_info[uw.room_index[r]][2] == 0x19
+            ) + sum(1 for c in uw.cellar_info if c[3] == 0x19 and (c[0] in rooms or c[1] in rooms))
+            best, todo, done = 0, [frozenset()], set()
+            while todo:
+                opened = todo.pop()
+                if opened in done:
+                    continue
+                done.add(opened)
+                reached = self._reach(uw, opened)
+                best = max(best, len(reached))
+                if keys_in(reached) - len(opened) > 0:
+                    todo.extend(opened | {pair} for pair in locked
+                                if pair not in opened and any(room in reached for room, _ in pair))
+            self.assertEqual(best, self.ROOMS[level], level)
+
+    def test_level_nine_needs_the_magic_key_and_nothing_else_for_its_doors(self) -> None:
+        uw = self.bundle.levels[8]
+        self.assertGreater(len(self._locked_pairs(uw)), sum(
+            1 for r in range(128) if uw.room_index[r] != 0xFF and uw.actors.room_info[uw.room_index[r]][2] == 0x19))
+
     def test_no_room_of_any_dungeon_holds_an_unported_monster(self) -> None:
         for level in self.ROOMS:
             uw = self.bundle.levels[level - 1]
