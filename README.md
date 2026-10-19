@@ -1,6 +1,8 @@
 # The Legend of Zelda for Atari ST
 
-A native Atari ST port of The Legend of Zelda, built around aldonunez's Zelda 1 disassembly. It produces a stock TOS `.PRG` for a 512KB Atari ST (320x200, 16 colours) that runs in Hatari, and reads its graphics, rooms, palettes and text from a ROM image you supply yourself (`ext/Original.nes`, never committed).
+A native Atari ST port of The Legend of Zelda, built around aldonunez's Zelda 1 disassembly. It produces a stock TOS `.PRG` for a 512KB Atari ST (320x200, 16 colours) that runs in Hatari, and reads all of its graphics, room layouts, palettes and text from a ROM you supply yourself.
+
+This repository's full feature list, known gaps, roadmap, build notes and testing details live in [`atari_st/README.md`](atari_st/README.md). The detailed implementation plan is in [`atari_st/PLAN.md`](atari_st/PLAN.md).
 
 ## Status
 
@@ -15,7 +17,7 @@ An early but playable slice, not yet a complete game: the whole overworld and th
 - open the inventory screen and choose the B item
 - find the map and the compass and read the dungeon minimap on the ribbon and on the inventory screen
 - meet the old man in the first dungeon's room `$41` and read his hint
-- hear the music and sound effects, ripped from the ROM's own sound engine at build time: overworld, dungeon and Level 9 themes, the item and triforce fanfares, Link's death jingle, and effects for hits, bombs, kills, rupees, keys, hearts and opening shutters
+- hear the music and sound effects, ripped from the ROM's own sound engine at build time: overworld, dungeon and Level 9 themes, the item and triforce fanfares, Link's death jingle, and effects for sword, boomerang, flame, bomb, stairs, pickups, hurt, the low-life beep, menu clicks and cave text
 
 **Not there yet:** the other dungeon people, the old man's fireballs, the title, ending and game-over music, boss roars, the real overworld monsters, other caves and shops, and the other eight dungeons.
 
@@ -32,7 +34,7 @@ An early but playable slice, not yet a complete game: the whole overworld and th
 
 ## Project layout
 
-- `atari_st/` - the Atari ST port: 68000 source, the ROM-to-ST asset pipeline, tests and a headless Hatari test harness. Its `README.md` has the full feature list, known gaps and roadmap
+- `atari_st/` - the Atari ST port: 68000 source, the ROM-to-ST asset pipeline, tests and a headless Hatari test harness. Its [`README.md`](atari_st/README.md) has the full feature list, known gaps and roadmap
 - `src/` - the original Zelda 1 disassembly, kept as the reference for the port
 - `ext/` - where you put your own ROM image; it is gitignored
 - `AGENTS.md` / `CLAUDE.md` - the briefing for contributors and AI assistants: exact toolchain, testing, references, code conventions
@@ -46,8 +48,8 @@ make -C atari_st all
 make -C atari_st check
 ```
 
-See `atari_st/README.md` for prerequisites, Hatari launch and the test harness.
+See [`atari_st/README.md`](atari_st/README.md) for prerequisites, Hatari launch and the test harness.
 
 ## Credits
 
-Built from aldonunez’s labelled Zelda 1 disassembly and camthesaxman’s zeldasource, cross-checked against the zeldadungeon.net walkthrough, with the graphics, rooms and music read from a ROM you supply yourself, and structure borrowed from my own Quanoid Atari ST code and YM2149 player, tested in Hatari.
+Built from aldonunez’s labelled Zelda 1 disassembly and camthesaxman’s zeldasource, cross-checked against the zeldadungeon.net walkthrough, with the graphics, rooms and music read from a ROM you supply yourself.
