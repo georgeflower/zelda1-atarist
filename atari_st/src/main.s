@@ -852,11 +852,20 @@ update_scroll_far:
     bra update_scroll
 uw_render_current_far:
     bra uw_render_current
+enter_cave_far:
+    bra enter_cave
+erase_cave_fires_far:
+    bra erase_cave_fires
+cave_check_taken_far:
+    bra cave_check_taken
+draw_cave_fires_far:
+    bra draw_cave_fires
 
     .include "link.s"
     .include "uw.s"
     .include "hud.s"
     .include "menu.s"
+    .include "bosses.s"
 
 | ---------------------------------------------------------------------------
 

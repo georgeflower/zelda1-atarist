@@ -631,8 +631,10 @@ hit_enemy:
     cmp.w #BEH_DODONGO, %d0
     beq 5f                              | nor a Dodongo, except by the sword when a bomb has stunned it
     cmp.w #BEH_MOLDORM, %d0
+    beq 61f
+    cmp.w #BEH_MANHANDLA, %d0
     bne 6f
-    clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | a Moldorm segment is hurt but not knocked about
+61: clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | a Moldorm segment or a Manhandla hand is hurt but not knocked about
 6:  movem.l (%sp)+, %d0/%a0
     bra 1f
 5:  movem.l (%sp)+, %d0/%a0

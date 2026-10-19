@@ -341,5 +341,6 @@
     gvar LINK_EATEN, 1         | a like-like has him: he cannot walk, but he can swing
     gvar EATER, 1              | the like-like's slot
     gvar EATEN_FRAMES, 1       | frames since it caught him, to the shield's loss
+    gvar BOSS_BUSY, 1          | a boss is putting its pieces down: they are not bosses themselves
     galign
     .equ GLOBALS_BYTES, gvar_offset

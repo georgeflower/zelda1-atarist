@@ -150,10 +150,15 @@ spawn_counted:                  | d1 = how many
     moveq #1, %d2
     lsl.b %d0, %d2
     move.b %d2, OFF_ENEMY_DIR(%a5, %d5.w)
+    move.b %d5, %d0
+    addq.b #1, %d0
+    move.b %d0, OFF_ENEMY_COUNT(%a5)    | a boss that puts down more pieces needs this one counted
     bsr enemy_init_special
     addq.w #1, %d5
     bra 1b
-8:  move.b %d5, OFF_ENEMY_COUNT(%a5)
+8:  cmp.b OFF_ENEMY_COUNT(%a5), %d5     | (the pieces a boss made are counted already)
+    bls 9b
+    move.b %d5, OFF_ENEMY_COUNT(%a5)
     bra 9b
 
 | ModifyObjCountByHistoryOW. d0 = the screen, a1 = its record. Returns d1.w = the number of monsters

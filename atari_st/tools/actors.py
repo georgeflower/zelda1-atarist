@@ -24,7 +24,9 @@ MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
                  # the wizzrobes, bubbles and gibdos
                  0x0B, 0x0C, 0x12, 0x13, 0x16, 0x17, 0x23, 0x24, 0x2B, 0x30,
                  # the red keese a vire leaves behind
-                 0x1C)
+                 0x1C,
+                 # Manhandla (one object per hand and a base)
+                 0x3C)
 # The ones of them that live on the overworld: lynels (blue, red), moblins (blue, red) and octoroks
 # (red slow, red fast, blue slow, blue fast). Their art comes from the overworld's sprite pattern table.
 OVERWORLD_MONSTERS = (0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A,
@@ -48,7 +50,7 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
                   # a bubble at $40; the vire and gibdo at the default $20; pols voice, the like-like and
                   # the wizzrobes move by their own rules
                   0x0B: 2, 0x0C: PERIOD_PATTERN + 1, 0x12: 2, 0x13: PERIOD_PATTERN, 0x16: 2, 0x17: 2,
-                  0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1}
+                  0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1, 0x3C: 1}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
                   # ObjTypeToDamagePoints: blue lynel $02 (two hearts), red lynel $01, the rest $80
@@ -60,7 +62,9 @@ MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2,
                   0x05: 2, 0x31: 2, 0x32: 2, 0x41: 1,
                   # ObjTypeToDamagePoints: darknuts $01 and $02, vire and zol $01, pols voice $02, like-like $01,
                   # blue wizzrobe $02 and red $01, a bubble none, gibdo $02
-                  0x0B: 2, 0x0C: 4, 0x12: 2, 0x13: 2, 0x16: 4, 0x17: 2, 0x23: 4, 0x24: 2, 0x2B: 0, 0x30: 4, 0x1C: 1}
+                  0x0B: 2, 0x0C: 4, 0x12: 2, 0x13: 2, 0x16: 4, 0x17: 2, 0x23: 4, 0x24: 2, 0x2B: 0, 0x30: 4, 0x1C: 1,
+                  # Manhandla $01
+                  0x3C: 2}
 # What hurts a monster: the bits of the original's damage types ($01 sword, $02 boomerang (it stuns), $04 arrow,
 # $08 bomb, $10 magic, $20 fire) that its ObjInvincibilityMask leaves, and bit 7 for the darknuts' shield, which
 # turns a sword aside when the two face each other. Anything not listed is hurt by all six.
@@ -71,16 +75,18 @@ MONSTER_HURT = {
     0x16: 0x45,         # pols voice: $FE, but an arrow kills it
     0x23: 0x09, 0x24: 0x09,                                 # wizzrobes: $F6
     0x3D: 0x1D,         # Aquamentus: $E2, no boomerang or fire
+    0x3C: 0x1D,         # Manhandla's hands: $E2 too (the base is made proof against everything in dmon.s)
 }
 # Keese ignore walls and blocks and are only held in by the room edges.
-MONSTER_FLYERS = (0x1B, 0x1A, 0x1C)
+MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C)
 
 # What the game does with a monster every frame, besides drawing it.
 (BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS,
  BEHAVIOUR_KEESE, BEHAVIOUR_TRAP, BEHAVIOUR_GEL, BEHAVIOUR_OCTOROK, BEHAVIOUR_MOBLIN,
  BEHAVIOUR_LYNEL, BEHAVIOUR_OCTOROK_BLUE, BEHAVIOUR_TEKTITE, BEHAVIOUR_LEEVER, BEHAVIOUR_ZORA,
  BEHAVIOUR_PEAHAT, BEHAVIOUR_GHINI, BEHAVIOUR_BOULDER, BEHAVIOUR_BOULDER_SET,
- BEHAVIOUR_DODONGO, BEHAVIOUR_MOLDORM, BEHAVIOUR_POLS, BEHAVIOUR_WIZZROBE, BEHAVIOUR_BUBBLE) = range(24)
+ BEHAVIOUR_DODONGO, BEHAVIOUR_MOLDORM, BEHAVIOUR_POLS, BEHAVIOUR_WIZZROBE, BEHAVIOUR_BUBBLE,
+ BEHAVIOUR_MANHANDLA) = range(25)
 MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
                       0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP,
                       0x15: BEHAVIOUR_GEL, 0x01: BEHAVIOUR_LYNEL, 0x02: BEHAVIOUR_LYNEL,
@@ -91,7 +97,7 @@ MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIO
                       0x21: BEHAVIOUR_GHINI, 0x20: BEHAVIOUR_BOULDER, 0x1F: BEHAVIOUR_BOULDER_SET,
                       0x05: BEHAVIOUR_GORIYA, 0x31: BEHAVIOUR_DODONGO, 0x32: BEHAVIOUR_DODONGO,
                       0x41: BEHAVIOUR_MOLDORM, 0x16: BEHAVIOUR_POLS, 0x23: BEHAVIOUR_WIZZROBE,
-                      0x24: BEHAVIOUR_WIZZROBE, 0x2B: BEHAVIOUR_BUBBLE,
+                      0x24: BEHAVIOUR_WIZZROBE, 0x2B: BEHAVIOUR_BUBBLE, 0x3C: BEHAVIOUR_MANHANDLA,
                       # the darknuts, gibdo, vire, zol and like-like walk like a stalfos (turn rate $80) or a gel
                       0x13: BEHAVIOUR_GEL, 0x1C: BEHAVIOUR_KEESE}
 
@@ -125,7 +131,8 @@ MODE_ZOL = 20       # two images, swapped every eight frames
 MODE_LIKELIKE = 21  # four images, one every eight frames
 MODE_WIZZROBE = 22  # side/down in two steps, then up in two
 MODE_BUBBLE = 23    # one picture in each of the four sprite palette rows, a new row every frame
-FRAME_MODES = (MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
+MODE_MANHANDLA = 24  # eight images: hand up (2), hand to the side (2), the body (2), hand down (2)
+FRAME_MODES = (MODE_MANHANDLA, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
                MODE_DARKNUT, MODE_VIRE, MODE_ZOL, MODE_LIKELIKE, MODE_WIZZROBE, MODE_BUBBLE)
 MONSTER_DRAW = {
     0x06: ("wide", 4, MODE_WALKER),
@@ -168,6 +175,7 @@ MONSTER_DRAW = {
     0x2B: ("wide", 4, MODE_BUBBLE),
     0x30: ("wide", 1, MODE_STALFOS),
     0x1C: ("mirror", 2, MODE_KEESE),
+    0x3C: (("mirror", "mirror", "wide", "wide", "mirror", "mirror"), 8, MODE_MANHANDLA),
 }
 # UpdateMoldorm draws every segment as the fireball tile $44 in palette row 2, and Dodongo_Draw uses row 3.
 MONSTER_TILE_ROW = {0x31: (None, 3), 0x32: (None, 3), 0x41: (0x44, 2)}
@@ -448,6 +456,17 @@ def _octorok_images(tiles, palette, anim_base: int, heap, attr_heap) -> list[lis
     return images
 
 
+def _manhandla_images(tiles, palette, base, heap, attr_heap, layouts) -> list:
+    """Frames 0-5 of Manhandla's animation (hand up, hand to the side, the body, two each), then the up hand turned
+    over for the hand below."""
+    images = []
+    for frame in range(6):
+        row = B.LINK_PALETTE_ROW + (attr_heap[base + frame] & 3)
+        images.append(_monster_image(tiles, palette, row, heap[base + frame], layouts[frame]))
+    images.extend(images[0:2][i][::-1] for i in range(2))
+    return images
+
+
 def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, attrs, info, ow_sp_tiles=None,
                  text_base: int | None = None) -> ActorData:
     asm1 = (source_root / "src" / "Z_01.asm").read_text(encoding="utf-8", errors="replace")
@@ -491,6 +510,8 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             tiles = ow_sp_tiles
         if mode == MODE_OCTOROK:
             images = _octorok_images(tiles, palette, base, heap, attr_heap)
+        elif mode == MODE_MANHANDLA:
+            images = _manhandla_images(tiles, palette, base, heap, attr_heap, layout)
         else:
             images = []
             for image in range(image_count if mode in FRAME_MODES else MONSTER_IMAGES):
