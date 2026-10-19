@@ -19,6 +19,10 @@ version they belong to. The current version is **0.31**.
   entrance square at once (the ROM shows four black tiles until the screen is laid out again); armos stay with M4.
 - Seven new golden scenes (`ow_bomb_wall`, `ow_bomb_miss`, `ow_tree_burnt`, `ow_rock_pushed`, `ow_rock_no_bracelet`,
   `ow_grave_pushed`, `ow_grave_returns`) and five unit tests.
+- Fix, Ganon's death (checked in Hatari with a silver arrow): he burns solid for the `$50` frames the ROM draws him (he flickered), the ash pile
+  keeps the ROM's colours (orange, brown, red; it had white specks), stays on the floor under the Triforce of Power instead of vanishing
+  when the item appears, and the brown Ganon is a darker red-brown, no longer a bright orange that read as a Dodongo. Two golden scenes
+  (`uw9_ganon_brown`, `uw9_ganon_ashes`). Not ported: the eight burst rays that fly out of the ashes.
 
 ## 0.30 (2026-10-19) - doors, moats, play-through checks
 - The magic key opens every locked door without being used up (Level 9 has 16 locked doors and 4 keys); the HUD shows "XA".

@@ -2493,14 +2493,12 @@ ganon_tick:
     move.b #0xff, %d0
 21: move.b %d0, OFF_ENEMY_STEP(%a5, %d5.w)
     cmp.b #0xa0, %d0
-    blo 30f
-    bne 99f
+    bne 30f                             | (the ashes stay, the item lies on them)
     move.b OFF_ENEMY_X(%a5, %d5.w), %d0     | the Triforce of Power lies where the ashes are
     subq.b #1, %d0
     move.b %d0, OFF_ITEM_X(%a5)
     move.b OFF_ENEMY_Y(%a5, %d5.w), OFF_ITEM_Y(%a5)
-    clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
-    bra 99f
+    move.b #2, OFF_ENEMY_ACTIVE(%a5, %d5.w)     | no monster to kill any more, but the ashes are still drawn
 30: bsr ganon_draw
 99: movem.l (%sp)+, %d0-%d7/%a0
     rts
@@ -2516,10 +2514,7 @@ ganon_draw:
     beq 3f
     cmp.b #0x50, %d0                    | burning: brown and flashing, then ashes
     bhs 7f
-    moveq #GANON_BROWN_IMAGES, %d6
-    move.w OFF_FRAME_COUNTER(%a5), %d0
-    btst #0, %d0
-    beq 99f
+    moveq #GANON_BROWN_IMAGES, %d6      | (Ganon_Dying draws him whole every frame: only the brown state flickers)
     bra 5f
 3:  tst.b OFF_ENEMY_STATE(%a5, %d5.w)
     beq 4f

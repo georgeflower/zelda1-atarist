@@ -209,7 +209,7 @@ writing). They cover the asset pipeline and tables; the 68000 music player is th
 reach-check listing parser.
 
 ### Golden frames (`tools/golden.py`, `tests/golden/frames.json`)
-Twenty fixed scenes (overworld start, the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo,
+Thirty-two fixed scenes (overworld start, the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo,
 Moldorm, traps, goriyas, old man, and Levels 3-8: a crowded room, a dark room, a rupee stash, Grumble, a dark crowd; Level 9: a Lanmola room, a Patra room, Ganon's room, Zelda's room and Zelda's thanks) are run through `screenshot.py` (dev builds in `build/dev` via `--room`/`--uw`/`--level`) and
 the `FRAMEHASH` (SHA-256 of pixel indices plus palette) is compared with the stored one. **Hashes, not images**: the frames are
 Nintendo's artwork, so the tests keep no images. (Screenshots are not kept in the repository; the owner has a zip of the early ones.) Runs are deterministic. After a change that moves pixels on purpose: look at
@@ -550,8 +550,8 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `boss_misc_update` because `LINK_HELD` skips `update_enemies`, runs the scene (`GANON_SCENE` 1 dark room, 2 the Triforce of
   Courage held up); he is drawn from the boss pool (`BP_GANON` frames, ten blue and ten brown pictures plus the ashes), hides,
   teleports (`ganon_relocate`) and throws fire; a sword blow turns him brown (`ganon_died` the first time), a silver arrow into a
-  brown Ganon kills him (`ganon_filter`), he burns for `$A0` frames and the **Triforce of Power** (item `$0E`, drawn from Level 9's
-  sprite table) lies where the ashes are (trigger 7 hides the room item until then). **Zelda** (`$37`, `BEH_ZELDA`) comes with four
+  brown Ganon kills him (`ganon_filter`), he burns solid for `$50` frames, then the ash pile (it stays) and the **Triforce of Power** (item `$0E`, drawn from Level 9's
+  sprite table) lies on it at `$A0`; the burst rays are not ported (trigger 7 hides the room item until then). **Zelda** (`$37`, `BEH_ZELDA`) comes with four
   guard fires (`$3F`, `BEH_FIRE`, killable, half a heart): `_room_info` expands the one Zelda into five monsters, `zelda_init` and
   `fire_init` put them at the ROM's places. `dmon_zelda` starts the scene when Link stands at X `$70`..`$80`, Y `$95`; `zelda_tick`
   (`ZELDA_SCENE` 1-8, run by `boss_misc_update`) plays the fanfare (`MUS_ZELDA`), the curtain (`curtain_column`), the thanks typed

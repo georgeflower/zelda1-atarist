@@ -30,6 +30,9 @@ PROJECT = Path(__file__).resolve().parents[1]
 GOLDEN = PROJECT / "tests" / "golden" / "frames.json"
 
 # name: screenshot.py arguments. Frame counts leave the room time to settle (the game starts at about frame 170).
+GANON_ARROW = ("500:=GANON_SCENE=0,500:=LINK_HELD=0,500:=HP_HALVES=40,500:=ENEMY_X.0=0x78,500:=ENEMY_Y.0=0x80,500:=ENEMY_STATE.0=0xff,"
+               "500:=INV_ARROW=2,500:=INV_BOW=1,500:=INV_RUPEES=50,500:=B_ITEM=4,505:+up,507:-up,512:+ctrl,514:-ctrl")
+
 SCENES: dict[str, list[str]] = {
     "ow_start": ["--room", "0x77", "--vbls", "420"],
     "ow_entrance_l2": ["--room", "0x3c", "--vbls", "420"],
@@ -68,6 +71,9 @@ SCENES: dict[str, list[str]] = {
                         "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up,352:-up"],
     "ow_grave_returns": ["--room", "0x21", "--vbls", "1000", "--keys",
                          "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up,352:-up,380:=LINK_X=0x80,380:=LINK_Y=0xd5,385:+down,560:-down,570:+up"],
+    # Ganon: brown after the sword, then a silver arrow. He burns solid, the ashes stay under the Triforce of Power.
+    "uw9_ganon_brown": ["--uw", "0x42", "--level", "9", "--vbls", "515", "--keys", GANON_ARROW],
+    "uw9_ganon_ashes": ["--uw", "0x42", "--level", "9", "--vbls", "1100", "--keys", GANON_ARROW],
     "uw9_zelda_thanks": ["--uw", "0x32", "--level", "9", "--vbls", "800", "--keys", "190:=HP_HALVES=40,190:=LINK_Y=0x95"],
 }
 
