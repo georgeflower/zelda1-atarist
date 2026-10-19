@@ -261,7 +261,7 @@ main_loop:
     bsr frame_begin
     bsr palette_sync
     bsr poll_keyboard
-    bsr debug_keys
+    bsr debug_keys_far
     bsr music_update
     tst.b OFF_EXIT_REQUESTED(%a5)
     bne exit_program
@@ -280,7 +280,7 @@ main_loop:
     bra 3f
 1:  bsr update_play
     bra 3f
-2:  bsr update_scroll
+2:  bsr update_scroll_far
 3:  bsr minimap_tick_far
     tst.b OFF_HUD_DIRTY(%a5)
     beq main_loop
@@ -373,7 +373,7 @@ enter_room:
     bne 1f
     bsr render_room
     bra 2f
-1:  bsr uw_render_current
+1:  bsr uw_render_current_far
 2:  bsr spawn_room_enemies
     bsr show_background
     clr.b OFF_ERASE_VALID(%a5)
@@ -844,6 +844,14 @@ menu_check_open_far:
     bra menu_check_open
 uw_select_level_far:
     bra uw_select_level
+cave_talk_far:
+    bra cave_talk
+debug_keys_far:
+    bra debug_keys
+update_scroll_far:
+    bra update_scroll
+uw_render_current_far:
+    bra uw_render_current
 
     .include "link.s"
     .include "uw.s"

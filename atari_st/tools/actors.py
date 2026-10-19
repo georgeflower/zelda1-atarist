@@ -68,7 +68,7 @@ HURT_ALL = 0x3F
 HURT_SHIELD = 0x80
 MONSTER_HURT = {
     0x0B: 0x09 | HURT_SHIELD, 0x0C: 0x09 | HURT_SHIELD,    # InitDarknut: $F6
-    0x16: 0x05,         # pols voice: $FE, but an arrow kills it
+    0x16: 0x45,         # pols voice: $FE, but an arrow kills it
     0x23: 0x09, 0x24: 0x09,                                 # wizzrobes: $F6
     0x3D: 0x1D,         # Aquamentus: $E2, no boomerang or fire
 }

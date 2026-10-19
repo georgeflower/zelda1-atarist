@@ -259,7 +259,7 @@ uw_person_begin:
 uw_person_update:
     cmpi.b #1, OFF_UW_PERSON(%a5)
     bne 9f
-    bsr cave_talk
+    bsr cave_talk_far
     tst.b OFF_CAVE_TEXT_ON(%a5)
     bne 9f
     move.b #2, OFF_UW_PERSON(%a5)
@@ -297,7 +297,7 @@ uw_redraw_room:
     move.b OFF_ROOM_ID(%a5), %d0
     movea.l OFF_BG_CUR(%a5), %a1
     bsr uw_render_current
-    bsr show_background
+    bsr show_background_far
     clr.b OFF_ERASE_VALID(%a5)
     movem.l (%sp)+, %d0/%a1
     rts

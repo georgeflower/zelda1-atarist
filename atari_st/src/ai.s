@@ -111,6 +111,7 @@ enemy_behaviour:
     lsl.w #3, %d0
     ltab mon_table, %a0
     move.b 7(%a0, %d0.w), %d0
+    and.w #0xff, %d0                | (the index was shifted into the high byte: 32 monsters and more)
     rts
 1:  moveq #0, %d0
     rts
@@ -639,12 +640,19 @@ walker_fire:
     move.w #ARROW_SPEED, %d2
     bra 4f
 3:  cmp.w #BEH_LYNEL, %d0
+    beq 31f
+    cmp.w #BEH_WIZZROBE, %d0            | a wizzrobe's magic flies like the lynel's sword shot
     bne 4f
-    moveq #PK_SWORDSHOT, %d1
+31: moveq #PK_SWORDSHOT, %d1
 4:  bsr proj_alloc
     tst.w %d0
     bmi 8f
     move.b %d1, PJ_KIND(%a4, %d0.w)
+    clr.b PJ_OWNER(%a4, %d0.w)          | 2 marks the red wizzrobe's, which costs four hearts
+    cmpi.b #MON_WIZ_RED, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 41f
+    move.b #2, PJ_OWNER(%a4, %d0.w)
+41:
     move.b OFF_ENEMY_X(%a5, %d5.w), PJ_X(%a4, %d0.w)
     move.b OFF_ENEMY_Y(%a5, %d5.w), PJ_Y(%a4, %d0.w)
     move.b OFF_ENEMY_DIR(%a5, %d5.w), %d3
@@ -1380,6 +1388,9 @@ shot_meets_link:
     cmp.b #PK_SWORDSHOT, %d3
     bne 6f
     moveq #4, %d1
+    cmpi.b #2, PJ_OWNER(%a4, %d7.w)
+    bne 6f
+    moveq #8, %d1
 6:  movem.l %d7/%a4, -(%sp)
     bsr hurt_link
     movem.l (%sp)+, %d7/%a4
