@@ -368,6 +368,9 @@
     gvar PATRA_RY, 1
     gvar GANON_SCENE, 1        | Ganon's room: 1 the room is dark and Link waits, 2 he holds up the Triforce of Courage, 0 the fight
     gvar GANON_TIMER, 1
+    gvar ZELDA_SCENE, 1        | Zelda's room: 0 nothing yet, 1-8 the scene (zelda_tick in bosses.s)
+    gvar ZELDA_TIMER, 1
+    gvar ZELDA_STEP, 1
     gvar GLEEOK_SEGS, 1        | one more than the middle segments a neck has: its pictures are drawn as the frame allows
     galign
     .equ GLOBALS_BYTES, gvar_offset

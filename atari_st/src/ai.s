@@ -39,6 +39,8 @@
     .equ BEH_PATRA, 31
     .equ BEH_PATRA_CHILD, 32
     .equ BEH_GANON, 33
+    .equ BEH_ZELDA, 34
+    .equ BEH_FIRE, 35               | the fires that guard Zelda
     .equ MODE_DODONGO, 16           | draw modes (tools/actors.py MODE_*)
     .equ MODE_MOLDORM, 17
 

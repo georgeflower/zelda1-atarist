@@ -46,6 +46,11 @@ SCENES: dict[str, list[str]] = {
     "uw4_stash": ["--uw", "0x11", "--level", "4", "--vbls", "420"],
     "uw7_grumble": ["--uw", "0x28", "--level", "7", "--vbls", "420"],
     "uw7_crowd": ["--uw", "0x5a", "--level", "7", "--vbls", "420"],
+    "uw9_lanmola": ["--uw", "0x11", "--level", "9", "--vbls", "420"],
+    "uw9_patra": ["--uw", "0x21", "--level", "9", "--vbls", "420"],
+    "uw9_ganon": ["--uw", "0x42", "--level", "9", "--vbls", "420"],
+    "uw9_zelda": ["--uw", "0x32", "--level", "9", "--vbls", "420"],
+    "uw9_zelda_thanks": ["--uw", "0x32", "--level", "9", "--vbls", "800", "--keys", "190:=HP_HALVES=40,190:=LINK_Y=0x95"],
 }
 
 

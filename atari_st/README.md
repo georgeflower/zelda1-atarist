@@ -9,12 +9,11 @@ text out of a ROM you supply yourself.
 Status: a playable game with eight dungeons. You can walk the whole overworld,
 fetch the wooden sword from the first cave, fight the overworld's monsters,
 and play Level 1 (to Aquamentus) and Level 2 (to the Dodongo, the heart
-container and the triforce piece) as in the original; Levels 3 to 8 are built
-with their rooms, items, monsters and bosses but not yet played through. Every item the game has
+container and the triforce piece) as in the original; Levels 3 to 9 are built
+with their rooms, items, monsters and bosses (up to Ganon and Zelda) but not yet played through. Every item the game has
 is in the code, but most can only be found in the dungeons and caves that are
-not ported yet. It is not yet a complete game: Level 9, the shops and
-most caves, the title screen and saving are missing, and there is no way to
-win.
+not ported yet. It is not yet a complete game: the shops and
+most caves, the credits after Zelda's thanks, the title screen and saving are missing.
 
 How to play
 -----------
@@ -167,6 +166,20 @@ Level 2 (underworld)
 - stairs between the overworld and the level work both ways: Level 2 is entered
   from screen `$3C` and leaves back to it
 
+Level 9 (Death Mountain)
+
+- 57 rooms, the ten-entry cellar array (Silver Arrow and Red Ring are in cellars), the old men, and the man at the
+  door who lets Link through only with all eight triforce pieces
+- Lanmola (blue and red): two worms of four segments that uncoil from the left of the room, the head choosing a new
+  way at every square and turning toward Link half the time (ROM `UpdateLamnola`; the original has ten segments)
+- Patra (both kinds): an eye with seven children (eight in the original) that come out one at a time and orbit it;
+  only the sword hurts them, the eye is proof until the children are gone
+- Ganon: Link holds the Triforce of Courage up in the dark room, then Ganon hides, teleports and throws fire; the sword
+  turns him brown, a silver arrow into a brown Ganon kills him, he burns to ashes and the Triforce of Power lies there
+- Zelda (room `$32`) and the four fires that guard her: stand level with her (X `$70`..`$80`, Y `$95`) and the scene
+  runs: the Zelda fanfare, the curtain, her thanks typed out, the two triforce pieces over Link and Zelda while the
+  backdrop flashes, then the closing words. The credits after it are not ported, and the scene ends there.
+
 Levels 3 to 8 (underworld)
 
 - every room of the six dungeons, with its doors, items, secrets and palette, from the ROM
@@ -252,7 +265,7 @@ Tooling
 - `tools/check_reach.py`, run after every link, fails the build when a table
   name is missing or when a branch or PC-relative operand does not fit 16 bits
   (GNU as wraps those silently); see "Notes on the ST implementation"
-- golden frames: `tools/golden.py` runs fifteen fixed scenes in Hatari and compares a
+- golden frames: `tools/golden.py` runs twenty fixed scenes in Hatari and compares a
   hash of each screen with `tests/golden/frames.json` (see Testing)
 - unit tests for the asset pipeline, and for the music packer and the 68000 music
   player (run on `machine68k`, every track checked frame by frame)
@@ -265,7 +278,7 @@ Known gaps
 Things that behave differently from the original, or are stand-ins:
 
 - fireball art is placeholder (Aquamentus himself is original)
-- Levels 3 to 8 were checked by loading every room in Hatari and by reading the ROM, not
+- Levels 3 to 9 were checked by loading every room in Hatari and by reading the ROM, not
   played through (Digdogger's kill and heart container, pols voice and vire hops, a stash left
   and re-entered, dark-room scrolling); the "more bombs" and "life or money" men are not ported
 - the Moldorm is two worms of four segments, not one of ten, because the engine

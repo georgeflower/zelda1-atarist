@@ -329,8 +329,16 @@ dmon_init:
     bsr boss_pchild_init_f
     bra 9f
 17: cmp.w #BEH_GANON, %d0
-    bne 2f
+    bne 18f
     bsr boss_ganon_init_f
+    bra 9f
+18: cmp.w #BEH_ZELDA, %d0
+    bne 19f
+    bsr boss_zelda_init_f
+    bra 9f
+19: cmp.w #BEH_FIRE, %d0
+    bne 2f
+    bsr boss_fire_init_f
     bra 9f
 2:  cmp.w #BEH_POLS, %d0
     bne 9f
@@ -648,6 +656,10 @@ vire_hops:
     farstub boss_ganon_filter_f, ganon_filter
     farstub boss_ganon_hit_f, ganon_hit
     farstub boss_ganon_died_f, ganon_died
+    farstub boss_zelda_f, dmon_zelda
+    farstub boss_zelda_init_f, zelda_init
+    farstub boss_fire_f, dmon_fire
+    farstub boss_fire_init_f, fire_init
     farstub boss_gleeok_init_f, gleeok_init
     farstub boss_gleeok_died_f, gleeok_died
     farstub boss_ghead_died_f, gleeok_head_died

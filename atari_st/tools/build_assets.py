@@ -134,6 +134,26 @@ HUD_GLYPHS = (
 
 CAVE_WALL_ROW = PALETTE_ROWS       # the palette row appended for the cave's row 3
 PERSON_TEXT_NAME = "dat/PersonText.dat"
+def _ending_text(lines: tuple[str, ...]) -> bytes:
+    """NES text codes for lines of text, in cave_talk's layout: the last character of a line carries $80 (the second
+    line next), $40 (the third) or $C0 (the end)."""
+    marks = (0x80, 0x40)
+    out = bytearray()
+    for number, line in enumerate(lines):
+        codes = bytearray()
+        for character in line:
+            codes.append(0x24 if character == " " else {",": 0x28, "!": 0x29, "'": 0x2A, ".": 0x2C}.get(character)
+                         or int(character, 36))
+        codes[-1] |= 0xC0 if number == len(lines) - 1 else marks[number]
+        out.extend(codes)
+    return bytes(out)
+
+
+# Zelda's words (ThanksText in Z_02.asm: the second line is a blank one) and the last screen of the credits.
+ENDING_THANKS_TEXT = _ending_text(("THANKS LINK,YOU'RE", " ", "THE HERO OF HYRULE."))
+ENDING_PEACE_TEXT = _ending_text(("PEACE RETURNS TO HYRULE.", " ", "THIS ENDS THE STORY."))   # the original has a "FINALLY," first
+ENDING_TEXTS = ENDING_THANKS_TEXT + ENDING_PEACE_TEXT
+
 PERSON_TEXT_BYTES = 43             # the first person's speech
 OLD_MAN_TYPE = 0x6A
 FIRE_ANIM_INDEX = 0x41
@@ -460,7 +480,7 @@ class AssetBundle:
     levels: tuple = ()              # every playable level's UwData, in order (empty: just `uw`)
     cave_map: bytes = bytes(OW_ROOM_COLS * OW_ROOM_ROWS)
     cave_sprites: bytes = bytes(CAVE_SPRITE_FRAMES * SPRITE_FRAME_BYTES)
-    cave_text: bytes = bytes((0xEC,))
+    cave_text: bytes = bytes((0xEC,)) + ENDING_TEXTS
     ow_room_info: bytes = bytes(128 * 16)   # overworld screens: monster count, flags, monster indices (actors.py)
     level_palettes: tuple = ()      # nine rows of 16 ST colours, one per dungeon (empty = reuse `palette`)
 
@@ -703,6 +723,7 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
         level_palettes = tuple(underworld.level_palettes(source_root, palette_bytes, palette_map))
         for built in levels:
             cave_text += built.actors.person_text   # the levels' old men speak from the same text, one after the other
+        cave_text += ENDING_TEXTS               # always the last thing in the text: the ending's two speeches
         if len(cave_text) > 0xFFFE:
             raise SystemExit("The cave and dungeon speeches no longer fit the text index")
         return AssetBundle(
@@ -1104,6 +1125,8 @@ def underworld_equates(uw, level_count: int = 1) -> list[str]:
         f".equ MON_WIZ_BLUE, {uw.actors.mon_index[0x23]}",
         f".equ MON_WIZ_RED, {uw.actors.mon_index[0x24]}",
         f".equ MON_LANMOLA_RED, {uw.actors.mon_index[0x3B]}",
+        f".equ MON_ZELDA, {uw.actors.mon_index[0x37]}",
+        f".equ MON_ZELDA_FIRE, {uw.actors.mon_index[0x3F]}",
         f".equ MON_GANON, {uw.actors.mon_index[0x3E]}",
         f".equ MON_PATRA_EYE, {uw.actors.mon_index[0x47]}",
         f".equ MON_PATRA_EYE2, {uw.actors.mon_index[0x48]}",
@@ -1194,6 +1217,8 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
         f".equ START_DIR, 0x{LINK_START_DIR:02x}",
         "",
         *underworld_equates(bundle.uw, len(bundle.levels) or 1),
+        f".equ ENDING_TEXT_THANKS, {len(bundle.cave_text) - len(ENDING_TEXTS)}",
+        f".equ ENDING_TEXT_PEACE, {len(bundle.cave_text) - len(ENDING_PEACE_TEXT)}",
         f".equ DEV_START_ENTRANCE, 0x{dungeon_entrance(bundle):02x}",
         "",
     ]

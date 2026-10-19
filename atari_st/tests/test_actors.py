@@ -205,6 +205,43 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(actors.MONSTER_BEHAVIOUR[0x31], actors.BEHAVIOUR_DODONGO)
         self.assertEqual(actors.MONSTER_BEHAVIOUR[0x41], actors.BEHAVIOUR_MOLDORM)
 
+    def test_level_nine_monsters_have_their_tables_and_behaviours(self) -> None:
+        pairs = {0x3A: actors.BEHAVIOUR_LANMOLA, 0x3B: actors.BEHAVIOUR_LANMOLA, 0x47: actors.BEHAVIOUR_PATRA,
+                 0x48: actors.BEHAVIOUR_PATRA, 0x25: actors.BEHAVIOUR_PATRA_CHILD, 0x26: actors.BEHAVIOUR_PATRA_CHILD,
+                 0x3E: actors.BEHAVIOUR_GANON, 0x37: actors.BEHAVIOUR_ZELDA, 0x3F: actors.BEHAVIOUR_FIRE}
+        for nes_type, behaviour in pairs.items():
+            self.assertIn(nes_type, actors.MONSTER_TYPES, hex(nes_type))
+            self.assertEqual(actors.MONSTER_BEHAVIOUR[nes_type], behaviour, hex(nes_type))
+        self.assertEqual(actors.MONSTER_DAMAGE[0x37], 0, "Zelda touches nobody")
+        self.assertEqual(actors.MONSTER_HURT[0x37], 0, "and nothing touches her")
+        self.assertEqual(actors.MONSTER_DAMAGE[0x3E], 8, "Ganon: ObjTypeToDamagePoints $04, four hearts")
+
+    def test_zelda_comes_with_four_guard_fires_and_patra_with_seven_children(self) -> None:
+        zelda = actors.MONSTER_TYPES.index(0x37)
+        fire = actors.MONSTER_TYPES.index(0x3F)
+        record = actors._room_info(0, ([0x37], [0x00], [0], [0]), [1, 4, 5, 6], bytes(64))   # list id $37: one Zelda
+        self.assertEqual(record[0], 5)
+        self.assertEqual(list(record[6:11]), [zelda] + [fire] * 4)
+        self.assertEqual(record[5] & 0x7F, 0, "nothing unsupported")
+        eye = actors.MONSTER_TYPES.index(0x47)
+        child = actors.MONSTER_TYPES.index(0x25)
+        record = actors._room_info(0, ([0x07], [0x80], [0], [0]), [1, 4, 5, 6], bytes(64))   # list id $47
+        self.assertEqual(list(record[6:6 + 1 + actors.PATRA_CHILDREN]), [eye] + [child] * actors.PATRA_CHILDREN)
+
+    def test_ganons_room_keeps_its_item_hidden_until_he_is_ashes(self) -> None:
+        record = actors._room_info(0, ([0x3E], [0x00], [0], [0x03]), [1, 4, 5, 6], bytes(64))
+        self.assertEqual(record[1] & 7, 7)
+        self.assertEqual(record[0], 1)
+
+    def test_the_ending_texts_are_the_originals(self) -> None:
+        source = (Path(__file__).resolve().parents[2] / "src" / "Z_02.asm").read_text(encoding="utf-8")
+        block = source.split("ThanksText:", 1)[1].split("InitMode13_Sub2:", 1)[0]
+        original = bytes(int(h, 16) for h in re.findall(r"\$([0-9A-F]{2})", block))
+        self.assertEqual(B.ENDING_THANKS_TEXT, original)
+        self.assertEqual(B.ENDING_PEACE_TEXT[-1] & 0xC0, 0xC0, "the last letter ends the speech")
+        self.assertEqual(B.ENDING_TEXTS, B.ENDING_THANKS_TEXT + B.ENDING_PEACE_TEXT)
+        self.assertTrue(B.AssetBundle.__dataclass_fields__["cave_text"].default.endswith(B.ENDING_TEXTS))
+
     def test_the_makefile_and_the_asset_builder_build_the_same_levels(self) -> None:
         make = (Path(__file__).resolve().parents[1] / "Makefile").read_text(encoding="utf-8")
         levels = tuple(int(n) for n in re.search(r"^UW_LEVELS := ([\d ]+)$", make, re.M).group(1).split())

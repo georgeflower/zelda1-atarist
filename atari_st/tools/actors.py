@@ -39,15 +39,15 @@ MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
                  0x3A, 0x3B,
                  # Patra, the eye the two kinds of room have, and its children (the ROM gives them types of their own)
                  0x47, 0x48, 0x25, 0x26,
-                 # Ganon
-                 0x3E)
+                 # Ganon, and the room where Zelda waits with the four fires that guard her
+                 0x3E, 0x37, 0x3F)
 # Pieces of a boss that the ROM draws as part of it but this port makes monsters of: (the type whose art they use, the
 # first frame of that art). Gohma's legs are frames 4 and 5 of its own animation.
 SYNTHETIC_TYPES = {0xFD: (0x33, 4), 0xFC: (0x34, 4), 0xFB: (0x38, 0), 0xF9: (0x43, 0)}
 # The hit points the ROM sets by hand: every neck of a Gleeok has $A0.
 SYNTHETIC_HP = {0xF9: 10}
 # Bosses that leave nothing behind but the room's own item
-NO_DROP_BOSSES = (0x43, 0x44, 0x45, 0xF9, 0x46, 0x38, 0xFB, 0x47, 0x48, 0x25, 0x26, 0x3E)
+NO_DROP_BOSSES = (0x43, 0x44, 0x45, 0xF9, 0x46, 0x38, 0xFB, 0x47, 0x48, 0x25, 0x26, 0x3E, 0x37, 0x3F)
 # The ones of them that live on the overworld: lynels (blue, red), moblins (blue, red) and octoroks
 # (red slow, red fast, blue slow, blue fast). Their art comes from the overworld's sprite pattern table.
 OVERWORLD_MONSTERS = (0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A,
@@ -73,7 +73,7 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
                   0x0B: 2, 0x0C: PERIOD_PATTERN + 1, 0x12: 2, 0x13: PERIOD_PATTERN, 0x16: 2, 0x17: 2,
                   0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1, 0x3C: 1, 0x33: 1, 0x34: 1, 0xFD: 1, 0xFC: 1,
                   0x38: 1, 0xFB: 1, 0x18: 1, 0x43: 1, 0x44: 1, 0x45: 1, 0xF9: 1, 0x46: 1, 0x3A: 1, 0x3B: 1,
-                  0x47: 1, 0x48: 1, 0x25: 1, 0x26: 1, 0x3E: 1}
+                  0x47: 1, 0x48: 1, 0x25: 1, 0x26: 1, 0x3E: 1, 0x37: 1, 0x3F: 1}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
                   # ObjTypeToDamagePoints: blue lynel $02 (two hearts), red lynel $01, the rest $80
@@ -98,8 +98,8 @@ MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2,
                   0x3A: 4, 0x3B: 4,
                   # Patra and its children: $02, two hearts
                   0x47: 4, 0x48: 4, 0x25: 4, 0x26: 4,
-                  # Ganon: $04, four hearts
-                  0x3E: 8}
+                  # Ganon: $04, four hearts; Zelda touches nobody; a guard fire $80
+                  0x3E: 8, 0x37: 0, 0x3F: 1}
 # What hurts a monster: the bits of the original's damage types ($01 sword, $02 boomerang (it stuns), $04 arrow,
 # $08 bomb, $10 magic, $20 fire) that its ObjInvincibilityMask leaves, and bit 7 for the darknuts' shield, which
 # turns a sword aside when the two face each other. Anything not listed is hurt by all six.
@@ -116,6 +116,7 @@ MONSTER_HURT = {
     0x43: 0x00, 0x44: 0x00, 0x45: 0x00, 0x46: 0x00,         # Gleeok's body and flying heads take nothing
     0xF9: 0x01,                                             # a head on its neck: $FE, the sword only
     0x47: 0x01, 0x48: 0x01, 0x25: 0x01, 0x26: 0x01,         # Patra and its children: InitPatra sets $FE, the sword only
+    0x37: 0x00,         # Zelda takes nothing (UpdateZelda never calls CheckMonsterCollisions)
     0x3E: 0x05,         # Ganon: InitGanon sets $FA, the sword and the arrow (dmon_hit_filter does the rest)
     0x3C: 0x1D,         # Manhandla's hands: $E2 too (the base is made proof against everything in dmon.s)
 }
@@ -129,7 +130,7 @@ MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0x
  BEHAVIOUR_PEAHAT, BEHAVIOUR_GHINI, BEHAVIOUR_BOULDER, BEHAVIOUR_BOULDER_SET,
  BEHAVIOUR_DODONGO, BEHAVIOUR_MOLDORM, BEHAVIOUR_POLS, BEHAVIOUR_WIZZROBE, BEHAVIOUR_BUBBLE,
  BEHAVIOUR_MANHANDLA, BEHAVIOUR_GOHMA, BEHAVIOUR_DIGDOGGER, BEHAVIOUR_GLEEOK, BEHAVIOUR_GLEEOK_HEAD,
- BEHAVIOUR_GLEEOK_FLYER, BEHAVIOUR_LANMOLA, BEHAVIOUR_PATRA, BEHAVIOUR_PATRA_CHILD, BEHAVIOUR_GANON) = range(34)
+ BEHAVIOUR_GLEEOK_FLYER, BEHAVIOUR_LANMOLA, BEHAVIOUR_PATRA, BEHAVIOUR_PATRA_CHILD, BEHAVIOUR_GANON, BEHAVIOUR_ZELDA, BEHAVIOUR_FIRE) = range(36)
 MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
                       0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP,
                       0x15: BEHAVIOUR_GEL, 0x01: BEHAVIOUR_LYNEL, 0x02: BEHAVIOUR_LYNEL,
@@ -148,6 +149,7 @@ MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIO
                       0x3A: BEHAVIOUR_LANMOLA, 0x3B: BEHAVIOUR_LANMOLA,
                       0x47: BEHAVIOUR_PATRA, 0x48: BEHAVIOUR_PATRA,
                       0x25: BEHAVIOUR_PATRA_CHILD, 0x26: BEHAVIOUR_PATRA_CHILD, 0x3E: BEHAVIOUR_GANON,
+                      0x37: BEHAVIOUR_ZELDA, 0x3F: BEHAVIOUR_FIRE,
                       # the darknuts, gibdo, vire, zol and like-like walk like a stalfos (turn rate $80) or a gel
                       0x13: BEHAVIOUR_GEL, 0x1C: BEHAVIOUR_KEESE}
 
@@ -255,12 +257,14 @@ MONSTER_DRAW = {
     0x25: ("mirror", 2, MODE_PATRA_CHILD),
     0x26: ("mirror", 2, MODE_PATRA_CHILD),
     0x3E: ("wide", 1, MODE_GANON),
+    0x37: ("mirror", 1, MODE_STATIC),
+    0x3F: ("wide", 1, MODE_STALFOS),
 }
 # UpdateMoldorm draws every segment as the fireball tile $44 in palette row 2, and Dodongo_Draw uses row 3.
 # Gohma_SetSpriteAttributes: the red one (and its legs) use palette row 2, the blue one row 1.
 MONSTER_TILE_ROW = {0x31: (None, 3), 0x32: (None, 3), 0x41: (0x44, 2), 0x34: (None, 2), 0xFC: (None, 2),
                     0x38: (None, 3), 0xFB: (None, 3),
-                    0x25: (None, 2), 0x26: (None, 2)}   # PatraChild_Draw: Anim_SetSpriteDescriptorRedPaletteRow   # DigdoggerSpriteAttrs: palette row 3
+                    0x25: (None, 2), 0x26: (None, 2), 0x37: (None, 2)}   # PatraChild_Draw: Anim_SetSpriteDescriptorRedPaletteRow   # DigdoggerSpriteAttrs: palette row 3
 # Dodongo images 7 and 9 (bloated, facing up or down) are one half drawn twice, mirrored.
 DODONGO_MIRRORED_IMAGES = (7, 9)
 LANMOLA_SEGMENTS = 8        # two worms of four (ten of five each in the original)
@@ -944,6 +948,8 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
     types = expanded
     if types.count(0x41) == 1:
         types = [t for t in types if t != 0x41] + [0x41] * MOLDORM_SEGMENTS   # InitMoldorm makes the worms' segments
+    if types == [0x37]:
+        types = [0x37] + [0x3F] * 4                       # InitZelda: Zelda and the four fires that guard her
     if len(types) == 1 and types[0] in PATRA_CHILD_OF:
         types = types + [PATRA_CHILD_OF[types[0]]] * PATRA_CHILDREN
     if len(types) == 1 and types[0] in (0x3A, 0x3B):

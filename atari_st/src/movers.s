@@ -71,6 +71,10 @@ mover_update:
     beq boss_pchild_f
     cmp.w #BEH_GANON, %d7
     beq boss_ganon_f
+    cmp.w #BEH_ZELDA, %d7
+    beq boss_zelda_f
+    cmp.w #BEH_FIRE, %d7
+    beq boss_fire_f
     move.l %d1, -(%sp)                  | a ghini turns toward Link whenever the dice allow
     move.w #0xff, %d1
     cmp.w #BEH_BUBBLE, %d7

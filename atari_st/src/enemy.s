@@ -476,6 +476,8 @@ update_enemies:
     beq 2f
     cmp.w #BEH_GANON, %d0
     beq 2f                      | nor Ganon
+    cmp.w #BEH_FIRE, %d0
+    beq 2f                      | nor a fire that guards Zelda
     bsr enemy_shove
     bra 8f
 

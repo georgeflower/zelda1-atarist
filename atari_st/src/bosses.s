@@ -32,6 +32,11 @@
     farstub keese_turn_random_bf, keese_turn_random
     farstub flyer_bound_bf, flyer_bound
     farstub uw_light_room_bf, uw_light_room
+    farstub cave_talk_bf, cave_talk
+    farstub curtain_column_bf, curtain_column
+    farstub cur_palette_bf, cur_palette
+    farstub draw_hud_tile_bf, draw_hud_tile
+    farstub music_event_bf, music_event
 
 | ---------------------------------------------------------------- wizzrobes
 | Wizzrobes (UpdateBlueWizzrobe, UpdateRedWizzrobe). ENEMY_GHOST is set while one is not drawn: weapons pass through
@@ -2564,6 +2569,254 @@ ganon_draw:
 99: movem.l (%sp)+, %d0-%d7/%a0-%a1
     rts
 
+| ------------------------------------------------------------------------------ Zelda
+| The last room of Level 9 (InitZelda, UpdateZelda, and mode $13 of the original): Zelda stands at ($78,$88) with four
+| fires round her (killable, half a heart on contact) and does nothing until Link comes level with her: X $70..$80 and
+| Y $95. Then he is put at ($88,$88) facing her, the Zelda fanfare plays for $80 frames, the room is furled away by a
+| curtain, she thanks him in typed letters, and Link and she stand with a triforce piece over each head while the
+| backdrop flashes. The last screen of the credits has the final words. Link is held for all of it, so the scene is
+| run from zelda_tick, by boss_misc_update, and not from the monster. ZELDA_SCENE: 1 fanfare, 2 curtain, 3 thanks being
+| typed, 4 pause, 5 flash, 6 pause, 7 final words being typed, 8 the end. Not ported: the credits that follow.
+    .equ ZELDA_X, 0x78
+    .equ ZELDA_Y, 0x88
+    .equ ZELDA_LINK_X, 0x88
+    .equ ZELDA_LINK_Y, 0x88
+    .equ ZELDA_FANFARE_FRAMES, 0x80
+    .equ ZELDA_THANKS_WAIT, 0x50
+    .equ ZELDA_FLASH_FRAMES, 0xc0
+    .equ ZELDA_FLASH_FROM, 0x40
+    .equ ZELDA_PEACE_DELAY, 0x40
+    .equ ZELDA_TEXT_DELAY, 10
+
+zelda_fire_x:
+    .byte 0x60, 0x70, 0x80, 0x90
+zelda_fire_y:
+    .byte 0xb5, 0x9d, 0x9d, 0xb5
+zelda_flash_colours:                    | EndingFlashColors $0F $12 $16 $2A as the ST shows them
+    .word 0x0000, 0x0026, 0x0600, 0x00a3
+
+zelda_init:
+    movem.l %a0, -(%sp)
+    move.b #ZELDA_X, OFF_ENEMY_X(%a5, %d5.w)
+    move.b #ZELDA_Y, OFF_ENEMY_Y(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
+    move.b #2, OFF_ENEMY_ACTIVE(%a5, %d5.w)     | she is no monster to kill
+    movem.l (%sp)+, %a0
+    rts
+
+| The fires take the places of GuardFireXs/Ys, in the order they come after Zelda in the room's list.
+fire_init:
+    movem.l %d0/%a0, -(%sp)
+    move.w %d5, %d0
+    subq.w #1, %d0
+    and.w #3, %d0
+    lea zelda_fire_x(%pc), %a0
+    move.b 0(%a0, %d0.w), OFF_ENEMY_X(%a5, %d5.w)
+    lea zelda_fire_y(%pc), %a0
+    move.b 0(%a0, %d0.w), OFF_ENEMY_Y(%a5, %d5.w)
+    movem.l (%sp)+, %d0/%a0
+    rts
+
+dmon_fire:
+    moveq #1, %d0                       | a fire stands where it is
+    rts
+
+| d5 = Zelda. UpdateZelda state 0. Returns d0.w = 1.
+dmon_zelda:
+    movem.l %d1, -(%sp)
+    tst.b OFF_ZELDA_SCENE(%a5)
+    bne 8f
+    move.b OFF_LINK_X(%a5), %d1
+    cmp.b #0x70, %d1
+    blo 8f
+    cmp.b #0x81, %d1
+    bhs 8f
+    cmpi.b #0x95, OFF_LINK_Y(%a5)
+    bne 8f
+    move.b #1, OFF_ZELDA_SCENE(%a5)
+    move.b #ZELDA_FANFARE_FRAMES, OFF_ZELDA_TIMER(%a5)
+    move.b #1, OFF_LINK_HELD(%a5)
+    move.b #ZELDA_LINK_X, OFF_LINK_X(%a5)
+    move.b #ZELDA_LINK_Y, OFF_LINK_Y(%a5)
+    move.b #DIR_LEFT, OFF_LINK_DIR(%a5)
+    clr.b OFF_LINK_SHOVE(%a5)
+    move.l %d0, -(%sp)
+    moveq #MUS_ZELDA, %d0
+    bsr music_event_bf
+    move.l (%sp)+, %d0
+8:  movem.l (%sp)+, %d1
+    moveq #1, %d0
+    rts
+
+| d0.w = where the words are in cave_text. Starts them being typed by cave_talk.
+zelda_say:
+    move.w %d0, OFF_CAVE_TEXT_IDXW(%a5)
+    move.b #1, OFF_CAVE_TEXT_ON(%a5)
+    move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
+    move.b #CAVE_TEXT_ROW0, OFF_CAVE_TEXT_ROW(%a5)
+    move.b #ZELDA_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
+    rts
+
+| The fires are gone from the picture (and still count as the room's monsters: nothing here may clear the room).
+zelda_hide_fires:
+    movem.l %d5/%a0, -(%sp)
+    moveq #0, %d5
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
+    bhs 9f
+    cmpi.b #MON_ZELDA_FIRE, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 2f
+    clr.b OFF_ENEMY_Y(%a5, %d5.w)
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
+2:  addq.w #1, %d5
+    bra 1b
+9:  movem.l (%sp)+, %d5/%a0
+    rts
+
+| The thanks, wiped from the black room so the last words can take its place: blank glyphs over three lines.
+zelda_wipe_text:
+    movem.l %d0-%d2/%d6/%d7, -(%sp)
+    moveq #CAVE_TEXT_ROW0, %d6
+1:  moveq #CAVE_TEXT_COL0, %d7
+2:  moveq #0, %d0
+    move.w %d7, %d1
+    move.w %d6, %d2
+    bsr draw_hud_tile_bf
+    move.l OFF_SCREEN_PTR(%a5), -(%sp)  | and into the clean room, to survive Link's erasing
+    move.l OFF_BG_CUR(%a5), OFF_SCREEN_PTR(%a5)
+    moveq #0, %d0
+    move.w %d7, %d1
+    move.w %d6, %d2
+    bsr draw_hud_tile_bf
+    move.l (%sp)+, OFF_SCREEN_PTR(%a5)
+    tst.b OFF_DBL_ACTIVE(%a5)
+    beq 3f
+    move.l OFF_SCREEN_PTR(%a5), -(%sp)
+    move.l OFF_BG_NEXT(%a5), OFF_SCREEN_PTR(%a5)
+    moveq #0, %d0
+    move.w %d7, %d1
+    move.w %d6, %d2
+    bsr draw_hud_tile_bf
+    move.l (%sp)+, OFF_SCREEN_PTR(%a5)
+3:  addq.w #1, %d7
+    cmp.w #(CAVE_TEXT_COL0 + 24), %d7
+    blo 2b
+    addq.w #1, %d6
+    cmp.w #(CAVE_TEXT_ROW0 + 3), %d6
+    blo 1b
+    movem.l (%sp)+, %d0-%d2/%d6/%d7
+    rts
+
+| A triforce piece over Link's head and over Zelda's: item slots 0 and 1, held up.
+zelda_triforces:
+    move.l %d0, -(%sp)
+    move.b #ITEM_TRIFORCE, OFF_ITEM_ID(%a5)
+    move.b OFF_LINK_X(%a5), OFF_ITEM_X(%a5)
+    move.b OFF_LINK_Y(%a5), %d0
+    sub.b #16, %d0
+    move.b %d0, OFF_ITEM_Y(%a5)
+    move.b #ITEM_LIFTED, OFF_ITEM_ACTIVE(%a5)
+    move.b #ITEM_TRIFORCE, (OFF_ITEM_ID + 1)(%a5)
+    move.b #ZELDA_X, (OFF_ITEM_X + 1)(%a5)
+    move.b #(ZELDA_Y - 16), (OFF_ITEM_Y + 1)(%a5)
+    move.b #ITEM_LIFTED, (OFF_ITEM_ACTIVE + 1)(%a5)
+    move.l (%sp)+, %d0
+    rts
+
+| Once a frame, from boss_misc_update.
+zelda_tick:
+    movem.l %d0-%d2/%a0-%a1, -(%sp)
+    moveq #0, %d0
+    move.b OFF_ZELDA_SCENE(%a5), %d0
+    beq 99f
+    cmp.b #5, %d0
+    blo 1f
+    bsr zelda_triforces                 | from the flash on, both pieces are up
+1:  cmp.b #1, %d0
+    bne 10f
+    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 1: the fanfare
+    bne 99f
+    bsr zelda_hide_fires
+    move.b #2, OFF_ZELDA_SCENE(%a5)
+    clr.b OFF_ZELDA_STEP(%a5)
+    move.b #1, OFF_ZELDA_TIMER(%a5)
+    bra 99f
+10: cmp.b #2, %d0
+    bne 20f
+    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 2: the curtain, a column from each side every few frames
+    bne 99f
+    moveq #0, %d0
+    move.b OFF_ZELDA_STEP(%a5), %d0
+    bsr curtain_column_bf
+    moveq #31, %d1
+    sub.w %d0, %d1
+    move.w %d1, %d0
+    bsr curtain_column_bf
+    addq.b #1, OFF_ZELDA_STEP(%a5)
+    move.b #ENDING_CURTAIN_FRAMES, OFF_ZELDA_TIMER(%a5)
+    cmpi.b #ENDING_CURTAIN_STEPS, OFF_ZELDA_STEP(%a5)
+    blo 99f
+    move.b #3, OFF_ZELDA_SCENE(%a5)
+    move.w #ENDING_TEXT_THANKS, %d0
+    bsr zelda_say
+    bra 99f
+20: cmp.b #3, %d0
+    bne 30f
+    bsr cave_talk_bf                    | 3: "THANKS LINK, YOU'RE THE HERO OF HYRULE."
+    tst.b OFF_CAVE_TEXT_ON(%a5)
+    bne 99f
+    move.b #4, OFF_ZELDA_SCENE(%a5)
+    move.b #ZELDA_THANKS_WAIT, OFF_ZELDA_TIMER(%a5)
+    bra 99f
+30: cmp.b #4, %d0
+    bne 40f
+    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 4: a pause of $50 frames
+    bne 99f
+    bsr zelda_wipe_text
+    move.b #5, OFF_ZELDA_SCENE(%a5)
+    clr.b OFF_ZELDA_TIMER(%a5)
+    bra 99f
+40: cmp.b #5, %d0
+    bne 50f
+    addq.b #1, OFF_ZELDA_TIMER(%a5)     | 5: $C0 frames, the backdrop flashing from the $40th
+    moveq #0, %d1
+    move.b OFF_ZELDA_TIMER(%a5), %d1
+    cmp.w #ZELDA_FLASH_FROM, %d1
+    blo 99f
+    movea.l #PALETTE_BASE, %a1
+    bsr cur_palette_bf
+    cmp.w #ZELDA_FLASH_FRAMES, %d1
+    bhs 41f
+    and.w #3, %d1
+    add.w %d1, %d1
+    lea zelda_flash_colours(%pc), %a0
+    move.w 0(%a0, %d1.w), (%a1)
+    bra 99f
+41: move.w (%a0), (%a1)                 | the flash is over: the level's own backdrop again
+    move.b #6, OFF_ZELDA_SCENE(%a5)
+    move.b #ZELDA_PEACE_DELAY, OFF_ZELDA_TIMER(%a5)
+    moveq #MUS_ENDING, %d0
+    bsr music_event_bf
+    bra 99f
+50: cmp.b #6, %d0
+    bne 60f
+    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 6: the ending song, and a pause before the words
+    bne 99f
+    move.b #7, OFF_ZELDA_SCENE(%a5)
+    move.w #ENDING_TEXT_PEACE, %d0
+    bsr zelda_say
+    bra 99f
+60: cmp.b #7, %d0
+    bne 99f
+    bsr cave_talk_bf                    | 7: "PEACE RETURNS TO HYRULE. THIS ENDS THE STORY."
+    tst.b OFF_CAVE_TEXT_ON(%a5)
+    bne 99f
+    move.b #8, OFF_ZELDA_SCENE(%a5)
+99: movem.l (%sp)+, %d0-%d2/%a0-%a1
+    rts
+
 | ------------------------------------------------------- the rupee stash and Grumble
 | Things a dungeon room has that are not monsters. The ten rupees (InitRupeeStash: a pyramid, taken one at a time
 | by walking over them, and once one is taken the stash is gone for good) are painted into the room like Gleeok's
@@ -2691,6 +2944,7 @@ grumble_bake:
 | Once a frame: Link on a rupee takes it, the food beside Grumble is eaten.
 boss_misc_update:
     bsr ganon_tick
+    bsr zelda_tick
     movem.l %d0-%d7/%a0-%a2, -(%sp)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
