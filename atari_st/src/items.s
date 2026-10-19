@@ -496,6 +496,7 @@ chase_target_update:
 
 | Everything the items need once a frame.
 items_update:
+    bsr owspec_update_far
     bsr heart_fill_update
     bsr flute_update
     bra food_update

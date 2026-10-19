@@ -873,11 +873,20 @@ ow_secret_undo_far:
     bra ow_secret_undo
 render_room_far:
     bra render_room
+ow_maze_far:
+    bra ow_maze
+owspec_room_start_far:
+    bra owspec_room_start
+owspec_update_far:
+    bra owspec_update
+ow_ladder_ok_far:
+    bra ow_ladder_ok
 
     .include "link.s"
     .include "uw.s"
     .include "secrets.s"
     .include "caves.s"
+    .include "owspec.s"
     .include "hud.s"
     .include "menu.s"
     .include "bosses.s"

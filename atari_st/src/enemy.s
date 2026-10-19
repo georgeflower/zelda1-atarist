@@ -25,6 +25,7 @@ spawn_room_enemies:
     tst.b OFF_LEVEL(%a5)
     bne uw_spawn
 
+    bsr owspec_room_start_far       | the heart container of P6, the raft and the ladder
     bsr ow_save_kills               | the screen just left remembers how many died there
     moveq #0, %d0                   | overworld: the screen's record in ow_room_info
     move.b OFF_ROOM_ID(%a5), %d0

@@ -366,7 +366,10 @@ link_collide:
 9:  move.w %d5, %d0
     move.b %d5, OFF_HOTSPOT_TILE(%a5)
     bsr tile_blocks
-    movem.l (%sp)+, %d1-%d5
+    tst.w %d0
+    beq 91f
+    bsr ow_ladder_ok_far        | the ladder lets him walk on water
+91: movem.l (%sp)+, %d1-%d5
     rts
 
 | Look up the background tile at a play-area cell.
@@ -747,8 +750,10 @@ start_scroll:
     move.b OFF_BOUND_DOWN(%a5), OFF_SCROLL_TO_Y(%a5)
 
 8:  tst.b OFF_LEVEL(%a5)
-    beq 7f
-    lvtab ROOM_INDEX, %a0     | the neighbour has to be part of the level
+    bne 11f
+    bsr ow_maze_far             | the Lost Woods and the Lost Hills may send Link round again
+    bra 7f
+11: lvtab ROOM_INDEX, %a0     | the neighbour has to be part of the level
     cmpi.b #0xff, 0(%a0, %d2.w)
     beq 9f
 7:  move.b %d2, OFF_NEXT_ROOM_ID(%a5)

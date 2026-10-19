@@ -397,4 +397,8 @@
     gvar CAVE_SPR_VALID, 2     | the person and the rupee tag were drawn
     galign
     gvar CAVE_SPR_OFFS, 8
+    gvar RAFT_STATE, 1         | 0 none, 1 the raft takes Link down to the dock, 2 up and off the screen
+    gvar RAFT_REST, 1          | he has just been brought to the dock: no new ride until he moves
+    gvar LADDER_SHOWN, 1       | the ladder is on show in item slot 2
+    gvar MAZE_STEP, 1          | the Lost Woods / Lost Hills: how many of the four moves were right
     .equ GLOBALS_BYTES, gvar_offset
