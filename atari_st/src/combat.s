@@ -636,6 +636,8 @@ hit_enemy:
     beq 61f
     cmp.w #BEH_GLEEOK_HEAD, %d0
     beq 61f
+    cmp.w #BEH_LANMOLA, %d0
+    beq 61f
     cmp.w #BEH_MANHANDLA, %d0
     bne 6f
 61: clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | a Moldorm segment or a Manhandla hand is hurt but not knocked about
@@ -665,6 +667,8 @@ hit_enemy:
     bsr enemy_behaviour
     cmp.w #BEH_MOLDORM, %d0
     beq moldorm_died
+    cmp.w #BEH_LANMOLA, %d0
+    beq moldorm_died                    | a worm of Lanmola loses its tail the same way
     cmp.w #BEH_GLEEOK_HEAD, %d0
     beq boss_ghead_died_f               | a head cut off becomes a flying one
     bra kill_enemy

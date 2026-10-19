@@ -468,6 +468,8 @@ update_enemies:
     beq 2f                      | a Moldorm segment is not knocked about: it swims on while it flashes
     cmp.w #BEH_GLEEOK_HEAD, %d0
     beq 2f                      | nor is a head of Gleeok
+    cmp.w #BEH_LANMOLA, %d0
+    beq 2f                      | nor a segment of Lanmola
     bsr enemy_shove
     bra 8f
 

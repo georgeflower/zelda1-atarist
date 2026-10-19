@@ -46,6 +46,7 @@
     .equ MODE_DIGBIG, 28
     .equ MODE_GLEEOK, 29
     .equ MODE_GLEEOK_HEAD, 30
+    .equ MODE_LANMOLA, 31
 
 | Called once a frame from update_enemies.
 dmon_tick:
@@ -291,8 +292,12 @@ dmon_init:
     bsr boss_dig_init_f
     bra 9f
 13: cmp.w #BEH_GLEEOK, %d0
-    bne 2f
+    bne 14f
     bsr boss_gleeok_init_f
+    bra 9f
+14: cmp.w #BEH_LANMOLA, %d0
+    bne 2f
+    bsr boss_lanmola_init_f
     bra 9f
 2:  cmp.w #BEH_POLS, %d0
     bne 9f
@@ -423,6 +428,10 @@ dmon_frame:
     beq 87f
     subq.w #1, %d2
     beq 88f
+    subq.w #1, %d2
+    beq 89f
+    subq.w #1, %d2
+    beq 90f
     bra 89f
 
 10: move.w %d4, %d6                     | a darknut: the step changes every eight frames
@@ -549,6 +558,14 @@ dmon_frame:
     bra 99f
 
 89: moveq #-1, %d1                      | a head on its neck is drawn from the boss sprite pool, with its neck
+    bra 99f
+
+90: moveq #1, %d1                        | Lanmola: a body segment, or the head (the top slot of its worm)
+    move.w %d3, %d6
+    and.w #3, %d6
+    cmp.w #3, %d6
+    bne 99f
+    moveq #0, %d1
 99: movem.l (%sp)+, %d0/%d2/%d4/%d6/%a0
     rts
 
@@ -570,6 +587,8 @@ vire_hops:
     farstub boss_gleeok_f, dmon_gleeok
     farstub boss_ghead_f, dmon_ghead
     farstub boss_gflyer_f, dmon_gflyer
+    farstub boss_lanmola_f, dmon_lanmola
+    farstub boss_lanmola_init_f, lanmola_init
     farstub boss_gleeok_init_f, gleeok_init
     farstub boss_gleeok_died_f, gleeok_died
     farstub boss_ghead_died_f, gleeok_head_died

@@ -1103,6 +1103,7 @@ def underworld_equates(uw, level_count: int = 1) -> list[str]:
         f".equ MON_MOBLIN, {uw.actors.mon_index[0x03]}",
         f".equ MON_WIZ_BLUE, {uw.actors.mon_index[0x23]}",
         f".equ MON_WIZ_RED, {uw.actors.mon_index[0x24]}",
+        f".equ MON_LANMOLA_RED, {uw.actors.mon_index[0x3B]}",
         f".equ DEV_START_UW, {int(os.environ.get('ZELDA_START_UW', '0xFF'), 0)}",
         f".equ DEV_START_LEVEL, {int(os.environ.get('ZELDA_START_LEVEL', '1'), 0)}",
     ]

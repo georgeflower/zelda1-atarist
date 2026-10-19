@@ -34,7 +34,9 @@ MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
                  0x38, 0xFB, 0x18,
                  # Gleeok with two, three and four necks, the head on one of them (not a ROM type) and the flying head a
                  # neck turns into when it is cut off
-                 0x43, 0x44, 0x45, 0xF9, 0x46)
+                 0x43, 0x44, 0x45, 0xF9, 0x46,
+                 # Level 9: Lanmola, blue (one pixel a frame) and red (two)
+                 0x3A, 0x3B)
 # Pieces of a boss that the ROM draws as part of it but this port makes monsters of: (the type whose art they use, the
 # first frame of that art). Gohma's legs are frames 4 and 5 of its own animation.
 SYNTHETIC_TYPES = {0xFD: (0x33, 4), 0xFC: (0x34, 4), 0xFB: (0x38, 0), 0xF9: (0x43, 0)}
@@ -66,7 +68,7 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
                   # the wizzrobes move by their own rules
                   0x0B: 2, 0x0C: PERIOD_PATTERN + 1, 0x12: 2, 0x13: PERIOD_PATTERN, 0x16: 2, 0x17: 2,
                   0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1, 0x3C: 1, 0x33: 1, 0x34: 1, 0xFD: 1, 0xFC: 1,
-                  0x38: 1, 0xFB: 1, 0x18: 1, 0x43: 1, 0x44: 1, 0x45: 1, 0xF9: 1, 0x46: 1}
+                  0x38: 1, 0xFB: 1, 0x18: 1, 0x43: 1, 0x44: 1, 0x45: 1, 0xF9: 1, 0x46: 1, 0x3A: 1, 0x3B: 1}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
                   # ObjTypeToDamagePoints: blue lynel $02 (two hearts), red lynel $01, the rest $80
@@ -86,7 +88,9 @@ MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2,
                   # Digdogger and its young: two hearts
                   0x38: 4, 0xFB: 4, 0x18: 4,
                   # Gleeok's body and heads: one heart (ObjTypeToDamagePoints $01)
-                  0x43: 2, 0x44: 2, 0x45: 2, 0xF9: 2, 0x46: 2}
+                  0x43: 2, 0x44: 2, 0x45: 2, 0xF9: 2, 0x46: 2,
+                  # Lanmola: two hearts
+                  0x3A: 4, 0x3B: 4}
 # What hurts a monster: the bits of the original's damage types ($01 sword, $02 boomerang (it stuns), $04 arrow,
 # $08 bomb, $10 magic, $20 fire) that its ObjInvincibilityMask leaves, and bit 7 for the darknuts' shield, which
 # turns a sword aside when the two face each other. Anything not listed is hurt by all six.
@@ -114,7 +118,7 @@ MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0x
  BEHAVIOUR_PEAHAT, BEHAVIOUR_GHINI, BEHAVIOUR_BOULDER, BEHAVIOUR_BOULDER_SET,
  BEHAVIOUR_DODONGO, BEHAVIOUR_MOLDORM, BEHAVIOUR_POLS, BEHAVIOUR_WIZZROBE, BEHAVIOUR_BUBBLE,
  BEHAVIOUR_MANHANDLA, BEHAVIOUR_GOHMA, BEHAVIOUR_DIGDOGGER, BEHAVIOUR_GLEEOK, BEHAVIOUR_GLEEOK_HEAD,
- BEHAVIOUR_GLEEOK_FLYER) = range(30)
+ BEHAVIOUR_GLEEOK_FLYER, BEHAVIOUR_LANMOLA) = range(31)
 MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
                       0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP,
                       0x15: BEHAVIOUR_GEL, 0x01: BEHAVIOUR_LYNEL, 0x02: BEHAVIOUR_LYNEL,
@@ -130,6 +134,7 @@ MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIO
                       0x38: BEHAVIOUR_DIGDOGGER, 0xFB: BEHAVIOUR_DIGDOGGER, 0x18: BEHAVIOUR_DIGDOGGER,
                       0x43: BEHAVIOUR_GLEEOK, 0x44: BEHAVIOUR_GLEEOK, 0x45: BEHAVIOUR_GLEEOK,
                       0xF9: BEHAVIOUR_GLEEOK_HEAD, 0x46: BEHAVIOUR_GLEEOK_FLYER,
+                      0x3A: BEHAVIOUR_LANMOLA, 0x3B: BEHAVIOUR_LANMOLA,
                       # the darknuts, gibdo, vire, zol and like-like walk like a stalfos (turn rate $80) or a gel
                       0x13: BEHAVIOUR_GEL, 0x1C: BEHAVIOUR_KEESE}
 
@@ -170,7 +175,8 @@ MODE_DIGDOGGER = 27  # a little Digdogger: two pictures
 MODE_DIGBIG = 28     # a quarter of a big one, as four images (plain, turned right-left, upside down, both)
 MODE_GLEEOK = 29     # the body: drawn by the boss sprite pool (gleeok_pool), never as a monster
 MODE_GLEEOK_HEAD = 30  # a head on its neck: one picture
-FRAME_MODES = (MODE_MANHANDLA, MODE_GOHMA, MODE_GOHMA_LEG, MODE_DIGDOGGER, MODE_DIGBIG, MODE_GLEEOK, MODE_GLEEOK_HEAD, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
+MODE_LANMOLA = 31      # two images: a head and a body segment, narrow
+FRAME_MODES = (MODE_MANHANDLA, MODE_GOHMA, MODE_GOHMA_LEG, MODE_DIGDOGGER, MODE_DIGBIG, MODE_GLEEOK, MODE_GLEEOK_HEAD, MODE_LANMOLA, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
                MODE_DARKNUT, MODE_VIRE, MODE_ZOL, MODE_LIKELIKE, MODE_WIZZROBE, MODE_BUBBLE)
 MONSTER_DRAW = {
     0x06: ("wide", 4, MODE_WALKER),
@@ -226,6 +232,8 @@ MONSTER_DRAW = {
     0x45: ("wide", 14, MODE_GLEEOK),
     0xF9: ("left", 1, MODE_GLEEOK_HEAD),
     0x46: ("mirror", 2, MODE_KEESE),
+    0x3A: ("narrow", 2, MODE_LANMOLA),
+    0x3B: ("narrow", 2, MODE_LANMOLA),
 }
 # UpdateMoldorm draws every segment as the fireball tile $44 in palette row 2, and Dodongo_Draw uses row 3.
 # Gohma_SetSpriteAttributes: the red one (and its legs) use palette row 2, the blue one row 1.
@@ -233,6 +241,7 @@ MONSTER_TILE_ROW = {0x31: (None, 3), 0x32: (None, 3), 0x41: (0x44, 2), 0x34: (No
                     0x38: (None, 3), 0xFB: (None, 3)}   # DigdoggerSpriteAttrs: palette row 3
 # Dodongo images 7 and 9 (bloated, facing up or down) are one half drawn twice, mirrored.
 DODONGO_MIRRORED_IMAGES = (7, 9)
+LANMOLA_SEGMENTS = 8        # two worms of four (ten of five each in the original)
 MOLDORM_SEGMENTS = 8        # two worms of four (the original has five each, but there are only eight monster slots)
 MONSTER_IMAGES = 4          # image slots of an ordinary monster, each stored plain and flipped
 OCTOROK_IMAGES = 6          # side, front and back, in two animation sets (mon_art says where each art starts)
@@ -519,6 +528,8 @@ GLEEOK_NECK_TILE = 0xDA
 GLEEOK_SEGMENT_IMAGE = 12     # the images after the body's twelve pieces: a neck segment and a head
 GLEEOK_HEAD_IMAGE = 13
 GLEEOK_HEAD_TILE = 0xDC
+LANMOLA_HEAD_TILE = 0x9E     # UpdateLamnola: the head is tile $9E, a body segment $A0, in sprite palette row 2 (blue) or 1 (red)
+LANMOLA_BODY_TILE = 0xA0
 
 
 def _gleeok_images(tiles, palette) -> list:
@@ -622,6 +633,10 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             images = _gleeok_images(tiles, palette)
         elif nes_type == 0xF9:
             images = [_monster_image(tiles, palette, B.LINK_PALETTE_ROW + 3, GLEEOK_HEAD_TILE, "left")]
+        elif mode == MODE_LANMOLA:
+            row = B.LINK_PALETTE_ROW + (2 if nes_type == 0x3A else 1)
+            images = [_monster_image(tiles, palette, row, LANMOLA_HEAD_TILE, "narrow"),
+                      _monster_image(tiles, palette, row, LANMOLA_BODY_TILE, "narrow")]
         elif mode == MODE_DIGBIG:
             # one picture, put four times in the corners: plain, flipped right-left, upside down, both (the part
             # attributes $03, $03, $83, $83 and the horizontal flip of the odd parts)
@@ -862,6 +877,8 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
             expanded.extend([0x49] * (6 if t == 0x49 else 4))       # InitTrap_Full makes six or four traps
         elif t == 0x41:
             expanded.append(0x41)
+        elif t in (0x3A, 0x3B):
+            expanded.append(t)
         elif t == 0x39:
             expanded.append(0xFB)                                  # InitDigdogger2: a big one with one child
         else:
@@ -869,6 +886,8 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
     types = expanded
     if types.count(0x41) == 1:
         types = [t for t in types if t != 0x41] + [0x41] * MOLDORM_SEGMENTS   # InitMoldorm makes the worms' segments
+    if len(types) == 1 and types[0] in (0x3A, 0x3B):
+        types = types * LANMOLA_SEGMENTS                  # InitLamnola makes two worms (here of four segments each)
     monsters = [MONSTER_TYPES.index(t) for t in types if t in MONSTER_TYPES][:8]
     # CheckHasLivingMonsters ignores bubbles ($2B-$2D) and everything from $49 up,
     # which includes the traps; any other monster has to be killed before the room clears.

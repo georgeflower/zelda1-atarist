@@ -35,6 +35,7 @@
     .equ BEH_GLEEOK, 27
     .equ BEH_GLEEOK_HEAD, 28
     .equ BEH_GLEEOK_FLYER, 29
+    .equ BEH_LANMOLA, 30
     .equ MODE_DODONGO, 16           | draw modes (tools/actors.py MODE_*)
     .equ MODE_MOLDORM, 17
 

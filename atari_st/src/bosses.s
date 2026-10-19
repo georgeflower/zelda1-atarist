@@ -26,6 +26,8 @@
     farstub music_play_bf, music_play
     farstub uw_redraw_room_bf, uw_redraw_room
     farstub take_item_bf, take_item
+    farstub enemy_cell_blocked_bf, enemy_cell_blocked
+    farstub opposite_dir_bf, opposite_dir
 
 | ---------------------------------------------------------------- wizzrobes
 | Wizzrobes (UpdateBlueWizzrobe, UpdateRedWizzrobe). ENEMY_GHOST is set while one is not drawn: weapons pass through
@@ -1772,6 +1774,148 @@ dmon_gflyer:
     bsr gleeok_fire
 1:  movem.l (%sp)+, %d0
     moveq #1, %d0
+    rts
+
+| ------------------------------------------------------------------ Lanmola
+| UpdateLamnola. Two worms of four segments (the ROM has ten, in two worms of five). Every segment starts at
+| ($40, $8D); only the heads (slots 3 and 7 of the worm's four) have a heading, and the others get theirs as the
+| head's go down the body, one step each time it has gone eight pixels, so the worm uncoils. A segment moves
+| one pixel a frame (the blue Lanmola) or two (the red) along its heading, ENEMY_DIR, which is 0 until it is told.
+| At a square of the 16-pixel grid the head chooses: half the time it turns toward Link (sideways if Link
+| faces that way, else up or down), else it keeps on or turns to one side, 75% of the time to up or left;
+| a way that is shut turns it on to the next that is not back the way it came.
+    .equ LANMOLA_START_X, 0x40
+    .equ LANMOLA_START_Y, 0x8d
+
+lanmola_init:
+    movem.l %d0, -(%sp)
+    move.b #LANMOLA_START_X, OFF_ENEMY_X(%a5, %d5.w)
+    move.b #LANMOLA_START_Y, OFF_ENEMY_Y(%a5, %d5.w)
+    clr.b OFF_ENEMY_DIR(%a5, %d5.w)
+    move.w %d5, %d0
+    and.w #3, %d0
+    cmp.w #3, %d0
+    bne 9f
+    move.b #DIR_UP, OFF_ENEMY_DIR(%a5, %d5.w)
+9:  movem.l (%sp)+, %d0
+    rts
+
+| d5 = a segment. Returns d0.w = 1: the generic walking is not to run.
+dmon_lanmola:
+    movem.l %d1/%d4, -(%sp)
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
+    beq 90f                             | not told to go yet
+    moveq #1, %d1
+    cmpi.b #MON_LANMOLA_RED, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 1f
+    moveq #2, %d1
+1:  btst #0, %d4
+    beq 2f
+    add.b %d1, OFF_ENEMY_X(%a5, %d5.w)
+2:  btst #1, %d4
+    beq 3f
+    sub.b %d1, OFF_ENEMY_X(%a5, %d5.w)
+3:  btst #2, %d4
+    beq 4f
+    add.b %d1, OFF_ENEMY_Y(%a5, %d5.w)
+4:  btst #3, %d4
+    beq 5f
+    sub.b %d1, OFF_ENEMY_Y(%a5, %d5.w)
+5:  move.w %d5, %d1
+    and.w #3, %d1
+    cmp.w #3, %d1
+    bne 90f
+    bsr lanmola_head
+90: movem.l (%sp)+, %d1/%d4
+    moveq #1, %d0
+    rts
+
+| The head, d5, has moved: pass the headings down the body at every eight pixels, and choose a new one at a square.
+lanmola_head:
+    movem.l %d0-%d7/%a0, -(%sp)
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    move.w %d2, %d0
+    and.w #7, %d0
+    bne 99f
+    move.w %d3, %d0
+    addq.w #3, %d0
+    and.w #7, %d0
+    bne 99f
+    move.w %d5, %d1
+    and.w #0xfc, %d1                    | the worm's lowest slot
+    lea OFF_ENEMY_DIR(%a5), %a0
+    moveq #2, %d0
+1:  move.b 1(%a0, %d1.w), 0(%a0, %d1.w)
+    addq.w #1, %d1
+    dbra %d0, 1b
+    move.w %d2, %d0
+    and.w #15, %d0
+    bne 99f
+    move.w %d3, %d0
+    addq.w #3, %d0
+    and.w #15, %d0
+    bne 99f
+    moveq #0, %d1
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d1   | d1 = the heading it has
+    move.w %d1, %d6
+    bsr opposite_dir_bf
+    not.w %d6
+    and.w #15, %d6
+    move.w %d6, %d4                     | d4 = the headings it may take: not straight back
+    bsr rand8_bf
+    cmp.b #0x80, %d0
+    bhs 20f
+    moveq #1, %d6                       | toward Link: right or left ...
+    moveq #0, %d0
+    move.b OFF_LINK_X(%a5), %d0
+    cmp.w %d2, %d0
+    bhs 11f
+    moveq #2, %d6
+11: moveq #4, %d7                       | ... and down or up
+    moveq #0, %d0
+    move.b OFF_LINK_Y(%a5), %d0
+    cmp.w %d3, %d0
+    bhs 12f
+    moveq #8, %d7
+12: move.w %d6, %d0
+    and.w %d4, %d0
+    beq 13f                             | sideways is the way it came: go up or down
+    move.b OFF_LINK_DIR(%a5), %d0
+    and.b %d6, %d0
+    bne 40f                             | Link faces that way: sideways
+13: move.w %d7, %d6
+    bra 40f
+20: move.w %d1, %d6                     | a random turn: keep on, or one of the two sides
+    bsr rand8_bf
+    move.w %d0, %d7
+    cmp.b #0x80, %d7
+    bhs 40f
+21: lsr.b #1, %d6
+    bcc 22f
+    moveq #8, %d6
+22: move.w %d6, %d0
+    and.w %d4, %d0
+    beq 21b
+    cmp.b #0x40, %d7
+    bhs 40f
+    moveq #0x40, %d7
+    bra 21b
+40: moveq #3, %d7                       | the way chosen; while it is shut, the next one that is not back
+41: move.b %d6, OFF_ENEMY_DIR(%a5, %d5.w)
+    bsr enemy_cell_blocked_bf
+    tst.w %d0
+    beq 99f
+42: lsr.b #1, %d6
+    bcc 43f
+    moveq #8, %d6
+43: move.w %d6, %d0
+    and.w %d4, %d0
+    beq 42b
+    dbra %d7, 41b
+99: movem.l (%sp)+, %d0-%d7/%a0
     rts
 
 | ------------------------------------------------------- the rupee stash and Grumble
