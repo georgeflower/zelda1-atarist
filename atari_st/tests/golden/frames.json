@@ -1,5 +1,5 @@
 {
- "cave_door_repair": "ab9cb68dee0b964751608abee1dd4584820ee8213a207bf2151b9a3f9e45a1ed",
+ "cave_door_repair": "260b00038940b33c6df04e6db2353a25d7dea77ff9d28bb23d52c0b7fe573d53",
  "cave_hint": "920dbfe71d299bb83e612c017da3a6bc285f70374e4b959e58bd85008de630ca",
  "cave_hint_paid": "3c2e383754abd4887efe3db8df0a4a2b8ff27aab09a076d205ee1c3b3d617610",
  "cave_letter_lifted": "3829d34c4cd1d71bb64e14a02b617dc5b9c75b89f3fcec05697f217e9f849ea4",
@@ -26,6 +26,11 @@
  "ow_start": "8f6b79083823c80df7113a9fbb4d1554d39f707aeadfee30ef0baa1203f5620d",
  "ow_tree_burnt": "aef35d5bdb146e9e15510b09df2e98012e9d1ef57b7e15d12f533e41f4e72730",
  "ow_whirlwind_carries": "be430dcd7d6fc7689a1d4e084e96d9a78d8edd41c1252308ebe3c7ba04fa92d2",
+ "story_page": "54d2a3c52fa692e4c0c9b43685599e059087b6a63b0eb41e4e82bada7c35fb66",
+ "story_parade": "9dd96321c7b7a33da92a63674bb0634a1d6698ed72f5599437e06bc55ca20165",
+ "title": "6a535d601174d1a88a7ac305d39bfa311328936ce73606e5f77976a94fdd60bf",
+ "title_fade": "7cbfbad466706ac1e4aa9dbc9659b3288158c7fa24cb02624df86f6692ce2e58",
+ "title_start": "8f6b79083823c80df7113a9fbb4d1554d39f707aeadfee30ef0baa1203f5620d",
  "uw1_aquamentus": "9f394ffeed69b691d6fe0d5ff8d599905e830d9766a5a8ade1d2b91bae40f053",
  "uw1_magic_key_door": "9e768066b83353dd22a224af804c3d28d5edca36a7d8edfc3ffe905da4f73157",
  "uw1_start": "4e1760d928c6b075d55b4e8b62388b1129e396ffe66809073e60cffe5ad3dd6e",
