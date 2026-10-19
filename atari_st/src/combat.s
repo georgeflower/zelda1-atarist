@@ -1173,6 +1173,7 @@ bomb_tick:
     bhi 2f
     bne 3f
     bsr bomb_open_wall
+    bsr ow_bomb_secret_far                  | on the overworld, a rock wall
     bra 3f
 2:  bsr bomb_hurt_enemies
 3:  subq.b #1, OFF_CLOUD_TIMER(%a5)
@@ -1393,7 +1394,10 @@ fire_update:
 18: move.b #2, OFF_FIRE_STATE(%a5)
     move.b #FIRE_STAND_FRAMES, OFF_FIRE_TIMER(%a5)
     bra 8f
-7:  tst.b OFF_FIRE_TIMER(%a5)
+7:  cmpi.b #1, OFF_FIRE_TIMER(%a5)
+    bne 71f
+    bsr ow_fire_secret_far                  | a flame on its last frames burns a tree
+71: tst.b OFF_FIRE_TIMER(%a5)
     bne 8f
     clr.b OFF_FIRE_STATE(%a5)
     bra 9f

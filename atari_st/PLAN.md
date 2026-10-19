@@ -1,6 +1,6 @@
 # Zelda 1 for Atari ST - plan for all remaining work
 
-Status: **work in progress, version 0.30** (see `CHANGELOG.md`). Written as a plan after PR #2; PRs #4 to #30 have since implemented parts of it, listed in section 1.1, and ticked boxes (`[x]`) below show what is done. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged.
+Status: **work in progress, version 0.31** (see `CHANGELOG.md`). Written as a plan after PR #2; PRs #4 to #32 have since implemented parts of it, listed in section 1.1, and ticked boxes (`[x]`) below show what is done. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged.
 
 How to read this: section 2 is the order of work. Sections 3 to 12 are one work package each, with a checklist and an acceptance test. Section 13 records the decisions, the risks and the checks still open. The appendices hold the data tables, decoded from the PAL (Europe, Rev 1) ROM you supplied. That ROM has the same data layout as the disassembly in `src/` (start room `$77`, start Y `$8D`, same blob offsets), so the tables should apply to the NTSC ROM the build expects as well.
 
@@ -44,17 +44,18 @@ Remaining, in the words of your request:
 | #27 (Levels 3-8) | Levels 3 to 8 (M6 to M9): the asset pipeline builds all eight dungeons; darknuts, vires, zols, pols voice, like-likes, wizzrobes, bubbles, gibdos; bosses Manhandla, Gohma, Digdogger and Gleeok (`bosses.s`, `farstub` trampolines, a boss sprite pool with pre-shifted narrow art and a body baked into the room); rupee stashes, Grumble and dark rooms (candle lights them); a catch-up pass keeps the game speed when a crowded room takes two VBLs; golden scenes for the new rooms; 123 unit tests | M6 to M9 |
 | #29 (Level 9) | Level 9 (M6 to M9): 57 rooms, cellar array, door man; Lanmola, Patra, Ganon (scene, fire, silver arrow, Triforce of Power), Zelda and the thanks scene; Level 9 golden scenes; 127 unit tests | M6 to M9 |
 | #30 | Credits after Zelda's thanks (typed pages, "ATARI ST PORT / BY Q"), Ganon's music, the "more bombs" and "life or money" men, `MAX_BOMBS` as a variable | M5, M9, M11 |
-| 0.30 branch | The magic key opens locked doors (HUD "XA"), the ladder crosses moats, reachability test of every level's doors, scripted Hatari checks of the Levels 3-9 mechanics; versions and `CHANGELOG.md` | M5, M9 |
+| #31 (0.30) | The magic key opens locked doors (HUD "XA"), the ladder crosses moats, reachability test of every level's doors, scripted Hatari checks of the Levels 3-9 mechanics; versions and `CHANGELOG.md` | M5, M9 |
+| #32 (0.31) | M1: the overworld's marker squares drawn as the squares they imitate, `room_secrets`, bomb walls, burnable trees, pushable gravestone and bracelet rocks (`secrets.s`), room flags; seven golden scenes | M1 |
 
-M0 is complete (table-dump tool, reach budget, golden frames). M2 has its first three steps (walkers; shots, edge spawns and kill history; the special movers); armos, gravestones and flying ghinis wait for the room-tile patch overlay. Nothing of M1 (hidden spots) or M4 (overworld specials) has been started, and only the first cave of M3.
+M0 is complete (table-dump tool, reach budget, golden frames). M1 is done except the armos (they are an enemy, so they go with M2/M4). M2 has its first three steps (walkers; shots, edge spawns and kill history; the special movers); armos and flying ghinis can now use the room-tile patch of `secrets.s`. Nothing of M4 (overworld specials) has been started, and only the first cave of M3.
 
 ## 2. Order of work
 
 | # | Work package | Depends on | Size | Status |
 |---|---|---|---|---|
 | M0 | Foundations: table-dump tool, palette strategy, PAL timing, regression screenshots | - | S | **done** (#18, #25) |
-| M1 | **Hidden bomb/fire/push spots fixed** (the visible bug) | M0 | M | not started |
-| M2 | Overworld enemies, spawn rules, drops | M0 | L | steps 1-3 done (#20-#22); armos and gravestone ghinis wait for M1's overlay |
+| M1 | **Hidden bomb/fire/push spots fixed** (the visible bug) | M0 | M | **done** (0.31, #32); the armos spots wait for M4 |
+| M2 | Overworld enemies, spawn rules, drops | M0 | L | steps 1-3 done (#20-#22); armos and gravestone ghinis can use the overlay of M1 (0.31) |
 | M3 | Caves: people, shops, hints, money game, door repair, take-any-road, old woman | M1 | L | first cave and the Level 1 old man |
 | M4 | Overworld specials: armos, bracelet rocks, gravestones, docks/raft, ladder, recorder + whirlwind, Lost Woods/Hills, fairy ponds | M1, M2 | L | not started |
 | M5 | Items, inventory screen, HUD, every B item and passive item | M3 | L | mostly done (#23, 0.30); the magic key opens doors, the ladder crosses dungeon moats and the bomb upgrade is sold; bracelet, raft, book effects and the overworld ladder open |
@@ -69,11 +70,11 @@ M0 is complete (table-dump tool, reach budget, golden frames). M2 has its first 
 
 ### 2.1 Versions and the next step
 
-Versions are milestones, not PR numbers: `0.NN`, tagged on the commit that finishes the milestone, with a line in `CHANGELOG.md`. A big change (a new dungeon, a new mechanic family, a new milestone package) gets its own version; fixes and docs ride along with the version they belong to. The current version is **0.30**.
+Versions are milestones, not PR numbers: `0.NN`, tagged on the commit that finishes the milestone, with a line in `CHANGELOG.md`. A big change (a new dungeon, a new mechanic family, a new milestone package) gets its own version; fixes and docs ride along with the version they belong to. The current version is **0.31**.
 
-Next step: **M1, the hidden bomb, fire and push spots** (target 0.31). It is the one bug the player sees on the overworld, it is the first item of the order above, and M3 (caves and shops: where most items come from) and M4 (armos, gravestones, bracelet, raft, ladder, recorder) both wait for its room-tile patch overlay. After M1: M3 (caves, shops, the money game), then M4, then M10 (title, name entry, save), then a person's play-through of all nine dungeons and the memory check for a 512 KB machine (M12).
+Next step: **M3, the caves** (target 0.32): the openings of M1 and the cave and dungeon stairs of the overworld lead to rooms that are empty except the first cave. M3 puts the people, the shops, the hints, the money games, the door-repair man and take-any-road behind them, and with them most of the items the engine already has. Then M4 (armos with their stairs and the bracelet, raft, ladder, recorder, Lost Woods), then M10 (title, name entry, save), then a person's play-through of all nine dungeons and the memory check for a 512 KB machine (M12).
 
-Reasoning: M1 is first because it is the bug you can see now and it fixes the data model (secret objects per room) that M3, M4 and M9 reuse. M6 comes before the monsters because every dungeon monster needs the room, door and palette machinery to be tested in place. M10 comes late because save files store the inventory, so the inventory must be final first.
+Reasoning: M1 went first because it was the bug you could see and it fixed the data model (secret objects per room, patched into the room maps) that M3, M4 and M9 reuse; M3 follows because every hidden spot, stair and cave of the overworld now leads to it. M6 comes before the monsters because every dungeon monster needs the room, door and palette machinery to be tested in place. M10 comes late because save files store the inventory, so the inventory must be final first.
 
 ## 3. M0 Foundations
 
@@ -105,22 +106,22 @@ The overworld layout stores six special "marker" squares. Their ST art is a plac
 | 42 | `$E9` | hidden armos A | `$66` | square idx 44 (`$C0`, armos) | touch/wake |
 | 43 | `$EA` | hidden armos B | `$67` | square idx 44 (`$C0`, armos) | touch/wake |
 
-`TileObjectTypes` = `$62..$67` and `TileObjectPrimarySquaresOW` = `$C8 $D8 $C4 $BC $C0 $C0` in `Z_05.asm`. On room load, `CheckTileObject` swaps each marker for the "draws as" square and records the object type plus its X/Y in object slot 11. The port's `build_assets.py::square_to_tiles` draws `primary[idx]` directly, so it paints the marker art. No Q1 screen uses idx 42/43; those are second-quest squares.
+`TileObjectTypes` = `$62..$67` and `TileObjectPrimarySquaresOW` = `$C8 $D8 $C4 $BC $C0 $C0` in `Z_05.asm`. On room load, `CheckTileObject` swaps each marker for the "draws as" square and records the object type plus its X/Y in object slot 11. The port's `build_assets.py::square_to_tiles` draws `primary[idx]` directly, so it paints the marker art. No Q1 screen uses idx 42/43; those are second-quest squares. **Done in 0.31**, with these differences from the plan: the records are 8 bytes (type, square, what it becomes, the stairs' square and metatile, the rock's metatile above and below), the quest filter is applied by the builder (Q2-only spots get no record), and a pushed rock or gravestone is undone when the screen is drawn again (`ow_secret_undo`), because the ROM lays the screen out afresh on every entry.
 
 ### 4.2 Fix, in three layers
 
 Layer A, look (build time, small):
-- [ ] In `build_assets.py`, remap squares 38..43 to 19, 27, 25, 20, 44, 44 before building `room_maps.bin`/`metatiles.bin`. A rock face then looks like every other rock face on the screen.
-- [ ] Emit a new table `room_secrets.bin`: for each of the 128 rooms, up to one record {type `$62..$67`, tile col, tile row, destination class, stairs-position idx (attribute F bits 4-5), quest filter (F bits 6-7)}. Appendix A1 lists all 54 records; 43 apply to Quest 1 (22 bomb walls, 16 trees, 4 bracelet rocks, 1 gravestone).
-- [ ] Unit test: for every room, no tile in the built map comes from squares 38..43, and `room_secrets` has exactly the markers the decoder finds.
+- [x] In `build_assets.py`, remap squares 38..43 to 19, 27, 25, 20, 44, 44 before building `room_maps.bin`/`metatiles.bin`. A rock face then looks like every other rock face on the screen.
+- [x] Emit a new table `room_secrets.bin`: for each of the 128 rooms, up to one record {type `$62..$67`, tile col, tile row, destination class, stairs-position idx (attribute F bits 4-5), quest filter (F bits 6-7)}. Appendix A1 lists all 54 records; 43 apply to Quest 1 (22 bomb walls, 16 trees, 4 bracelet rocks, 1 gravestone).
+- [x] Unit test: for every room, no tile in the built map comes from squares 38..43, and `room_secrets` has exactly the markers the decoder finds.
 
 Layer B, behaviour (runtime):
-- [ ] **Bombs** (`$63`, `UpdateRockWall` in `Z_04.asm`): when the bomb cloud is in the damaging window and overlaps the wall tile, replace it with cave square idx 12 (`$24` floor tile in the opening), play the secret-found tune, set the room flag bit 7. The port's cloud already has a "last 12 frames open a bombable wall" phase for dungeons; reuse it with overworld squares.
-- [ ] **Candle fire** (`$64`, `UpdateTree`): when the flame (state `$22`, timer below 2) is at the tree, replace it with stairs idx 18 (`$70`) and set the flag. The blue candle can burn once per screen; the red candle without that limit (item 7). Both use the same trigger.
-- [ ] **Power Bracelet rock** (`$62`) and **gravestone** (`$65`) (`UpdateRockOrGravestone`): when Link pushes toward it for the original push time and has the bracelet (rock only), slide it one square, stairs idx 18 appear where it stood. Gravestones need no item.
-- [ ] **Armos** (`UpdateArmos`/`InitArmosOrFlyingGhini`): the seven rooms `$24 $0B $1C $22 $34 $3D $4E` with armos X `$E0 $B0 $B0 $30 $40 $90 $A0` and Y `$80`. Room `$24` (E3) drops the Power Bracelet at the armos spot; the other six turn the touched armos into stairs. All seven spots exist in the Q1 layouts (checked against the decoded layouts).
-- [ ] **Persistence**: room flag bit 7 = secret found. A found secret is drawn already open the next time you enter. The existing room-flag array in the port is the place to put it.
-- [ ] **Quest filter**: attribute F bits 6-7 gate hidden secrets only (`IsQuestSecretMismatch` has just three call sites, all in the rock/tree/wall updaters). Value 1 = Quest 1, value 2 = Quest 2. A Q2-only secret in a Q1 game stays a plain rock or tree. Visible caves are not gated by it. **(verify)** that a Q2-tagged visible cave such as G1 is really absent from the Q1 layout and not just untagged.
+- [x] **Bombs** (`$63`, `UpdateRockWall` in `Z_04.asm`): when the bomb cloud is in the damaging window and overlaps the wall tile, replace it with cave square idx 12 (`$24` floor tile in the opening), play the secret-found tune, set the room flag bit 7. The port's cloud already has a "last 12 frames open a bombable wall" phase for dungeons; reuse it with overworld squares.
+- [x] **Candle fire** (`$64`, `UpdateTree`): when the flame (state `$22`, timer below 2) is at the tree, replace it with stairs idx 18 (`$70`) and set the flag. The blue candle can burn once per screen; the red candle without that limit (item 7). Both use the same trigger.
+- [x] **Power Bracelet rock** (`$62`) and **gravestone** (`$65`) (`UpdateRockOrGravestone`): when Link pushes toward it for the original push time and has the bracelet (rock only), slide it one square, stairs idx 18 appear where it stood. Gravestones need no item.
+- [ ] **Armos** (not done in 0.31: they are enemies, so they go with M4): `UpdateArmos`/`InitArmosOrFlyingGhini`, the seven rooms `$24 $0B $1C $22 $34 $3D $4E` with armos X `$E0 $B0 $B0 $30 $40 $90 $A0` and Y `$80`. Room `$24` (E3) drops the Power Bracelet at the armos spot; the other six turn the touched armos into stairs. All seven spots exist in the Q1 layouts (checked against the decoded layouts).
+- [x] **Persistence**: room flag bit 7 = secret found. A found secret is drawn already open the next time you enter. The existing room-flag array in the port is the place to put it.
+- [x] **Quest filter**: attribute F bits 6-7 gate hidden secrets only (`IsQuestSecretMismatch` has just three call sites, all in the rock/tree/wall updaters). Value 1 = Quest 1, value 2 = Quest 2. A Q2-only secret in a Q1 game stays a plain rock or tree. Visible caves are not gated by it. **(verify)** that a Q2-tagged visible cave such as G1 is really absent from the Q1 layout and not just untagged.
 
 Layer C, destination (what the opening leads to): each room's attribute B selects it: 1 to 9 = dungeon, `$10` and up = cave type (`$10` = type `$6A`, so `B>>2` minus `$10` indexes the 20 cave types), `$14` = take-any-road. The table in appendix A1 gives the destination per hidden spot. The position of the entrance stairs after the reveal comes from attribute F bits 4-5 through `LevelInfo_ShortcutOrItemPosArray` (four Y/X choices).
 
@@ -130,9 +131,9 @@ Of the 128 screens, 54 hold a marker (appendix A1). 23 more have a visible cave 
 
 ### 4.4 Acceptance
 
-- [ ] On the Q1 data, screen by screen: no marker art is visible anywhere (golden screenshots for the screens with a marker).
-- [ ] Bombing the rock wall at, for example, B1 col 9 row 1 opens cave type `$71` (door repair); burning the tree at I3 col 13 row 6 shows stairs to the "secret to everybody" cave; both stay open after leaving and returning, and a plain wall next to them does nothing.
-- [ ] A bomb that detonates elsewhere on the same screen reveals nothing; the same bomb on the marked wall does.
+- [x] On the Q1 data, screen by screen: no marker art is visible anywhere (golden screenshots for the screens with a marker).
+- [x] (The opening works and stays open; what is inside the caves is M3.) Bombing the rock wall at, for example, B1 col 9 row 1 opens cave type `$71` (door repair); burning the tree at I3 col 13 row 6 shows stairs to the "secret to everybody" cave; both stay open after leaving and returning, and a plain wall next to them does nothing.
+- [x] A bomb that detonates elsewhere on the same screen reveals nothing; the same bomb on the marked wall does.
 - [ ] A Q2-tagged spot (for example A1 `Level 9`) does nothing in a Q1 save.
 
 ## 5. M2 Overworld enemies

@@ -20,7 +20,7 @@ boss Aquamentus and the triforce piece, and **Level 2 (the Moon)** to the Dodong
 its heart container and the triforce piece. **Levels 3 to 9** are built too (rooms,
 layouts, items, every monster and boss of those levels, up to Ganon and Zelda's thanks) but only partly play-tested.
 Every item of the original's inventory is in the code. Everything else (
-shops and most caves, the hidden overworld spots, title and save) is future work, see section 14 and
+shops and most caves, armos, title and save) is future work, see section 14 and
 `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
@@ -30,7 +30,7 @@ damage, tile id, table), read it from there rather than guessing.
 
 ## 1.1 Versions
 
-The port has versions `0.NN` (current: **0.30**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
+The port has versions `0.NN` (current: **0.31**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
 the commit that finishes it. A big change (a dungeon, a mechanic family, a package of `atari_st/PLAN.md`) takes the next number; fixes
 and docs ride along. When you finish one: bump `VERSION`, the "Version" line of `README.md`, the status line of `atari_st/PLAN.md`
 and add the `CHANGELOG.md` entry, in the same PR; tag it after the merge. The next step is named in `atari_st/PLAN.md` section 2.1.
@@ -96,6 +96,7 @@ atari_st/                the port
 | `ai.s` | per-monster behaviours (rope, goriya incl. the blue one, wallmaster, Aquamentus, keese, blade trap, **Dodongo, Moldorm**), projectile system, **Link's boomerang** |
 | `movers.s` | the overworld monsters with rules of their own: tektites and boulders (jumps), leevers and zoras (burrowing), peahats, ghinis, the boulder set |
 | `items.s` | the B items beyond bombs/boomerang/candle (bow and arrows, rod, recorder, food, potion), Link's shots, heart fill, the `b_*` tables |
+| `secrets.s` | the overworld's hidden spots: `ow_bomb_secret_far`/`ow_fire_secret_far` hooks (bomb cloud, flame), `ow_push_secret` (Link blocked by a rock or gravestone), `ow_secret_undo` (called by `render_room`), patching `room_maps` in place |
 | `combat.s` | sword, beam, bombs, candle, drops/kill counters, `take_item`, HP/knock-back, rings, shield, clock, effects (spark/cloud), push block, shutters, triforce ending, the ringleader trigger |
 | `hud.s` | status ribbon, hearts, counters, A/B boxes (`hud_items`) |
 | `menu.s` | Tab inventory screen (MODE_MENU): 2x4 grid of B items plus a row of carried items |
@@ -499,6 +500,17 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   is taken, then stays dull. The Tab screen shows the same map bigger (`mm_box_big`, 8x3 cells, rows 3-5) between the compass and map icons he owns (`menu_dungeon`). Rooms come from `uw_room_index`; `UW_MAP_COL0` (circular window of 8 columns, centred, from
   `underworld.minimap_first_column`) and `UW_TRIFORCE_ROOM` (LevelInfo) are build equates. `minimap_tick` (main loop) raises
   `HUD_DIRTY` when the room, the items or the flash phase change (`MINIMAP_SIG`). The overworld shows nothing there yet.
+- **Overworld hidden spots** (`secrets.s`, ROM `UpdateRockWall`/`UpdateTree`/`UpdateRockOrGravestone`, `CheckTileObject`): the layouts hide
+  six marker squares (38-43, primaries `$E5-$EA`); `build_assets.decode_overworld` draws them as the squares the ROM swaps in (19, 27, 25,
+  20, 44, 44) and writes `room_secrets.bin`, one 8-byte record per screen (type, the spot's square `row*16+col`, what it becomes, the stairs'
+  square and metatile, the rock's metatile one square above and below). Quest-2-only spots (attr F >> 6 = 2) get no record. Finding one
+  patches `room_maps` in RAM (the PRG is RAM-resident) and redraws with `render_room` + `show_background`, so `fetch_tile` and `check_warps`
+  see the new tile. The room flags are `OW_KILLS` (bit 7 secret found, bit 5 rock pushed; the low three bits stay the kill count). A
+  pushed rock or gravestone is undone by `ow_secret_undo` when `render_room` next draws (the ROM lays a screen out afresh on every
+  entry); the stairs under a rock are permanent, those under a gravestone are not (`CheckShortcut`). The triggers: bomb cloud open
+  (`bomb_tick`, within 16 px), flame on its last frame (`fire_update`, timer 1), Link blocked going up or down (`link_pixel`). The spot's
+  Y is `row*16+$40`. The module sits after `uw.s` and the near modules reach it through four stubs in `main.s`: anything put between
+  `.text+$88c` and `uw_person_update` eats the 16-bit reach budget of `bsr uw_person_update` (185 bytes left).
 - **Secret triggers** (`LevelBlock` attr F & 7): 1 kill all -> open shutters, 4 push block,
   7 kill all -> item appears; others in `Z_05.asm` (`CheckSecretTrigger`).
 - **Level 1 rooms** (reachable from `$73`): `$22` traps, `$23` goriya+key, `$33` stalfos+key,
@@ -704,7 +716,7 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-Open items (user-visible gaps): the hidden bomb/fire/push spots and armos on the overworld (M1, M4); shops and the other caves, which is where
+Open items (user-visible gaps): armos on the overworld (M4); shops and the other caves, which is where
 most items come from (M3); a play-through of Levels 3-9 (M6-M9); the old man's flames shooting when he is hit; the overworld map on the ribbon; fireball art (placeholder); the stairs-type push block
 (trigger 5); visible block slide animation; the recorder's whirlwind, raft, ladder; the rest of the sound (title, ending, game-over and
 boss music, DPCM); title/game-over/save (M10). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death

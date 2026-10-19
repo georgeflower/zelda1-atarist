@@ -53,6 +53,21 @@ SCENES: dict[str, list[str]] = {
     "uw1_magic_key_door": ["--uw", "0x73", "--level", "1", "--vbls", "500", "--keys", "190:=ITEMS.13=1,200:+up"],
     "uw5_bombs_man": ["--uw", "0x17", "--level", "5", "--vbls", "420"],
     "uw9_credits_port": ["--uw", "0x32", "--level", "9", "--vbls", "3250", "--keys", "190:=HP_HALVES=40,190:=LINK_Y=0x95"],
+    # The overworld's hidden spots (secrets.s). Enemies are cleared at frame 300 so nothing disturbs the poked-in Link.
+    "ow_bomb_wall": ["--room", "0x01", "--vbls", "470", "--keys",
+                     "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0x5d,300:=LINK_DIR=8,300:=INV_BOMBS=8,300:=B_ITEM=1,340:+ctrl,343:-ctrl"],
+    "ow_bomb_miss": ["--room", "0x01", "--vbls", "470", "--keys",
+                     "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0x6d,300:=LINK_DIR=8,300:=INV_BOMBS=8,300:=B_ITEM=1,340:+ctrl,343:-ctrl"],
+    "ow_tree_burnt": ["--room", "0x28", "--vbls", "600", "--keys",
+                      "300:=ENEMY_COUNT=0,300:=LINK_X=0xc0,300:=LINK_Y=0xa5,300:=LINK_DIR=1,300:=INV_CANDLE=1,300:=B_ITEM=3,340:+ctrl,343:-ctrl"],
+    "ow_rock_pushed": ["--room", "0x79", "--vbls", "480", "--keys",
+                       "300:=ENEMY_COUNT=0,300:=LINK_X=0x80,300:=LINK_Y=0xa5,300:=LINK_DIR=8,300:=INV_BRACELET=1,340:+up"],
+    "ow_rock_no_bracelet": ["--room", "0x79", "--vbls", "480", "--keys",
+                            "300:=ENEMY_COUNT=0,300:=LINK_X=0x80,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up"],
+    "ow_grave_pushed": ["--room", "0x21", "--vbls", "420", "--keys",
+                        "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up,352:-up"],
+    "ow_grave_returns": ["--room", "0x21", "--vbls", "1000", "--keys",
+                         "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up,352:-up,380:=LINK_X=0x80,380:=LINK_Y=0xd5,385:+down,560:-down,570:+up"],
     "uw9_zelda_thanks": ["--uw", "0x32", "--level", "9", "--vbls", "800", "--keys", "190:=HP_HALVES=40,190:=LINK_Y=0x95"],
 }
 

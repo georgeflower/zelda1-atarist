@@ -42,6 +42,7 @@ LEVEL_INFO_OW_NAME = "dat/LevelInfoOW.dat"
 OW_ROOM_COLS = 16
 OW_ROOM_ROWS = 11
 OW_ROOM_COUNT = 128
+OW_SECRET_BYTES = 8                 # a record of room_secrets.bin (see "The overworld's hidden spots")
 OW_COLUMNS_PER_ROOM = 0x10
 LEVEL_BLOCK_TABLE_SIZE = 128
 # NextRoomIdOffsets (Z_05.asm) adds -16/+16/-1/+1, so the overworld map is a
@@ -495,6 +496,7 @@ class AssetBundle:
     cave_sprites: bytes = bytes(CAVE_SPRITE_FRAMES * SPRITE_FRAME_BYTES)
     cave_text: bytes = bytes((0xEC,)) + ENDING_TEXTS
     ow_room_info: bytes = bytes(128 * 16)   # overworld screens: monster count, flags, monster indices (actors.py)
+    room_secrets: bytes = bytes(128 * OW_SECRET_BYTES)   # overworld screens: the hidden spot, if any (OW_SECRET_BYTES)
     level_palettes: tuple = ()      # nine rows of 16 ST colours, one per dungeon (empty = reuse `palette`)
 
 
@@ -543,6 +545,34 @@ def load_ow_sprite_tiles(source_root: Path) -> list[list[list[int]]] | None:
     )
 
 
+# ---- The overworld's hidden spots (TileObjectTypes $62-$67 in the ROM) ----
+# The layouts hide a secret behind a "marker" square (PrimarySquaresOW $E5-$EA). The ROM draws it as the
+# plain square of TileObjectPrimarySquaresOW ($C8 rock, $D8 rock wall, $C4 tree, $BC gravestone, $C0 armos) and
+# makes a tile object of it. The port does the same: the markers are drawn as that square, and the spot goes
+# into room_secrets.bin, 128 records of OW_SECRET_BYTES:
+#   0 type (OW_SECRET_*; 0 = none)       1 the marker's square in the room (row * 16 + column)
+#   2 the metatile it turns into when the secret is found (bomb wall: cave entrance; tree: stairs; rock and
+#     gravestone: bare floor where it stood)
+#   3 the square of the stairs a pushed rock or gravestone uncovers (GetShortcutOrItemXYForRoom)  4 their metatile
+#   5 the rock's (or gravestone's) metatile when it ends one square above the marker  6 ... one square below
+#   7 spare
+# 0xFF in 5 or 6 means that push would leave the room.
+OW_SECRET_NONE, OW_SECRET_BOMB, OW_SECRET_TREE, OW_SECRET_ROCK, OW_SECRET_GRAVE = range(5)
+OW_SECRET_MARKER_TYPES = {0xE5: OW_SECRET_ROCK, 0xE6: OW_SECRET_BOMB, 0xE7: OW_SECRET_TREE, 0xE8: OW_SECRET_GRAVE}
+OW_SQUARE_CAVE = 12                             # the secondary square a found rock wall becomes (LayoutRoomOW: $0C)
+OW_SQUARE_FLOOR = 14                            # ChangeTileObjTiles($26) makes four floor tiles: this square
+OW_STAIRS_PRIMARY = 0x70
+QUEST_SECOND_ONLY = 2                           # attribute F bits 6-7: 2 = the secret exists in the second quest only
+
+
+def overworld_square_for_primary(primary: list[int], wanted: int) -> int:
+    """The type 1 square (index >= $10) whose first tile is `wanted`, as PrimarySquaresOW lists them."""
+    for index in range(0x10, len(primary)):
+        if primary[index] == wanted:
+            return index
+    raise SystemExit(f"No overworld square has primary {wanted:#04x}")
+
+
 def decode_overworld(
     source_root: Path, chr_tiles: list[list[list[int]]]
 ) -> tuple[
@@ -554,6 +584,7 @@ def decode_overworld(
     bytes,
     int,
     int,
+    bytes,
 ]:
     asm_text = (source_root / "src" / "Z_05.asm").read_text(encoding="utf-8", errors="replace")
     primary = parse_asm_byte_table(asm_text, "PrimarySquaresOW")
@@ -570,6 +601,8 @@ def decode_overworld(
     attrs_a = level_block[0:LEVEL_BLOCK_TABLE_SIZE]
     attrs_b = level_block[LEVEL_BLOCK_TABLE_SIZE : LEVEL_BLOCK_TABLE_SIZE * 2]
     attrs_d = level_block[LEVEL_BLOCK_TABLE_SIZE * 3 : LEVEL_BLOCK_TABLE_SIZE * 4]
+    attrs_f = level_block[LEVEL_BLOCK_TABLE_SIZE * 5 : LEVEL_BLOCK_TABLE_SIZE * 6]
+    shortcut_positions = level_info[LEVEL_INFO_ITEM_POSITIONS : LEVEL_INFO_ITEM_POSITIONS + 4]
 
     palette_bytes = level_info[
         LEVEL_INFO_PALETTE_OFFSET : LEVEL_INFO_PALETTE_OFFSET + PALETTE_ROWS * PALETTE_ROW_COLORS
@@ -578,6 +611,24 @@ def decode_overworld(
     metatile_ids: dict[tuple[int, tuple[int, int, int, int]], int] = {}
     metatiles: list[tuple[int, tuple[int, int, int, int]]] = []
     rooms: list[list[int]] = []
+    secrets = bytearray(OW_ROOM_COUNT * OW_SECRET_BYTES)
+
+    # The marker squares and what the ROM draws in their place (tile object types $62-$67 in order).
+    marker_squares = {primary.index(0xE5 + i, 0x10): i for i in range(6)}
+    tile_object_primaries = parse_asm_byte_table(asm_text, "TileObjectPrimarySquaresOW")
+    marker_look = {square: overworld_square_for_primary(primary, tile_object_primaries[i])
+                   for square, i in marker_squares.items()}
+    marker_kind = {primary.index(marker, 0x10): kind for marker, kind in OW_SECRET_MARKER_TYPES.items()}
+    stairs_square = overworld_square_for_primary(primary, OW_STAIRS_PRIMARY)
+
+    def metatile_for(slot: int, square: int) -> int:
+        key = (slot, square_to_tiles(square, primary, secondary))
+        index = metatile_ids.get(key)
+        if index is None:
+            index = len(metatiles)
+            metatile_ids[key] = index
+            metatiles.append(key)
+        return index
 
     for room_id in range(OW_ROOM_COUNT):
         # LayoutRoomOW shifts bit 6 into the high byte too, so the id is 7 bits (121 layouts).
@@ -592,10 +643,45 @@ def decode_overworld(
 
         columns = [decode_column(heap, directory[d >> 4], d & 0x0F) for d in descriptors]
 
+        def slot_at(col: int, row: int, inner: int = inner, outer: int = outer) -> int:
+            return inner if (col in OW_INNER_COL_RANGE and row in OW_INNER_ROW_RANGE) else outer
+
+        found = [(col, row, columns[col][row]) for row in range(OW_ROOM_ROWS) for col in range(OW_ROOM_COLS)
+                 if columns[col][row] in marker_squares]
+        if len(found) > 1:
+            raise SystemExit(f"Overworld room {room_id:#04x} hides {len(found)} secrets; the port keeps one")
+        for col, row, marker in found:
+            columns[col][row] = marker_look[marker]
+        if found:
+            col, row, marker = found[0]
+            kind = marker_kind.get(marker, OW_SECRET_NONE)
+            quest = attrs_f[room_id] >> 6
+            if kind != OW_SECRET_NONE and quest != QUEST_SECOND_ONLY:
+                record = bytearray(OW_SECRET_BYTES)
+                record[0] = kind
+                record[1] = row * OW_ROOM_COLS + col
+                here = slot_at(col, row)
+                if kind == OW_SECRET_BOMB:
+                    record[2] = metatile_for(here, OW_SQUARE_CAVE)
+                elif kind == OW_SECRET_TREE:
+                    record[2] = metatile_for(here, stairs_square)
+                else:
+                    record[2] = metatile_for(here, OW_SQUARE_FLOOR)
+                    shortcut = shortcut_positions[(attrs_f[room_id] >> 4) & 3]
+                    stairs_col, stairs_row = shortcut >> 4, (((shortcut & 0x0F) << 4) - 0x40) >> 4
+                    if not (0 <= stairs_col < OW_ROOM_COLS and 0 <= stairs_row < OW_ROOM_ROWS):
+                        raise SystemExit(f"Room {room_id:#04x}: the stairs {shortcut:#04x} lie outside the room")
+                    record[3] = stairs_row * OW_ROOM_COLS + stairs_col
+                    record[4] = metatile_for(slot_at(stairs_col, stairs_row), stairs_square)
+                    moved = marker_look[marker]
+                    record[5] = metatile_for(slot_at(col, row - 1), moved) if row > 0 else 0xFF
+                    record[6] = metatile_for(slot_at(col, row + 1), moved) if row < OW_ROOM_ROWS - 1 else 0xFF
+                secrets[room_id * OW_SECRET_BYTES : (room_id + 1) * OW_SECRET_BYTES] = record
+
         grid: list[int] = []
         for row in range(OW_ROOM_ROWS):
             for col in range(OW_ROOM_COLS):
-                slot = inner if (col in OW_INNER_COL_RANGE and row in OW_INNER_ROW_RANGE) else outer
+                slot = slot_at(col, row)
                 quad = square_to_tiles(columns[col][row], primary, secondary)
                 key = (slot, quad)
                 index = metatile_ids.get(key)
@@ -625,6 +711,7 @@ def decode_overworld(
         palette_bytes,
         level_info[LEVEL_INFO_START_ROOM_ID],
         level_info[LEVEL_INFO_START_Y],
+        bytes(secrets),
     )
 
 
@@ -707,7 +794,7 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
     bg_tiles = load_ow_background_tiles(source_root)
     sprite_tiles = load_ow_sprite_tiles(source_root)
     if bg_tiles is not None and sprite_tiles is not None:
-        rooms, metatiles, room_attrs_a, room_attrs_b, room_attrs_c, room_attrs_d, room_attrs_f, foe_counts, palette_bytes, start_room, start_y = decode_overworld(source_root, bg_tiles)
+        rooms, metatiles, room_attrs_a, room_attrs_b, room_attrs_c, room_attrs_d, room_attrs_f, foe_counts, palette_bytes, start_room, start_y, room_secrets = decode_overworld(source_root, bg_tiles)
         import underworld
 
         # Development aid: ZELDA_START_ROOM=0x37 starts the game in another room.
@@ -749,6 +836,7 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
             palette=palette_map,
             level_palettes=level_palettes,
             ow_room_info=ow_room_info,
+            room_secrets=room_secrets,
             bg_tiles=bg_tiles,
             sprite_tiles=sprite_tiles,
             rooms=rooms,
@@ -791,6 +879,7 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
         room_attrs_c=[0] * len(rooms),
         room_attrs_d=[0] * len(rooms),
         room_attrs_f=[0] * len(rooms),
+        room_secrets=bytes(len(rooms) * OW_SECRET_BYTES),
         foe_counts=[1, 4, 5, 6],
         start_room=0,
         start_y=0x8D,
@@ -1171,6 +1260,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
     (out_dir / "metatiles.bin").write_bytes(render_metatiles(bundle))
     (out_dir / "link_sprites.bin").write_bytes(render_sprites(bundle))
     (out_dir / "ow_room_info.bin").write_bytes(bundle.ow_room_info)
+    (out_dir / "room_secrets.bin").write_bytes(bundle.room_secrets)
     (out_dir / "enemy_sprites.bin").write_bytes(render_enemy_sprites())
     (out_dir / "hud_tiles.bin").write_bytes(render_hud_tiles(bundle))
     # The big tables ship as binaries rather than .byte directives: 22KB of
@@ -1341,6 +1431,7 @@ def verify_outputs(out_dir: Path) -> None:
         "hud_tiles.bin": int(manifest_values["hud_tile_count"]) * int(manifest_values["hud_tile_bytes"]),
         "metatile_tiles.bin": int(manifest_values["metatile_count"]) * 4,
         "room_maps.bin": int(manifest_values["room_count"]) * int(manifest_values["room_bytes"]),
+        "room_secrets.bin": int(manifest_values["room_count"]) * OW_SECRET_BYTES,
         "uw_door_cells.bin": 4 * 12 * 2,
     }
     for level in manifest_values["uw_levels"].split(","):

@@ -2,7 +2,23 @@
 
 Versions are milestones of the Atari ST port (`0.NN`), tagged on the commit that finishes them. A big change (a dungeon,
 a new mechanic family, a milestone package of `atari_st/PLAN.md`) gets its own version; fixes and docs ride along with the
-version they belong to. The current version is **0.30**.
+version they belong to. The current version is **0.31**.
+
+## 0.31 (2026-10-19) - hidden bomb, fire and push spots (M1)
+- The overworld's six marker squares are drawn as the squares they imitate (rock, rock wall, tree, gravestone), as the ROM does; the
+  marker art is gone from every screen. `build_assets.py` writes `room_secrets.bin` (128 records of 8 bytes) with the 43 spots of
+  the First Quest: 22 bomb walls, 16 trees, 4 bracelet rocks, 1 gravestone. Spots tagged for the Second Quest only stay scenery.
+- A bomb whose cloud opens within 16 pixels of a rock wall turns it into a cave entrance; a flame on its last frames burns a tree
+  into stairs; Link pushes a gravestone, or a rock with the power bracelet, straight up or down and the stairs appear. The secret
+  tune plays; the caves and stairs lead through `check_warps` like any other (what is inside them is milestone M3).
+- Found secrets are kept in the room flags (`OW_KILLS` bit 7) and stay open. A pushed rock or gravestone goes back to its place when
+  Link leaves the screen, as in the ROM; the stairs under the rock stay, those under the gravestone do not.
+- `secrets.s`; the screens are patched in place in `room_maps` (the PRG is RAM-resident), so scrolling and `fetch_tile` need no change.
+  Four far stubs in `main.s` keep the 16-bit reach.
+- Differences from the ROM: the pushed stone jumps one square instead of sliding; the revealed bomb wall is the ordinary cave
+  entrance square at once (the ROM shows four black tiles until the screen is laid out again); armos stay with M4.
+- Seven new golden scenes (`ow_bomb_wall`, `ow_bomb_miss`, `ow_tree_burnt`, `ow_rock_pushed`, `ow_rock_no_bracelet`,
+  `ow_grave_pushed`, `ow_grave_returns`) and five unit tests.
 
 ## 0.30 (2026-10-19) - doors, moats, play-through checks
 - The magic key opens every locked door without being used up (Level 9 has 16 locked doors and 4 keys); the HUD shows "XA".

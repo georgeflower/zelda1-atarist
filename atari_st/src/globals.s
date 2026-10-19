@@ -280,7 +280,11 @@
     gvar EDGE_NEXT, 1          | the slot the next one takes
     gvar EDGE_TIMER, 1         | tenths of a second until the next one comes (MonstersFromEdgesLongTimer)
     gvar EDGE_CELL, 1          | the last edge square a monster came in at (CurEdgeSpawnCell), 0 = the first one, $40
-    gvar OW_KILLS, 128         | per overworld screen, low three bits: kills remembered (the room flags' kill count)
+    gvar OW_KILLS, 128         | per overworld screen, the room flags: low three bits the kills remembered, bit 7 a secret found, bit 5 a rock pushed
+    gvar OWS_UNDO_N, 1         | squares a pushed rock or gravestone changed (secrets.s), to put back when he leaves
+    gvar OWS_UNDO_ROOM, 1      | the screen they belong to
+    gvar OWS_FRESH, 1          | the next render_room shows the push, it does not undo it
+    gvar OWS_UNDO, 6           | up to three (square, metatile) pairs
     | The movers (movers.s): per-monster fields of tektites, boulders, leevers, zoras and peahats. They are
     | one block so clear_enemies can wipe them together; the four counters follow the eight rows.
     gvar ENEMY_GHOST, 8        | bit 0: weapons pass through it; bit 1: it does Link no harm (burrowed, submerged, flying high)

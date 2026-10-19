@@ -156,6 +156,7 @@ wait_vbl_tick:
 | d0.w = room id, a1 = destination buffer
 render_room:
     movem.l %d0-%d7/%a0-%a4, -(%sp)
+    bsr ow_secret_undo_far                  | a rock pushed on the screen he left goes back
     ltab room_maps, %a0
     mulu.w #ROOM_BYTES, %d0
     adda.l %d0, %a0
