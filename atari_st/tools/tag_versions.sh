@@ -8,4 +8,5 @@ for c in 8b3459e bd26899 e2de20b 7280fa7 590fbac aeddde9 bce634e 75336fb 6556dd4
     i=$((i + 1))
 done
 git tag 0.30 f617c72
-git tag 0.31 "${1:-HEAD}"
+git tag 0.31 51deaa4
+git tag 0.32 "${1:-HEAD}"

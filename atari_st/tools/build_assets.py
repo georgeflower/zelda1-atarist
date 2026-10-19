@@ -132,7 +132,9 @@ HUD_GLYPHS = (
     ("CH_PERIOD", 0x2C, HUD_TEXT_ROW),
     ("CH_QUESTION", 0x2E, HUD_TEXT_ROW),
     ("CH_MINUS", 0x2F, HUD_TEXT_ROW),
+    ("CH_PLUS", 0x64, HUD_TEXT_ROW),    # the money game's "+20"; text code CODE_PLUS stands for it
 )
+CODE_PLUS = 0x2B                         # a text code no speech uses
 
 CAVE_WALL_ROW = PALETTE_ROWS       # the palette row appended for the cave's row 3
 PERSON_TEXT_NAME = "dat/PersonText.dat"
@@ -171,7 +173,12 @@ ENDING_TEXTS = ENDING_THANKS_TEXT + ENDING_PEACE_TEXT + b"".join(CREDIT_TEXTS)
 PERSON_TEXT_BYTES = 43             # the first person's speech
 OLD_MAN_TYPE = 0x6A
 FIRE_ANIM_INDEX = 0x41
-CAVE_SPRITE_FRAMES = 3             # old man, fire, fire turned round
+CAVE_SPRITE_FRAMES = 6             # old man, fire, fire turned round, old woman, shopkeeper, moblin
+CAVE_PEOPLE = ((0x73, "mirror"), (0x77, "mirror"), (0x7B, "wide"))   # the other people: the type whose animation draws them, and how
+CAVE_TYPES = 20                    # $6A..$7D
+CAVE_RECORD_BYTES = 16             # a record of cave_table.bin (see build_caves)
+CAVE_NONE = 0x3F                   # no item in a ware's slot
+CAVE_LAST_MAN, CAVE_LAST_WOMAN, CAVE_LAST_SHOP = 0x72, 0x76, 0x7A
 
 # GetCollidableTile (Z_07.asm) treats a tile as blocking when it is at or above
 # ObjectFirstUnwalkableTile, except for the tiles in this list, which it rewrites
@@ -492,9 +499,11 @@ class AssetBundle:
     start_y: int
     uw: object | None = None        # level 1: the tables shared by every level (monsters, items, ...) come from it
     levels: tuple = ()              # every playable level's UwData, in order (empty: just `uw`)
-    cave_map: bytes = bytes(OW_ROOM_COLS * OW_ROOM_ROWS)
+    cave_map: bytes = bytes(2 * OW_ROOM_COLS * OW_ROOM_ROWS)   # the usual cave's room, then the take-any-road room
     cave_sprites: bytes = bytes(CAVE_SPRITE_FRAMES * SPRITE_FRAME_BYTES)
     cave_text: bytes = bytes((0xEC,)) + ENDING_TEXTS
+    cave_table: bytes = bytes(CAVE_TYPES * CAVE_RECORD_BYTES)   # one record per cave type (build_caves)
+    cave_shortcuts: bytes = bytes(4)    # the four screens of the take-any-road caves
     ow_room_info: bytes = bytes(128 * 16)   # overworld screens: monster count, flags, monster indices (actors.py)
     room_secrets: bytes = bytes(128 * OW_SECRET_BYTES)   # overworld screens: the hidden spot, if any (OW_SECRET_BYTES)
     level_palettes: tuple = ()      # nine rows of 16 ST colours, one per dungeon (empty = reuse `palette`)
@@ -733,8 +742,8 @@ def add_cave_palette_row(palette: PaletteMap, source_root: Path) -> PaletteMap:
     return PaletteMap(st_colors=palette.st_colors, table=palette.table + (entries,))
 
 
-def decode_cave(source_root: Path, metatiles: list) -> bytes:
-    """The cave room layout as metatile ids, appending any metatile it needs."""
+def decode_cave(source_root: Path, metatiles: list, layout_name: str = "RoomLayoutOWCave0") -> bytes:
+    """A cave room layout as metatile ids, appending any metatile it needs (Cave0 is the usual cave, Cave1 the take-any-road room)."""
     asm = (source_root / "src" / "Z_05.asm").read_text(encoding="utf-8", errors="replace")
     primary = parse_asm_byte_table(asm, "PrimarySquaresOW")
     secondary = parse_asm_byte_table(asm, "SecondarySquaresOW")
@@ -742,14 +751,17 @@ def decode_cave(source_root: Path, metatiles: list) -> bytes:
     directory = parse_column_directory(
         (source_root / "src" / "Z_06.asm").read_text(encoding="utf-8", errors="replace")
     )
-    layout = parse_asm_byte_table(asm, "RoomLayoutOWCave0")
+    layout = parse_asm_byte_table(asm, layout_name)
     columns = [decode_column(heap, directory[d >> 4], d & 0x0F) for d in layout]
 
     known = {key: index for index, key in enumerate(metatiles)}
     grid = bytearray()
     for row in range(OW_ROOM_ROWS):
         for col in range(OW_ROOM_COLS):
-            key = (CAVE_WALL_ROW, square_to_tiles(columns[col][row], primary, secondary))
+            tiles = square_to_tiles(columns[col][row], primary, secondary)
+            # The room's attributes ($44) give every other column the overworld's palette 0 or 1; only the stairs
+            # of the take-any-road room show it, everything else in a cave is the wall palette's black.
+            key = ((col & 1) if tiles[0] in (0x70, 0x72) else CAVE_WALL_ROW, tiles)
             if key not in known:
                 known[key] = len(metatiles)
                 metatiles.append(key)
@@ -775,10 +787,63 @@ def build_cave_sprites(source_root: Path, sprite_tiles, palette: PaletteMap) -> 
 
     old_man = image(OLD_MAN_TYPE + 1, "mirror")   # old men, women and shopkeepers are mirrored
     fire = image(FIRE_ANIM_INDEX, "wide")
+    others = [image(person + 1, layout) for person, layout in CAVE_PEOPLE]
     return b"".join(
         actors._pack_masked(rows)
-        for rows in (old_man, fire, [row[::-1] for row in fire])
+        for rows in (old_man, fire, [row[::-1] for row in fire], *others)
     )
+
+
+def build_caves(source_root: Path, text_base: int) -> tuple[bytes, bytes, bytes]:
+    """What each of the 20 caves (types $6A..$7D) holds and says, as the ROM's InitCave reads it.
+
+    Returns (cave_table, text, shortcuts). The table has one record of CAVE_RECORD_BYTES per type:
+      0 CaveFlags (1 pick up one, 2 pay, 4 show the wares, 8 show prices, $10 hint, $20 money game, $40 heart requirement, $80 minus signs)
+      1 who stands there (0 old man, 1 old woman, 2 shopkeeper, 3 moblin)
+      2-4 the three wares (CAVE_NONE = nothing)   5-7 their prices   8-9 where the speech starts in the cave text
+      10-15 three more speeches: what a hint cave says for each ware (HintCaveTextSelectors0/1)
+    `text` is what to append to the cave text (the offsets in the table count from `text_base`, the text's length before it);
+    shortcuts are the four screens the take-any-road cave leads to.
+    """
+    level_block = require_binary(source_root, LEVEL_BLOCK_OW_NAME)
+    attr_e = level_block[4 * OW_ROOM_COUNT : 5 * OW_ROOM_COUNT]
+    asm = (source_root / "src" / "Z_01.asm").read_text(encoding="utf-8", errors="replace")
+    selectors = parse_asm_byte_table(asm, "OverworldPersonTextSelectors")
+    hints = (parse_asm_byte_table(asm, "HintCaveTextSelectors0"), parse_asm_byte_table(asm, "HintCaveTextSelectors1"))
+    texts = require_binary(source_root, PERSON_TEXT_NAME)
+    addrs = (source_root / "src" / "dat" / "PersonTextAddrs.inc").read_text(encoding="utf-8", errors="replace")
+    starts = [int(m) for m in re.findall(r"PersonText\+(\d+)", addrs)]
+    blob = bytearray()
+    placed = {0: 0}                         # the first speech is where the text begins
+
+    def speech(selector: int) -> int:
+        selector &= 0x3F
+        if selector not in placed:
+            entry = selector // 2
+            end = starts[entry + 1] if entry + 1 < len(starts) else len(texts)
+            placed[selector] = text_base + len(blob)
+            blob.extend(texts[starts[entry] : end])
+        return placed[selector]
+
+    table = bytearray()
+    for index in range(CAVE_TYPES):
+        kind = 0x6A + index
+        items = [attr_e[index * 3 + n] for n in range(3)]
+        prices = [attr_e[60 + index * 3 + n] for n in range(3)]
+        flags = (items[0] & 0xC0) | ((items[1] & 0xC0) >> 2) | ((items[2] & 0xC0) >> 4)
+        flags |= (selectors[index] >> 6) & 0x03           # ASL, ROL, ROL: the text selector's top two bits move to the bottom
+        person = 0 if kind <= CAVE_LAST_MAN else 1 if kind <= CAVE_LAST_WOMAN else 2 if kind <= CAVE_LAST_SHOP else 3
+        record = bytearray([flags, person, *(item & 0x3F for item in items), *prices])
+        record += speech(selectors[index]).to_bytes(2, "big")
+        if kind in (0x75, 0x76):
+            chosen = hints[0] if kind == 0x75 else hints[1]
+            for selector in chosen[:3]:
+                record += speech(selector).to_bytes(2, "big")
+        record += bytes(CAVE_RECORD_BYTES - len(record))
+        table += record
+    info = require_binary(source_root, LEVEL_INFO_OW_NAME)
+    first = 0x6BB2 - LEVEL_INFO_BASE
+    return bytes(table), bytes(blob), bytes(info[first : first + 4])
 
 
 def text_glyph_map() -> bytes:
@@ -787,6 +852,7 @@ def text_glyph_map() -> bytes:
     for index, (_, tile, row) in enumerate(HUD_GLYPHS):
         if row == HUD_TEXT_ROW:
             by_tile.setdefault(tile, index)
+    by_tile[CODE_PLUS] = [i for i, (name, _, _) in enumerate(HUD_GLYPHS) if name == "CH_PLUS"][0]
     return bytes(by_tile.get(code, 0) for code in range(64))
 
 
@@ -802,7 +868,7 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
         if override:
             start_room = int(override, 0)
         palette_map = build_palette_map(palette_bytes)
-        cave_map = decode_cave(source_root, metatiles)
+        cave_map = decode_cave(source_root, metatiles) + decode_cave(source_root, metatiles, "RoomLayoutOWCave1")
         palette_map = add_cave_palette_row(palette_map, source_root)
         cave_sprites = build_cave_sprites(source_root, sprite_tiles, palette_map)
         cave_text = require_binary(source_root, PERSON_TEXT_NAME)[:PERSON_TEXT_BYTES]
@@ -823,6 +889,8 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
         level_palettes = tuple(underworld.level_palettes(source_root, palette_bytes, palette_map))
         for built in levels:
             cave_text += built.actors.person_text   # the levels' old men speak from the same text, one after the other
+        cave_table, caves_text, cave_shortcuts = build_caves(source_root, len(cave_text))
+        cave_text += caves_text                 # then what the overworld's caves say
         cave_text += ENDING_TEXTS               # always the last thing in the text: the ending's two speeches
         if len(cave_text) > 0xFFFE:
             raise SystemExit("The cave and dungeon speeches no longer fit the text index")
@@ -833,6 +901,8 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
             cave_map=cave_map,
             cave_sprites=cave_sprites,
             cave_text=cave_text,
+            cave_table=cave_table,
+            cave_shortcuts=cave_shortcuts,
             palette=palette_map,
             level_palettes=level_palettes,
             ow_room_info=ow_room_info,
@@ -1236,6 +1306,7 @@ def underworld_equates(uw, level_count: int = 1) -> list[str]:
         f".equ MON_PATRA_CHILD2, {uw.actors.mon_index[0x26]}",
         f".equ DEV_START_UW, {int(os.environ.get('ZELDA_START_UW', '0xFF'), 0)}",
         f".equ DEV_START_LEVEL, {int(os.environ.get('ZELDA_START_LEVEL', '1'), 0)}",
+        f".equ DEV_START_CAVE, {int(os.environ.get('ZELDA_START_CAVE', '0'), 0)}",
     ]
 
 
@@ -1277,6 +1348,8 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
     (out_dir / "cave_map.bin").write_bytes(bundle.cave_map)
     (out_dir / "cave_sprites.bin").write_bytes(bundle.cave_sprites)
     (out_dir / "cave_text.bin").write_bytes(bundle.cave_text)
+    (out_dir / "cave_table.bin").write_bytes(bundle.cave_table)
+    (out_dir / "cave_shortcuts.bin").write_bytes(bundle.cave_shortcuts)
     (out_dir / "text_glyphs.bin").write_bytes(text_glyph_map())
 
     room_count = len(bundle.rooms)
@@ -1432,6 +1505,8 @@ def verify_outputs(out_dir: Path) -> None:
         "metatile_tiles.bin": int(manifest_values["metatile_count"]) * 4,
         "room_maps.bin": int(manifest_values["room_count"]) * int(manifest_values["room_bytes"]),
         "room_secrets.bin": int(manifest_values["room_count"]) * OW_SECRET_BYTES,
+        "cave_table.bin": CAVE_TYPES * CAVE_RECORD_BYTES,
+        "cave_shortcuts.bin": 4,
         "uw_door_cells.bin": 4 * 12 * 2,
     }
     for level in manifest_values["uw_levels"].split(","):

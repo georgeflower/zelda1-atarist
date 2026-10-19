@@ -190,7 +190,10 @@ render_map_body:
 render_cave_room:
     movem.l %d0-%d7/%a0-%a4, -(%sp)
     ltab cave_map, %a0
-    bra render_map_body
+    tst.b OFF_CAVE_ROOMKIND(%a5)
+    beq 1f
+    adda.w #176, %a0   | the take-any-road room follows the usual cave
+1:  bra render_map_body
 
 
 | Copy a rectangle between two screen-shaped buffers.

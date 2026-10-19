@@ -143,16 +143,25 @@ draw_hud_counter:
     move.w %d3, %d0
     bsr draw_hud_tile
 
+    | divu.w divides the whole 32-bit register, so clear it down to the byte
+    | the caller actually passed. Three digits (the purse holds up to 255) take the place of the X.
+    and.l #0xFF, %d4
+    divu.w #100, %d4
+    move.l %d4, %d5
+    swap %d5                    | the rest below 100
+    and.l #0xFFFF, %d5
     addq.w #1, %d1
     moveq #HUD_X, %d0
-    bsr draw_hud_tile
-
-    | divu.w divides the whole 32-bit register, so clear it down to the byte
-    | the caller actually passed.
-    and.l #0xFF, %d4
+    tst.w %d4
+    beq 1f
+    move.w %d4, %d0
+    add.w #HUD_DIGIT0, %d0      | the hundreds
+1:  bsr draw_hud_tile
+    moveq #0, %d4
+    move.w %d5, %d4
     divu.w #10, %d4
     move.l %d4, %d5
-    swap %d5                    | remainder: the units digit
+    swap %d5                    | the units
     addq.w #1, %d1
     move.w %d4, %d0
     and.w #0xFF, %d0

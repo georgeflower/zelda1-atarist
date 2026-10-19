@@ -1038,8 +1038,6 @@ check_warps:
     beq 9f                          | nothing behind this square
     cmp.w #0x40, %d0
     blo 5f
-    cmp.w #0x50, %d0
-    beq 9f                          | shortcut caves are not done yet
     bsr start_cave_entry
     bra 9f
 5:  lsr.w #2, %d0                   | the level number

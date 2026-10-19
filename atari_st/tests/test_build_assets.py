@@ -551,7 +551,56 @@ class RomActorTests(unittest.TestCase):
         text = "".join(letters[code & 0x3F] for code in cave)
         self.assertEqual(" ".join(text.split()), "IT'S DANGEROUS TO GO ALONE! TAKE THIS.")
         self.assertEqual(cave[-1] & 0xC0, 0xC0)               # the last character ends the speech
-        self.assertEqual(len(bundle.cave_map), build_assets.OW_ROOM_COLS * build_assets.OW_ROOM_ROWS)
+        # the usual cave, then the take-any-road room
+        self.assertEqual(len(bundle.cave_map), 2 * build_assets.OW_ROOM_COLS * build_assets.OW_ROOM_ROWS)
+
+    def _speech(self, bundle, offset: int) -> str:
+        letters = {0x0A + n: chr(ord("A") + n) for n in range(26)}
+        letters.update({0x24: " ", 0x25: " ", 0x28: ",", 0x29: "!", 0x2A: "'", 0x2C: ".", 0x2E: "?", 0x2F: "-"})
+        out = []
+        while True:
+            code = bundle.cave_text[offset]
+            offset += 1
+            out.append(code & 0x3F)
+            if code & 0xC0 == 0xC0:
+                break
+        return " ".join("".join(letters.get(code, str(code)) if code >= 10 else str(code) for code in out).split())
+
+    def test_cave_table_follows_the_rom(self) -> None:
+        bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+        table = bundle.cave_table
+        self.assertEqual(len(table), build_assets.CAVE_TYPES * build_assets.CAVE_RECORD_BYTES)
+
+        def record(cave_type: int) -> bytes:
+            start = (cave_type - 0x6A) * build_assets.CAVE_RECORD_BYTES
+            return table[start : start + build_assets.CAVE_RECORD_BYTES]
+
+        def speech(cave_type: int, at: int = 8) -> str:
+            return self._speech(bundle, int.from_bytes(record(cave_type)[at : at + 2], "big"))
+
+        wood = record(0x6A)                                           # the wooden sword: pick up, wares shown
+        self.assertEqual((wood[0], wood[1], tuple(wood[2:5])), (0x05, 0, (0x3F, 0x01, 0x3F)))
+        self.assertEqual(speech(0x6A), "IT'S DANGEROUS TO GO ALONE! TAKE THIS.")
+        self.assertEqual(record(0x6C)[0] & 0x40, 0x40)                # the heart requirement
+        self.assertEqual(record(0x6D)[0] & 0x40, 0x40)
+        self.assertEqual(record(0x6B)[2:5], bytes((0x20, 0x3F, 0x1A)))
+        self.assertEqual(speech(0x6B), "TAKE ANY ONE YOU WANT.")
+        self.assertEqual(speech(0x6E), "TAKE ANY ROAD YOU WANT.")
+        self.assertEqual(speech(0x71), "PAY ME FOR THE DOOR REPAIR CHARGE.")
+        money = record(0x70)                                          # the money making game: minus signs, three rupees
+        self.assertEqual((money[0], tuple(money[2:5]), tuple(money[5:8])), (0xAD, (0x18,) * 3, (10, 10, 10)))
+        shop = record(0x77)                                           # a shop: magic shield, bombs, arrow
+        self.assertEqual((shop[0], shop[1], tuple(shop[2:5]), tuple(shop[5:8])), (0x0F, 2, (0x1C, 0x00, 0x08), (130, 20, 80)))
+        potion = record(0x74)                                         # the medicine woman
+        self.assertEqual((potion[1], tuple(potion[2:5]), tuple(potion[5:8])), (1, (0x1F, 0x3F, 0x20), (40, 0, 68)))
+        hint = record(0x75)                                           # pay for a hint: the ware picks the speech
+        self.assertEqual(tuple(hint[5:8]), (5, 10, 20))
+        self.assertEqual(speech(0x75, 14), "GO UP,UP, THE MOUNTAIN AHEAD.")
+        self.assertEqual(speech(0x76, 12), "GO NORTH,WEST,SOUTH, WEST TO THE FOREST OF MAZE.")
+        moblin = record(0x7B)                                         # a moblin hands out the middle rupee
+        self.assertEqual((moblin[1], tuple(moblin[5:8])), (3, (0, 30, 0)))
+        self.assertEqual(speech(0x7B), "IT'S A SECRET TO EVERYBODY.")
+        self.assertEqual(bundle.cave_shortcuts, bytes((0x1D, 0x23, 0x49, 0x79)))
 
     def test_level_one_old_man_sits_in_room_41_with_his_own_speech(self) -> None:
         bundle = build_assets.load_assets(ROM_ROOT, require_source=True)

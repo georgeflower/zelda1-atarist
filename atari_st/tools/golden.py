@@ -75,6 +75,25 @@ SCENES: dict[str, list[str]] = {
     "uw9_ganon_brown": ["--uw", "0x42", "--level", "9", "--vbls", "515", "--keys", GANON_ARROW],
     "uw9_ganon_ashes": ["--uw", "0x42", "--level", "9", "--vbls", "1100", "--keys", GANON_ARROW],
     "uw9_zelda_thanks": ["--uw", "0x32", "--level", "9", "--vbls", "800", "--keys", "190:=HP_HALVES=40,190:=LINK_Y=0x95"],
+    # Caves (caves.s): --cave starts inside the cave behind the screen; the keys poke rupees and walk to a ware.
+    "cave_sword": ["--room", "0x77", "--cave", "--vbls", "420"],
+    "cave_shop": ["--room", "0x25", "--cave", "--vbls", "420"],
+    "cave_shop_bought": ["--room", "0x25", "--cave", "--vbls", "560", "--keys",
+                         "300:=INV_RUPEES=200,420:+right,425:-right,430:+up,500:-up"],
+    "cave_hint": ["--room", "0x70", "--cave", "--vbls", "420"],
+    "cave_hint_paid": ["--room", "0x1a", "--cave", "--vbls", "640", "--keys",
+                       "300:=INV_RUPEES=100,420:+left,436:-left,440:+up,520:-up"],
+    "cave_money_game": ["--room", "0x10", "--cave", "--vbls", "560", "--keys",
+                        "300:=INV_RUPEES=100,420:+left,436:-left,440:+up,520:-up"],
+    "cave_door_repair": ["--room", "0x01", "--cave", "--vbls", "500", "--keys", "300:=INV_RUPEES=100"],
+    "cave_moblin": ["--room", "0x13", "--cave", "--vbls", "600", "--keys",
+                    "300:=INV_RUPEES=10,420:+right,425:-right,430:+up,520:-up"],
+    "cave_potion_no_letter": ["--room", "0x02", "--cave", "--vbls", "450"],
+    "cave_potion_letter": ["--room", "0x02", "--cave", "--vbls", "560", "--keys", "300:=INV_LETTER=1,320:+ctrl,340:-ctrl"],
+    "cave_take_any_one": ["--room", "0x06", "--cave", "--vbls", "440"],
+    "cave_take_any_road": ["--room", "0x1d", "--cave", "--vbls", "450"],
+    "cave_letter_lifted": ["--room", "0x0e", "--cave", "--vbls", "560", "--keys", "420:+right,425:-right,430:+up,520:-up"],
+    "cave_white_sword_hearts": ["--room", "0x0a", "--cave", "--vbls", "600", "--keys", "420:+right,425:-right,430:+up,520:-up"],
 }
 
 
