@@ -366,6 +366,8 @@
     gvar PATRA_MTIMER, 1
     gvar PATRA_RX, 1           | the radii the children orbit at now, and so on towards the maneuver's
     gvar PATRA_RY, 1
+    gvar GANON_SCENE, 1        | Ganon's room: 1 the room is dark and Link waits, 2 he holds up the Triforce of Courage, 0 the fight
+    gvar GANON_TIMER, 1
     gvar GLEEOK_SEGS, 1        | one more than the middle segments a neck has: its pictures are drawn as the frame allows
     galign
     .equ GLOBALS_BYTES, gvar_offset

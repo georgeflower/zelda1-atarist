@@ -275,7 +275,7 @@ main_loop:
     beq 2f
     cmp.b #MODE_MENU, %d0
     beq 4f
-    bsr update_cave
+    bsr update_cave_far
     bra 3f
 4:  bsr update_menu_far
     bra 3f
@@ -888,6 +888,8 @@ debug_keys_far:
     bra debug_keys
 update_scroll_far:
     bra update_scroll
+update_cave_far:
+    bra update_cave
 uw_render_current_far:
     bra uw_render_current
 enter_cave_far:

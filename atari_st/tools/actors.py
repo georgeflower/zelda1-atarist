@@ -38,14 +38,16 @@ MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
                  # Level 9: Lanmola, blue (one pixel a frame) and red (two)
                  0x3A, 0x3B,
                  # Patra, the eye the two kinds of room have, and its children (the ROM gives them types of their own)
-                 0x47, 0x48, 0x25, 0x26)
+                 0x47, 0x48, 0x25, 0x26,
+                 # Ganon
+                 0x3E)
 # Pieces of a boss that the ROM draws as part of it but this port makes monsters of: (the type whose art they use, the
 # first frame of that art). Gohma's legs are frames 4 and 5 of its own animation.
 SYNTHETIC_TYPES = {0xFD: (0x33, 4), 0xFC: (0x34, 4), 0xFB: (0x38, 0), 0xF9: (0x43, 0)}
 # The hit points the ROM sets by hand: every neck of a Gleeok has $A0.
 SYNTHETIC_HP = {0xF9: 10}
 # Bosses that leave nothing behind but the room's own item
-NO_DROP_BOSSES = (0x43, 0x44, 0x45, 0xF9, 0x46, 0x38, 0xFB, 0x47, 0x48, 0x25, 0x26)
+NO_DROP_BOSSES = (0x43, 0x44, 0x45, 0xF9, 0x46, 0x38, 0xFB, 0x47, 0x48, 0x25, 0x26, 0x3E)
 # The ones of them that live on the overworld: lynels (blue, red), moblins (blue, red) and octoroks
 # (red slow, red fast, blue slow, blue fast). Their art comes from the overworld's sprite pattern table.
 OVERWORLD_MONSTERS = (0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A,
@@ -71,7 +73,7 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
                   0x0B: 2, 0x0C: PERIOD_PATTERN + 1, 0x12: 2, 0x13: PERIOD_PATTERN, 0x16: 2, 0x17: 2,
                   0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1, 0x3C: 1, 0x33: 1, 0x34: 1, 0xFD: 1, 0xFC: 1,
                   0x38: 1, 0xFB: 1, 0x18: 1, 0x43: 1, 0x44: 1, 0x45: 1, 0xF9: 1, 0x46: 1, 0x3A: 1, 0x3B: 1,
-                  0x47: 1, 0x48: 1, 0x25: 1, 0x26: 1}
+                  0x47: 1, 0x48: 1, 0x25: 1, 0x26: 1, 0x3E: 1}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
                   # ObjTypeToDamagePoints: blue lynel $02 (two hearts), red lynel $01, the rest $80
@@ -95,7 +97,9 @@ MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2,
                   # Lanmola: two hearts
                   0x3A: 4, 0x3B: 4,
                   # Patra and its children: $02, two hearts
-                  0x47: 4, 0x48: 4, 0x25: 4, 0x26: 4}
+                  0x47: 4, 0x48: 4, 0x25: 4, 0x26: 4,
+                  # Ganon: $04, four hearts
+                  0x3E: 8}
 # What hurts a monster: the bits of the original's damage types ($01 sword, $02 boomerang (it stuns), $04 arrow,
 # $08 bomb, $10 magic, $20 fire) that its ObjInvincibilityMask leaves, and bit 7 for the darknuts' shield, which
 # turns a sword aside when the two face each other. Anything not listed is hurt by all six.
@@ -112,10 +116,11 @@ MONSTER_HURT = {
     0x43: 0x00, 0x44: 0x00, 0x45: 0x00, 0x46: 0x00,         # Gleeok's body and flying heads take nothing
     0xF9: 0x01,                                             # a head on its neck: $FE, the sword only
     0x47: 0x01, 0x48: 0x01, 0x25: 0x01, 0x26: 0x01,         # Patra and its children: InitPatra sets $FE, the sword only
+    0x3E: 0x05,         # Ganon: InitGanon sets $FA, the sword and the arrow (dmon_hit_filter does the rest)
     0x3C: 0x1D,         # Manhandla's hands: $E2 too (the base is made proof against everything in dmon.s)
 }
 # Keese ignore walls and blocks and are only held in by the room edges.
-MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x47, 0x48, 0x25, 0x26)
+MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x47, 0x48, 0x25, 0x26, 0x3E)
 
 # What the game does with a monster every frame, besides drawing it.
 (BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS,
@@ -124,7 +129,7 @@ MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0x
  BEHAVIOUR_PEAHAT, BEHAVIOUR_GHINI, BEHAVIOUR_BOULDER, BEHAVIOUR_BOULDER_SET,
  BEHAVIOUR_DODONGO, BEHAVIOUR_MOLDORM, BEHAVIOUR_POLS, BEHAVIOUR_WIZZROBE, BEHAVIOUR_BUBBLE,
  BEHAVIOUR_MANHANDLA, BEHAVIOUR_GOHMA, BEHAVIOUR_DIGDOGGER, BEHAVIOUR_GLEEOK, BEHAVIOUR_GLEEOK_HEAD,
- BEHAVIOUR_GLEEOK_FLYER, BEHAVIOUR_LANMOLA, BEHAVIOUR_PATRA, BEHAVIOUR_PATRA_CHILD) = range(33)
+ BEHAVIOUR_GLEEOK_FLYER, BEHAVIOUR_LANMOLA, BEHAVIOUR_PATRA, BEHAVIOUR_PATRA_CHILD, BEHAVIOUR_GANON) = range(34)
 MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
                       0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP,
                       0x15: BEHAVIOUR_GEL, 0x01: BEHAVIOUR_LYNEL, 0x02: BEHAVIOUR_LYNEL,
@@ -142,7 +147,7 @@ MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIO
                       0xF9: BEHAVIOUR_GLEEOK_HEAD, 0x46: BEHAVIOUR_GLEEOK_FLYER,
                       0x3A: BEHAVIOUR_LANMOLA, 0x3B: BEHAVIOUR_LANMOLA,
                       0x47: BEHAVIOUR_PATRA, 0x48: BEHAVIOUR_PATRA,
-                      0x25: BEHAVIOUR_PATRA_CHILD, 0x26: BEHAVIOUR_PATRA_CHILD,
+                      0x25: BEHAVIOUR_PATRA_CHILD, 0x26: BEHAVIOUR_PATRA_CHILD, 0x3E: BEHAVIOUR_GANON,
                       # the darknuts, gibdo, vire, zol and like-like walk like a stalfos (turn rate $80) or a gel
                       0x13: BEHAVIOUR_GEL, 0x1C: BEHAVIOUR_KEESE}
 
@@ -186,7 +191,8 @@ MODE_GLEEOK_HEAD = 30  # a head on its neck: one picture
 MODE_LANMOLA = 31      # two images: a head and a body segment, narrow
 MODE_PATRA = 32        # the eye: two images, swapped every few frames
 MODE_PATRA_CHILD = 33  # a child: two images, not drawn until it has come out
-FRAME_MODES = (MODE_PATRA, MODE_PATRA_CHILD, MODE_MANHANDLA, MODE_GOHMA, MODE_GOHMA_LEG, MODE_DIGDOGGER, MODE_DIGBIG, MODE_GLEEOK, MODE_GLEEOK_HEAD, MODE_LANMOLA, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
+MODE_GANON = 34        # 21 images (ten pictures blue, ten brown, the ashes; each stored plain and mirrored), drawn by the boss sprite pool
+FRAME_MODES = (MODE_PATRA, MODE_PATRA_CHILD, MODE_GANON, MODE_MANHANDLA, MODE_GOHMA, MODE_GOHMA_LEG, MODE_DIGDOGGER, MODE_DIGBIG, MODE_GLEEOK, MODE_GLEEOK_HEAD, MODE_LANMOLA, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
                MODE_DARKNUT, MODE_VIRE, MODE_ZOL, MODE_LIKELIKE, MODE_WIZZROBE, MODE_BUBBLE)
 MONSTER_DRAW = {
     0x06: ("wide", 4, MODE_WALKER),
@@ -248,6 +254,7 @@ MONSTER_DRAW = {
     0x48: ("wide", 2, MODE_PATRA),
     0x25: ("mirror", 2, MODE_PATRA_CHILD),
     0x26: ("mirror", 2, MODE_PATRA_CHILD),
+    0x3E: ("wide", 1, MODE_GANON),
 }
 # UpdateMoldorm draws every segment as the fireball tile $44 in palette row 2, and Dodongo_Draw uses row 3.
 # Gohma_SetSpriteAttributes: the red one (and its legs) use palette row 2, the blue one row 1.
@@ -257,6 +264,13 @@ MONSTER_TILE_ROW = {0x31: (None, 3), 0x32: (None, 3), 0x41: (0x44, 2), 0x34: (No
 # Dodongo images 7 and 9 (bloated, facing up or down) are one half drawn twice, mirrored.
 DODONGO_MIRRORED_IMAGES = (7, 9)
 LANMOLA_SEGMENTS = 8        # two worms of four (ten of five each in the original)
+GANON_IMAGES = 10            # GanonFrameImages names ten 16x16 pictures (heap entries 0-9 of its animation) and the ashes (11)
+GANON_ASHES = 11
+GANON_COLOURINGS = (        # blue and brown, as the ROM recolours palette row 7 by transfer records ($16 $2C $3C, $07 $17 $30): the
+    ((6, 1), (5, 2), (5, 3)),   # nearest colours of Level 9's own sprite rows (row, pixel): red, blue, white
+    ((4, 3), (4, 2), (5, 3)),   # brown $17, orange $27, white
+)
+GANON_ASH_COLOURS = ((4, 2), (6, 1), (5, 3))      # the triforce colours $27 $06 $16: orange, red
 PATRA_CHILDREN = 7          # eight in the original, which has ten object slots; here the eye and seven
 PATRA_CHILD_OF = {0x47: 0x25, 0x48: 0x26}      # InitPatra: type $47 goes with child $25, $48 with $26
 MOLDORM_SEGMENTS = 8        # two worms of four (the original has five each, but there are only eight monster slots)
@@ -286,6 +300,7 @@ LINK_LIFT_TILE = 0x78
 ITEM_COUNT = 0x24             # every item id of the game: bombs to the fairy
 ITEM_IDS = tuple(range(ITEM_COUNT)) + (LINK_LIFT_ID,)
 BOOMERANG_ITEM = 0x1D
+POWER_TRIFORCE_ID = 0x0E
 FIRE_ANIM_INDEX = 0x41
 # The status bar and inventory pictures, two 8x8 tiles each. menu.s and hud.s index them: 0-3 are the B item codes
 # of the first four B items (sword, bomb, boomerang, candle), then compass, map and bow, then the rest.
@@ -350,6 +365,18 @@ def _pack_masked(rows: list[list[int]]) -> bytes:
                 mask |= 1 << (15 - x)
         packed.extend(mask.to_bytes(2, "big"))
     return bytes(packed)
+
+
+class _RemappedPalette:
+    """A palette whose colours 1-3 are other entries of the real one, for art the ROM recolours while it plays."""
+
+    def __init__(self, palette, colours):
+        self.palette = palette
+        self.colours = colours
+
+    def index(self, row: int, pixel: int) -> int:
+        source_row, source_pixel = self.colours[pixel - 1]
+        return self.palette.index(source_row, source_pixel)
 
 
 def _tile_rows(tiles, palette, row: int, tile: int, flip: bool = False) -> list[list[int]]:
@@ -650,6 +677,17 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             images = _gleeok_images(tiles, palette)
         elif nes_type == 0xF9:
             images = [_monster_image(tiles, palette, B.LINK_PALETTE_ROW + 3, GLEEOK_HEAD_TILE, "left")]
+        elif mode == MODE_GANON:
+            if level != 9:
+                images = [_blank(16)]            # only Level 9 has him; the others' tiles at $C0 are other bosses' art
+            else:
+                images = []
+                for colours in GANON_COLOURINGS:
+                    view = _RemappedPalette(palette, colours)
+                    for part in range(GANON_IMAGES):
+                        images.append(_monster_image(tiles, view, B.LINK_PALETTE_ROW + 3, heap[base + part], "wide"))
+                view = _RemappedPalette(palette, GANON_ASH_COLOURS)
+                images.append(_monster_image(tiles, view, B.LINK_PALETTE_ROW + 3, heap[base + GANON_ASHES], "wide"))
         elif mode == MODE_LANMOLA:
             row = B.LINK_PALETTE_ROW + (2 if nes_type == 0x3A else 1)
             images = [_monster_image(tiles, palette, row, LANMOLA_HEAD_TILE, "narrow"),
@@ -720,7 +758,10 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         if item_id == LINK_LIFT_ID:
             items.extend(_pack_masked(_item_rows(sp_tiles, bg_tiles, palette, LINK_LIFT_TILE, B.LINK_PALETTE_ROW)))
         else:
-            items.extend(_item_frame(code, sp_tiles, bg_tiles, palette, item_id))
+            # The Triforce of Power is drawn with two of the boss block's tiles, and that block is Level 9's own: the
+            # item pictures are baked once, from Level 1's table, so this one comes from Level 9's.
+            tiles = _sprite_table(source_root, 9) if item_id == POWER_TRIFORCE_ID else sp_tiles
+            items.extend(_item_frame(code, tiles, bg_tiles, palette, item_id))
 
     foe_counts = list(info[B.LEVEL_INFO_FOE_COUNTS : B.LEVEL_INFO_FOE_COUNTS + 4])
     lists = overworld_monster_lists(source_root)
@@ -921,6 +962,8 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
     item_id = 0xFF if item == 3 else item
     # FindAndCreatePushBlockObject runs for every room whose attribute D has $40, whatever its secret trigger
     trigger = (attr_f[room] & 7) | (0x80 if attr_d[room] & 0x40 else 0)
+    if 0x3E in types:
+        trigger = (trigger & ~7) | 7        # Ganon's room item stays hidden until he is ashes (Ganon_ActivateRoomItem)
     trigger |= (0x40 if RUPEE_STASH in types else 0) | (0x20 if GRUMBLE in types else 0)   # not monsters: the room's own things
     if level == 9 and list_id == PERSON_LIST_FIRST:
         trigger |= 0x10                                 # the man who lets Link in once he holds all eight pieces

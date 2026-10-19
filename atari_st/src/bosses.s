@@ -31,6 +31,7 @@
     farstub keese_turn_to_link_bf, keese_turn_to_link
     farstub keese_turn_random_bf, keese_turn_random
     farstub flyer_bound_bf, flyer_bound
+    farstub uw_light_room_bf, uw_light_room
 
 | ---------------------------------------------------------------- wizzrobes
 | Wizzrobes (UpdateBlueWizzrobe, UpdateRedWizzrobe). ENEMY_GHOST is set while one is not drawn: weapons pass through
@@ -1331,6 +1332,7 @@ bp_add:
 | pre-shifted, one table of 16 shifts after the body's pictures (the art's frame 28 and 60): no shifting at run time, and
 | a segment is only its middle eight lines. A frame has no time for more.
     .equ BP_SEGMENT, 12
+    .equ BP_GANON, 0x40                 | pool pictures from here are Ganon's (his art's frames)
     .equ BP_HEAD, 13
     .equ BP_PRE_FRAME, 28               | the art's first pre-shifted frame (after 14 images of two frames)
 bp_paint:
@@ -1340,10 +1342,19 @@ bp_paint:
     move.w %d1, %d3
     move.w %d2, %d6
     moveq #MON_GLEEOK2, %d0
-    add.w %d0, %d0
+    cmp.w #BP_GANON, %d5
+    blo 0f
+    moveq #MON_GANON, %d0               | pieces from BP_GANON up are Ganon's: the frame is the number less BP_GANON
+0:  add.w %d0, %d0
     bsr mon_art_ptr_bf
     moveq #0, %d7
     move.w 0(%a0, %d0.w), %d7           | the art's first frame
+    cmp.w #BP_GANON, %d5
+    blo 2f
+    sub.w #BP_GANON, %d5
+    add.w %d5, %d7
+    moveq #0, %d5                       | and from here on it is a plain piece
+2:
     moveq #0, %d1
     move.w %d3, %d1
     moveq #0, %d2
@@ -2198,6 +2209,361 @@ dmon_pchild:
     moveq #1, %d0
     rts
 
+| ------------------------------------------------------------------ Ganon
+| UpdateGanon. Ganon is a 32x32 body of four pictures, drawn from the boss sprite pool; the monster itself is the 16x16
+| box in the middle of it (ENEMY_X/Y = the body's X and Y plus 8), the one Link's sword and Link himself meet.
+| The scene (GANON_SCENE): 1 the room is dark for $40 frames and Link waits, 2 the light comes on and he holds up the
+| Triforce of Courage for $C0 frames while Ganon stands there, 0 the fight. In the fight Ganon is invisible, walks
+| a pixel every other frame like a blue wizzrobe (turning toward Link every $40 frames) and throws a fireball every $40.
+| A sword blow that finds him shows him for $40 frames (ENEMY_TIMER), during which nothing hurts him, and then he
+| reappears at ($30 or $B0, $A0). When the sword has used up his hit points he turns brown for $FF steps of two frames
+| (ENEMY_STATE counts down), standing still, and only the silver arrow hurts him: it sets him burning (ENEMY_STEP counts
+| the phases up), at phase $50 he is a pile of ashes, at $A0 the Triforce of Power lies where they are. If the
+| brown runs out he is blue again. ENEMY_ANIMF is his picture (0 to 5), cycling every frame while he is hidden so that a
+| blow shows him in a random pose.
+    .equ GANON_X, 0x70
+    .equ GANON_Y, 0x5d
+    .equ GANON_SEEN_FRAMES, 0x40
+    .equ GANON_BROWN_TIME, 0xff
+    .equ GANON_HP_AGAIN, 15
+    .equ GANON_MIN_X, 0x28
+    .equ GANON_MAX_X, 0xc0
+    .equ GANON_MIN_Y, 0x60
+    .equ GANON_MAX_Y, 0xb0
+    .equ GANON_BROWN_IMAGES, 10
+    .equ GANON_ASHES_FRAME, 40
+
+ganon_images:                           | GanonFrameImages: four pictures for each of the six frames
+    .byte 6, 8, 7, 9,  0, 0, 1, 1,  2, 2, 3, 3,  4, 0, 5, 1,  4, 4, 5, 5,  0, 4, 1, 5
+ganon_part_dx:
+    .byte 0, 16, 0, 16
+ganon_part_dy:
+    .byte 0, 0, 16, 16
+ganon_start_x:
+    .byte 0x30, 0xb0
+
+ganon_init:
+    movem.l %d0/%a0, -(%sp)
+    move.b #(GANON_X + 8), OFF_ENEMY_X(%a5, %d5.w)
+    move.b #(GANON_Y + 8), OFF_ENEMY_Y(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    lea OFF_ENEMY_ANIMF(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    move.b #DIR_LEFT, OFF_ENEMY_DIR(%a5, %d5.w)
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
+    move.b #1, OFF_GANON_SCENE(%a5)
+    move.b #0x40, OFF_GANON_TIMER(%a5)
+    move.b #1, OFF_LINK_HELD(%a5)
+    movem.l (%sp)+, %d0/%a0
+    rts
+
+| d5 = Ganon, d1 = the weapon. Returns d2.w = 0 when the blow counts (a silver arrow also gets its killing weight).
+ganon_filter:
+    moveq #1, %d2
+    tst.b OFF_GANON_SCENE(%a5)
+    bne 9f
+    tst.b OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 9f
+    cmp.b #HIT_SWORD, %d1
+    bne 1f
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 9f                              | brown: the sword does nothing
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 9f                              | showing himself: nothing does
+    moveq #0, %d2
+    rts
+1:  cmp.b #HIT_ARROW, %d1
+    bne 9f
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    beq 9f
+    cmpi.b #2, OFF_INV_ARROW(%a5)
+    bne 9f                              | only the silver arrow
+    move.b #0xff, OFF_HIT_DAMAGE(%a5)
+    moveq #0, %d2
+9:  rts
+
+| A sword blow that left him alive: he is seen for a while.
+ganon_hit:
+    move.b #GANON_SEEN_FRAMES, OFF_ENEMY_TIMER(%a5, %d5.w)
+    rts
+
+| He has no hit points left. The sword makes him brown (and gives him new ones for the next time); the arrow
+| sets him burning.
+ganon_died:
+    movem.l %a0, -(%sp)
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 1f
+    move.b #GANON_HP_AGAIN, OFF_ENEMY_HP(%a5, %d5.w)
+    move.b #GANON_BROWN_TIME, OFF_ENEMY_STATE(%a5, %d5.w)
+    move.b #GANON_SEEN_FRAMES, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bra 9f
+1:  move.b #1, OFF_ENEMY_STEP(%a5, %d5.w)
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
+    sfx SFX_MONSTER_DIED
+9:  movem.l (%sp)+, %a0
+    rts
+
+| Ganon_RandomizeLocation.
+ganon_relocate:
+    movem.l %d0/%a0, -(%sp)
+    move.b #(0xa0 + 8), OFF_ENEMY_Y(%a5, %d5.w)
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    and.w #1, %d0
+    lea ganon_start_x(%pc), %a0
+    move.b 0(%a0, %d0.w), %d0
+    add.b #8, %d0
+    move.b %d0, OFF_ENEMY_X(%a5, %d5.w)
+    movem.l (%sp)+, %d0/%a0
+    rts
+
+| d5 = Ganon. The fight: hidden, he walks and shoots; brown, he waits. Returns d0.w = 1.
+dmon_ganon:
+    movem.l %d1-%d4/%a0, -(%sp)
+    tst.b OFF_GANON_SCENE(%a5)
+    bne 99f
+    tst.b OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 99f
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 50f
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    beq 10f
+    subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 99f
+    bsr ganon_relocate                  | the time he was shown is over: he is somewhere else
+    bra 99f
+10: lea OFF_ENEMY_ANIMF(%a5), %a0       | a new picture every frame, six in a cycle
+    move.b 0(%a0, %d5.w), %d0
+    addq.b #1, %d0
+    cmp.b #6, %d0
+    blo 11f
+    moveq #0, %d0
+11: move.b %d0, 0(%a0, %d5.w)
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    and.w #0x3f, %d0
+    bne 20f
+    bsr ganon_turn                      | every $40 frames: turn toward Link, and fire
+    bsr zora_fire_bf
+20: move.w OFF_FRAME_COUNTER(%a5), %d0
+    btst #0, %d0
+    bne 99f
+    moveq #0, %d2                       | a pixel every other frame
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
+    btst #0, %d4
+    beq 21f
+    addq.w #1, %d2
+21: btst #1, %d4
+    beq 22f
+    subq.w #1, %d2
+22: btst #2, %d4
+    beq 23f
+    addq.w #1, %d3
+23: btst #3, %d4
+    beq 24f
+    subq.w #1, %d3
+24: cmp.w #GANON_MIN_X, %d2             | the room's walls turn him round
+    bhs 25f
+    move.w #GANON_MIN_X, %d2
+    move.b #DIR_RIGHT, %d4
+25: cmp.w #GANON_MAX_X, %d2
+    bls 26f
+    move.w #GANON_MAX_X, %d2
+    move.b #DIR_LEFT, %d4
+26: cmp.w #GANON_MIN_Y, %d3
+    bhs 27f
+    move.w #GANON_MIN_Y, %d3
+    move.b #DIR_DOWN, %d4
+27: cmp.w #GANON_MAX_Y, %d3
+    bls 28f
+    move.w #GANON_MAX_Y, %d3
+    move.b #DIR_UP, %d4
+28: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+    move.b %d4, OFF_ENEMY_DIR(%a5, %d5.w)
+    bra 99f
+50: move.w OFF_FRAME_COUNTER(%a5), %d0  | brown: the count runs down every other frame
+    btst #0, %d0
+    beq 99f
+    subq.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 99f
+    bsr ganon_relocate                  | blue again, and hidden
+99: movem.l (%sp)+, %d1-%d4/%a0
+    moveq #1, %d0
+    rts
+
+| Face Link along the longer of the two ways.
+ganon_turn:
+    movem.l %d0-%d3, -(%sp)
+    moveq #0, %d0
+    move.b OFF_LINK_X(%a5), %d0
+    moveq #0, %d1
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d1
+    sub.w %d1, %d0                      | + : Link is to the right
+    moveq #0, %d2
+    move.b OFF_LINK_Y(%a5), %d2
+    moveq #0, %d1
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d1
+    sub.w %d1, %d2                      | + : below
+    move.w %d0, %d1
+    bpl 1f
+    neg.w %d1
+1:  move.w %d2, %d3
+    bpl 2f
+    neg.w %d3
+2:  cmp.w %d3, %d1
+    blo 4f
+    moveq #DIR_RIGHT, %d1
+    tst.w %d0
+    bpl 3f
+    moveq #DIR_LEFT, %d1
+3:  bra 5f
+4:  moveq #DIR_DOWN, %d1
+    tst.w %d2
+    bpl 5f
+    moveq #DIR_UP, %d1
+5:  move.b %d1, OFF_ENEMY_DIR(%a5, %d5.w)
+    movem.l (%sp)+, %d0-%d3
+    rts
+
+| Every frame, from boss_misc_update (the monsters are not updated while Link is held): the scene, the burning, and
+| Ganon's picture.
+ganon_tick:
+    movem.l %d0-%d7/%a0, -(%sp)
+    cmpi.b #9, OFF_LEVEL(%a5)
+    bne 99f
+    moveq #0, %d5
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
+    bhs 99f
+    cmpi.b #MON_GANON, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 2f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    bne 3f
+2:  addq.w #1, %d5
+    bra 1b
+3:  move.b OFF_GANON_SCENE(%a5), %d0
+    beq 20f
+    cmp.b #1, %d0
+    bne 10f
+    subq.b #1, OFF_GANON_TIMER(%a5)     | scene 1: dark and waiting
+    bne 99f
+    bsr uw_light_room_bf
+    move.b #2, OFF_GANON_SCENE(%a5)
+    move.b #0xc0, OFF_GANON_TIMER(%a5)
+    sfx SFX_ITEM_APPEARS
+    bra 99f
+10: move.b #ITEM_TRIFORCE, (OFF_ITEM_ID + 1)(%a5)   | scene 2: the Triforce of Courage over Link's head
+    move.b OFF_LINK_X(%a5), (OFF_ITEM_X + 1)(%a5)
+    move.b OFF_LINK_Y(%a5), %d0
+    sub.b #16, %d0
+    move.b %d0, (OFF_ITEM_Y + 1)(%a5)
+    move.b #ITEM_LIFTED, (OFF_ITEM_ACTIVE + 1)(%a5)
+    lea OFF_ENEMY_ANIMF(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    bsr ganon_draw
+    subq.b #1, OFF_GANON_TIMER(%a5)
+    bne 99f
+    clr.b OFF_GANON_SCENE(%a5)
+    clr.b (OFF_ITEM_ACTIVE + 1)(%a5)
+    clr.b OFF_LINK_HELD(%a5)
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    bra 99f
+20: moveq #0, %d0                       | the fight; a burning Ganon goes through his phases
+    move.b OFF_ENEMY_STEP(%a5, %d5.w), %d0
+    beq 30f
+    addq.b #1, %d0
+    bne 21f
+    move.b #0xff, %d0
+21: move.b %d0, OFF_ENEMY_STEP(%a5, %d5.w)
+    cmp.b #0xa0, %d0
+    blo 30f
+    bne 99f
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d0     | the Triforce of Power lies where the ashes are
+    subq.b #1, %d0
+    move.b %d0, OFF_ITEM_X(%a5)
+    move.b OFF_ENEMY_Y(%a5, %d5.w), OFF_ITEM_Y(%a5)
+    clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    bra 99f
+30: bsr ganon_draw
+99: movem.l (%sp)+, %d0-%d7/%a0
+    rts
+
+| d5 = Ganon: his four pictures, or his ashes, into the boss pool.
+ganon_draw:
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    moveq #0, %d6                       | 0: blue pictures, 10: brown
+    tst.b OFF_GANON_SCENE(%a5)
+    bne 5f
+    moveq #0, %d0
+    move.b OFF_ENEMY_STEP(%a5, %d5.w), %d0
+    beq 3f
+    cmp.b #0x50, %d0                    | burning: brown and flashing, then ashes
+    bhs 7f
+    moveq #GANON_BROWN_IMAGES, %d6
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    btst #0, %d0
+    beq 99f
+    bra 5f
+3:  tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    beq 4f
+    moveq #GANON_BROWN_IMAGES, %d6      | brown: whole above $30, flickering below
+    cmpi.b #0x30, OFF_ENEMY_STATE(%a5, %d5.w)
+    bhs 5f
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    btst #0, %d0
+    beq 99f
+    bra 5f
+4:  tst.b OFF_ENEMY_TIMER(%a5, %d5.w)   | blue: seen only while he has just been struck
+    beq 99f
+5:  moveq #0, %d4
+    lea OFF_ENEMY_ANIMF(%a5), %a0
+    move.b 0(%a0, %d5.w), %d4
+    lsl.w #2, %d4
+    moveq #3, %d3
+60: move.w %d3, %d7
+    add.w %d4, %d7
+    lea ganon_images(%pc), %a0
+    moveq #0, %d0
+    move.b 0(%a0, %d7.w), %d0
+    add.w %d6, %d0
+    add.w %d0, %d0                      | each picture is stored plain and then mirrored
+    btst #0, %d3
+    beq 61f
+    addq.w #1, %d0                      | the right-hand pictures are the mirrored ones
+61: add.w #BP_GANON, %d0
+    lea ganon_part_dx(%pc), %a0
+    moveq #0, %d1
+    move.b 0(%a0, %d3.w), %d1
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    add.w %d2, %d1
+    subq.w #8, %d1
+    lea ganon_part_dy(%pc), %a0
+    moveq #0, %d2
+    move.b 0(%a0, %d3.w), %d2
+    moveq #0, %d7
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d7
+    add.w %d7, %d2
+    subq.w #8, %d2
+    bsr bp_add
+    dbra %d3, 60b
+    bra 99f
+7:  moveq #0, %d1                       | the ashes, at (X + 7, Y + 8) of his body
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d1
+    subq.w #1, %d1
+    moveq #0, %d2
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
+    move.w #(BP_GANON + GANON_ASHES_FRAME), %d0
+    bsr bp_add
+99: movem.l (%sp)+, %d0-%d7/%a0-%a1
+    rts
+
 | ------------------------------------------------------- the rupee stash and Grumble
 | Things a dungeon room has that are not monsters. The ten rupees (InitRupeeStash: a pyramid, taken one at a time
 | by walking over them, and once one is taken the stash is gone for good) are painted into the room like Gleeok's
@@ -2324,6 +2690,7 @@ grumble_bake:
 
 | Once a frame: Link on a rupee takes it, the food beside Grumble is eaten.
 boss_misc_update:
+    bsr ganon_tick
     movem.l %d0-%d7/%a0-%a2, -(%sp)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0

@@ -49,6 +49,7 @@
     .equ MODE_LANMOLA, 31
     .equ MODE_PATRA, 32
     .equ MODE_PATRA_CHILD, 33
+    .equ MODE_GANON, 34
 
 | Called once a frame from update_enemies.
 dmon_tick:
@@ -74,7 +75,13 @@ dmon_hit_filter:
     tst.b OFF_ENEMY_STEP(%a5, %d5.w)
     bne 3f
     bra 72f                             | the body of a Manhandla takes no harm: only its hands die
-3:  cmp.b #MON_PATRA_EYE, %d0
+3:  cmp.b #MON_GANON, %d0
+    bne 34f
+    bsr boss_ganon_filter_f             | the sword when he is hidden, a silver arrow when he is brown
+    tst.w %d2
+    bne 7f
+    bra 8f
+34: cmp.b #MON_PATRA_EYE, %d0
     beq 32f
     cmp.b #MON_PATRA_EYE2, %d0
     bne 33f
@@ -134,7 +141,11 @@ dmon_hit_filter:
 dmon_survived:
     movem.l %d0-%d6/%a0, -(%sp)
     move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
-    cmp.b #MON_ZOL, %d0
+    cmp.b #MON_GANON, %d0
+    bne 5f
+    bsr boss_ganon_hit_f                | a blow he has felt: he shows himself for a while
+    bra 9f
+5:  cmp.b #MON_ZOL, %d0
     beq 1f
     cmp.b #MON_VIRE, %d0
     bne 9f
@@ -314,8 +325,12 @@ dmon_init:
     bsr boss_patra_init_f
     bra 9f
 16: cmp.w #BEH_PATRA_CHILD, %d0
-    bne 2f
+    bne 17f
     bsr boss_pchild_init_f
+    bra 9f
+17: cmp.w #BEH_GANON, %d0
+    bne 2f
+    bsr boss_ganon_init_f
     bra 9f
 2:  cmp.w #BEH_POLS, %d0
     bne 9f
@@ -628,6 +643,11 @@ vire_hops:
     farstub boss_pchild_f, dmon_pchild
     farstub boss_pchild_init_f, pchild_init
     farstub boss_patra_kids_f, patra_kids
+    farstub boss_ganon_f, dmon_ganon
+    farstub boss_ganon_init_f, ganon_init
+    farstub boss_ganon_filter_f, ganon_filter
+    farstub boss_ganon_hit_f, ganon_hit
+    farstub boss_ganon_died_f, ganon_died
     farstub boss_gleeok_init_f, gleeok_init
     farstub boss_gleeok_died_f, gleeok_died
     farstub boss_ghead_died_f, gleeok_head_died
