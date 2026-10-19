@@ -212,7 +212,7 @@ reach-check listing parser.
 Twenty fixed scenes (overworld start, the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo,
 Moldorm, traps, goriyas, old man, and Levels 3-8: a crowded room, a dark room, a rupee stash, Grumble, a dark crowd; Level 9: a Lanmola room, a Patra room, Ganon's room, Zelda's room and Zelda's thanks) are run through `screenshot.py` (dev builds in `build/dev` via `--room`/`--uw`/`--level`) and
 the `FRAMEHASH` (SHA-256 of pixel indices plus palette) is compared with the stored one. **Hashes, not images**: the frames are
-Nintendo's artwork, so the tests keep no images. (`SCREENSHOTS/` holds a set of frames saved at the owner's request; add to it only when asked.) Runs are deterministic. After a change that moves pixels on purpose: look at
+Nintendo's artwork, so the tests keep no images. (Screenshots are not kept in the repository; the owner has a zip of the early ones.) Runs are deterministic. After a change that moves pixels on purpose: look at
 `build/golden/<scene>.png`, then `make golden-update` and commit `frames.json`. `make check` runs it and skips quietly without
 Hatari, `TOS` or the ROM. A scene that needs different input uses `--keys` in its `SCENES` entry.
 
