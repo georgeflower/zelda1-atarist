@@ -696,7 +696,7 @@ moldorm_died:
 | Remove enemy d5, count the kill and roll for a drop the way HandleMonsterDied
 | and SetUpDroppedItem do. Ten kills in a row without being hurt guarantee a
 | drop (a bomb if the tenth was a bomb kill, else five rupees), and the
-| sixteenth is a fairy, which this port has no picture for yet.
+| sixteenth is a fairy.
 kill_enemy:
     sfx SFX_MONSTER_DIED
     clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
