@@ -31,10 +31,17 @@ MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
                  0x33, 0x34, 0xFD, 0xFC,
                  # Digdogger: the big one, the one that splits into one child instead of three (the ROM's $39), and
                  # the little ones
-                 0x38, 0xFB, 0x18)
+                 0x38, 0xFB, 0x18,
+                 # Gleeok with two, three and four necks, the head on one of them (not a ROM type) and the flying head a
+                 # neck turns into when it is cut off
+                 0x43, 0x44, 0x45, 0xF9, 0x46)
 # Pieces of a boss that the ROM draws as part of it but this port makes monsters of: (the type whose art they use, the
 # first frame of that art). Gohma's legs are frames 4 and 5 of its own animation.
-SYNTHETIC_TYPES = {0xFD: (0x33, 4), 0xFC: (0x34, 4), 0xFB: (0x38, 0)}
+SYNTHETIC_TYPES = {0xFD: (0x33, 4), 0xFC: (0x34, 4), 0xFB: (0x38, 0), 0xF9: (0x43, 0)}
+# The hit points the ROM sets by hand: every neck of a Gleeok has $A0.
+SYNTHETIC_HP = {0xF9: 10}
+# Bosses that leave nothing behind but the room's own item
+NO_DROP_BOSSES = (0x43, 0x44, 0x45, 0xF9, 0x46, 0x38, 0xFB)
 # The ones of them that live on the overworld: lynels (blue, red), moblins (blue, red) and octoroks
 # (red slow, red fast, blue slow, blue fast). Their art comes from the overworld's sprite pattern table.
 OVERWORLD_MONSTERS = (0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A,
@@ -59,7 +66,7 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
                   # the wizzrobes move by their own rules
                   0x0B: 2, 0x0C: PERIOD_PATTERN + 1, 0x12: 2, 0x13: PERIOD_PATTERN, 0x16: 2, 0x17: 2,
                   0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1, 0x3C: 1, 0x33: 1, 0x34: 1, 0xFD: 1, 0xFC: 1,
-                  0x38: 1, 0xFB: 1, 0x18: 1}
+                  0x38: 1, 0xFB: 1, 0x18: 1, 0x43: 1, 0x44: 1, 0x45: 1, 0xF9: 1, 0x46: 1}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
                   # ObjTypeToDamagePoints: blue lynel $02 (two hearts), red lynel $01, the rest $80
@@ -77,7 +84,9 @@ MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2,
                   # Gohma and its legs: two hearts
                   0x33: 4, 0x34: 4, 0xFD: 4, 0xFC: 4,
                   # Digdogger and its young: two hearts
-                  0x38: 4, 0xFB: 4, 0x18: 4}
+                  0x38: 4, 0xFB: 4, 0x18: 4,
+                  # Gleeok's body and heads: one heart (ObjTypeToDamagePoints $01)
+                  0x43: 2, 0x44: 2, 0x45: 2, 0xF9: 2, 0x46: 2}
 # What hurts a monster: the bits of the original's damage types ($01 sword, $02 boomerang (it stuns), $04 arrow,
 # $08 bomb, $10 magic, $20 fire) that its ObjInvincibilityMask leaves, and bit 7 for the darknuts' shield, which
 # turns a sword aside when the two face each other. Anything not listed is hurt by all six.
@@ -91,10 +100,12 @@ MONSTER_HURT = {
     0x33: 0x04, 0x34: 0x04,                                 # Gohma: $FB, arrows only (dmon_hit_filter checks the eye)
     0xFD: 0x00, 0xFC: 0x00,                                 # its legs take nothing
     0x38: 0x00, 0xFB: 0x00,                                 # a big Digdogger takes nothing: the recorder splits it
+    0x43: 0x00, 0x44: 0x00, 0x45: 0x00, 0x46: 0x00,         # Gleeok's body and flying heads take nothing
+    0xF9: 0x01,                                             # a head on its neck: $FE, the sword only
     0x3C: 0x1D,         # Manhandla's hands: $E2 too (the base is made proof against everything in dmon.s)
 }
 # Keese ignore walls and blocks and are only held in by the room edges.
-MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18)
+MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46)
 
 # What the game does with a monster every frame, besides drawing it.
 (BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS,
@@ -102,7 +113,8 @@ MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18)
  BEHAVIOUR_LYNEL, BEHAVIOUR_OCTOROK_BLUE, BEHAVIOUR_TEKTITE, BEHAVIOUR_LEEVER, BEHAVIOUR_ZORA,
  BEHAVIOUR_PEAHAT, BEHAVIOUR_GHINI, BEHAVIOUR_BOULDER, BEHAVIOUR_BOULDER_SET,
  BEHAVIOUR_DODONGO, BEHAVIOUR_MOLDORM, BEHAVIOUR_POLS, BEHAVIOUR_WIZZROBE, BEHAVIOUR_BUBBLE,
- BEHAVIOUR_MANHANDLA, BEHAVIOUR_GOHMA, BEHAVIOUR_DIGDOGGER) = range(27)
+ BEHAVIOUR_MANHANDLA, BEHAVIOUR_GOHMA, BEHAVIOUR_DIGDOGGER, BEHAVIOUR_GLEEOK, BEHAVIOUR_GLEEOK_HEAD,
+ BEHAVIOUR_GLEEOK_FLYER) = range(30)
 MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
                       0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP,
                       0x15: BEHAVIOUR_GEL, 0x01: BEHAVIOUR_LYNEL, 0x02: BEHAVIOUR_LYNEL,
@@ -116,6 +128,8 @@ MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIO
                       0x24: BEHAVIOUR_WIZZROBE, 0x2B: BEHAVIOUR_BUBBLE, 0x3C: BEHAVIOUR_MANHANDLA,
                       0x33: BEHAVIOUR_GOHMA, 0x34: BEHAVIOUR_GOHMA, 0xFD: BEHAVIOUR_GOHMA, 0xFC: BEHAVIOUR_GOHMA,
                       0x38: BEHAVIOUR_DIGDOGGER, 0xFB: BEHAVIOUR_DIGDOGGER, 0x18: BEHAVIOUR_DIGDOGGER,
+                      0x43: BEHAVIOUR_GLEEOK, 0x44: BEHAVIOUR_GLEEOK, 0x45: BEHAVIOUR_GLEEOK,
+                      0xF9: BEHAVIOUR_GLEEOK_HEAD, 0x46: BEHAVIOUR_GLEEOK_FLYER,
                       # the darknuts, gibdo, vire, zol and like-like walk like a stalfos (turn rate $80) or a gel
                       0x13: BEHAVIOUR_GEL, 0x1C: BEHAVIOUR_KEESE}
 
@@ -154,7 +168,9 @@ MODE_GOHMA = 25      # four images of the eye: shut (2), half open, open
 MODE_GOHMA_LEG = 26  # two images, a pair of legs
 MODE_DIGDOGGER = 27  # a little Digdogger: two pictures
 MODE_DIGBIG = 28     # a quarter of a big one, as four images (plain, turned right-left, upside down, both)
-FRAME_MODES = (MODE_MANHANDLA, MODE_GOHMA, MODE_GOHMA_LEG, MODE_DIGDOGGER, MODE_DIGBIG, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
+MODE_GLEEOK = 29     # the body: drawn by the boss sprite pool (gleeok_pool), never as a monster
+MODE_GLEEOK_HEAD = 30  # a head on its neck: one picture
+FRAME_MODES = (MODE_MANHANDLA, MODE_GOHMA, MODE_GOHMA_LEG, MODE_DIGDOGGER, MODE_DIGBIG, MODE_GLEEOK, MODE_GLEEOK_HEAD, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
                MODE_DARKNUT, MODE_VIRE, MODE_ZOL, MODE_LIKELIKE, MODE_WIZZROBE, MODE_BUBBLE)
 MONSTER_DRAW = {
     0x06: ("wide", 4, MODE_WALKER),
@@ -205,6 +221,11 @@ MONSTER_DRAW = {
     0x18: ("mirror", 2, MODE_DIGDOGGER),
     0x38: ("wide", 1, MODE_DIGBIG),
     0xFB: ("wide", 1, MODE_DIGBIG),
+    0x43: ("wide", 14, MODE_GLEEOK),
+    0x44: ("wide", 14, MODE_GLEEOK),
+    0x45: ("wide", 14, MODE_GLEEOK),
+    0xF9: ("left", 1, MODE_GLEEOK_HEAD),
+    0x46: ("mirror", 2, MODE_KEESE),
 }
 # UpdateMoldorm draws every segment as the fireball tile $44 in palette row 2, and Dodongo_Draw uses row 3.
 # Gohma_SetSpriteAttributes: the red one (and its legs) use palette row 2, the blue one row 1.
@@ -322,6 +343,8 @@ def _monster_image(tiles, palette, row: int, tile: int, layout: str) -> list[lis
     left = _tile_rows(tiles, palette, row, tile)
     if layout == "narrow":
         return [[-1] * 4 + r[:8] + [-1] * 4 for r in left]
+    if layout == "left":
+        return [r[:8] + [-1] * 8 for r in left]
     if layout == "mirror":
         return _join(left, _tile_rows(tiles, palette, row, tile, flip=True))
     return _join(left, _tile_rows(tiles, palette, row, tile + 2))
@@ -487,6 +510,51 @@ def _octorok_images(tiles, palette, anim_base: int, heap, attr_heap) -> list[lis
     return images
 
 
+GLEEOK_BODY_TILES = ((0xC0, 0xC4, 0xC8, 0xC2, 0xC6, 0xCA), (0xCC, 0xC4, 0xCE, 0xC2, 0xC6, 0xD0),
+                     (0xD2, 0xD6, 0xD8, 0xD4, 0xC6, 0xD0))     # GleeokBodyTiles0..2: three columns, two rows
+GLEEOK_NECK_TILE = 0xDA
+GLEEOK_SEGMENT_IMAGE = 12     # the images after the body's twelve pieces: a neck segment and a head
+GLEEOK_HEAD_IMAGE = 13
+GLEEOK_HEAD_TILE = 0xDC
+
+
+def _gleeok_images(tiles, palette) -> list:
+    """The body's three pictures as four 16x16 pieces each (top left, top right, bottom left, bottom right; the body is
+    24 wide, so a right piece is half empty), then a neck segment."""
+    row = B.LINK_PALETTE_ROW + 3
+    images = []
+    for picture in GLEEOK_BODY_TILES:
+        canvas = _blank(32) + _blank(32)
+        for slot, tile in enumerate(picture):
+            x, y = (slot % 3) * 8, (slot // 3) * 16
+            for dy, pixels in enumerate(_tile_rows(tiles, palette, row, tile)):
+                canvas[y + dy][x : x + 8] = pixels
+        for top, left in ((0, 0), (0, 16), (16, 0), (16, 16)):
+            images.append([canvas[top + r][left : left + 16] for r in range(16)])
+    images.append(_monster_image(tiles, palette, row, GLEEOK_NECK_TILE, "left"))
+    images.append(_monster_image(tiles, palette, row, GLEEOK_HEAD_TILE, "left"))
+    return images
+
+
+def _preshift_narrow(rows: list[list[int]]) -> bytes:
+    """The left eight columns of a 16x16 image, shifted right by every 0..15 pixels and cut at the 16-pixel groups it
+    lands on: per shift 16 rows of two groups, each four plane words and the inverted mask (20 bytes a row, 5120 bytes a
+    shift table). The blitter then needs no shifting at all, which is what lets four necks and heads fit a frame."""
+    out = bytearray()
+    for shift in range(16):
+        for row in rows:
+            line = [-1] * 32
+            line[shift : shift + 8] = row[:8]
+            for group in (line[:16], line[16:]):
+                out.extend(B.pack_st_row(max(p, 0) for p in group))
+                mask = 0
+                for x, pixel in enumerate(group):
+                    if pixel >= 0:
+                        mask |= 1 << (15 - x)
+                out.extend((~mask & 0xFFFF).to_bytes(2, "big"))
+    return bytes(out)
+
+
 def _manhandla_images(tiles, palette, base, heap, attr_heap, layouts) -> list:
     """Frames 0-5 of Manhandla's animation (hand up, hand to the side, the body, two each), then the up hand turned
     over for the hand below."""
@@ -547,6 +615,10 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             images = _octorok_images(tiles, palette, base, heap, attr_heap)
         elif mode == MODE_MANHANDLA:
             images = _manhandla_images(tiles, palette, base, heap, attr_heap, layout)
+        elif mode == MODE_GLEEOK:
+            images = _gleeok_images(tiles, palette)
+        elif nes_type == 0xF9:
+            images = [_monster_image(tiles, palette, B.LINK_PALETTE_ROW + 3, GLEEOK_HEAD_TILE, "left")]
         elif mode == MODE_DIGBIG:
             # one picture, put four times in the corners: plain, flipped right-left, upside down, both (the part
             # attributes $03, $03, $83, $83 and the horizontal flip of the odd parts)
@@ -579,6 +651,9 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         for rows in images:
             art.extend(_pack_masked(rows))
             art.extend(_pack_masked([r[::-1] for r in rows]))
+        if mode == MODE_GLEEOK:
+            art.extend(_preshift_narrow(images[GLEEOK_SEGMENT_IMAGE]))     # frames 28..59 and 60..91
+            art.extend(_preshift_narrow(images[GLEEOK_HEAD_IMAGE]))
         key = bytes(art)
         monster_arts.append(key)
         if key not in arts:
@@ -586,11 +661,13 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             sprites.extend(art)
         mon_art.extend(arts[key].to_bytes(2, "big"))
         hp = 0
-        if nes_type not in SYNTHETIC_TYPES:
+        if nes_type in SYNTHETIC_HP:
+            hp = SYNTHETIC_HP[nes_type]
+        elif nes_type not in SYNTHETIC_TYPES:
             hp_byte = hp_pairs[nes_type >> 1]
             hp = (hp_byte >> 4) if nes_type % 2 == 0 else (hp_byte & 0x0F)
         drop_row = NO_DROP_ROW
-        if nes_type not in no_drop and nes_type not in SYNTHETIC_TYPES:
+        if nes_type not in no_drop and nes_type not in SYNTHETIC_TYPES and nes_type not in NO_DROP_BOSSES:
             drop_row = 3
             for row_number, members in enumerate(drop_types):
                 if nes_type in members:

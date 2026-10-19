@@ -197,6 +197,7 @@ uw_render_current:
     lea OFF_UW_MAP(%a5), %a0
     bsr uw_open_false_walls
     bsr uw_bake_person
+    bsr uw_bake_boss
     movem.l (%sp)+, %d1/%a0
     rts
 
@@ -221,6 +222,7 @@ uw_render_next:
     lea OFF_UW_MAP_NEXT(%a5), %a0
     bsr uw_open_false_walls
     bsr uw_bake_person
+    bsr uw_bake_boss
     movem.l (%sp)+, %d1-%d3/%a0
     rts
 
@@ -288,6 +290,37 @@ uw_bake_person:
     move.w %d4, %d0
     bsr draw_sprite
 9:  movem.l (%sp)+, %d0-%d4/%a0-%a2
+    rts
+
+| Paint a living Gleeok's body into the room just drawn. d0.w = room id, a1 = the buffer it went to.
+uw_bake_boss:
+    movem.l %d0-%d2/%a0-%a2, -(%sp)
+    movea.l %a1, %a2
+    lea OFF_UW_FLAGS(%a5), %a0
+    btst #0, 0(%a0, %d0.w)
+    bne 9f                              | the room is won
+    move.b %d0, %d1
+    or.b #0x80, %d1
+    cmp.b OFF_GLEEOK_GONE(%a5), %d1
+    beq 9f                              | its Gleeok has just died
+    bsr uw_room_info_ptr
+    tst.w %d1
+    bmi 9f
+    moveq #0, %d1
+    move.b (%a1), %d1                   | the monsters of the room
+    beq 9f
+    subq.w #1, %d1
+    lea 6(%a1), %a0
+1:  move.b (%a0)+, %d0
+    cmp.b #MON_GLEEOK2, %d0
+    blo 2f
+    cmp.b #MON_GLEEOK4, %d0
+    bhi 2f
+    movea.l %a2, %a1
+    bsr boss_bake_f
+    bra 9f
+2:  dbra %d1, 1b
+9:  movem.l (%sp)+, %d0-%d2/%a0-%a2
     rts
 
 | A door has opened: redraw the room behind Link.

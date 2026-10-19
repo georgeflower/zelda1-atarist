@@ -44,6 +44,8 @@
     .equ MODE_GOHMA_LEG, 26
     .equ MODE_DIGDOGGER, 27
     .equ MODE_DIGBIG, 28
+    .equ MODE_GLEEOK, 29
+    .equ MODE_GLEEOK_HEAD, 30
 
 | Called once a frame from update_enemies.
 dmon_tick:
@@ -211,7 +213,11 @@ dmon_contact:
 dmon_died:
     cmpi.b #MON_MANHANDLA, OFF_ENEMY_TYPE(%a5, %d5.w)
     beq boss_manhandla_died_f
-    cmpi.b #MON_GOHMA_BLUE, OFF_ENEMY_TYPE(%a5, %d5.w)
+    cmpi.b #MON_GLEEOK2, OFF_ENEMY_TYPE(%a5, %d5.w)
+    blo 1f
+    cmpi.b #MON_GLEEOK4, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bls boss_gleeok_died_f
+1:  cmpi.b #MON_GOHMA_BLUE, OFF_ENEMY_TYPE(%a5, %d5.w)
     beq boss_gohma_died_f
     cmpi.b #MON_GOHMA_RED, OFF_ENEMY_TYPE(%a5, %d5.w)
     beq boss_gohma_died_f
@@ -281,8 +287,12 @@ dmon_init:
     bsr boss_gohma_init_f
     bra 9f
 12: cmp.w #BEH_DIGDOGGER, %d0
-    bne 2f
+    bne 13f
     bsr boss_dig_init_f
+    bra 9f
+13: cmp.w #BEH_GLEEOK, %d0
+    bne 2f
+    bsr boss_gleeok_init_f
     bra 9f
 2:  cmp.w #BEH_POLS, %d0
     bne 9f
@@ -409,7 +419,11 @@ dmon_frame:
     beq 85f
     subq.w #1, %d2
     beq 86f
-    bra 87f
+    subq.w #1, %d2
+    beq 87f
+    subq.w #1, %d2
+    beq 88f
+    bra 89f
 
 10: move.w %d4, %d6                     | a darknut: the step changes every eight frames
     lsr.w #3, %d6
@@ -529,6 +543,12 @@ dmon_frame:
 87: moveq #0, %d1                       | a quarter of a big one: its place in the square is its picture
     move.b OFF_ENEMY_STEP(%a5, %d3.w), %d1
     and.w #3, %d1
+    bra 99f
+
+88: moveq #-1, %d1                      | Gleeok's body is drawn from the boss sprite pool
+    bra 99f
+
+89: moveq #-1, %d1                      | a head on its neck is drawn from the boss sprite pool, with its neck
 99: movem.l (%sp)+, %d0/%d2/%d4/%d6/%a0
     rts
 
@@ -547,5 +567,13 @@ vire_hops:
     farstub boss_gohma_init_f, gohma_init
     farstub boss_gohma_died_f, gohma_died
     farstub boss_dig_f, dmon_dig
+    farstub boss_gleeok_f, dmon_gleeok
+    farstub boss_ghead_f, dmon_ghead
+    farstub boss_gflyer_f, dmon_gflyer
+    farstub boss_gleeok_init_f, gleeok_init
+    farstub boss_gleeok_died_f, gleeok_died
+    farstub boss_ghead_died_f, gleeok_head_died
+    farstub boss_draw_f, boss_pool_draw
+    farstub boss_bake_f, gleeok_bake
     farstub boss_dig_init_f, dig_init
     farstub boss_dig_flute_f, dig_flute

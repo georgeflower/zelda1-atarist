@@ -400,7 +400,7 @@ erase_effects:
     bsr erase_at
     clr.b 0(%a1, %d3.w)
 2:  addq.w #1, %d3
-    cmp.w #12, %d3
+    cmp.w #36, %d3
     blo 1b
     movem.l (%sp)+, %d0/%d3/%a0-%a1
     rts
@@ -632,6 +632,8 @@ hit_enemy:
     beq 5f                              | nor a Dodongo, except by the sword when a bomb has stunned it
     cmp.w #BEH_MOLDORM, %d0
     beq 61f
+    cmp.w #BEH_GLEEOK_HEAD, %d0
+    beq 61f
     cmp.w #BEH_MANHANDLA, %d0
     bne 6f
 61: clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | a Moldorm segment or a Manhandla hand is hurt but not knocked about
@@ -661,6 +663,8 @@ hit_enemy:
     bsr enemy_behaviour
     cmp.w #BEH_MOLDORM, %d0
     beq moldorm_died
+    cmp.w #BEH_GLEEOK_HEAD, %d0
+    beq boss_ghead_died_f               | a head cut off becomes a flying one
     bra kill_enemy
 
 | The sword's weight in hits: SwordDamagePoints is $10, $20, $40 for the wooden, white and magic sword.

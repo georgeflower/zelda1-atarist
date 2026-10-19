@@ -229,10 +229,10 @@
 
     | Effect sprites (spark corners and cloud puffs) have a slot each for erasing.
     galign
-    gvar FX_ERASE_OFFSETS, 48
-    gvar OLD_FX_ERASE_OFFSETS, 48
-    gvar FX_VALID, 12
-    gvar OLD_FX_VALID, 12
+    gvar FX_ERASE_OFFSETS, 144
+    gvar OLD_FX_ERASE_OFFSETS, 144
+    gvar FX_VALID, 36
+    gvar OLD_FX_VALID, 36
     gvar CAVE_FIRE_OFFSETS, 8  | where the two bonfires were drawn, to put the cave floor back
     gvar CAVE_FIRE_VALID, 1
 
@@ -342,5 +342,16 @@
     gvar EATER, 1              | the like-like's slot
     gvar EATEN_FRAMES, 1       | frames since it caught him, to the shield's loss
     gvar BOSS_BUSY, 1          | a boss is putting its pieces down: they are not bosses themselves
+    | The boss sprite pool (Gleeok's body and necks): up to 24 pictures a frame, drawn in effect slots 12 up.
+    gvar BP_FRAME, 24          | the image in the body's art
+    gvar BP_X, 24
+    gvar BP_Y, 24
+    gvar BP_COUNT, 1
+    gvar GLEEOK_DEAD, 1        | the necks that have been cut off, a bit each
+    gvar GLEEOK_ANIM, 2        | the body's picture timer and picture
+    gvar GSEG_X, 12            | the middle segments of the four necks, three each
+    gvar GSEG_Y, 12
+    gvar GLEEOK_GONE, 1        | the room (bit 7 set) whose Gleeok has just died: the room is drawn without its body
+    gvar GLEEOK_SEGS, 1        | one more than the middle segments a neck has: its pictures are drawn as the frame allows
     galign
     .equ GLOBALS_BYTES, gvar_offset

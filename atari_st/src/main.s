@@ -684,7 +684,7 @@ dbl_enter:
     .macro xchg_state first, second, count
     lea OFF_\first(%a5), %a0
     lea OFF_\second(%a5), %a1
-    moveq #(\count - 1), %d0
+    move.w #(\count - 1), %d0
 1:  move.b (%a0), %d1
     move.b (%a1), (%a0)+
     move.b %d1, (%a1)+
@@ -693,7 +693,7 @@ dbl_enter:
 
     .macro clear_state name, count
     lea OFF_\name(%a5), %a0
-    moveq #(\count - 1), %d0
+    move.w #(\count - 1), %d0
 1:  clr.b (%a0)+
     dbra %d0, 1b
     .endm
@@ -716,8 +716,8 @@ swap_erase_state:
     xchg_state ERASE_OFFSET, OLD_ERASE_OFFSET, 4
     xchg_state BEAM_VALID, OLD_BEAM_VALID, 1
     xchg_state BEAM_ERASE_OFFSET, OLD_BEAM_ERASE_OFFSET, 4
-    xchg_state FX_VALID, OLD_FX_VALID, 12
-    xchg_state FX_ERASE_OFFSETS, OLD_FX_ERASE_OFFSETS, 48
+    xchg_state FX_VALID, OLD_FX_VALID, 36
+    xchg_state FX_ERASE_OFFSETS, OLD_FX_ERASE_OFFSETS, 144
     movem.l (%sp)+, %d0-%d1/%a0-%a1
     rts
 
@@ -730,7 +730,7 @@ clear_old_erase_state:
     clr.b OFF_OLD_BOMB_VALID(%a5)
     clr.b OFF_OLD_ERASE_VALID(%a5)
     clr.b OFF_OLD_BEAM_VALID(%a5)
-    clear_state OLD_FX_VALID, 12
+    clear_state OLD_FX_VALID, 36
     movem.l (%sp)+, %d0/%a0
     rts
 
@@ -744,7 +744,7 @@ clear_erase_state:
     clr.b OFF_BOMB_VALID(%a5)
     clr.b OFF_ERASE_VALID(%a5)
     clr.b OFF_BEAM_VALID(%a5)
-    clear_state FX_VALID, 12
+    clear_state FX_VALID, 36
     movem.l (%sp)+, %d0/%a0
     rts
 
@@ -785,6 +785,7 @@ update_play:
     bsr draw_link_blink
     bsr draw_beam
     bsr draw_effects
+    bsr boss_draw_f                     | Gleeok's body and necks
     bsr draw_sword
     bra present_frame
 

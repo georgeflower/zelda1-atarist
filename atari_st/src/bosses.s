@@ -19,7 +19,12 @@
     farstub tile_blocks_bf, tile_blocks
     farstub walker_fire_bf, walker_fire
     farstub zora_fire_bf, zora_fire
+    farstub keese_ai_bf, keese_ai
+    farstub mon_art_ptr_bf, mon_art_ptr
+    farstub sprite_offset_bf, sprite_offset
+    farstub draw_sprite_bf, draw_sprite
     farstub music_play_bf, music_play
+    farstub uw_redraw_room_bf, uw_redraw_room
 
 | ---------------------------------------------------------------- wizzrobes
 | Wizzrobes (UpdateBlueWizzrobe, UpdateRedWizzrobe). ENEMY_GHOST is set while one is not drawn: weapons pass through
@@ -1277,5 +1282,493 @@ dig_split:
     bne 5b
     clr.b OFF_BOSS_BUSY(%a5)
     movem.l (%sp)+, %d1-%d4/%d6-%d7/%a0-%a1
+    moveq #1, %d0
+    rts
+
+| ----------------------------------------------------------------- Gleeok
+| UpdateGleeok. The body (type MON_GLEEOK2/3/4: two, three or four necks) stays at ($7C, $6F) and is drawn, like
+| the necks, from the boss sprite pool: every frame the pieces put their pictures into BP_FRAME/X/Y (bp_add) and
+| boss_pool_draw (called after the effects are drawn) paints them in effect slots 12 up, which erase like any other
+| effect. The body is a monster nothing hurts; touching it hurts Link. Each neck's head is a monster (MON_GLEEOK_HEAD,
+| ENEMY_STEP the neck's number): only the sword hurts it, $A0 points of it (ten hits of the wooden sword). Per head:
+| ENEMY_TIMER the delay before it starts, ENEMY_TURN and ENEMY_DIST the horizontal and vertical way (0 forward,
+| else back), ENEMY_BOUNCE the count to four, ENEMY_ANIMC and ENEMY_ANIMF the counts to $0C and 6 that turn it.
+| A head moves a pixel every fourth frame and now and then spits a fireball (one at a time). Cut off, it flies
+| about as a head of its own (MON_GLEEOK_FLYER, a keese's flight, harmless to weapons) and shoots. When the last
+| neck is gone the body dies, and the flying heads with it.
+    .equ GLEEOK_BODY_X, 0x7c
+    .equ GLEEOK_BODY_Y, 0x6f
+    .equ GLEEOK_HEAD_Y, 0x83
+    .equ BP_MAX, 24
+    .equ BP_FIRST_SLOT, 12              | the effect slot of pool entry 0
+    .equ GLEEOK_PICTURE, 1              | the body picture that is painted into the room
+
+| d0.w = image, d1.w = X, d2.w = Y. Adds a picture to this frame's pool.
+bp_add:
+    movem.l %d3/%a0, -(%sp)
+    moveq #0, %d3
+    move.b OFF_BP_COUNT(%a5), %d3
+    cmp.w #BP_MAX, %d3
+    bhs 9f
+    lea OFF_BP_FRAME(%a5), %a0
+    move.b %d0, 0(%a0, %d3.w)
+    lea OFF_BP_X(%a5), %a0
+    move.b %d1, 0(%a0, %d3.w)
+    lea OFF_BP_Y(%a5), %a0
+    move.b %d2, 0(%a0, %d3.w)
+    addq.b #1, OFF_BP_COUNT(%a5)
+9:  movem.l (%sp)+, %d3/%a0
+    rts
+
+| d0.w = image, d1.w = X, d2.w = Y, a1 = the buffer to paint into. Returns d1.l = the byte offset it went to, d4.w = -1
+| when it is off the playfield. The images from BP_SEGMENT up (a neck segment, a head) are eight pixels wide and come
+| pre-shifted, one table of 16 shifts after the body's pictures (the art's frame 28 and 60): no shifting at run time, and
+| a segment is only its middle eight lines. A frame has no time for more.
+    .equ BP_SEGMENT, 12
+    .equ BP_HEAD, 13
+    .equ BP_PRE_FRAME, 28               | the art's first pre-shifted frame (after 14 images of two frames)
+bp_paint:
+    movem.l %d0/%d2/%d3/%d5-%d7/%a0-%a3, -(%sp)
+    movea.l %a1, %a3
+    move.w %d0, %d5
+    move.w %d1, %d3
+    move.w %d2, %d6
+    moveq #MON_GLEEOK2, %d0
+    add.w %d0, %d0
+    bsr mon_art_ptr_bf
+    moveq #0, %d7
+    move.w 0(%a0, %d0.w), %d7           | the art's first frame
+    moveq #0, %d1
+    move.w %d3, %d1
+    moveq #0, %d2
+    move.w %d6, %d2
+    bsr sprite_offset_bf
+    tst.w %d4
+    bmi 9f
+    movea.l %a3, %a1
+    adda.l %d1, %a1
+    cmp.w #BP_SEGMENT, %d5
+    bhs 1f
+    add.w %d5, %d5                      | a piece of the body: the plain copy of the image
+    add.w %d5, %d7
+    mulu.w #SPRITE_FRAME_BYTES, %d7
+    movea.l OFF_MON_SPR(%a5), %a0
+    adda.l %d7, %a0
+    move.w %d4, %d0
+    bsr draw_sprite_bf
+    bra 9f
+1:  add.w #BP_PRE_FRAME, %d7
+    moveq #15, %d3                      | lines to draw, less one
+    cmp.w #BP_HEAD, %d5
+    bne 2f
+    add.w #32, %d7                      | the head's tables follow the segment's
+    bra 3f
+2:  moveq #7, %d3
+3:  move.w %d4, %d0
+    add.w %d0, %d0
+    add.w %d0, %d7                      | two frames a shift
+    mulu.w #SPRITE_FRAME_BYTES, %d7
+    movea.l OFF_MON_SPR(%a5), %a0
+    adda.l %d7, %a0
+    cmp.w #15, %d3
+    beq 4f
+    lea (4 * 20)(%a0), %a0              | the segment: lines 4 to 11
+    lea (4 * SCREEN_STRIDE)(%a1), %a1
+4:  move.w %d3, %d7
+    bsr draw_pre
+9:  movem.l (%sp)+, %d0/%d2/%d3/%d5-%d7/%a0-%a3
+    rts
+
+| A pre-shifted picture: a0 = its lines (twenty bytes each: four plane words and the inverted mask for each of two
+| groups), a1 = the destination, d4.w = the shift (up to 8: the second group is empty), d7.w = lines less one.
+draw_pre:
+    movem.l %d1-%d5/%d7/%a0-%a1, -(%sp)
+    cmp.w #8, %d4
+    bhi 3f
+1:  movem.w (%a0)+, %d1-%d5
+    and.w %d5, (%a1)
+    or.w %d1, (%a1)+
+    and.w %d5, (%a1)
+    or.w %d2, (%a1)+
+    and.w %d5, (%a1)
+    or.w %d3, (%a1)+
+    and.w %d5, (%a1)
+    or.w %d4, (%a1)+
+    lea 10(%a0), %a0
+    lea (SCREEN_STRIDE - 8)(%a1), %a1
+    dbra %d7, 1b
+    bra 9f
+3:  movem.w (%a0)+, %d1-%d5
+    and.w %d5, (%a1)
+    or.w %d1, (%a1)+
+    and.w %d5, (%a1)
+    or.w %d2, (%a1)+
+    and.w %d5, (%a1)
+    or.w %d3, (%a1)+
+    and.w %d5, (%a1)
+    or.w %d4, (%a1)+
+    movem.w (%a0)+, %d1-%d5
+    and.w %d5, (%a1)
+    or.w %d1, (%a1)+
+    and.w %d5, (%a1)
+    or.w %d2, (%a1)+
+    and.w %d5, (%a1)
+    or.w %d3, (%a1)+
+    and.w %d5, (%a1)
+    or.w %d4, (%a1)+
+    lea (SCREEN_STRIDE - 16)(%a1), %a1
+    dbra %d7, 3b
+9:  movem.l (%sp)+, %d1-%d5/%d7/%a0-%a1
+    rts
+
+| Draws the pool and empties it.
+boss_pool_draw:
+    movem.l %d0-%d7/%a0-%a3, -(%sp)
+    moveq #0, %d6
+1:  cmp.b OFF_BP_COUNT(%a5), %d6
+    bhs 9f
+    lea OFF_BP_FRAME(%a5), %a0
+    moveq #0, %d0
+    move.b 0(%a0, %d6.w), %d0
+    lea OFF_BP_X(%a5), %a0
+    moveq #0, %d1
+    move.b 0(%a0, %d6.w), %d1
+    lea OFF_BP_Y(%a5), %a0
+    moveq #0, %d2
+    move.b 0(%a0, %d6.w), %d2
+    movea.l OFF_SCREEN_PTR(%a5), %a1
+    bsr bp_paint
+    tst.w %d4
+    bmi 2f
+    move.w %d6, %d0
+    add.w #BP_FIRST_SLOT, %d0
+    lsl.w #2, %d0
+    lea OFF_FX_ERASE_OFFSETS(%a5), %a0
+    move.l %d1, 0(%a0, %d0.w)
+    lea (OFF_FX_VALID + BP_FIRST_SLOT)(%a5), %a0
+    move.b #1, 0(%a0, %d6.w)
+2:  addq.w #1, %d6
+    bra 1b
+9:  clr.b OFF_BP_COUNT(%a5)
+    movem.l (%sp)+, %d0-%d7/%a0-%a3
+    rts
+
+| a1 = a buffer a dungeon room has just been drawn into, d0 = the room: if a Gleeok lives there its body (the
+| first of its three pictures) is painted into it, so that the body costs nothing per frame. The room is
+| redrawn without it when it dies (gleeok_died).
+gleeok_bake:
+    movem.l %d0-%d2/%d6/%a0/%a1, -(%sp)
+    moveq #3, %d6
+1:  lea gleeok_body_pieces(%pc), %a0
+    move.w %d6, %d1
+    add.w %d1, %d1
+    moveq #0, %d2
+    move.b 1(%a0, %d1.w), %d2           | Y
+    move.b 0(%a0, %d1.w), %d1           | X
+    and.w #0xff, %d1
+    moveq #(GLEEOK_PICTURE * 4), %d0
+    add.w %d6, %d0
+    bsr bp_paint
+    dbra %d6, 1b
+    movem.l (%sp)+, %d0-%d2/%d6/%a0/%a1
+    rts
+
+| d5 = the body, just put down.
+gleeok_init:
+    movem.l %d0-%d4/%d6-%d7/%a0-%a2, -(%sp)
+    tst.b OFF_BOSS_BUSY(%a5)
+    bne 9f
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    move.b #GLEEOK_BODY_X, OFF_ENEMY_X(%a5, %d5.w)
+    move.b #GLEEOK_BODY_Y, OFF_ENEMY_Y(%a5, %d5.w)
+    clr.b OFF_GLEEOK_DEAD(%a5)
+    clr.b OFF_GLEEOK_GONE(%a5)
+    clr.b OFF_BP_COUNT(%a5)
+    clr.b OFF_GLEEOK_ANIM(%a5)
+    clr.b (OFF_GLEEOK_ANIM + 1)(%a5)
+    moveq #0, %d7
+    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d7
+    sub.w #MON_GLEEOK2, %d7
+    addq.w #2, %d7                      | the number of necks
+    move.b #3, OFF_GLEEOK_SEGS(%a5)     | a neck's segments: two, but one with four necks
+    cmp.w #4, %d7
+    bne 0f
+    move.b #2, OFF_GLEEOK_SEGS(%a5)
+0:
+    move.b #1, OFF_BOSS_BUSY(%a5)
+    moveq #0, %d6
+1:  moveq #MON_GLEEOK_HEAD, %d1
+    move.w #GLEEOK_BODY_X, %d2
+    move.w #GLEEOK_HEAD_Y, %d3
+    moveq #DIR_DOWN, %d4
+    movem.l %d6-%d7, -(%sp)
+    bsr enemy_make_bf
+    movem.l (%sp)+, %d6-%d7
+    tst.w %d0
+    bmi 3f
+    move.b #2, OFF_ENEMY_ACTIVE(%a5, %d0.w)     | a head is no monster of the room: the body is
+    move.b %d6, OFF_ENEMY_STEP(%a5, %d0.w)
+    move.w %d6, %d1                             | its delay: 0, 12, 24, 36 steps
+    mulu.w #12, %d1
+    move.b %d1, OFF_ENEMY_TIMER(%a5, %d0.w)
+    lea OFF_ENEMY_ANIMC(%a5), %a0
+    move.b #6, 0(%a0, %d0.w)
+    lea OFF_ENEMY_ANIMF(%a5), %a0
+    move.b #3, 0(%a0, %d0.w)
+    lea OFF_ENEMY_BOUNCE(%a5), %a0
+    clr.b 0(%a0, %d0.w)
+    moveq #0, %d1                               | necks 0 and 2 start back in X, 1 and 3 in Y
+    moveq #0, %d2
+    btst #0, %d6
+    bne 2f
+    moveq #-1, %d1
+    bra 21f
+2:  moveq #-1, %d2
+21: lea OFF_ENEMY_TURN(%a5), %a0
+    move.b %d1, 0(%a0, %d0.w)
+    lea OFF_ENEMY_DIST(%a5), %a0
+    move.b %d2, 0(%a0, %d0.w)
+3:  addq.w #1, %d6
+    cmp.w %d7, %d6
+    blo 1b
+    clr.b OFF_BOSS_BUSY(%a5)
+    lea OFF_GSEG_X(%a5), %a0            | the middle segments hang straight down from the body
+    lea OFF_GSEG_Y(%a5), %a1
+    moveq #11, %d1
+4:  move.b #GLEEOK_BODY_X, 0(%a0, %d1.w)
+    moveq #0, %d2
+    move.w %d1, %d2
+    divu.w #3, %d2
+    swap %d2                            | segment 0 to 2 of its neck
+    lea gleeok_seg_y(%pc), %a2
+    move.b 0(%a2, %d2.w), 0(%a1, %d1.w)
+    dbra %d1, 4b
+9:  movem.l (%sp)+, %d0-%d4/%d6-%d7/%a0-%a2
+    rts
+
+gleeok_seg_y:
+    .byte 0x74, 0x79, 0x7e
+    .balign 2
+
+| One fireball at a time, from monster d5.
+gleeok_fire:
+    movem.l %d0/%a0, -(%sp)
+    lea OFF_PROJ_KIND(%a5), %a0
+    moveq #7, %d0
+1:  cmpi.b #PK_FIREBALL, (%a0)+
+    beq 9f
+    dbra %d0, 1b
+    bsr zora_fire_bf
+9:  movem.l (%sp)+, %d0/%a0
+    rts
+
+gleeok_body_pieces:
+    .byte 0x74, 0x57, 0x84, 0x57, 0x74, 0x67, 0x84, 0x67     | the body's four pieces: X, Y
+gleeok_pictures:
+    .byte 1, 0, 1, 2                    | which of its three pictures the body shows, in turn
+
+| d5 = the body. It is part of the room's picture (gleeok_bake) and does nothing. Returns d0.w = 1.
+dmon_gleeok:
+    moveq #1, %d0
+    rts
+
+| d5 = a head on its neck. Returns d0.w = 1.
+dmon_ghead:
+    movem.l %d1-%d4/%d6/%a0-%a1, -(%sp)
+    tst.b OFF_INV_CLOCK(%a5)
+    bne 40f
+    moveq #0, %d1
+    move.b OFF_ENEMY_STEP(%a5, %d5.w), %d1
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    and.w #3, %d0
+    cmp.w %d1, %d0
+    bne 40f                             | one neck a frame
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    beq 5f
+    subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bra 30f
+5:  moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    lea OFF_ENEMY_TURN(%a5), %a0
+    tst.b 0(%a0, %d5.w)
+    beq 51f
+    subq.w #2, %d2
+51: addq.w #1, %d2
+    lea OFF_ENEMY_DIST(%a5), %a0
+    tst.b 0(%a0, %d5.w)
+    beq 52f
+    subq.w #2, %d3
+52: addq.w #1, %d3
+    move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+    lea OFF_ENEMY_BOUNCE(%a5), %a0
+    addq.b #1, 0(%a0, %d5.w)
+    cmpi.b #4, 0(%a0, %d5.w)
+    blo 30f
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_ANIMC(%a5), %a0       | every four steps: count toward a turn
+    addq.b #1, 0(%a0, %d5.w)
+    cmpi.b #0x0c, 0(%a0, %d5.w)
+    blo 53f
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_TURN(%a5), %a1
+    not.b 0(%a1, %d5.w)
+53: lea OFF_ENEMY_ANIMF(%a5), %a0
+    addq.b #1, 0(%a0, %d5.w)
+    cmpi.b #6, 0(%a0, %d5.w)
+    blo 30f
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_DIST(%a5), %a1
+    not.b 0(%a1, %d5.w)
+30: bsr rand8_bf                        | and now and then it spits
+    cmp.b #0x20, %d0
+    bhs 40f
+    bsr gleeok_fire
+40: moveq #0, %d6                       | the neck: the base, and three segments that follow the line from body to head
+    move.b OFF_ENEMY_STEP(%a5, %d5.w), %d6
+    move.w %d6, %d1
+    add.w %d1, %d1
+    add.w %d6, %d1                      | the neck's first segment in GSEG_X/Y
+    move.w %d6, %d4
+    add.w %d4, %d4
+    add.w %d6, %d4                      | 3 * neck
+    moveq #1, %d3                       | the segment's number, 1 to 3
+41: moveq #0, %d0
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d0
+    sub.w #GLEEOK_BODY_X, %d0
+    muls.w %d3, %d0
+    divs.w #3, %d0
+    add.w #GLEEOK_BODY_X, %d0           | where the segment belongs
+    moveq #0, %d1
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d1
+    sub.w #GLEEOK_BODY_Y, %d1
+    muls.w %d3, %d1
+    divs.w #3, %d1
+    add.w #GLEEOK_BODY_Y, %d1
+    move.w %d4, %d2
+    add.w %d3, %d2
+    subq.w #1, %d2                      | its place in the arrays
+    lea OFF_GSEG_X(%a5), %a0
+    moveq #0, %d6
+    move.b 0(%a0, %d2.w), %d6           | the segment drifts a pixel a frame toward it
+    cmp.w %d0, %d6
+    beq 42f
+    blo 421f
+    subq.w #2, %d6
+421: addq.w #1, %d6
+42: move.b %d6, 0(%a0, %d2.w)
+    move.w %d6, %d0
+    lea OFF_GSEG_Y(%a5), %a0
+    moveq #0, %d6
+    move.b 0(%a0, %d2.w), %d6
+    cmp.w %d1, %d6
+    beq 43f
+    blo 431f
+    subq.w #2, %d6
+431: addq.w #1, %d6
+43: move.b %d6, 0(%a0, %d2.w)
+    move.w %d0, %d1                     | d1 = X, d2 = Y for the pool
+    move.w %d6, %d2
+    moveq #BP_SEGMENT, %d0
+    bsr bp_add
+    addq.w #1, %d3
+    moveq #0, %d0
+    move.b OFF_GLEEOK_SEGS(%a5), %d0
+    cmp.w %d0, %d3
+    blo 41b
+    moveq #0, %d1                       | and the head itself, over its neck
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d1
+    moveq #0, %d2
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
+    moveq #BP_HEAD, %d0
+    bsr bp_add
+    movem.l (%sp)+, %d1-%d4/%d6/%a0-%a1
+    moveq #1, %d0
+    rts
+
+| d5 = a head that has just lost its last hit point.
+gleeok_head_died:
+    movem.l %d0-%d2/%d6-%d7, -(%sp)
+    moveq #0, %d0
+    move.b OFF_ENEMY_STEP(%a5, %d5.w), %d0
+    moveq #1, %d1
+    lsl.b %d0, %d1
+    or.b %d1, OFF_GLEEOK_DEAD(%a5)      | this neck is gone
+    move.b #MON_GLEEOK_FLYER, OFF_ENEMY_TYPE(%a5, %d5.w)
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    clr.b OFF_ENEMY_HP(%a5, %d5.w)
+    move.b #2, OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)      | at flying speed, deciding where to go
+    clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    lea OFF_ENEMY_SPEED(%a5), %a0
+    move.b #0xbf, 0(%a0, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    moveq #0, %d6                       | find the body, and how many necks it had
+    moveq #-1, %d7
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d6
+    bhs 3f
+    move.b OFF_ENEMY_TYPE(%a5, %d6.w), %d0
+    cmp.b #MON_GLEEOK2, %d0
+    blo 2f
+    cmp.b #MON_GLEEOK4, %d0
+    bhi 2f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d6.w)
+    beq 2f
+    move.w %d6, %d7
+    sub.b #MON_GLEEOK2, %d0
+    addq.b #2, %d0                      | the necks
+    moveq #1, %d1
+    lsl.b %d0, %d1
+    subq.b #1, %d1                      | the mask of them all
+    cmp.b OFF_GLEEOK_DEAD(%a5), %d1
+    bne 3f
+    move.w %d5, -(%sp)                  | the last neck: the body dies
+    move.w %d6, %d5
+    bsr kill_enemy_bf
+    move.w (%sp)+, %d5
+    bra 3f
+2:  addq.w #1, %d6
+    bra 1b
+3:  movem.l (%sp)+, %d0-%d2/%d6-%d7
+    rts
+
+| d5 = the body, dead: the heads (flying or not) go with it.
+gleeok_died:
+    movem.l %d0-%d1, -(%sp)
+    moveq #0, %d0
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d0
+    bhs 9f
+    move.b OFF_ENEMY_TYPE(%a5, %d0.w), %d1
+    cmp.b #MON_GLEEOK_HEAD, %d1
+    beq 2f
+    cmp.b #MON_GLEEOK_FLYER, %d1
+    bne 3f
+2:  clr.b OFF_ENEMY_ACTIVE(%a5, %d0.w)
+3:  addq.w #1, %d0
+    bra 1b
+9:  clr.b OFF_BP_COUNT(%a5)
+    clr.b OFF_GLEEOK_DEAD(%a5)
+    move.b OFF_ROOM_ID(%a5), %d0        | the room is drawn again without the body
+    or.b #0x80, %d0
+    move.b %d0, OFF_GLEEOK_GONE(%a5)
+    bsr uw_redraw_room_bf
+    movem.l (%sp)+, %d0-%d1
+    rts
+
+| d5 = a flying head.
+dmon_gflyer:
+    bsr keese_ai_bf
+    movem.l %d0, -(%sp)
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    btst #0, %d0
+    bne 1f
+    bsr rand8_bf
+    cmp.b #0x20, %d0
+    bhs 1f
+    bsr gleeok_fire
+1:  movem.l (%sp)+, %d0
     moveq #1, %d0
     rts
