@@ -159,13 +159,26 @@ class ActorTableTests(unittest.TestCase):
         levels = tuple(int(n) for n in re.search(r"^UW_LEVELS := ([\d ]+)$", make, re.M).group(1).split())
         self.assertEqual(levels, tuple(B.UW_LEVELS))
 
-    def test_the_reach_check_reads_the_target_of_a_word_branch(self) -> None:
+    def test_the_reach_check_catches_a_branch_that_wraps(self) -> None:
+        import tempfile
         sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
         import check_reach
-        wrapped = "    2230:\t6100 8006      \tbsrw ffffa238 <x>"
-        near = "    2220:\t6100 012a      \tbsrw 234c <init_buffers>"
-        self.assertEqual(int(check_reach.BRANCH.match(wrapped).group(2), 16), 0xFFFFA238)
-        self.assertEqual(int(check_reach.BRANCH.match(near).group(2), 16), 0x234C)
+        symbols = {"game_start": 0x2000, "near": 0x2100, "far": 0x2000 + 0x8100}
+        listing = "\n".join([
+            " 10 0000 4E71      \t    nop",
+            " 11 0002 6100 00FA \t    bsr near",
+            " 12 0006 6100 8100 \t    bsr far",            # 32,768 + bytes away: gas wraps it without a word
+            " 13 000a 6700 0004 \t    beq.s far",
+            " 14 000e 41FA 0000 \t    lea near(%pc), %a0",
+        ])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "x.lst"
+            path.write_text(listing + "\n", encoding="utf-8")
+            failures, checked, tight = check_reach.check_displacements(path, symbols)
+        self.assertEqual(checked, 4)
+        self.assertEqual(len(failures), 2)          # the word branch and the short one
+        self.assertTrue(failures[0].startswith("bsr far"))
+        self.assertEqual(tight[0][0] < 0, True)
 
 
 if __name__ == "__main__":

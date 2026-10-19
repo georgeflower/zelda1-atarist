@@ -28,28 +28,55 @@ def symbol_addresses(nm: str, elf: Path) -> dict[str, int]:
     return table
 
 
-BRANCH = re.compile(r"^\s*([0-9a-f]+):\s+(?:[0-9a-f]{4} )+\s*(?:bsr|bra|b[a-z]{2})w\s+([0-9a-f]+)\b")
+# One line of an `as -al` listing: line number, offset within the section, the bytes, then the source.
+LISTING = re.compile(r"^\s*\d+\s+([0-9a-fA-F]{4,8})\s+(?:[0-9A-F]{2,4}\s+)*\t\s*(\S.*)$")
+SECTION = re.compile(r"^\s*\d+\s+\.(?:section\s+(\S+?)[,\s]|section\s+(\S+)$|(text|data|bss)\b)")
+BRANCH = re.compile(r"^(bsr|bra|b[a-z]{2})(?:\.([bswl]))?\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\|.*)?$")
+PC_OPERAND = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)(?:[+-]\d+)?\(%pc[,)]")
 
 
-def image_size(objdump: str, elf: Path) -> int:
-    """End of the last section: columns of `objdump -h` are Size then VMA."""
-    out = subprocess.run([objdump, "-h", str(elf)], check=True, capture_output=True, text=True).stdout
-    return max(int(m.group(1), 16) + int(m.group(2), 16)
-               for m in re.finditer(r"^\s*\d+\s+\S+\s+([0-9a-f]+)\s+([0-9a-f]+)\s", out, re.M))
-
-
-def check_branches(objdump: str, elf: Path, image_end: int, code_end: int) -> list[str]:
-    """A 16-bit branch reaches 32 KB either way; the assembler leaves it to the linker, which lets a longer one
-    wrap silently into the wrong address (it once sent the main loop's `bsr draw_hud` into low RAM). The
-    disassembly prints the wrapped target, so any word branch landing outside the image is one of those."""
-    out = subprocess.run([objdump, "-d", str(elf)], check=True, capture_output=True, text=True).stdout
-    bad = []
-    for line in out.splitlines():
-        match = BRANCH.match(line)
-        # past code_end is the rodata, whose bytes the disassembler also takes for instructions
-        if match and int(match.group(1), 16) < code_end and int(match.group(2), 16) >= image_end:
-            bad.append(line.strip())
-    return bad
+def check_displacements(listing: Path, symbols: dict[str, int]) -> tuple[list[str], int, list[tuple[int, str]]]:
+    """The 68000 branches and PC-relative operands span a signed 16 bits (a short branch 8). GNU as does not
+    complain when a displacement does not fit: it wraps, and the program jumps into the wrong place (it once sent
+    the main loop's `bsr draw_hud` into low RAM and crashed at start). The listing gives every instruction's offset
+    in .text, `game_start` is the link address of offset 0, and the symbols give the targets, so the real distance
+    can be computed. Returns the failures, how many were checked, and the tightest few (slack, where)."""
+    base = {"text": symbols["game_start"]}
+    section = "text"
+    failures: list[str] = []
+    checked = 0
+    tight: list[tuple[int, str]] = []
+    for line in listing.read_text(encoding="utf-8", errors="replace").splitlines():
+        found = SECTION.match(line)
+        if found:
+            name = (found.group(1) or found.group(2) or found.group(3)).lstrip(".")
+            section = name if name in ("text", "data", "bss", "rodata", "text.late") else "other"
+            continue
+        match = LISTING.match(line)
+        if not match or section != "text":
+            continue
+        offset, source = int(match.group(1), 16), match.group(2).strip()
+        instruction = re.sub(r"^\w+:\s*", "", source)           # a label may share the line
+        branch = BRANCH.match(instruction)
+        if branch and branch.group(3) in symbols:
+            limit = 127 if branch.group(2) in ("b", "s") else 32767
+            distance = symbols[branch.group(3)] - (base["text"] + offset + 2)
+            target = branch.group(3)
+        else:
+            pc = PC_OPERAND.search(instruction)
+            if not pc or pc.group(1) not in symbols or instruction.startswith(("dc", ".")):
+                continue
+            # the displacement word follows the opcode, or an immediate / register mask that comes first
+            extra = 2 if re.match(r"^(btst|bset|bclr|bchg|movem)\S*\s+(#|%|\{)", instruction) or \
+                re.match(r"^(btst|bset|bclr|bchg)\S*\s+#", instruction) else 0
+            distance = symbols[pc.group(1)] - (base["text"] + offset + 2 + extra)
+            limit, target = 32767, pc.group(1)
+        checked += 1
+        room = limit - distance if distance >= 0 else limit + 1 + distance
+        tight = sorted(tight + [(room, f"{instruction.split('|')[0].strip()} at .text+{offset:#x}")])[:3]
+        if not -limit - 1 <= distance <= limit:
+            failures.append(f"{source.split('|')[0].strip()} at .text+{offset:#x}: {target} is {distance} bytes away")
+    return failures, checked, tight
 
 
 def main() -> None:
@@ -57,7 +84,7 @@ def main() -> None:
     parser.add_argument("elf", type=Path)
     parser.add_argument("sources", type=Path, nargs="+")
     parser.add_argument("--nm", default="m68k-linux-gnu-nm")
-    parser.add_argument("--objdump", default="m68k-linux-gnu-objdump")
+    parser.add_argument("--listing", type=Path, help="the assembler listing of main.s (as -al=FILE)")
     args = parser.parse_args()
     symbols = symbol_addresses(args.nm, args.elf)
     anchor = symbols["table_anchor"]
@@ -78,10 +105,15 @@ def main() -> None:
         far_ahead = max(far_ahead, distance)
     if bad:
         sys.exit("Tables the code names but the image lacks:\n  " + "\n  ".join(bad))
-    wrapped = check_branches(args.objdump, args.elf, image_size(args.objdump, args.elf), symbols.get("room_palette", 1 << 32))
-    if wrapped:
-        sys.exit("16-bit branches that overflowed (go through a *_far stub in main.s):\n  " + "\n  ".join(wrapped))
-    print(f"Tables ok: {len(used)} tables, furthest back {-far_back}, furthest ahead {far_ahead} bytes from table_anchor")
+    reach = ""
+    if args.listing:
+        failures, checked, tight = check_displacements(args.listing, symbols)
+        if failures:
+            sys.exit("Branches and PC-relative operands too far for 16 bits (route a branch through a *_far stub in "
+                     "main.s):\n  " + "\n  ".join(failures))
+        reach = (f"; {checked} branches and PC-relative operands fit 16 bits, the tightest left "
+                 + ", ".join(f"{room} bytes ({where})" for room, where in tight))
+    print(f"Tables ok: {len(used)} tables, furthest back {-far_back}, furthest ahead {far_ahead} bytes from table_anchor{reach}")
 
 
 if __name__ == "__main__":
