@@ -370,7 +370,7 @@ class ActorData:
     drop_rates: bytes
     sword_sprites: bytes      # up, down, left, right for the wooden, white and magic sword, then the rod
     beam_sprites: bytes       # the sword's shot: up, down, left, right, each in four palette rows
-    fx_sprites: bytes         # two bomb clouds, then four spark corners in four palette rows each
+    fx_sprites: bytes         # two bomb clouds, four spark corners in four palette rows each, two fires, a third cloud
     proj_sprites: bytes       # 8 boomerang turns and a spark, 4 fireball frames (the 4 sprite palettes), then 4 pieces for each Aquamentus image
     hud_items: bytes          # sword, bomb, boomerang, candle, compass, map, bow as two status bar tiles each, top then bottom
     room_info: list[bytes]    # ROOM_INFO_BYTES per stored room
@@ -380,6 +380,7 @@ class ActorData:
     person_text: bytes = b""  # the speeches of the level's dungeon people, appended to the first cave's text
     mon_mask: bytes = b""     # per monster, which weapons hurt it (MONSTER_HURT)
     monster_arts: tuple = ()  # per monster index, the frames of its art (what mon_art points at in mon_sprites)
+    mon_cloud: bytes = b""    # per monster: 0 appears at once, 1 comes out of a spawn cloud, 2 out of a long one (octoroks)
 
 
 def _pack_masked(rows: list[list[int]]) -> bytes:
@@ -514,6 +515,7 @@ SWORD_TILE_VERTICAL = 0x20        # RDirectionToWeaponFrame: frame 0 for up and 
 SWORD_TILE_HORIZONTAL = 0x82      # ... frame 1 for left and right (Anim_ItemFrameTiles)
 SPARK_TILE = 0x30
 CLOUD_TILES = (0x70, 0x72)
+SPAWN_CLOUD_LAST_TILE = 0x74    # the bomb item's frame 3: the spawn cloud runs through $70, $72 and $74
 SPARK_CORNER_FLIPS = (("h",), ("h", "v"), ("v",), ())    # SwordShotSpreadBaseAttr, by loop index
 
 
@@ -565,7 +567,8 @@ def _fire_rows(anim, heap, attr_heap, sp_tiles, palette) -> list[list[int]]:
 
 
 def _effect_frames(sp_tiles, bg_tiles, palette, fire_rows) -> bytes:
-    """Two bomb clouds, four spark corners in four palette rows each, then the candle fire and its mirror."""
+    """Two bomb clouds, four spark corners in four palette rows each, the candle fire and its mirror, then the third
+    picture of the spawn cloud (the first two are the bomb's)."""
     frames = [
         _pack_masked(_item_rows(sp_tiles, bg_tiles, palette, tile, B.LINK_PALETTE_ROW + 1))
         for tile in CLOUD_TILES
@@ -576,6 +579,7 @@ def _effect_frames(sp_tiles, bg_tiles, palette, fire_rows) -> bytes:
             frames.append(_pack_masked(_flip_rows(rows, h="h" in flips, v="v" in flips)))
     frames.append(_pack_masked(fire_rows))
     frames.append(_pack_masked([r[::-1] for r in fire_rows]))
+    frames.append(_pack_masked(_item_rows(sp_tiles, bg_tiles, palette, SPAWN_CLOUD_LAST_TILE, B.LINK_PALETTE_ROW + 1)))
     return b"".join(frames)
 
 
@@ -800,6 +804,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         mon_table=bytes(table),
         mon_mask=bytes(hurt),
         mon_art=bytes(mon_art),
+        mon_cloud=monster_cloud_table(source_root),
         mon_index=bytes(mon_index),
         item_sprites=bytes(items),
         item_index=bytes(item_index),
@@ -1016,6 +1021,84 @@ OW_ROOM_INFO_BYTES = 16
 OW_ROOM_EDGE_SPAWN = 1         # flags bit 0: the monsters come in from the screen edge (attribute F bit 3)
 OW_ROOM_ZORAS = 2              # flags bit 1: a Zora lives in the water (attribute A bit 3)
 OW_MAX_MONSTERS = 6            # the biggest foe count of the overworld (LevelInfo foe counts are 1, 4, 5, 6)
+
+
+SPAWN_CLOUD_NONE, SPAWN_CLOUD_SHORT, SPAWN_CLOUD_LONG = 0, 1, 2
+# InitSlowOctorockOrGhini and InitFastOctorock set ObjTimer to (slot + 1) * $10 where the other monsters keep the slot
+# number: "Octorock spawn clouds last longer than other monsters".
+LONG_CLOUD_INITS = ("InitSlowOctorockOrGhini", "InitFastOctorock")
+# InitArmosOrFlyingGhini keeps its own fade-in on ObjTimer and takes the metastate away only after it (it branches to
+# L_EndInitFlyingGhini), so it has no spawn cloud either.
+OWN_FADE_INITS = ("InitArmosOrFlyingGhini",)
+INIT_TABLE_LABEL = "InitObject_JumpTable:"
+RESET_METASTATE = ("ResetObjMetastate", "ResetObjMetastateAndTimer")
+
+
+def _rom_routines(source_root: Path) -> tuple[dict[str, list[str]], dict[str, str | None]]:
+    """Every routine of the banks that hold the object initialisers: its lines, and the routine that follows it."""
+    routines: dict[str, list[str]] = {}
+    order: list[tuple[str, str]] = []
+    for name in ("Z_01.asm", "Z_04.asm", "Z_05.asm", "Z_07.asm"):
+        current = None
+        for line in (source_root / "src" / name).read_text(encoding="utf-8", errors="replace").splitlines():
+            code = line.split(";")[0].rstrip()
+            label = re.match(r"^(@?[A-Za-z_][A-Za-z0-9_]*):\s*(.*)$", code)
+            if label and not label.group(1).startswith("@"):
+                current = label.group(1)
+                routines.setdefault(current, [])
+                order.append((name, current))
+                code = label.group(2)
+            if current:
+                routines[current].append(code)
+    following = {n: (order[i + 1][1] if order[i + 1][0] == f else None) for i, (f, n) in enumerate(order[:-1])}
+    return routines, following
+
+
+def _clears_metastate(name: str, routines, following, seen=None) -> bool:
+    """Whether an initialiser ends up in ResetObjMetastate: the monster then starts at once, with no spawn cloud
+    (InitObject gives every object metastate 1, the first cloud state, and only these initialisers take it away)."""
+    seen = set() if seen is None else seen
+    if name in seen or name not in routines:
+        return False
+    seen.add(name)
+    if name in RESET_METASTATE:
+        return True
+    ends = False
+    for code in routines[name]:
+        call = re.search(r"\b(?:JSR|JMP)\s+(\w+)", code)
+        if call and _clears_metastate(call.group(1), routines, following, seen):
+            return True
+        if re.search(r"\b(?:RTS|RTI|JMP)\b", code) and "JSR" not in code:
+            ends = True
+    return not ends and following.get(name) is not None and _clears_metastate(following[name], routines, following, seen)
+
+
+def rom_spawn_clouds(source_root: Path) -> dict[int, int]:
+    """NES object type -> SPAWN_CLOUD_*, read from the ROM's InitObject_JumpTable and the routines it names."""
+    routines, following = _rom_routines(source_root)
+    table = []
+    text = (source_root / "src" / "Z_07.asm").read_text(encoding="utf-8", errors="replace").splitlines()
+    start = next(i for i, line in enumerate(text) if line.startswith(INIT_TABLE_LABEL))
+    for line in text[start + 1 :]:
+        match = re.match(r"\s*\.ADDR (\w+)", line.split(";")[0])
+        if not match:
+            break
+        table.append(match.group(1))
+    clouds = {}
+    for nes_type, init in enumerate(table):
+        if init in OWN_FADE_INITS or _clears_metastate(init, routines, following):
+            clouds[nes_type] = SPAWN_CLOUD_NONE
+        else:
+            clouds[nes_type] = SPAWN_CLOUD_LONG if init in LONG_CLOUD_INITS else SPAWN_CLOUD_SHORT
+    return clouds
+
+
+def monster_cloud_table(source_root: Path) -> bytes:
+    """One byte per monster: the spawn cloud it comes out of. Only the overworld puts monsters down in clouds for
+    now (the dungeons' monsters appear at once, as they did before), so the other types get 0."""
+    clouds = rom_spawn_clouds(source_root)
+    return bytes(clouds.get(t, SPAWN_CLOUD_NONE) if t in OVERWORLD_MONSTERS else SPAWN_CLOUD_NONE
+                 for t in MONSTER_TYPES)
 
 
 def overworld_monster_lists(source_root: Path) -> list[list[int]]:

@@ -116,6 +116,15 @@
     .equ LINK_EDGE_DOWN, 0xdd
 
     .equ MAX_ENEMIES, 8
+    | Monsters that walk in from the edge of a screen (the overworld screens whose attribute F has bit 3). The ROM lets the
+    | first one in at once, the next 20 to 50 frames after it (2 to 5 tenths of a second) and keeps them only $22 away from
+    | Link, which on the first screens next to the start puts them on top of him. These are the gentler values asked for:
+    | a wait before the first, 40 to 70 frames between them, a retry in 10 frames when the square is too close, and a
+    | wider berth (the ROM's numbers are 0, 2 + rand & 3, 2 + rand & 3 and $22).
+    .equ EDGE_FIRST_TICKS, 3
+    .equ EDGE_GAP_TICKS, 4
+    .equ EDGE_RETRY_TICKS, 1
+    .equ EDGE_SAFE_DIST, 0x48
     .equ ENEMY_TEMPLATE_07, 0x07
 
 | ---------------------------------------------------------------- caves
@@ -936,6 +945,8 @@ mon_table:
     .incbin "mon_table.bin"
 mon_mask:
     .incbin "mon_mask.bin"
+mon_cloud:
+    .incbin "mon_cloud.bin"
     .align 2
 mon_art:
     .incbin "mon_art.bin"

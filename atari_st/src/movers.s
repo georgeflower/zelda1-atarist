@@ -998,7 +998,7 @@ mv_boulder_set:
 | Returns d0.w = a slot a new monster can take, or -1. A dead monster's slot will do; so will one more at the
 | end, unless monsters are still to walk in from the edge (their slots are spoken for).
 enemy_find_slot:
-    movem.l %d1-%d2, -(%sp)
+    movem.l %d1-%d2/%a0, -(%sp)
     moveq #0, %d2
     move.b OFF_ENEMY_COUNT(%a5), %d2
     tst.b OFF_EDGE_PENDING(%a5)
@@ -1009,8 +1009,11 @@ enemy_find_slot:
 2:  cmp.w %d2, %d1
     bhs 3f
     tst.b OFF_ENEMY_ACTIVE(%a5, %d1.w)
+    bne 4f
+    lea OFF_ENEMY_CLOUD(%a5), %a0           | a slot still in its spawn cloud is taken
+    tst.b 0(%a0, %d1.w)
     beq 8f
-    addq.w #1, %d1
+4:  addq.w #1, %d1
     bra 2b
 3:  tst.b OFF_EDGE_PENDING(%a5)
     bne 7f
@@ -1021,7 +1024,7 @@ enemy_find_slot:
 8:  move.w %d1, %d0
     bra 9f
 7:  moveq #-1, %d0
-9:  movem.l (%sp)+, %d1-%d2
+9:  movem.l (%sp)+, %d1-%d2/%a0
     rts
 
 | A new monster: d1.w = its index in mon_table, d2.w = X, d3.w = Y, d4.b = heading. Returns d0.w = its slot or -1.

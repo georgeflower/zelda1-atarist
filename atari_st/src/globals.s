@@ -409,6 +409,8 @@
     gvar POND_CYCLE, 1         | SecretColorCycle: the recorder's pond in screen $42, 1 to $B while the water changes
     gvar POND_WALK, 1          | the water can be walked on (ObjectFirstUnwalkableTile is $99)
     gvar FAIRY_ON, 1           | bit n: heart n of the pond fairy is out
+    gvar ENEMY_CLOUD, 8        | per monster: 0, or the picture (1-3) of the spawn cloud it is still in; it neither moves nor harms nor can be hurt
+    gvar ENEMY_CLOUD_T, 8      | frames left of that picture (ObjTimer)
     galign
     gvar FAIRY_ANG, 16         | each heart's angle: whole in the high byte, fraction in the low
     .equ GLOBALS_BYTES, gvar_offset
