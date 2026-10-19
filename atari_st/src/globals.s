@@ -371,6 +371,10 @@
     gvar ZELDA_SCENE, 1        | Zelda's room: 0 nothing yet, 1-8 the scene (zelda_tick in bosses.s)
     gvar ZELDA_TIMER, 1
     gvar ZELDA_STEP, 1
+    gvar MAX_BOMBS, 1          | what Link can carry: 8, and four more for each offer of the "more bombs" man
+    gvar UW_PERSON_KIND, 1     | the man in this room: 0 only talks, 1 sells bomb capacity, 2 life or money
+    gvar UW_PERSON_WARES, 1    | his prices and goods are on show
+    gvar UW_PERSON_TIMER, 1    | the frames before he vanishes, once something was taken
     gvar GLEEOK_SEGS, 1        | one more than the middle segments a neck has: its pictures are drawn as the frame allows
     galign
     .equ GLOBALS_BYTES, gvar_offset

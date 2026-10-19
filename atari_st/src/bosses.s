@@ -2309,6 +2309,10 @@ ganon_died:
     lea OFF_ENEMY_GHOST(%a5), %a0
     move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
     sfx SFX_MONSTER_DIED
+    move.l %d0, -(%sp)
+    moveq #MUS_GANON, %d0               | and again when he starts to burn
+    bsr music_event_bf
+    move.l (%sp)+, %d0
 9:  movem.l (%sp)+, %a0
     rts
 
@@ -2460,6 +2464,8 @@ ganon_tick:
     bsr uw_light_room_bf
     move.b #2, OFF_GANON_SCENE(%a5)
     move.b #0xc0, OFF_GANON_TIMER(%a5)
+    moveq #MUS_GANON, %d0               | the first frame of the fade to light: the Triforce/Ganon song
+    bsr music_event_bf
     sfx SFX_ITEM_APPEARS
     bra 99f
 10: move.b #ITEM_TRIFORCE, (OFF_ITEM_ID + 1)(%a5)   | scene 2: the Triforce of Courage over Link's head
@@ -2576,7 +2582,7 @@ ganon_draw:
 | curtain, she thanks him in typed letters, and Link and she stand with a triforce piece over each head while the
 | backdrop flashes. The last screen of the credits has the final words. Link is held for all of it, so the scene is
 | run from zelda_tick, by boss_misc_update, and not from the monster. ZELDA_SCENE: 1 fanfare, 2 curtain, 3 thanks being
-| typed, 4 pause, 5 flash, 6 pause, 7 final words being typed, 8 the end. Not ported: the credits that follow.
+| typed, 4 pause, 5 flash, 6 pause, 7 final words being typed, 8 they stay up, 9 a page of the credits being typed, 10 the page is read, 11 the last page, for good.
     .equ ZELDA_X, 0x78
     .equ ZELDA_Y, 0x88
     .equ ZELDA_LINK_X, 0x88
@@ -2587,7 +2593,11 @@ ganon_draw:
     .equ ZELDA_FLASH_FROM, 0x40
     .equ ZELDA_PEACE_DELAY, 0x40
     .equ ZELDA_TEXT_DELAY, 10
+    .equ ZELDA_CREDIT_WAIT, 0xb0
 
+zelda_credit_pages:
+    .word ENDING_CREDIT_0, ENDING_CREDIT_1, ENDING_CREDIT_2, ENDING_CREDIT_3
+    .word ENDING_CREDIT_4, ENDING_CREDIT_5, ENDING_CREDIT_6, ENDING_CREDIT_7
 zelda_fire_x:
     .byte 0x60, 0x70, 0x80, 0x90
 zelda_fire_y:
@@ -2801,19 +2811,53 @@ zelda_tick:
     bsr music_event_bf
     bra 99f
 50: cmp.b #6, %d0
-    bne 60f
+    bne 55f
     subq.b #1, OFF_ZELDA_TIMER(%a5)     | 6: the ending song, and a pause before the words
     bne 99f
     move.b #7, OFF_ZELDA_SCENE(%a5)
     move.w #ENDING_TEXT_PEACE, %d0
     bsr zelda_say
     bra 99f
-60: cmp.b #7, %d0
-    bne 99f
+55: cmp.b #7, %d0
+    bne 60f
     bsr cave_talk_bf                    | 7: "PEACE RETURNS TO HYRULE. THIS ENDS THE STORY."
     tst.b OFF_CAVE_TEXT_ON(%a5)
     bne 99f
     move.b #8, OFF_ZELDA_SCENE(%a5)
+    move.b #ZELDA_CREDIT_WAIT, OFF_ZELDA_TIMER(%a5)
+    bra 99f
+60: cmp.b #8, %d0
+    bne 70f
+    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 8: the last words stay up, then the credits' first page
+    bne 99f
+    clr.b OFF_ZELDA_STEP(%a5)
+    bra 66f
+70: cmp.b #9, %d0
+    bne 80f
+    bsr cave_talk_bf                    | 9: a page of the credits being typed
+    tst.b OFF_CAVE_TEXT_ON(%a5)
+    bne 99f
+    move.b #10, OFF_ZELDA_SCENE(%a5)
+    move.b #ZELDA_CREDIT_WAIT, OFF_ZELDA_TIMER(%a5)
+    bra 99f
+80: cmp.b #10, %d0
+    bne 99f
+    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 10: the page is read; the next one, or the last stays for good (scene 11)
+    bne 99f
+    addq.b #1, OFF_ZELDA_STEP(%a5)
+    cmpi.b #ENDING_CREDIT_PAGES, OFF_ZELDA_STEP(%a5)
+    blo 66f
+    move.b #11, OFF_ZELDA_SCENE(%a5)
+    subq.b #1, OFF_ZELDA_STEP(%a5)
+    bra 99f
+66: bsr zelda_wipe_text
+    moveq #0, %d0
+    move.b OFF_ZELDA_STEP(%a5), %d0
+    add.w %d0, %d0
+    lea zelda_credit_pages(%pc), %a0
+    move.w 0(%a0, %d0.w), %d0
+    bsr zelda_say
+    move.b #9, OFF_ZELDA_SCENE(%a5)
 99: movem.l (%sp)+, %d0-%d2/%a0-%a1
     rts
 

@@ -291,6 +291,9 @@ PERSON_LIST_FIRST = 0x4B      # Person1..Person8 in the monster lists
 PERSON_LIST_LAST = 0x52
 PERSON_MORE_BOMBS = 0x4F      # in the dungeons whose people are table A this one and the next do more than talk
 PERSON_LIFE_OR_MONEY = 0x51
+LIFE_OR_MONEY_SELECTOR = 0x36
+PERSON_KIND_BOMBS = 1          # record byte 13: sells room for four more bombs for 100 rupees
+PERSON_KIND_MONEY = 2          # a heart container or 50 rupees
 RUPEE_STASH = 0x35           # ten rupees on the floor (trigger bit 6)
 GRUMBLE = 0x36               # the moblin who wants food (trigger bit 5); his text is selector $24
 GRUMBLE_SELECTOR = 0x24
@@ -905,11 +908,12 @@ def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_by
         if list_id == GRUMBLE:
             selector = GRUMBLE_SELECTOR
         else:
-            if not PERSON_LIST_FIRST <= list_id <= PERSON_LIST_LAST or list_id == PERSON_LIFE_OR_MONEY:
+            if not PERSON_LIST_FIRST <= list_id <= PERSON_LIST_LAST:
                 continue
-            if list_id == PERSON_MORE_BOMBS and label == "A":
-                continue                # the man who sells bomb capacity (InitUnderworldPersonA): not ported
-            selector = selectors[list_id - PERSON_LIST_FIRST]
+            if list_id == PERSON_LIFE_OR_MONEY:
+                selector = LIFE_OR_MONEY_SELECTOR       # InitUnderworldPersonLifeOrMoney_Full: the same words in every level
+            else:
+                selector = selectors[list_id - PERSON_LIST_FIRST]
         if selector not in placed:
             entry = selector // 2
             end = starts[entry + 1] if entry + 1 < len(starts) else len(texts)
@@ -977,6 +981,12 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
     record = bytearray([len(monsters), trigger, item_id, pos & 0xF0, (pos & 0x0F) << 4, unsupported | dark])
     record.extend(monsters)
     record.extend([0xFF] * (ROOM_INFO_BYTES - 2 - len(record)))
+    if person != NO_PERSON and not monsters:
+        # the people that do more than talk: byte 13, which a room without monsters does not use, says which
+        if list_id == PERSON_LIFE_OR_MONEY:
+            record[13] = PERSON_KIND_MONEY
+        elif list_id == PERSON_MORE_BOMBS and PERSON_SELECTOR_LABELS.get(level) == "A":
+            record[13] = PERSON_KIND_BOMBS
     record.extend(person.to_bytes(2, "big"))
     return bytes(record)
 

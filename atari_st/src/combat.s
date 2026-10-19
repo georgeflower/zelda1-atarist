@@ -66,7 +66,6 @@
     .equ ITEM_FAIRY, 0x23
     .equ HELP_KILLS, 10
     .equ FAIRY_KILLS, 0x10
-    .equ MAX_BOMBS, 8
 
 | ------------------------------------------------------------------- sword
 | The joystick's fire button and Space start a swing, once per press, when Link
@@ -1741,9 +1740,11 @@ take_item:
     moveq #0, %d2
     move.b OFF_INV_BOMBS(%a5), %d2
     addq.w #4, %d2
-    cmp.w #MAX_BOMBS, %d2
+    moveq #0, %d1
+    move.b OFF_MAX_BOMBS(%a5), %d1
+    cmp.w %d1, %d2
     bls 7f
-    moveq #MAX_BOMBS, %d2
+    move.w %d1, %d2
 7:  move.b %d2, OFF_INV_BOMBS(%a5)
     bra 9f
 4:  cmp.b #ITEM_HEART, %d0
