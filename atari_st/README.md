@@ -13,7 +13,7 @@ container and the triforce piece) as in the original; Levels 3 to 9 are built
 with their rooms, items, monsters and bosses (up to Ganon and Zelda) but not yet played through. Every item the game has
 is in the code, but most can only be found in the dungeons and caves that are
 not ported yet. It is not yet a complete game: the shops and
-most caves, the credits after Zelda's thanks, the title screen and saving are missing.
+most caves, the title screen and saving are missing.
 
 How to play
 -----------
@@ -131,8 +131,8 @@ Level 1 (underworld)
 - the old man in room `$41` stands between two flames and types out "EASTMOST
   PENNINSULA IS THE SECRET." while Link is held; Link cannot walk past him. The
   speech comes from the original dungeon-people tables. The flames do not shoot
-  when he is hit, and the other people types (more bombs, life or money) are not
-  in yet
+  when he is hit. The "more bombs" man (Levels 5 and 7: 100 rupees for room for four
+  more bombs) and the "life or money" man (a heart container or 50 rupees) are in
 - the wooden sword, the boomerang, the bow and the candle are held up with the item
   fanfare when taken: Link stands still with his arms raised and the item over his
   head for about two seconds, and the monsters wait
@@ -178,7 +178,7 @@ Level 9 (Death Mountain)
   turns him brown, a silver arrow into a brown Ganon kills him, he burns to ashes and the Triforce of Power lies there
 - Zelda (room `$32`) and the four fires that guard her: stand level with her (X `$70`..`$80`, Y `$95`) and the scene
   runs: the Zelda fanfare, the curtain, her thanks typed out, the two triforce pieces over Link and Zelda while the
-  backdrop flashes, then the closing words. The credits after it are not ported, and the scene ends there.
+  backdrop flashes, then the closing words. Then the credits, a page of three lines at a time (the staff, "ATARI ST PORT / BY Q", "END OF THE LEGEND OF ZELDA"); the last page stays, Esc quits.
 
 Levels 3 to 8 (underworld)
 
@@ -280,7 +280,7 @@ Things that behave differently from the original, or are stand-ins:
 - fireball art is placeholder (Aquamentus himself is original)
 - Levels 3 to 9 were checked by loading every room in Hatari and by reading the ROM, not
   played through (Digdogger's kill and heart container, pols voice and vire hops, a stash left
-  and re-entered, dark-room scrolling); the "more bombs" and "life or money" men are not ported
+  and re-entered, dark-room scrolling)
 - the Moldorm is two worms of four segments, not one of ten, because the engine
   has eight monster slots; the Dodongo and the Moldorm leave no death cloud
 - Level 2's Dodongo bomb and sword kill, the Moldorm's segment deaths and the
@@ -295,8 +295,7 @@ Things that behave differently from the original, or are stand-ins:
   bombs and the candle
 - overworld armos and gravestone ghinis are not ported, and the hidden bomb,
   fire and push spots still show their marker art (milestone M1 in `PLAN.md`)
-- the other dungeon people (more bombs, life or money) and the old man's
-  fireballs are not in; the overworld has no map on the ribbon
+- the old man's fireballs are not in; the overworld has no map on the ribbon
 - the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed
 - the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
   it back so the tempo stays right

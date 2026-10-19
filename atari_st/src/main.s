@@ -347,6 +347,7 @@ init_state:
     move.b #START_DIR, OFF_LINK_DIR(%a5)
     move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
     move.b #3, OFF_HEART_CONTAINERS(%a5)
+    move.b #8, OFF_MAX_BOMBS(%a5)
     move.b #6, OFF_HP_HALVES(%a5)
     move.w #0xace1, OFF_RNG(%a5)
     move.b #ROOM_BOUND_LEFT, OFF_OBJ_LEFT(%a5)

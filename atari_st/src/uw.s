@@ -250,8 +250,13 @@ uw_commit_next:
 | shoot, is not ported.
     .equ UW_PERSON_DELAY, 10        | frames before the first letter
 
-| The room's record (a1) names a speech: start it. Link is held until it is over.
+| The room's record (a1) names a speech: start it. Link is held until it is over. d0.w = room id.
+| The record's byte 13 says what else the man does (see the wares below).
 uw_person_begin:
+    movem.l %d1/%a2, -(%sp)
+    lea OFF_UW_FLAGS(%a5), %a2
+    btst #UW_FLAG_PERSON, 0(%a2, %d0.w)
+    bne 9f                              | he has given what he had, and is gone
     move.b #1, OFF_UW_PERSON(%a5)
     move.b #1, OFF_CAVE_TEXT_ON(%a5)
     move.w 14(%a1), OFF_CAVE_TEXT_IDXW(%a5)
@@ -259,25 +264,238 @@ uw_person_begin:
     move.b #CAVE_TEXT_ROW0, OFF_CAVE_TEXT_ROW(%a5)
     move.b #UW_PERSON_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
     move.b #1, OFF_LINK_HELD(%a5)
+    clr.b OFF_UW_PERSON_KIND(%a5)
+    clr.b OFF_UW_PERSON_WARES(%a5)
+    tst.b (%a1)
+    bne 9f                              | a room with monsters keeps a monster in byte 13
+    move.b 13(%a1), %d1
+    cmp.b #UW_KIND_BOMBS, %d1
+    beq 1f
+    cmp.b #UW_KIND_MONEY, %d1
+    bne 9f
+1:  move.b %d1, OFF_UW_PERSON_KIND(%a5)
+9:  movem.l (%sp)+, %d1/%a2
     rts
 
-| Once per frame: the letters, and Link's release when the last one is down.
+| Once per frame: the letters, and Link's release when the last one is down. UW_PERSON: 1 speaking, 2 done
+| (the man stays; one who sells something shows it and waits for Link to step on it), 3 something was taken.
 uw_person_update:
-    cmpi.b #1, OFF_UW_PERSON(%a5)
-    bne 9f
+    movem.l %d0-%d3/%a0-%a2, -(%sp)
+    move.b OFF_UW_PERSON(%a5), %d0
+    beq 90f
+    cmp.b #3, %d0
+    beq 30f
+    tst.b OFF_UW_PERSON_KIND(%a5)
+    beq 10f
+    bsr uw_wares_show
+10: cmp.b #1, %d0
+    bne 20f
     bsr cave_talk_far
     tst.b OFF_CAVE_TEXT_ON(%a5)
-    bne 9f
+    bne 90f
     move.b #2, OFF_UW_PERSON(%a5)
     tst.b OFF_GRUMBLE_ON(%a5)
-    beq 1f
+    beq 11f
     clr.b OFF_UW_PERSON(%a5)           | Grumble is a moblin, not an old man by two fires
-1:  clr.b OFF_LINK_HELD(%a5)
-9:  rts
+11: clr.b OFF_LINK_HELD(%a5)
+    bra 90f
+20: tst.b OFF_UW_PERSON_KIND(%a5)
+    beq 90f
+    bsr uw_wares_sense
+    bra 90f
+30: subq.b #1, OFF_UW_PERSON_TIMER(%a5)    | 3: a pause, and then he and his fires are gone for good
+    bne 90f
+    moveq #0, %d0
+    move.b OFF_ROOM_ID(%a5), %d0
+    lea OFF_UW_FLAGS(%a5), %a0
+    bset #UW_FLAG_PERSON, 0(%a0, %d0.w)
+    clr.b OFF_UW_PERSON(%a5)
+    clr.b OFF_UW_PERSON_KIND(%a5)
+    bsr uw_redraw_room
+90: movem.l (%sp)+, %d0-%d3/%a0-%a2
+    rts
+
+| ---------------------------------------------------------- the men who sell
+| The man who sells room for four more bombs (InitUnderworldPersonA, type $4F, in Levels 5 and 7) shows a rupee
+| at ($78,$98) with "-100" under it; the man of "life or money" (type $51) a heart container at ($58,$98)
+| with "-1" and a rupee at ($98,$98) with "-50". Link takes an offer by standing on it: his X is the item's and
+| his Y within 6 of $98. What he gives is gone from the man (UW_FLAGS bit 3), who vanishes after a pause.
+    .equ UW_KIND_BOMBS, 1
+    .equ UW_KIND_MONEY, 2
+    .equ UW_FLAG_PERSON, 3
+    .equ UW_WARES_Y, 0x98
+    .equ UW_PRICE_ROW, 17
+    .equ UW_BOMBS_COST, 100
+    .equ UW_MONEY_COST, 50
+    .equ UW_TAKEN_PAUSE, 0x40
+
+uw_price_bombs:
+    .byte 0x2f, 1, 0, 0, 0xff
+uw_price_life:
+    .byte 0x2f, 1, 0xff
+uw_price_money:
+    .byte 0x2f, 5, 0, 0xff
+
+| The prices once, the goods every frame (the item slots are drawn as held up: not to be picked up).
+uw_wares_show:
+    movem.l %d0-%d2/%a0, -(%sp)
+    tst.b OFF_UW_PERSON_WARES(%a5)
+    bne 1f
+    move.b #1, OFF_UW_PERSON_WARES(%a5)
+    cmpi.b #UW_KIND_BOMBS, OFF_UW_PERSON_KIND(%a5)
+    bne 2f
+    lea uw_price_bombs(%pc), %a0
+    moveq #17, %d1
+    moveq #UW_PRICE_ROW, %d2
+    bsr uw_put_codes
+    bra 1f
+2:  lea uw_price_life(%pc), %a0
+    moveq #15, %d1
+    moveq #UW_PRICE_ROW, %d2
+    bsr uw_put_codes
+    lea uw_price_money(%pc), %a0
+    moveq #22, %d1
+    moveq #UW_PRICE_ROW, %d2
+    bsr uw_put_codes
+1:  cmpi.b #UW_KIND_BOMBS, OFF_UW_PERSON_KIND(%a5)
+    bne 3f
+    move.b #ITEM_RUPEE, OFF_ITEM_ID(%a5)
+    move.b #0x78, OFF_ITEM_X(%a5)
+    move.b #UW_WARES_Y, OFF_ITEM_Y(%a5)
+    move.b #ITEM_LIFTED, OFF_ITEM_ACTIVE(%a5)
+    bra 9f
+3:  move.b #ITEM_HEART_CONTAINER, OFF_ITEM_ID(%a5)
+    move.b #0x58, OFF_ITEM_X(%a5)
+    move.b #UW_WARES_Y, OFF_ITEM_Y(%a5)
+    move.b #ITEM_LIFTED, OFF_ITEM_ACTIVE(%a5)
+    move.b #ITEM_RUPEE, (OFF_ITEM_ID + 1)(%a5)
+    move.b #0x98, (OFF_ITEM_X + 1)(%a5)
+    move.b #UW_WARES_Y, (OFF_ITEM_Y + 1)(%a5)
+    move.b #ITEM_LIFTED, (OFF_ITEM_ACTIVE + 1)(%a5)
+9:  movem.l (%sp)+, %d0-%d2/%a0
+    rts
+
+| Is Link standing on an offer, and can he pay?
+uw_wares_sense:
+    movem.l %d0-%d2, -(%sp)
+    move.b OFF_LINK_Y(%a5), %d1
+    sub.b #UW_WARES_Y, %d1
+    bpl 1f
+    neg.b %d1
+1:  cmp.b #6, %d1
+    bhs 9f
+    move.b OFF_LINK_X(%a5), %d0
+    cmpi.b #UW_KIND_BOMBS, OFF_UW_PERSON_KIND(%a5)
+    bne 4f
+    cmp.b #0x78, %d0
+    bne 9f
+    cmpi.b #UW_BOMBS_COST, OFF_INV_RUPEES(%a5)
+    blo 9f
+    sub.b #UW_BOMBS_COST, OFF_INV_RUPEES(%a5)
+    move.b OFF_MAX_BOMBS(%a5), %d1
+    addq.b #4, %d1                      | four more bombs to carry, and the bag is full
+    move.b %d1, OFF_MAX_BOMBS(%a5)
+    move.b %d1, OFF_INV_BOMBS(%a5)
+    bra 8f
+4:  cmp.b #0x98, %d0
+    bne 5f
+    cmpi.b #UW_MONEY_COST, OFF_INV_RUPEES(%a5)
+    blo 9f
+    sub.b #UW_MONEY_COST, OFF_INV_RUPEES(%a5)
+    bra 7f
+5:  cmp.b #0x58, %d0
+    bne 9f
+    cmpi.b #4, OFF_HEART_CONTAINERS(%a5)
+    blo 6f
+    subq.b #1, OFF_HEART_CONTAINERS(%a5)    | a heart container and a heart are given up
+    move.b OFF_HP_HALVES(%a5), %d1
+    cmp.b #3, %d1
+    bhs 51f
+    moveq #1, %d1
+    bra 52f
+51: subq.b #2, %d1
+52: move.b %d1, OFF_HP_HALVES(%a5)
+    bra 7f
+6:  move.b #1, OFF_HP_HALVES(%a5)       | with so few, he gives up what is left: one more blow kills
+7:  moveq #0, %d0
+    move.b OFF_ROOM_ID(%a5), %d0
+    bsr uw_open_shutters                | ShutterTrigger
+8:  sfx SFX_KEY
+    clr.b OFF_ITEM_ACTIVE(%a5)
+    clr.b (OFF_ITEM_ACTIVE + 1)(%a5)
+    moveq #CAVE_TEXT_COL0, %d1          | his words and the prices are blanked
+    moveq #CAVE_TEXT_ROW0, %d2
+    moveq #24, %d0
+    moveq #3, %d3
+    bsr uw_wipe
+    moveq #15, %d1
+    moveq #UW_PRICE_ROW, %d2
+    moveq #10, %d0
+    moveq #1, %d3
+    bsr uw_wipe
+    move.b #3, OFF_UW_PERSON(%a5)
+    move.b #UW_TAKEN_PAUSE, OFF_UW_PERSON_TIMER(%a5)
+    move.b #1, OFF_HUD_DIRTY(%a5)
+9:  movem.l (%sp)+, %d0-%d2
+    rts
+
+| d0.w = a glyph, d1.w = column, d2.w = row: drawn into the screen, the clean room and the other buffer
+| (as cave_talk does, so Link's erasing leaves it).
+uw_put_glyph:
+    movem.l %d0-%d2, -(%sp)
+    bsr draw_hud_tile_far
+    move.l OFF_SCREEN_PTR(%a5), -(%sp)
+    move.l OFF_BG_CUR(%a5), OFF_SCREEN_PTR(%a5)
+    bsr draw_hud_tile_far
+    move.l (%sp)+, OFF_SCREEN_PTR(%a5)
+    tst.b OFF_DBL_ACTIVE(%a5)
+    beq 9f
+    move.l OFF_SCREEN_PTR(%a5), -(%sp)
+    move.l OFF_BG_NEXT(%a5), OFF_SCREEN_PTR(%a5)
+    bsr draw_hud_tile_far
+    move.l (%sp)+, OFF_SCREEN_PTR(%a5)
+9:  movem.l (%sp)+, %d0-%d2
+    rts
+
+| a0 = text codes ended by $FF, d1.w = column, d2.w = row.
+uw_put_codes:
+    movem.l %d0-%d1/%a0-%a1, -(%sp)
+    ltab text_glyphs, %a1
+1:  moveq #0, %d0
+    move.b (%a0)+, %d0
+    cmp.b #0xff, %d0
+    beq 9f
+    move.b 0(%a1, %d0.w), %d0
+    bsr uw_put_glyph
+    addq.w #1, %d1
+    bra 1b
+9:  movem.l (%sp)+, %d0-%d1/%a0-%a1
+    rts
+
+| Blank d0.w columns by d3.w rows from column d1.w, row d2.w.
+uw_wipe:
+    movem.l %d0-%d6, -(%sp)
+    move.w %d0, %d4                     | the width
+    move.w %d1, %d5                     | the first column
+    subq.w #1, %d3
+1:  move.w %d5, %d1
+    move.w %d4, %d6
+2:  moveq #0, %d0
+    bsr uw_put_glyph
+    addq.w #1, %d1
+    subq.w #1, %d6
+    bne 2b
+    addq.w #1, %d2
+    dbra %d3, 1b
+    movem.l (%sp)+, %d0-%d6
+    rts
 
 | Paint the old man into the room just drawn. d0.w = room id, a1 = the buffer it went to.
 uw_bake_person:
     movem.l %d0-%d4/%a0-%a2, -(%sp)
+    lea OFF_UW_FLAGS(%a5), %a0
+    btst #UW_FLAG_PERSON, 0(%a0, %d0.w)
+    bne 9f                              | he gave what he had: not in this room any more
     movea.l %a1, %a2
     bsr uw_room_info_ptr
     tst.w %d1

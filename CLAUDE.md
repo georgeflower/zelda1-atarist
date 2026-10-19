@@ -19,7 +19,7 @@ the first cave and the wooden sword, **Level 1 (the Eagle)** is playable to the
 boss Aquamentus and the triforce piece, and **Level 2 (the Moon)** to the Dodongo,
 its heart container and the triforce piece. **Levels 3 to 9** are built too (rooms,
 layouts, items, every monster and boss of those levels, up to Ganon and Zelda's thanks) but only partly play-tested.
-Every item of the original's inventory is in the code. Everything else (the credits,
+Every item of the original's inventory is in the code. Everything else (
 shops and most caves, the hidden overworld spots, title and save) is future work, see section 14 and
 `atari_st/PLAN.md`.
 
@@ -511,8 +511,8 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   and effects until the candle is used (`uw_light_room`, `ROOM_LIT`). Rupee stash: `stash_bake` paints the rupees into the room
   and `boss_misc_update` collects them (`UW_FLAGS` bit 2). Grumble (`GRUMBLE_ON`): blocks the doorway tile until fed (food
   on his tile), then `UW_FLAGS` bit 1. Gleeok's body is baked into the room (`uw_bake_boss`, `GLEEOK_GONE` after death);
-  necks and heads come from the boss pool, one segment per neck when there are four necks (`GLEEOK_SEGS`). Still unported: the
-  "more bombs" man (`$4F`) and the "life or money" man (`$51`). Unverified by play: Digdogger's kill and heart container,
+  necks and heads come from the boss pool, one segment per neck when there are four necks (`GLEEOK_SEGS`). The "more bombs" and "life or money" men are
+  ported (see Dungeon people below). Unverified by play: Digdogger's kill and heart container,
   pols voice hops, vire hops, the stash on leave and return, dark-room scrolling.
 - **Level 9** (`UW_LEVELS := 1 2 3 4 5 6 7 8 9`; the monsters live in `bosses.s`, the dungeon people and the door man in `uw.s`): 57 rooms,
   a ten-entry cellar array, the old men from person table C, and the man at the door (record trigger bit 4) who opens only
@@ -530,8 +530,11 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `fire_init` put them at the ROM's places. `dmon_zelda` starts the scene when Link stands at X `$70`..`$80`, Y `$95`; `zelda_tick`
   (`ZELDA_SCENE` 1-8, run by `boss_misc_update`) plays the fanfare (`MUS_ZELDA`), the curtain (`curtain_column`), the thanks typed
   by `cave_talk` (the texts are appended to `cave_text.bin`, `ENDING_TEXT_THANKS`/`ENDING_TEXT_PEACE` in `assets.inc`), the two
-  triforce pieces with the flashing backdrop (`MUS_ENDING` after it) and the closing words, then stops: the credits are not ported.
-  Silver Arrow and Red Ring are in cellars. Not hooked: `MUS_GANON`, the boss roars. Unverified by play: everything but one
+  triforce pieces with the flashing backdrop (`MUS_ENDING` after it) and the closing words. Scenes 8-11 are the credits: `CREDIT_PAGES` (`build_assets.py`: three lines a page, the staff of the ROM's
+  `CreditsTextLines`, then "ATARI ST PORT / BY Q", "YOU ARE GREAT", "END OF / THE LEGEND OF ZELDA") are typed one after the other by
+  `cave_talk` in the black room (`zelda_credit_pages`, `ENDING_CREDIT_n`), `ZELDA_CREDIT_WAIT` frames apart, the last stays (Esc quits; the
+  original's scrolling wall, the ash pile and the Second Quest restart are not ported).
+  Silver Arrow and Red Ring are in cellars. `MUS_GANON` plays when Ganon appears and again when he burns. Not hooked: the boss roars. Unverified by play: everything but one
   walk-through per boss in Hatari; the door man with and without all pieces.
 - **Blue goriya** (`$05`): throws whenever its timer reaches 0, no `$23`/`$77` roll (`goriya_ai` reads the NES type from `mon_table`).
   **Ringleader** (`TRIGGER_RINGLEADER`, `uw_check_clear`): when slot 0 is dead, kill the others and open the shutters.
@@ -553,8 +556,13 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   first cave's speech; the room record is 16 bytes and byte 14 is the speech offset (`$FF` = nobody). `uw_spawn` calls
   `uw_person_begin` (`uw.s`): `UW_PERSON` 1 while speaking (Link held, `cave_talk` types the text), 2 afterwards.
   `uw_bake_person` draws the man into the room buffers, `draw_effects` the two flames, `link_collide` blocks Link
-  going up past Y `$8E`. Not ported: hitting him to make the flames shoot, the "more bombs" (`$4F`) and
-  life-or-money (`$51`) people; the flame is the candle flame art.
+  going up past Y `$8E`. Not ported: hitting him to make the flames shoot; the flame is the candle flame art.
+  Two people do more than talk (room record byte 13 = `PERSON_KIND_BOMBS`/`PERSON_KIND_MONEY` in a room with no monsters, `UW_PERSON_KIND`):
+  the "more bombs" man (`$4F`, but only in the levels whose people are table A, 5 and 7; Link must be level with him) sells +4
+  `MAX_BOMBS` (a variable now, starts at 8, `combat.s` uses it) and a refill for 100 rupees; the "life or money" man (`$51`, the same
+  words in every level, selector `$36`; no First Quest room has him) offers a heart container at X `$58` (it costs a container
+  at four or more, and a heart) or 50 rupees at X `$98`. Taking either sets `UW_PERSON` 3 (a pause, then he and the flames go) and
+  `UW_FLAG_PERSON` (`UW_FLAGS` bit 3), which `uw_bake_person` honours.
 - **Items** (`items.s`, `take_item` in `combat.s`; ROM: `ItemIdToSlot`, `ItemIdToDescriptor`, the Items block): `globals.s` mirrors
   the ROM's item slots (`OFF_ITEMS + slot`, `INV_*` names); `take_item` is table driven (`item_slot`, `item_desc`, generated by
   `actors.py`: slot, grade or amount, cap). Item ids: `00` bomb, `01` wood sword, `02` white sword, `03` magic sword, `04` food,
@@ -676,14 +684,13 @@ shooting, edge spawns, kill history); the first cave; Level 1 (doors/keys/shutte
 keese, gels, ropes, goriyas, wallmasters, Aquamentus, blade traps, push blocks, triforce ending, map and compass with the minimap, the
 old man in `$41`); **Level 2** (18 rooms, blue goriyas, Dodongo, Moldorm worms, trap+keese room, the ringleader room, the magic
 boomerang, heart container, triforce); **Levels 3-8** (rooms, layouts, items, darknuts, vire, zol, pols voice, like-like,
-wizzrobes, bubbles, gibdos, Manhandla, Gohma, Digdogger, Gleeok, rupee stashes, Grumble, dark rooms, the catch-up pass); **Level 9** (Lanmola, Patra, Ganon with the Triforce of Power, Zelda's room and the thanks); the multi-level pipeline (`level_table`, `uw_select_level`); every item of the original's
+wizzrobes, bubbles, gibdos, Manhandla, Gohma, Digdogger, Gleeok, rupee stashes, Grumble, dark rooms, the catch-up pass); **Level 9** (Lanmola, Patra, Ganon with the Triforce of Power, Zelda's room, the thanks and the credits); the multi-level pipeline (`level_table`, `uw_select_level`); every item of the original's
 inventory in the code (swords of three grades, bow and arrows, rod, potions, food, recorder, rings, magic shield, clock, fairy); drops with
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
 Open items (user-visible gaps): the hidden bomb/fire/push spots and armos on the overworld (M1, M4); shops and the other caves, which is where
-most items come from (M3); the credits after Zelda's thanks and a play-through of Levels 3-9 (M6-M9); the other dungeon people (more bombs, life or
-money, fireballs from the old man's flames); the overworld map on the ribbon; fireball art (placeholder); the stairs-type push block
+most items come from (M3); a play-through of Levels 3-9 (M6-M9); the old man's flames shooting when he is hit; the overworld map on the ribbon; fireball art (placeholder); the stairs-type push block
 (trigger 5); visible block slide animation; the recorder's whirlwind, raft, ladder; the rest of the sound (title, ending, game-over and
 boss music, DPCM); title/game-over/save (M10). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
 cloud. Level 2's Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
