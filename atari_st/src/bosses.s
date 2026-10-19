@@ -746,3 +746,215 @@ manhandla_died:
     bsr kill_enemy_bf
 9:  movem.l (%sp)+, %d0-%d3/%d5/%a0
     rts
+
+| ------------------------------------------------------------------ Gohma
+| UpdateGohma: an eye (ENEMY_STEP 0) with a leg on each side (1 left, 2 right), which are monsters of their own that
+| nothing hurts and that are alive for good (ENEMY_ACTIVE 2: never counted for the room). The eye walks $20 pixels
+| (half a pixel a frame) right, left or down, and back; after every second leg of the round trip it picks another way.
+| It blinks, and now and then opens ($80 frames: half open, open, half open); only an arrow flying up into it when it
+| is fully open (state 3) hurts. It spits a fireball at Link every $41 frames.
+| Per slot: ENEMY_STATE the eye's picture, ENEMY_TIMER the fireball timer, ENEMY_TURN "keep going this way",
+| ENEMY_DIST the pixels walked, ENEMY_FRAC the move accumulator, ENEMY_SPEED the legs walked, ENEMY_WANT the count to
+| the next opening, ENEMY_BOUNCE the opening's timer, ENEMY_ANIMC the blink counter.
+gohma_init:
+    movem.l %d0-%d4/%d6/%a0, -(%sp)
+    tst.b OFF_BOSS_BUSY(%a5)
+    bne 9f                              | one of the legs put down below
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    move.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
+    move.b #DIR_DOWN, OFF_ENEMY_DIR(%a5, %d5.w)
+    lea OFF_ENEMY_TURN(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_DIST(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_SPEED(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_WANT(%a5), %a0
+    move.b #0x60, 0(%a0, %d5.w)
+    lea OFF_ENEMY_BOUNCE(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_ANIMC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    move.b #1, OFF_BOSS_BUSY(%a5)
+    moveq #MON_GOHMA_LEG_BLUE, %d1
+    cmpi.b #MON_GOHMA_RED, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 1f
+    moveq #MON_GOHMA_LEG_RED, %d1
+1:  move.w %d1, %d6
+    moveq #1, %d4                       | leg 1, then leg 2
+2:  moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    move.w %d6, %d1
+    move.w %d4, -(%sp)
+    move.w %d6, -(%sp)
+    moveq #DIR_DOWN, %d4
+    bsr enemy_make_bf
+    move.w (%sp)+, %d6
+    move.w (%sp)+, %d4
+    tst.w %d0
+    bmi 3f
+    move.b %d4, OFF_ENEMY_STEP(%a5, %d0.w)
+    move.b #2, OFF_ENEMY_ACTIVE(%a5, %d0.w)
+3:  addq.w #1, %d4
+    cmp.w #3, %d4
+    blo 2b
+    clr.b OFF_BOSS_BUSY(%a5)
+9:  movem.l (%sp)+, %d0-%d4/%d6/%a0
+    rts
+
+| d5 = a Gohma piece. Only the eye does anything; the eye puts the legs beside itself.
+dmon_gohma:
+    movem.l %d1-%d4/%d6/%a0-%a1, -(%sp)
+    tst.b OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 90f
+    tst.b OFF_INV_CLOCK(%a5)
+    bne 60f
+    lea OFF_ENEMY_TURN(%a5), %a0
+    tst.b 0(%a0, %d5.w)
+    bne 20f
+    bsr rand8_bf                        | pick the way: right from $B0, left from $60, else down
+    moveq #DIR_RIGHT, %d1
+    cmp.b #0xb0, %d0
+    bhs 10f
+    moveq #DIR_LEFT, %d1
+    cmp.b #0x60, %d0
+    bhs 10f
+    moveq #DIR_DOWN, %d1
+10: move.b %d1, OFF_ENEMY_DIR(%a5, %d5.w)
+    addq.b #1, 0(%a0, %d5.w)
+    bra 40f
+20: lea OFF_ENEMY_FRAC(%a5), %a1        | half a pixel a frame
+    moveq #0, %d0
+    move.b 0(%a1, %d5.w), %d0
+    add.w #0x80, %d0
+    move.b %d0, 0(%a1, %d5.w)
+    btst #8, %d0
+    beq 40f
+    lea OFF_ENEMY_DIST(%a5), %a1
+    addq.b #1, 0(%a1, %d5.w)
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
+    btst #0, %d4
+    beq 21f
+    addq.w #1, %d2
+21: btst #1, %d4
+    beq 22f
+    subq.w #1, %d2
+22: btst #2, %d4
+    beq 23f
+    addq.w #1, %d3
+23: btst #3, %d4
+    beq 24f
+    subq.w #1, %d3
+24: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+    cmpi.b #0x20, 0(%a1, %d5.w)
+    bne 40f
+    clr.b 0(%a1, %d5.w)                 | $20 pixels: turn back
+    move.b %d4, %d1
+    and.b #(DIR_RIGHT + DIR_DOWN), %d1
+    add.b %d1, %d1
+    and.b #(DIR_LEFT + DIR_UP), %d4
+    lsr.b #1, %d4
+    or.b %d4, %d1
+    move.b %d1, OFF_ENEMY_DIR(%a5, %d5.w)
+    lea OFF_ENEMY_SPEED(%a5), %a1
+    move.b 0(%a1, %d5.w), %d0
+    addq.b #1, 0(%a1, %d5.w)
+    btst #0, %d0
+    beq 40f
+    clr.b 0(%a0, %d5.w)                 | after the second leg of a round trip: another way
+40: lea OFF_ENEMY_WANT(%a5), %a0        | the eye
+    lea OFF_ENEMY_BOUNCE(%a5), %a1
+    tst.b 0(%a0, %d5.w)
+    bne 41f
+    move.b #0x80, 0(%a1, %d5.w)         | open it for $80 frames
+    bsr rand8_bf
+    or.b #0xc0, %d0
+    move.b %d0, 0(%a0, %d5.w)
+41: move.w OFF_FRAME_COUNTER(%a5), %d0
+    btst #0, %d0
+    beq 42f
+    subq.b #1, 0(%a0, %d5.w)
+42: moveq #0, %d0
+    move.b 0(%a1, %d5.w), %d0
+    beq 50f
+    subq.b #1, 0(%a1, %d5.w)
+    moveq #2, %d1                       | half open at both ends of the opening, open between
+    cmp.b #0x70, %d0
+    bhs 43f
+    cmp.b #0x10, %d0
+    blo 43f
+    moveq #3, %d1
+43: move.b %d1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 55f
+50: lea OFF_ENEMY_ANIMC(%a5), %a0       | shut: blinks between pictures 0 and 1
+    addq.b #1, 0(%a0, %d5.w)
+    cmpi.b #8, 0(%a0, %d5.w)
+    bne 51f
+    clr.b 0(%a0, %d5.w)
+    move.b OFF_ENEMY_STATE(%a5, %d5.w), %d0
+    and.b #1, %d0
+    eor.b #1, %d0
+    move.b %d0, OFF_ENEMY_STATE(%a5, %d5.w)
+51: cmpi.b #2, OFF_ENEMY_STATE(%a5, %d5.w)
+    blo 55f
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)   | it has just closed
+55: subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 60f
+    move.b #0x41, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bsr zora_fire_bf
+60: moveq #0, %d6                       | the legs, one on each side of the eye
+    moveq #0, %d3
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d3
+    moveq #0, %d4
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d4
+61: cmp.b OFF_ENEMY_COUNT(%a5), %d6
+    bhs 90f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d6.w)
+    beq 69f
+    moveq #0, %d0
+    move.b OFF_ENEMY_STEP(%a5, %d6.w), %d0
+    beq 69f
+    move.b OFF_ENEMY_TYPE(%a5, %d6.w), %d1
+    cmp.b #MON_GOHMA_LEG_BLUE, %d1
+    beq 62f
+    cmp.b #MON_GOHMA_LEG_RED, %d1
+    bne 69f
+62: move.w %d3, %d2
+    sub.w #16, %d2
+    cmp.w #1, %d0
+    beq 63f
+    add.w #32, %d2
+63: move.b %d2, OFF_ENEMY_X(%a5, %d6.w)
+    move.b %d4, OFF_ENEMY_Y(%a5, %d6.w)
+69: addq.w #1, %d6
+    bra 61b
+90: movem.l (%sp)+, %d1-%d4/%d6/%a0-%a1
+    moveq #1, %d0
+    rts
+
+| d5 = the eye, just killed: the legs go with it.
+gohma_died:
+    movem.l %d0-%d1, -(%sp)
+    moveq #0, %d0
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d0
+    bhs 9f
+    move.b OFF_ENEMY_TYPE(%a5, %d0.w), %d1
+    cmp.b #MON_GOHMA_LEG_BLUE, %d1
+    beq 2f
+    cmp.b #MON_GOHMA_LEG_RED, %d1
+    bne 3f
+2:  clr.b OFF_ENEMY_ACTIVE(%a5, %d0.w)
+3:  addq.w #1, %d0
+    bra 1b
+9:  movem.l (%sp)+, %d0-%d1
+    rts

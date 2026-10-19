@@ -30,6 +30,7 @@
     .equ BEH_WIZZROBE, 22
     .equ BEH_BUBBLE, 23
     .equ BEH_MANHANDLA, 24
+    .equ BEH_GOHMA, 25
     .equ MODE_DODONGO, 16           | draw modes (tools/actors.py MODE_*)
     .equ MODE_MOLDORM, 17
 

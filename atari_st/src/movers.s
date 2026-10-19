@@ -50,9 +50,11 @@ mover_update:
     cmp.w #BEH_POLS, %d7
     beq dmon_pols
     cmp.w #BEH_WIZZROBE, %d7
-    beq dmon_wizzrobe
+    beq boss_wizzrobe_f
     cmp.w #BEH_MANHANDLA, %d7
-    beq dmon_manhandla
+    beq boss_manhandla_f
+    cmp.w #BEH_GOHMA, %d7
+    beq boss_gohma_f
     move.l %d1, -(%sp)                  | a ghini turns toward Link whenever the dice allow
     move.w #0xff, %d1
     cmp.w #BEH_BUBBLE, %d7

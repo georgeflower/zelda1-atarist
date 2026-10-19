@@ -40,6 +40,10 @@
     .equ MODE_WIZZROBE, 22
     .equ MODE_BUBBLE, 23
     .equ MODE_MANHANDLA, 24
+    .equ MODE_GOHMA, 25
+    .equ MODE_GOHMA_LEG, 26
+    .equ MODE_GOHMA, 25
+    .equ MODE_GOHMA_LEG, 26
 
 | Called once a frame from update_enemies.
 dmon_tick:
@@ -61,10 +65,20 @@ dmon_hit_filter:
     cmpi.b #0xff, %d0
     beq 8f                              | the overworld's blobs
     cmp.b #MON_MANHANDLA, %d0
-    bne 4f
+    bne 3f
     tst.b OFF_ENEMY_STEP(%a5, %d5.w)
-    bne 4f
+    bne 3f
     bra 72f                             | the body of a Manhandla takes no harm: only its hands die
+3:  cmp.b #MON_GOHMA_BLUE, %d0
+    beq 31f
+    cmp.b #MON_GOHMA_RED, %d0
+    bne 4f
+31: cmp.b #HIT_ARROW, %d1               | Gohma's eye hurts only from an arrow flying up into it when it is fully open
+    bne 4f
+    cmpi.b #3, OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 7f
+    cmpi.b #DIR_UP, OFF_HIT_DIR(%a5)
+    bne 7f
 4:  ltab mon_mask, %a0
     move.b 0(%a0, %d0.w), %d2
     move.b %d2, %d0
@@ -197,6 +211,10 @@ dmon_contact:
 dmon_died:
     cmpi.b #MON_MANHANDLA, OFF_ENEMY_TYPE(%a5, %d5.w)
     beq boss_manhandla_died_f
+    cmpi.b #MON_GOHMA_BLUE, OFF_ENEMY_TYPE(%a5, %d5.w)
+    beq boss_gohma_died_f
+    cmpi.b #MON_GOHMA_RED, OFF_ENEMY_TYPE(%a5, %d5.w)
+    beq boss_gohma_died_f
     tst.b OFF_LINK_EATEN(%a5)
     beq 9f
     cmp.b OFF_EATER(%a5), %d5
@@ -255,8 +273,12 @@ dmon_init:
     move.b #2, OFF_ENEMY_ACTIVE(%a5, %d5.w)
     bra 9f
 1:  cmp.w #BEH_MANHANDLA, %d0
-    bne 2f
+    bne 11f
     bsr boss_manhandla_init_f
+    bra 9f
+11: cmp.w #BEH_GOHMA, %d0
+    bne 2f
+    bsr boss_gohma_init_f
     bra 9f
 2:  cmp.w #BEH_POLS, %d0
     bne 9f
@@ -375,7 +397,11 @@ dmon_frame:
     beq 50f
     subq.w #1, %d2
     beq 60f
-    bra 70f
+    subq.w #1, %d2
+    beq 70f
+    subq.w #1, %d2
+    beq 80f
+    bra 85f
 
 10: move.w %d4, %d6                     | a darknut: the step changes every eight frames
     lsr.w #3, %d6
@@ -472,6 +498,19 @@ dmon_frame:
     cmp.w #4, %d2
     bne 99f
     moveq #1, %d5                       | the right hand is the left one turned round
+    bra 99f
+
+80: move.b OFF_ENEMY_STATE(%a5, %d3.w), %d1    | Gohma's eye: the picture is its state
+    and.w #3, %d1
+    bra 99f
+
+85: move.w %d4, %d1                     | its legs: a step every 16 frames, the second leg a step behind
+    lsr.w #4, %d1
+    moveq #0, %d6
+    move.b OFF_ENEMY_STEP(%a5, %d3.w), %d6
+    subq.w #1, %d6
+    add.w %d6, %d1
+    and.w #1, %d1
 99: movem.l (%sp)+, %d0/%d2/%d4/%d6/%a0
     rts
 
@@ -486,3 +525,6 @@ vire_hops:
     farstub boss_manhandla_f, dmon_manhandla
     farstub boss_manhandla_init_f, manhandla_init
     farstub boss_manhandla_died_f, manhandla_died
+    farstub boss_gohma_f, dmon_gohma
+    farstub boss_gohma_init_f, gohma_init
+    farstub boss_gohma_died_f, gohma_died
