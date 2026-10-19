@@ -284,7 +284,7 @@
     gvar OWS_UNDO_N, 1         | squares a pushed rock or gravestone changed (secrets.s), to put back when he leaves
     gvar OWS_UNDO_ROOM, 1      | the screen they belong to
     gvar OWS_FRESH, 1          | the next render_room shows the push, it does not undo it
-    gvar OWS_UNDO, 6           | up to three (square, metatile) pairs
+    gvar OWS_UNDO, 32          | up to sixteen (square, metatile) pairs (a screen full of armos)
     | The movers (movers.s): per-monster fields of tektites, boulders, leevers, zoras and peahats. They are
     | one block so clear_enemies can wipe them together; the four counters follow the eight rows.
     gvar ENEMY_GHOST, 8        | bit 0: weapons pass through it; bit 1: it does Link no harm (burrowed, submerged, flying high)
@@ -397,4 +397,18 @@
     gvar CAVE_SPR_VALID, 2     | the person and the rupee tag were drawn
     galign
     gvar CAVE_SPR_OFFS, 8
+    gvar RAFT_STATE, 1         | 0 none, 1 the raft takes Link down to the dock, 2 up and off the screen
+    gvar RAFT_REST, 1          | he has just been brought to the dock: no new ride until he moves
+    gvar LADDER_SHOWN, 1       | the ladder is on show in item slot 2
+    gvar MAZE_STEP, 1          | the Lost Woods / Lost Hills: how many of the four moves were right
+    gvar HOT_COL, 1            | the tile link_collide last looked at: its column and row in the 32x22 tile grid
+    gvar HOT_ROW, 1
+    gvar WHIRL_TELE, 1         | the whirlwind and Link: 1 carries him off, 4 reached the edge, 3 on its way, 2 sets him down
+    gvar WHIRL_SUMMONED, 1     | SummonedWhirlwind
+    gvar TELE_INDEX, 1         | TeleportingLevelIndex: the level whose entrance the next whirlwind goes to, less one
+    gvar POND_CYCLE, 1         | SecretColorCycle: the recorder's pond in screen $42, 1 to $B while the water changes
+    gvar POND_WALK, 1          | the water can be walked on (ObjectFirstUnwalkableTile is $99)
+    gvar FAIRY_ON, 1           | bit n: heart n of the pond fairy is out
+    galign
+    gvar FAIRY_ANG, 16         | each heart's angle: whole in the high byte, fraction in the low
     .equ GLOBALS_BYTES, gvar_offset

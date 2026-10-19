@@ -41,7 +41,7 @@ class GoldenSceneTests(unittest.TestCase):
 
     def test_scene_arguments_are_ones_screenshot_accepts(self) -> None:
         import golden
-        known = {"--room", "--uw", "--level", "--vbls", "--keys"}
+        known = {"--room", "--uw", "--level", "--vbls", "--keys", "--cave"}
         for name, args in golden.SCENES.items():
             self.assertTrue({a for a in args if a.startswith("--")} <= known, name)
 

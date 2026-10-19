@@ -41,6 +41,9 @@
     .equ BEH_GANON, 33
     .equ BEH_ZELDA, 34
     .equ BEH_FIRE, 35               | the fires that guard Zelda
+    .equ BEH_ARMOS, 36              | the overworld's own (owspec.s)
+    .equ BEH_WHIRLWIND, 37
+    .equ BEH_FAIRY, 38
     .equ MODE_DODONGO, 16           | draw modes (tools/actors.py MODE_*)
     .equ MODE_MOLDORM, 17
 
@@ -206,7 +209,11 @@ enemy_init_special:
     bra 9f
 72: cmp.w #BEH_TEKTITE, %d0
     blo 9f
-    cmp.w #BEH_POLS, %d0
+    cmp.w #BEH_ARMOS, %d0
+    blo 720f
+    bsr owspec_init_far             | armos, whirlwind and fairy
+    bra 9f
+720: cmp.w #BEH_POLS, %d0
     blo 73f
     bsr dmon_init
     bra 9f
@@ -519,6 +526,8 @@ goriya_ai:
     bsr enemy_behaviour
     cmp.w #BEH_LYNEL, %d0
     beq 9f                          | a lynel does not throw
+    cmp.w #BEH_ARMOS, %d0
+    beq 9f                          | nor does an armos
     moveq #0, %d0
     move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
     lsl.w #3, %d0

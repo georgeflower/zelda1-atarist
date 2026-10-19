@@ -25,6 +25,7 @@ spawn_room_enemies:
     tst.b OFF_LEVEL(%a5)
     bne uw_spawn
 
+    bsr owspec_room_start_far       | the heart container of P6, the raft and the ladder
     bsr ow_save_kills               | the screen just left remembers how many died there
     moveq #0, %d0                   | overworld: the screen's record in ow_room_info
     move.b OFF_ROOM_ID(%a5), %d0
@@ -991,7 +992,13 @@ draw_enemies:
     bne 36f
     bsr draw_dodongo            | two sprites wide, drawn and remembered for erasing by its own routine
     bra 8f
-36: cmp.w #MODE_DARKNUT, %d2
+36: cmp.w #MODE_ARMOS, %d2
+    blo 364f
+    bsr owspec_frame            | armos and the fairy
+    tst.w %d1
+    bmi 8f
+    bra 19f
+364: cmp.w #MODE_DARKNUT, %d2
     blo 361f
     bsr dmon_frame              | the dungeon monsters of dmon.s
     tst.w %d1

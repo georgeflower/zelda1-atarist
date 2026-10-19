@@ -98,6 +98,8 @@ erase_at:
 | Draw Link at his current position, recording where so the next frame can
 | put the background back.
 draw_link:
+    tst.b OFF_WHIRL_TELE(%a5)
+    bne 99f                             | the whirlwind has him: he is not to be seen
     movem.l %d0-%d2/%a0-%a1, -(%sp)
 
     | Pick the frame: direction chooses the pair, the walk counter the phase.
@@ -159,4 +161,4 @@ draw_link:
     bsr draw_sprite
 
     movem.l (%sp)+, %d0-%d2/%a0-%a1
-    rts
+99: rts

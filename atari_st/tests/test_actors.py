@@ -138,6 +138,24 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(actors.MONSTER_DAMAGE[0x21], 2)
         self.assertIn(0x1A, actors.MONSTER_FLYERS)
 
+    def test_armos_whirlwind_and_fairy_are_listed_but_only_the_armos_has_art_on_the_screens(self) -> None:
+        for nes_type, behaviour, mode in ((0x1E, actors.BEHAVIOUR_ARMOS, actors.MODE_ARMOS),
+                                          (0x2E, actors.BEHAVIOUR_WHIRLWIND, None),
+                                          (0x2F, actors.BEHAVIOUR_FAIRY, actors.MODE_FAIRY)):
+            self.assertIn(nes_type, actors.MONSTER_TYPES)
+            self.assertEqual(actors.MONSTER_BEHAVIOUR[nes_type], behaviour, hex(nes_type))
+            if mode is not None:
+                self.assertEqual(actors.MONSTER_DRAW[nes_type][2], mode, hex(nes_type))
+        # the whirlwind and the fairy are made by code, never listed for a screen as walkers; the armos hurts
+        self.assertIn(0x1E, actors.OVERWORLD_ART)
+        self.assertIn(0x2E, actors.OVERWORLD_ART)
+        self.assertNotIn(0x2F, actors.OVERWORLD_ART)
+        self.assertIn(0x2F, actors.OVERWORLD_LISTED)
+        self.assertEqual(actors.MONSTER_DAMAGE[0x1E], 2)
+        self.assertEqual(actors.MONSTER_DAMAGE[0x2E], 0)
+        self.assertEqual(actors.MONSTER_DAMAGE[0x2F], 0)
+        self.assertEqual(len(actors.FAIRY_TILES), 2)
+
     def test_a_placeholder_has_a_picture_start_for_every_monster(self) -> None:
         data = actors.build_placeholder()
         self.assertEqual(len(data.mon_art), 2 * (len(data.mon_table) // 8))

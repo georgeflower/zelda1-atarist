@@ -94,6 +94,13 @@ SCENES: dict[str, list[str]] = {
     "cave_take_any_road": ["--room", "0x1d", "--cave", "--vbls", "450"],
     "cave_letter_lifted": ["--room", "0x0e", "--cave", "--vbls", "560", "--keys", "420:+right,425:-right,430:+up,520:-up"],
     "cave_white_sword_hearts": ["--room", "0x0a", "--cave", "--vbls", "600", "--keys", "420:+right,425:-right,430:+up,520:-up"],
+    "ow_armos_stairs": ["--room", "0x34", "--vbls", "560", "--keys",
+                        "400:=LINK_X=0x40,400:=LINK_Y=0x8d,400:=HP_HALVES=0x30,401:+up,430:-up"],
+    "ow_fairy_pond": ["--room", "0x39", "--vbls", "440", "--keys", "400:=LINK_Y=0xad,400:=HP_HALVES=2"],
+    "ow_pond_stairs": ["--room", "0x42", "--vbls", "900", "--keys",
+                       "400:=INV_RECORDER=1,400:=B_ITEM=5,400:=ENEMY_ACTIVE.0=0,420:+ctrl,422:-ctrl"],
+    "ow_whirlwind_carries": ["--room", "0x77", "--vbls", "450", "--keys",
+                             "400:=TRIFORCE_PIECES=1,400:=INV_RECORDER=1,400:=B_ITEM=5,420:+ctrl,422:-ctrl"],
 }
 
 

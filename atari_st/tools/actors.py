@@ -40,18 +40,27 @@ MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
                  # Patra, the eye the two kinds of room have, and its children (the ROM gives them types of their own)
                  0x47, 0x48, 0x25, 0x26,
                  # Ganon, and the room where Zelda waits with the four fires that guard her
-                 0x3E, 0x37, 0x3F)
+                 0x3E, 0x37, 0x3F,
+                 # the overworld's own: the armos that wakes when Link pushes it, the whirlwind of the recorder and
+                 # the fairy of the ponds
+                 0x1E, 0x2E, 0x2F)
 # Pieces of a boss that the ROM draws as part of it but this port makes monsters of: (the type whose art they use, the
 # first frame of that art). Gohma's legs are frames 4 and 5 of its own animation.
 SYNTHETIC_TYPES = {0xFD: (0x33, 4), 0xFC: (0x34, 4), 0xFB: (0x38, 0), 0xF9: (0x43, 0)}
 # The hit points the ROM sets by hand: every neck of a Gleeok has $A0.
 SYNTHETIC_HP = {0xF9: 10}
 # Bosses that leave nothing behind but the room's own item
-NO_DROP_BOSSES = (0x43, 0x44, 0x45, 0xF9, 0x46, 0x38, 0xFB, 0x47, 0x48, 0x25, 0x26, 0x3E, 0x37, 0x3F)
+NO_DROP_BOSSES = (0x2E, 0x2F, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x38, 0xFB, 0x47, 0x48, 0x25, 0x26, 0x3E, 0x37, 0x3F)
 # The ones of them that live on the overworld: lynels (blue, red), moblins (blue, red) and octoroks
 # (red slow, red fast, blue slow, blue fast). Their art comes from the overworld's sprite pattern table.
 OVERWORLD_MONSTERS = (0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A,
                       0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x1A, 0x1F, 0x20, 0x21)
+# Armos and the whirlwind are drawn with the overworld's sprite patterns too but no room lists them (armos wake from the
+# map, the whirlwind from the recorder); the fairy is a screen's only monster in the two ponds ($39 and $43) and takes
+# the common patterns, as the items do.
+OVERWORLD_ART = OVERWORLD_MONSTERS + (0x1E, 0x2E)
+OVERWORLD_LISTED = OVERWORLD_MONSTERS + (0x2F,)
+FAIRY_TILES = (0x50, 0x52)       # the two frames of the fairy item (Anim_ItemFrameTiles at the fairy's offset)
 # Zoras are not in any room's list: a screen whose attribute A has bit 3 makes one in the water (CheckZora).
 # Frames between one-pixel steps: the 6502's quarter-speed $20 is half a pixel
 # a frame; keese are quicker and wallmasters slower. A gel walks a pixel a frame (quarter-speed
@@ -73,7 +82,9 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
                   0x0B: 2, 0x0C: PERIOD_PATTERN + 1, 0x12: 2, 0x13: PERIOD_PATTERN, 0x16: 2, 0x17: 2,
                   0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1, 0x3C: 1, 0x33: 1, 0x34: 1, 0xFD: 1, 0xFC: 1,
                   0x38: 1, 0xFB: 1, 0x18: 1, 0x43: 1, 0x44: 1, 0x45: 1, 0xF9: 1, 0x46: 1, 0x3A: 1, 0x3B: 1,
-                  0x47: 1, 0x48: 1, 0x25: 1, 0x26: 1, 0x3E: 1, 0x37: 1, 0x3F: 1}
+                  0x47: 1, 0x48: 1, 0x25: 1, 0x26: 1, 0x3E: 1, 0x37: 1, 0x3F: 1,
+                  # armos at quarter-speed $20; the whirlwind two pixels a frame and the fairy move themselves
+                  0x1E: 2, 0x2E: 1, 0x2F: 1}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
                   # ObjTypeToDamagePoints: blue lynel $02 (two hearts), red lynel $01, the rest $80
@@ -99,7 +110,9 @@ MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2,
                   # Patra and its children: $02, two hearts
                   0x47: 4, 0x48: 4, 0x25: 4, 0x26: 4,
                   # Ganon: $04, four hearts; Zelda touches nobody; a guard fire $80
-                  0x3E: 8, 0x37: 0, 0x3F: 1}
+                  0x3E: 8, 0x37: 0, 0x3F: 1,
+                  # armos $01 (a heart), the whirlwind and the fairy $00
+                  0x1E: 2, 0x2E: 0, 0x2F: 0}
 # What hurts a monster: the bits of the original's damage types ($01 sword, $02 boomerang (it stuns), $04 arrow,
 # $08 bomb, $10 magic, $20 fire) that its ObjInvincibilityMask leaves, and bit 7 for the darknuts' shield, which
 # turns a sword aside when the two face each other. Anything not listed is hurt by all six.
@@ -119,9 +132,10 @@ MONSTER_HURT = {
     0x37: 0x00,         # Zelda takes nothing (UpdateZelda never calls CheckMonsterCollisions)
     0x3E: 0x05,         # Ganon: InitGanon sets $FA, the sword and the arrow (dmon_hit_filter does the rest)
     0x3C: 0x1D,         # Manhandla's hands: $E2 too (the base is made proof against everything in dmon.s)
+    0x2E: 0x00, 0x2F: 0x00,     # the whirlwind and the fairy take nothing
 }
 # Keese ignore walls and blocks and are only held in by the room edges.
-MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x47, 0x48, 0x25, 0x26, 0x3E)
+MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x47, 0x48, 0x25, 0x26, 0x3E, 0x2E, 0x2F)
 
 # What the game does with a monster every frame, besides drawing it.
 (BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS,
@@ -130,7 +144,8 @@ MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0x
  BEHAVIOUR_PEAHAT, BEHAVIOUR_GHINI, BEHAVIOUR_BOULDER, BEHAVIOUR_BOULDER_SET,
  BEHAVIOUR_DODONGO, BEHAVIOUR_MOLDORM, BEHAVIOUR_POLS, BEHAVIOUR_WIZZROBE, BEHAVIOUR_BUBBLE,
  BEHAVIOUR_MANHANDLA, BEHAVIOUR_GOHMA, BEHAVIOUR_DIGDOGGER, BEHAVIOUR_GLEEOK, BEHAVIOUR_GLEEOK_HEAD,
- BEHAVIOUR_GLEEOK_FLYER, BEHAVIOUR_LANMOLA, BEHAVIOUR_PATRA, BEHAVIOUR_PATRA_CHILD, BEHAVIOUR_GANON, BEHAVIOUR_ZELDA, BEHAVIOUR_FIRE) = range(36)
+ BEHAVIOUR_GLEEOK_FLYER, BEHAVIOUR_LANMOLA, BEHAVIOUR_PATRA, BEHAVIOUR_PATRA_CHILD, BEHAVIOUR_GANON, BEHAVIOUR_ZELDA, BEHAVIOUR_FIRE,
+ BEHAVIOUR_ARMOS, BEHAVIOUR_WHIRLWIND, BEHAVIOUR_FAIRY) = range(39)
 MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
                       0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP,
                       0x15: BEHAVIOUR_GEL, 0x01: BEHAVIOUR_LYNEL, 0x02: BEHAVIOUR_LYNEL,
@@ -150,6 +165,7 @@ MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIO
                       0x47: BEHAVIOUR_PATRA, 0x48: BEHAVIOUR_PATRA,
                       0x25: BEHAVIOUR_PATRA_CHILD, 0x26: BEHAVIOUR_PATRA_CHILD, 0x3E: BEHAVIOUR_GANON,
                       0x37: BEHAVIOUR_ZELDA, 0x3F: BEHAVIOUR_FIRE,
+                      0x1E: BEHAVIOUR_ARMOS, 0x2E: BEHAVIOUR_WHIRLWIND, 0x2F: BEHAVIOUR_FAIRY,
                       # the darknuts, gibdo, vire, zol and like-like walk like a stalfos (turn rate $80) or a gel
                       0x13: BEHAVIOUR_GEL, 0x1C: BEHAVIOUR_KEESE}
 
@@ -194,7 +210,9 @@ MODE_LANMOLA = 31      # two images: a head and a body segment, narrow
 MODE_PATRA = 32        # the eye: two images, swapped every few frames
 MODE_PATRA_CHILD = 33  # a child: two images, not drawn until it has come out
 MODE_GANON = 34        # 21 images (ten pictures blue, ten brown, the ashes; each stored plain and mirrored), drawn by the boss sprite pool
-FRAME_MODES = (MODE_PATRA, MODE_PATRA_CHILD, MODE_GANON, MODE_MANHANDLA, MODE_GOHMA, MODE_GOHMA_LEG, MODE_DIGDOGGER, MODE_DIGBIG, MODE_GLEEOK, MODE_GLEEOK_HEAD, MODE_LANMOLA, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
+MODE_ARMOS = 35        # four images: front and back, each in two steps (owspec.s armos_frame)
+MODE_FAIRY = 36        # two images: wings up and down
+FRAME_MODES = (MODE_ARMOS, MODE_FAIRY, MODE_PATRA, MODE_PATRA_CHILD, MODE_GANON, MODE_MANHANDLA, MODE_GOHMA, MODE_GOHMA_LEG, MODE_DIGDOGGER, MODE_DIGBIG, MODE_GLEEOK, MODE_GLEEOK_HEAD, MODE_LANMOLA, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
                MODE_DARKNUT, MODE_VIRE, MODE_ZOL, MODE_LIKELIKE, MODE_WIZZROBE, MODE_BUBBLE)
 MONSTER_DRAW = {
     0x06: ("wide", 4, MODE_WALKER),
@@ -259,6 +277,9 @@ MONSTER_DRAW = {
     0x3E: ("wide", 1, MODE_GANON),
     0x37: ("mirror", 1, MODE_STATIC),
     0x3F: ("wide", 1, MODE_STALFOS),
+    0x1E: ("wide", 4, MODE_ARMOS),
+    0x2E: ("wide", 4, MODE_BUBBLE),         # DrawWhirlwind: one picture, a new palette row every frame
+    0x2F: ("narrow", 2, MODE_FAIRY),
 }
 # UpdateMoldorm draws every segment as the fireball tile $44 in palette row 2, and Dodongo_Draw uses row 3.
 # Gohma_SetSpriteAttributes: the red one (and its legs) use palette row 2, the blue one row 1.
@@ -672,7 +693,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             base = anim[nes_type + 1]
         layout, image_count, mode = MONSTER_DRAW[nes_type]
         tiles = sp_tiles
-        if nes_type in OVERWORLD_MONSTERS:
+        if nes_type in OVERWORLD_ART:
             if ow_sp_tiles is None:
                 raise SystemExit("The overworld sprite patterns are needed to draw the overworld monsters")
             tiles = ow_sp_tiles
@@ -684,6 +705,8 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             images = _gleeok_images(tiles, palette)
         elif nes_type == 0xF9:
             images = [_monster_image(tiles, palette, B.LINK_PALETTE_ROW + 3, GLEEOK_HEAD_TILE, "left")]
+        elif mode == MODE_FAIRY:
+            images = [_monster_image(tiles, palette, B.LINK_PALETTE_ROW + 2, tile, "narrow") for tile in FAIRY_TILES]
         elif mode == MODE_GANON:
             if level != 9:
                 images = [_blank(16)]            # only Level 9 has him; the others' tiles at $C0 are other bosses' art
@@ -1029,7 +1052,7 @@ def overworld_room_info(source_root: Path, attrs_a, attrs_c, attrs_d, attrs_f, f
     records = bytearray()
     for room in range(len(attrs_c)):
         types = overworld_room_types(lists, attrs_c[room], attrs_d[room], foe_counts)
-        monsters = [MONSTER_TYPES.index(t) for t in types if t in OVERWORLD_MONSTERS][:OW_MAX_MONSTERS]
+        monsters = [MONSTER_TYPES.index(t) for t in types if t in OVERWORLD_LISTED][:OW_MAX_MONSTERS]
         flags = (OW_ROOM_EDGE_SPAWN if attrs_f[room] & 8 else 0) | (OW_ROOM_ZORAS if attrs_a[room] & 8 else 0)
         record = bytearray([len(monsters), flags, 0xFF, 0, 0, 0])
         record.extend(monsters)

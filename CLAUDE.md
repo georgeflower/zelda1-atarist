@@ -20,7 +20,7 @@ boss Aquamentus and the triforce piece, and **Level 2 (the Moon)** to the Dodong
 its heart container and the triforce piece. **Levels 3 to 9** are built too (rooms,
 layouts, items, every monster and boss of those levels, up to Ganon and Zelda's thanks) but only partly play-tested.
 Every item of the original's inventory is in the code. Everything else (
-shops and most caves, armos, title and save) is future work, see section 14 and
+the title and save) is future work, see section 14 and
 `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
@@ -30,7 +30,7 @@ damage, tile id, table), read it from there rather than guessing.
 
 ## 1.1 Versions
 
-The port has versions `0.NN` (current: **0.32**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
+The port has versions `0.NN` (current: **0.33**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
 the commit that finishes it. A big change (a dungeon, a mechanic family, a package of `atari_st/PLAN.md`) takes the next number; fixes
 and docs ride along. When you finish one: bump `VERSION`, the "Version" line of `README.md`, the status line of `atari_st/PLAN.md`
 and add the `CHANGELOG.md` entry, in the same PR; tag it after the merge. The next step is named in `atari_st/PLAN.md` section 2.1.
@@ -76,7 +76,7 @@ atari_st/                the port
   README.md              user-facing docs: features, known gaps, roadmap, notes
   src/*.s                68000 code (one assembly unit, main.s .includes the rest)
   tools/*.py             asset pipeline, PRG packer, Hatari screenshot harness
-  tests/*.py             unittest suites (127 tests); tests/golden/frames.json = golden frame hashes
+  tests/*.py             unittest suites (140 tests); tests/golden/frames.json = golden frame hashes
   music/                 YM2149 song source (zelda_intro_by_qum.h) + player (ymplay.h)
   build/                 OUTPUT (gitignored): generated/, ZELDAST.PRG, scratch, shots/
 ```
@@ -97,6 +97,7 @@ atari_st/                the port
 | `movers.s` | the overworld monsters with rules of their own: tektites and boulders (jumps), leevers and zoras (burrowing), peahats, ghinis, the boulder set |
 | `items.s` | the B items beyond bombs/boomerang/candle (bow and arrows, rod, recorder, food, potion), Link's shots, heart fill, the `b_*` tables |
 | `secrets.s` | the overworld's hidden spots: `ow_bomb_secret_far`/`ow_fire_secret_far` hooks (bomb cloud, flame), `ow_push_secret` (Link blocked by a rock or gravestone), `ow_secret_undo` (called by `render_room`), patching `room_maps` in place |
+| `owspec.s` | the overworld's special objects (M4): Lost Woods/Hills mazes, ladder, raft and docks, armos, the recorder's whirlwind and pond, fairy ponds; its `owspec_*_far` stubs sit in `main.s` |
 | `combat.s` | sword, beam, bombs, candle, drops/kill counters, `take_item`, HP/knock-back, rings, shield, clock, effects (spark/cloud), push block, shutters, triforce ending, the ringleader trigger |
 | `hud.s` | status ribbon, hearts, counters, A/B boxes (`hud_items`) |
 | `menu.s` | Tab inventory screen (MODE_MENU): 2x4 grid of B items plus a row of carried items |
@@ -203,7 +204,7 @@ then says `source=generated placeholder CHR`). With the real ROM it should not a
 `test_nes_music_rip.py` (needs `py65` for the ROM part, `ZELDA_ROM` or `ext/Original.nes`),
 `test_dump_tables.py` (the table dump, and that every golden scene has a stored hash),
 `test_music_player.py` (the packer, and `music.s` run on `machine68k` through `tests/music_harness.s`; needs the m68k binutils and `pip install machine68k`, the real-bank part also the ROM and `py65`),
-...). Run `python -m unittest discover -s atari_st\tests` (127 tests at the time of
+...). Run `python -m unittest discover -s atari_st\tests` (140 tests at the time of
 writing). They cover the asset pipeline and tables; the 68000 music player is the one piece of
 68000 code with unit tests. `test_actors.py` also holds the Makefile-vs-`build_assets.UW_LEVELS` check and the
 reach-check listing parser.
@@ -603,7 +604,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `b_icons`. Link's own shots (`lshot_*`, projectile kinds `PK_L*`): arrows fly 3 px/frame, cost a rupee, hit for `$20` (silver `$40`),
   spark at the end; the rod's shot is slower (`$A0`) and becomes a flame at a wall with the book. Potion: `HEART_FILL` refills a
   half heart every 21 frames with Link held. Food: put down 16 px ahead, `CHASE_X/Y` (`ChaseTarget`) points the monsters
-  that chase Link at it for `$FF` frames. Recorder: the tune and `FLUTE_TIMER` only (no whirlwind). **Rings** halve / quarter the
+  that chase Link at it for `$FF` frames. Recorder: the tune and `FLUTE_TIMER`, then `owspec_recorder` (pond in `$42`, whirlwind elsewhere). **Rings** halve / quarter the
   damage (`HP_FRAC`, 128ths of a half heart) and recolour Link; the **magic shield** parries fireballs and sword shots; the
   **clock** (`INV_CLOCK`) freezes the monsters and makes Link untouchable until he leaves the screen; the fairy gives three hearts.
   The **Tab screen** (`menu.s`) shows a 2x4 grid of the B items plus a row of what is carried, table driven (Left/Right).
@@ -716,9 +717,8 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-Open items (user-visible gaps): armos on the overworld (M4); shops and the other caves, which is where
-most items come from (M3); a play-through of Levels 3-9 (M6-M9); the old man's flames shooting when he is hit; the overworld map on the ribbon; fireball art (placeholder); the stairs-type push block
-(trigger 5); visible block slide animation; the recorder's whirlwind, raft, ladder; the rest of the sound (title, ending, game-over and
+Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the old man's flames shooting when he is hit; the overworld map on the ribbon; fireball art (placeholder); the stairs-type push block
+(trigger 5); visible block slide animation; the waterfall and the sea sound; the rest of the sound (title, ending, game-over and
 boss music, DPCM); title/game-over/save (M10). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
 cloud. Level 2's Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
 Unmeasured: free memory on a 512 KB machine.

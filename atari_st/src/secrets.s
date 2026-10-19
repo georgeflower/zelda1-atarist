@@ -58,12 +58,14 @@ ow_set_square_for_now:
     bsr ow_set_square
     moveq #0, %d3
     move.b OFF_OWS_UNDO_N(%a5), %d3
+    cmp.b #16, %d3
+    bhs 1f                              | (the list is full: the change stays)
     add.w %d3, %d3
     lea OFF_OWS_UNDO(%a5), %a0
     move.b %d1, 0(%a0, %d3.w)
     move.b %d0, 1(%a0, %d3.w)
     addq.b #1, OFF_OWS_UNDO_N(%a5)
-    movem.l (%sp)+, %d0/%d3/%a0
+1:  movem.l (%sp)+, %d0/%d3/%a0
     rts
 
 | render_room calls this before it draws: a rock that was pushed in the screen he left goes back.
@@ -268,4 +270,48 @@ ow_push_secret:
 7:  bsr ow_secret_redraw
     sfx SFX_SECRET
 9:  movem.l (%sp)+, %d0-%d5/%a0-%a1
+    rts
+
+| The Lost Woods (room $61) and the Lost Hills (room $1B) (CheckMazes in the ROM). Leaving the screen in the step's
+| direction counts a step and brings Link back into the same screen; any other way resets the count and does the
+| same, except the exit that is always open (east of the woods, west of the hills). The fourth right move lets him
+| pass and plays the secret tune. In any other screen the count is reset.
+| In: d1.b = the direction he leaves in (1 right, 2 left, 4 down, 8 up), d2.w = the screen he would reach.
+| Out: d2.w = the screen he reaches.
+    .even
+maze_dirs:
+    .byte 0x08, 0x02, 0x04, 0x02        | the woods: up, left, down, left
+    .byte 0x08, 0x08, 0x08, 0x08        | the hills: up four times
+
+ow_maze:
+    movem.l %d0/%d3/%a0, -(%sp)
+    moveq #0, %d0
+    move.b OFF_MAZE_STEP(%a5), %d0
+    move.b OFF_ROOM_ID(%a5), %d3
+    lea maze_dirs(%pc), %a0
+    cmp.b #0x61, %d3
+    beq 1f
+    addq.l #4, %a0
+    cmp.b #0x1b, %d3
+    beq 1f
+    clr.b OFF_MAZE_STEP(%a5)
+    bra 9f
+1:  cmp.b 0(%a0, %d0.w), %d1
+    beq 3f
+    moveq #2, %d0                       | the hills let him go west
+    cmp.b #0x61, %d3
+    bne 2f
+    moveq #1, %d0                       | the woods let him go east
+2:  cmp.b %d0, %d1
+    beq 9f
+    clr.b OFF_MAZE_STEP(%a5)            | wrong: start over, in the same screen
+    bra 5f
+3:  cmp.w #3, %d0
+    beq 4f
+    addq.b #1, OFF_MAZE_STEP(%a5)       | right, but not the last: the same screen again
+5:  moveq #0, %d2
+    move.b OFF_ROOM_ID(%a5), %d2
+    bra 9f
+4:  sfx SFX_SECRET
+9:  movem.l (%sp)+, %d0/%d3/%a0
     rts

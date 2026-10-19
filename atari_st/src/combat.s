@@ -1668,7 +1668,12 @@ item_pickup:
     beq 5f
     move.b OFF_CELLAR_ROOM(%a5), %d1
 5:  lea OFF_UW_FLAGS(%a5), %a0
-    bset #1, 0(%a0, %d1.w)
+    moveq #1, %d0
+    tst.b OFF_LEVEL(%a5)
+    bne 6f
+    lea OFF_OW_KILLS(%a5), %a0          | an overworld screen's item (the heart of P6, the bracelet)
+    moveq #6, %d0
+6:  bset %d0, 0(%a0, %d1.w)
 4:  cmpi.b #LIFT_FRAMES, OFF_LIFT_TIMER(%a5)
     bne 41f                             | this very pickup started a lift: the item goes over his head
     move.b OFF_LINK_X(%a5), OFF_ITEM_X(%a5, %d3.w)

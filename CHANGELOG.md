@@ -2,7 +2,27 @@
 
 Versions are milestones of the Atari ST port (`0.NN`), tagged on the commit that finishes them. A big change (a dungeon,
 a new mechanic family, a milestone package of `atari_st/PLAN.md`) gets its own version; fixes and docs ride along with the
-version they belong to. The current version is **0.32**.
+version they belong to. The current version is **0.33**.
+
+## 0.33 (2026-10-19) - overworld specials (M4)
+- New module `owspec.s` (monsters `$1E` armos, `$2E` whirlwind, `$2F` fairy are made by code; `actors.py` has their rows, art and draw
+  modes `MODE_ARMOS`, `MODE_FAIRY`; the behaviours `BEH_ARMOS`, `BEH_WHIRLWIND`, `BEH_FAIRY` run through `mover_update`).
+- Lost Woods (`$61`) and Lost Hills (`$1B`): the direction sequences of `CheckMazes`, a wrong move sends Link back, the secret tune on success.
+- Ladder: it appears under Link on a gap and lets him cross one square of water, also on the P6 screen where the free-standing heart container sits on water.
+  Raft: the docks at P4 and F6 take him along the ferry routes with the raft.
+- Armos: twelve screens of them. A blocked step into an armos tile wakes it (fade of `$3F` frames, no weapon touches it), it walks like a goriya and
+  hurts for a whole heart; the square under it becomes floor, or stairs in the seven secret rooms `$24 $0B $1C $22 $34 $3D $4E`; `$24` leaves the Power
+  Bracelet at the spot. The ROM's room-tile patch (`ow_set_square`) makes the change permanent for stairs and undone on the next layout otherwise.
+- Recorder: in screen `$42` (C5) the pond water cycles through `PondCycleColors`, can be walked on at step ten, and the stairs into Level 7 appear (the
+  water is ST palette index `POND_IDX`, cycled from `pond_colors`). Elsewhere the whirlwind (`SummonWhirlwind`, `TeleportYs`, `WhirlwindPrevRoomIdList`)
+  carries Link to the entrance of the next dungeon whose triforce piece he owns, scrolls, and sets him down at X `$80`; Link is not drawn while it carries him.
+- Fairy ponds (`$39`, `$43`): the fairy waits at the pond, hearts orbit while Link is held and his life is refilled, then released.
+- `room_secrets.bin` ends with 16 extra bytes (pond stairs metatile and square, `(armos, floor, stairs)` per palette slot, `$FF`), unit-tested.
+- The boss pool can draw item pictures (`BP_ITEM`), used for the heart ring. `*_far` stubs in `main.s` for `goriya_ai`, `uw_person_update`, `owspec_init`
+  (the tightest branch has 648 bytes left).
+- Four golden scenes (`ow_armos_stairs`, `ow_fairy_pond`, `ow_pond_stairs`, `ow_whirlwind_carries`); `uw2_goriyas` and `uw4_dark` were re-recorded
+  (random monster moves; the frames still show the same scenes). Fixed `test_dump_tables` to know `--cave`.
+- Not done: the waterfall and the sea sound.
 
 ## 0.32 (2026-10-19) - caves, shops and people (M3)
 - All twenty overworld cave types work, driven by `cave_table.bin` (16 bytes a cave: flags, who, three wares, three prices, speech and

@@ -360,7 +360,7 @@ def main() -> None:
         name: ram[globals_addr + layout[name]]
         for name in ("ROOM_ID", "LINK_X", "LINK_Y", "LINK_DIR", "GAME_MODE", "LEVEL", "HOTSPOT_TILE", "COMMIT", "EXIT_GUARD",
                      "HP_HALVES", "ENEMY_COUNT", "ENEMY_X", "ENEMY_Y", "ENEMY_DIR", "ENEMY_TYPE", "ENEMY_HP", "ENEMY_ACTIVE", "ITEM_ACTIVE", "ITEM_ID", "ITEM_X", "ITEM_Y", "IN_CELLAR", "HAS_SWORD", "BEAM_ACTIVE", "BEAM_X", "BEAM_Y", "INV_KEYS", "INV_RUPEES", "INV_BOMBS", "ATTACK", "LINK_HURT", "PROJ_KIND", "PROJ_X", "PROJ_Y", "LINK_HELD", "TRIFORCE", "ENEMY_STATE", "ENEMY_TIMER", "CLOUD_TIMER", "SPARK_K", "FLASH_ON", "WORLD_KILLS", "HELP_COUNT", "BOMB_TIMER", "B_ITEM", "INV_BOOMERANG", "INV_CANDLE", "FIRE_STATE", "FIRE_X", "BLOCK_STATE", "BLOCK_X", "BLOCK_Y", "MENU_KEYS", "ENEMY_STUN", "ENDING_PHASE", "ENDING_STEP", "ENDING_TIMER", "INV_MAP", "INV_COMPASS", "PROJ_KIND",
-                     "ROOM_KILLS", "ROOM_OBJ", "SPAWNED_ROOM", "EDGE_PENDING", "HP_FRAC", "INV_CLOCK", "INV_RING", "INV_MAGIC_SHIELD", "INV_ARROW", "INV_POTION", "HEART_CONTAINERS", "HEART_FILL", "FOOD_TIMER", "FLUTE_TIMER", "CHASE_X", "CHASE_Y", "ATTACK_ROD", "HIT_DAMAGE")
+                     "ROOM_KILLS", "ROOM_OBJ", "SPAWNED_ROOM", "EDGE_PENDING", "HP_FRAC", "INV_CLOCK", "INV_RING", "INV_MAGIC_SHIELD", "INV_ARROW", "INV_POTION", "HEART_CONTAINERS", "HEART_FILL", "FOOD_TIMER", "FLUTE_TIMER", "CHASE_X", "CHASE_Y", "ATTACK_ROD", "HIT_DAMAGE", "MAZE_STEP")
     }
     print(f"video base {base:#08x}, wrote {args.out}")
     print(" ".join(f"{k}={v:#04x}" for k, v in report.items()))
@@ -369,6 +369,9 @@ def main() -> None:
           "  OW_KILLS(nonzero) " + " ".join(
               f"{i:02x}:{ram[globals_addr + layout['OW_KILLS'] + i]:#04x}" for i in range(128)
               if ram[globals_addr + layout['OW_KILLS'] + i]))
+    print("ITEMS " + " ".join(
+        f"[{i}: a={ram[globals_addr + layout['ITEM_ACTIVE'] + i]} id={ram[globals_addr + layout['ITEM_ID'] + i]:#04x} "
+        f"({ram[globals_addr + layout['ITEM_X'] + i]:#04x},{ram[globals_addr + layout['ITEM_Y'] + i]:#04x})]" for i in range(3)))
     count = ram[globals_addr + layout["ENEMY_COUNT"]]
     def enemy_byte(name, i):
         return ram[globals_addr + layout[name] + i]

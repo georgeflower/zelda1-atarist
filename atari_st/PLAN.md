@@ -1,6 +1,6 @@
 # Zelda 1 for Atari ST - plan for all remaining work
 
-Status: **work in progress, version 0.32** (see `CHANGELOG.md`). Written as a plan after PR #2; PRs #4 to #35 have since implemented parts of it, listed in section 1.1, and ticked boxes (`[x]`) below show what is done. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged.
+Status: **work in progress, version 0.33** (see `CHANGELOG.md`). Written as a plan after PR #2; PRs #4 to #36 have since implemented parts of it, listed in section 1.1, and ticked boxes (`[x]`) below show what is done. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged.
 
 How to read this: section 2 is the order of work. Sections 3 to 12 are one work package each, with a checklist and an acceptance test. Section 13 records the decisions, the risks and the checks still open. The appendices hold the data tables, decoded from the PAL (Europe, Rev 1) ROM you supplied. That ROM has the same data layout as the disassembly in `src/` (start room `$77`, start Y `$8D`, same blob offsets), so the tables should apply to the NTSC ROM the build expects as well.
 
@@ -47,8 +47,9 @@ Remaining, in the words of your request:
 | #31 (0.30) | The magic key opens locked doors (HUD "XA"), the ladder crosses moats, reachability test of every level's doors, scripted Hatari checks of the Levels 3-9 mechanics; versions and `CHANGELOG.md` | M5, M9 |
 | #32 (0.31) | M1: the overworld's marker squares drawn as the squares they imitate, `room_secrets`, bomb walls, burnable trees, pushable gravestone and bracelet rocks (`secrets.s`), room flags; seven golden scenes | M1 |
 | #35 (0.32) | M3: the 20 cave types (`caves.s`, `cave_table`), shops, hints, money game, door repair, take-any-road, medicine woman, rupee drip, three-digit HUD counters; 14 golden scenes | M3 |
+| #36 (0.33) | M4: overworld specials (`owspec.s`): Lost Woods and Lost Hills, ladder, raft and docks, P6 heart container, armos (12 screens, seven secrets, Power Bracelet), recorder with whirlwind and the C5 pond with the Level 7 stairs, fairy ponds; four golden scenes | M4 |
 
-M0 is complete (table-dump tool, reach budget, golden frames). M1 is done except the armos (they are an enemy, so they go with M2/M4). M2 has its first three steps (walkers; shots, edge spawns and kill history; the special movers); armos and flying ghinis can now use the room-tile patch of `secrets.s`. M3 (the caves) is done in 0.32. Nothing of M4 (overworld specials) has been started.
+M0 is complete (table-dump tool, reach budget, golden frames). M1 is done except the armos (they are an enemy, so they go with M2/M4). M2 has its first three steps (walkers; shots, edge spawns and kill history; the special movers); armos and flying ghinis can now use the room-tile patch of `secrets.s`. M3 (the caves) is done in 0.32, M4 (overworld specials) in 0.33.
 
 ## 2. Order of work
 
@@ -58,7 +59,7 @@ M0 is complete (table-dump tool, reach budget, golden frames). M1 is done except
 | M1 | **Hidden bomb/fire/push spots fixed** (the visible bug) | M0 | M | **done** (0.31, #32); the armos spots wait for M4 |
 | M2 | Overworld enemies, spawn rules, drops | M0 | L | steps 1-3 done (#20-#22); armos and gravestone ghinis can use the overlay of M1 (0.31) |
 | M3 | Caves: people, shops, hints, money game, door repair, take-any-road, old woman | M1 | L | **done** (0.32, #35) |
-| M4 | Overworld specials: armos, bracelet rocks, gravestones, docks/raft, ladder, recorder + whirlwind, Lost Woods/Hills, fairy ponds | M1, M2 | L | not started |
+| M4 | Overworld specials: armos, bracelet rocks, gravestones, docks/raft, ladder, recorder + whirlwind, Lost Woods/Hills, fairy ponds | M1, M2 | L | **done** (0.33, #36); waterfall and sea sound left |
 | M5 | Items, inventory screen, HUD, every B item and passive item | M3 | L | mostly done (#23, 0.30); the magic key opens doors, the ladder crosses dungeon moats and the bomb upgrade is sold; bracelet, raft, book effects and the overworld ladder open |
 | M6 | Dungeon engine generalised: doors, dark rooms, stair rooms, triggers, per-level palettes and tiles | M0 | L | mostly done: per-level tables, Levels 1 to 8, palettes, dark rooms, rupee stashes, Grumble; Level 9 open |
 | M7 | Dungeon monsters (all underworld types) | M6 | XL | all types of Levels 1 to 8 (darknuts, vire, zol/gel, pols voice, like-like, wizzrobes, bubbles, gibdos, keese, ropes, stalfos, traps); Level 9's are open |
@@ -73,7 +74,7 @@ M0 is complete (table-dump tool, reach budget, golden frames). M1 is done except
 
 Versions are milestones, not PR numbers: `0.NN`, tagged on the commit that finishes the milestone, with a line in `CHANGELOG.md`. A big change (a new dungeon, a new mechanic family, a new milestone package) gets its own version; fixes and docs ride along with the version they belong to. The current version is **0.31**.
 
-Next step: **M4, the overworld specials** (target 0.33): armos with their stairs and the power bracelet, the raft and its docks, the ladder over water, the recorder and whirlwind, the Lost Woods and Lost Hills, the fairy ponds. Then M10 (title, name entry, save), then a person's play-through of all nine dungeons and the memory check for a 512 KB machine (M12).
+Next step: **M10** (title, name entry, save; M4 is done in 0.33, only the waterfall and sea sound are left). Then a person's play-through of all nine dungeons and the memory check for a 512 KB machine (M12).
 
 Reasoning: M1 went first because it was the bug you could see and it fixed the data model (secret objects per room, patched into the room maps) that M3, M4 and M9 reuse; M3 follows because every hidden spot, stair and cave of the overworld now leads to it. M6 comes before the monsters because every dungeon monster needs the room, door and palette machinery to be tested in place. M10 comes late because save files store the inventory, so the inventory must be final first.
 
@@ -120,7 +121,7 @@ Layer B, behaviour (runtime):
 - [x] **Bombs** (`$63`, `UpdateRockWall` in `Z_04.asm`): when the bomb cloud is in the damaging window and overlaps the wall tile, replace it with cave square idx 12 (`$24` floor tile in the opening), play the secret-found tune, set the room flag bit 7. The port's cloud already has a "last 12 frames open a bombable wall" phase for dungeons; reuse it with overworld squares.
 - [x] **Candle fire** (`$64`, `UpdateTree`): when the flame (state `$22`, timer below 2) is at the tree, replace it with stairs idx 18 (`$70`) and set the flag. The blue candle can burn once per screen; the red candle without that limit (item 7). Both use the same trigger.
 - [x] **Power Bracelet rock** (`$62`) and **gravestone** (`$65`) (`UpdateRockOrGravestone`): when Link pushes toward it for the original push time and has the bracelet (rock only), slide it one square, stairs idx 18 appear where it stood. Gravestones need no item.
-- [ ] **Armos** (not done in 0.31: they are enemies, so they go with M4): `UpdateArmos`/`InitArmosOrFlyingGhini`, the seven rooms `$24 $0B $1C $22 $34 $3D $4E` with armos X `$E0 $B0 $B0 $30 $40 $90 $A0` and Y `$80`. Room `$24` (E3) drops the Power Bracelet at the armos spot; the other six turn the touched armos into stairs. All seven spots exist in the Q1 layouts (checked against the decoded layouts).
+- [x] **Armos** (done in 0.33 with M4): `UpdateArmos`/`InitArmosOrFlyingGhini`, the seven rooms `$24 $0B $1C $22 $34 $3D $4E` with armos X `$E0 $B0 $B0 $30 $40 $90 $A0` and Y `$80`. Room `$24` (E3) drops the Power Bracelet at the armos spot; the other six turn the touched armos into stairs. All seven spots exist in the Q1 layouts (checked against the decoded layouts).
 - [x] **Persistence**: room flag bit 7 = secret found. A found secret is drawn already open the next time you enter. The existing room-flag array in the port is the place to put it.
 - [x] **Quest filter**: attribute F bits 6-7 gate hidden secrets only (`IsQuestSecretMismatch` has just three call sites, all in the rock/tree/wall updaters). Value 1 = Quest 1, value 2 = Quest 2. A Q2-only secret in a Q1 game stays a plain rock or tree. Visible caves are not gated by it. **(verify)** that a Q2-tagged visible cave such as G1 is really absent from the Q1 layout and not just untagged.
 
@@ -240,19 +241,19 @@ The original has two **fairy ponds**: J4 (`$39`) and D5 (`$43`), overworld monst
 
 ## 7. M4 Overworld specials
 
-- [ ] **Power Bracelet rocks** (7 in the data; the 4 that apply to Quest 1 hide the take-any-road caves N2, D3, J5, J8; J1, B2 and L2 are Quest 2 only): push vertically with the bracelet. Needs the Power Bracelet from armos at E3.
-- [ ] **Gravestones** (A3 is Quest 2 only, B3 is Quest 1 and hides the Magical Sword cave): push to reveal stairs.
-- [ ] **Armos**: waking behaviour, the seven secret spots (M1), the Power Bracelet drop at E3, 12 armos screens (L1 8, E2 8, M2 8, C3 12, E3 10, F3 8, D4 10, E4 6, M4 8, N4 2, O5 2, E8 8).
-- [ ] **Candle trees** (18 in the data: 12 both quests, 4 Q1 only, 2 Q2 only) and **bomb walls** (27: 16 both, 6 Q1 only, 5 Q2 only); see M1. A Quest 1 game uses 16 trees and 22 bomb walls.
-- [ ] **Raft and docks**: dock objects (`UpdateDock`, `$61`) at P4 (`$3F`) and F6 (`$55`) (`SetupTileObjectOW`); needs the Raft (item `$0C`); moving along a ferry route over water.
-- [ ] **Overworld heart container item** on P6 (`$5F`): a free-standing item at X `$C0`, Y `$90`, created by `CreateRoomObjects` only in overworld mode and only in that room; it sits on water and needs the Stepladder. Not a cave.
-- [ ] **Stepladder**: the six ladder screens `LadderRoomsOW` = `$17 $18 $19 $27 $4F $5F` (H2, I2, J2, H3, P5, P6); the ladder appears under Link when he walks onto a gap, and allows one-square water crossings (`ObjectFirstUnwalkableTile` logic, drawing at `LadderSlot`).
-- [ ] **Recorder** (`WieldFlute`): in screen C5 (`$42`) it starts the pond colour cycle (12 steps) and raises the Level 7 stairs at col 6 row 9. In ten other Q1 screens (`FluteRoomSecretsOW`: `$06 $29 $2B $30 $3A $3C $58 $60 $6E $72`) it summons the **whirlwind**, which carries Link to the entrance of a dungeon whose triforce piece he owns, cycling by facing direction (`SummonWhirlwind`, `TeleportYs`). Whirlwind object `$2E`.
-- [ ] **Lost Woods** (screen `$61`, B7): leave by going up, left, down, left in that order; a wrong move sends you back in; exit east is always allowed. **Lost Hills** (screen `$1B`, L2): go up four times; exit west is always allowed. Both play a secret tune on success (`CheckMazes`, `ForestMazeDirs` `08 02 04 02`, `MountainMazeDirs` `08 08 08 08`; direction bits 1 right, 2 left, 4 down, 8 up).
-- [ ] **Zoras**: 37 screens, water enemy, section 5.
-- [ ] **Boulders** (Death Mountain), **waterfall** (K2, walk into it **(verify)**), **sea sound** on 17 screens.
+- [x] **Power Bracelet rocks** (7 in the data; the 4 that apply to Quest 1 hide the take-any-road caves N2, D3, J5, J8; J1, B2 and L2 are Quest 2 only): push vertically with the bracelet. Needs the Power Bracelet from armos at E3.
+- [x] **Gravestones** (A3 is Quest 2 only, B3 is Quest 1 and hides the Magical Sword cave): push to reveal stairs.
+- [x] **Armos**: waking behaviour, the seven secret spots (M1), the Power Bracelet drop at E3, 12 armos screens (L1 8, E2 8, M2 8, C3 12, E3 10, F3 8, D4 10, E4 6, M4 8, N4 2, O5 2, E8 8).
+- [x] **Candle trees** (18 in the data: 12 both quests, 4 Q1 only, 2 Q2 only) and **bomb walls** (27: 16 both, 6 Q1 only, 5 Q2 only); see M1. A Quest 1 game uses 16 trees and 22 bomb walls.
+- [x] **Raft and docks**: dock objects (`UpdateDock`, `$61`) at P4 (`$3F`) and F6 (`$55`) (`SetupTileObjectOW`); needs the Raft (item `$0C`); moving along a ferry route over water.
+- [x] **Overworld heart container item** on P6 (`$5F`): a free-standing item at X `$C0`, Y `$90`, created by `CreateRoomObjects` only in overworld mode and only in that room; it sits on water and needs the Stepladder. Not a cave.
+- [x] **Stepladder**: the six ladder screens `LadderRoomsOW` = `$17 $18 $19 $27 $4F $5F` (H2, I2, J2, H3, P5, P6); the ladder appears under Link when he walks onto a gap, and allows one-square water crossings (`ObjectFirstUnwalkableTile` logic, drawing at `LadderSlot`).
+- [x] **Recorder** (`WieldFlute`): in screen C5 (`$42`) it starts the pond colour cycle (12 steps) and raises the Level 7 stairs at col 6 row 9. In ten other Q1 screens (`FluteRoomSecretsOW`: `$06 $29 $2B $30 $3A $3C $58 $60 $6E $72`) it summons the **whirlwind**, which carries Link to the entrance of a dungeon whose triforce piece he owns, cycling by facing direction (`SummonWhirlwind`, `TeleportYs`). Whirlwind object `$2E`.
+- [x] **Lost Woods** (screen `$61`, B7): leave by going up, left, down, left in that order; a wrong move sends you back in; exit east is always allowed. **Lost Hills** (screen `$1B`, L2): go up four times; exit west is always allowed. Both play a secret tune on success (`CheckMazes`, `ForestMazeDirs` `08 02 04 02`, `MountainMazeDirs` `08 08 08 08`; direction bits 1 right, 2 left, 4 down, 8 up).
+- [x] **Zoras**: 37 screens, water enemy, section 5.
+- [ ] **Boulders** (Death Mountain, done in M2), **waterfall** (K2, walk into it **(verify)**), **sea sound** on 17 screens.
 - [ ] **Screen-edge exits and wrapping**: the port already has the 128-screen walk; check `exit_x`/`exit_row` per screen (attributes A and F) for the cave-exit position.
-- [ ] Acceptance: Hatari scripts per mechanic (bracelet push, ladder across H2, raft ride at P4, recorder in C5, maze sequence in B7).
+- [x] Acceptance (0.33): scripted Hatari runs per mechanic (armos in all seven secret rooms and $24, the fairy pond refilling hearts, the whirlwind carrying Link to the Level 1 entrance and setting him down, the C5 pond cycle and its stairs into Level 7, mazes, ladder, raft); golden scenes `ow_armos_stairs`, `ow_fairy_pond`, `ow_pond_stairs`, `ow_whirlwind_carries`; tests of the extra table of `room_secrets.bin` and the new monster rows.
 
 ## 8. M5 Items, inventory and HUD
 
