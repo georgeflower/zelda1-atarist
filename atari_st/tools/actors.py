@@ -272,9 +272,9 @@ GANON_IMAGES = 10            # GanonFrameImages names ten 16x16 pictures (heap e
 GANON_ASHES = 11
 GANON_COLOURINGS = (        # blue and brown, as the ROM recolours palette row 7 by transfer records ($16 $2C $3C, $07 $17 $30): the
     ((6, 1), (5, 2), (5, 3)),   # nearest colours of Level 9's own sprite rows (row, pixel): red, blue, white
-    ((4, 3), (4, 2), (5, 3)),   # brown $17, orange $27, white
+    ((6, 1), (4, 3), (5, 3)),   # brown $07 $17 $30: the level has no $07, so red $16 stands in for it, then brown $17 and white
 )
-GANON_ASH_COLOURS = ((4, 2), (6, 1), (5, 3))      # the triforce colours $27 $06 $16: orange, red
+GANON_ASH_COLOURS = ((4, 2), (4, 3), (6, 1))      # the triforce colours $27 $06 $16: orange, brown for the dark red, red
 PATRA_CHILDREN = 7          # eight in the original, which has ten object slots; here the eye and seven
 PATRA_CHILD_OF = {0x47: 0x25, 0x48: 0x26}      # InitPatra: type $47 goes with child $25, $48 with $26
 MOLDORM_SEGMENTS = 8        # two worms of four (the original has five each, but there are only eight monster slots)
