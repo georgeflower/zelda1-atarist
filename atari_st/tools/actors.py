@@ -28,10 +28,13 @@ MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
                  # Manhandla (one object per hand and a base)
                  0x3C,
                  # Gohma, blue and red, and the two pairs of legs the game puts down beside its eye (not ROM types)
-                 0x33, 0x34, 0xFD, 0xFC)
+                 0x33, 0x34, 0xFD, 0xFC,
+                 # Digdogger: the big one, the one that splits into one child instead of three (the ROM's $39), and
+                 # the little ones
+                 0x38, 0xFB, 0x18)
 # Pieces of a boss that the ROM draws as part of it but this port makes monsters of: (the type whose art they use, the
 # first frame of that art). Gohma's legs are frames 4 and 5 of its own animation.
-SYNTHETIC_TYPES = {0xFD: (0x33, 4), 0xFC: (0x34, 4)}
+SYNTHETIC_TYPES = {0xFD: (0x33, 4), 0xFC: (0x34, 4), 0xFB: (0x38, 0)}
 # The ones of them that live on the overworld: lynels (blue, red), moblins (blue, red) and octoroks
 # (red slow, red fast, blue slow, blue fast). Their art comes from the overworld's sprite pattern table.
 OVERWORLD_MONSTERS = (0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A,
@@ -55,7 +58,8 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
                   # a bubble at $40; the vire and gibdo at the default $20; pols voice, the like-like and
                   # the wizzrobes move by their own rules
                   0x0B: 2, 0x0C: PERIOD_PATTERN + 1, 0x12: 2, 0x13: PERIOD_PATTERN, 0x16: 2, 0x17: 2,
-                  0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1, 0x3C: 1, 0x33: 1, 0x34: 1, 0xFD: 1, 0xFC: 1}
+                  0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1, 0x3C: 1, 0x33: 1, 0x34: 1, 0xFD: 1, 0xFC: 1,
+                  0x38: 1, 0xFB: 1, 0x18: 1}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
                   # ObjTypeToDamagePoints: blue lynel $02 (two hearts), red lynel $01, the rest $80
@@ -71,7 +75,9 @@ MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2,
                   # Manhandla $01
                   0x3C: 2,
                   # Gohma and its legs: two hearts
-                  0x33: 4, 0x34: 4, 0xFD: 4, 0xFC: 4}
+                  0x33: 4, 0x34: 4, 0xFD: 4, 0xFC: 4,
+                  # Digdogger and its young: two hearts
+                  0x38: 4, 0xFB: 4, 0x18: 4}
 # What hurts a monster: the bits of the original's damage types ($01 sword, $02 boomerang (it stuns), $04 arrow,
 # $08 bomb, $10 magic, $20 fire) that its ObjInvincibilityMask leaves, and bit 7 for the darknuts' shield, which
 # turns a sword aside when the two face each other. Anything not listed is hurt by all six.
@@ -84,10 +90,11 @@ MONSTER_HURT = {
     0x3D: 0x1D,         # Aquamentus: $E2, no boomerang or fire
     0x33: 0x04, 0x34: 0x04,                                 # Gohma: $FB, arrows only (dmon_hit_filter checks the eye)
     0xFD: 0x00, 0xFC: 0x00,                                 # its legs take nothing
+    0x38: 0x00, 0xFB: 0x00,                                 # a big Digdogger takes nothing: the recorder splits it
     0x3C: 0x1D,         # Manhandla's hands: $E2 too (the base is made proof against everything in dmon.s)
 }
 # Keese ignore walls and blocks and are only held in by the room edges.
-MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C)
+MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18)
 
 # What the game does with a monster every frame, besides drawing it.
 (BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS,
@@ -95,7 +102,7 @@ MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C)
  BEHAVIOUR_LYNEL, BEHAVIOUR_OCTOROK_BLUE, BEHAVIOUR_TEKTITE, BEHAVIOUR_LEEVER, BEHAVIOUR_ZORA,
  BEHAVIOUR_PEAHAT, BEHAVIOUR_GHINI, BEHAVIOUR_BOULDER, BEHAVIOUR_BOULDER_SET,
  BEHAVIOUR_DODONGO, BEHAVIOUR_MOLDORM, BEHAVIOUR_POLS, BEHAVIOUR_WIZZROBE, BEHAVIOUR_BUBBLE,
- BEHAVIOUR_MANHANDLA, BEHAVIOUR_GOHMA) = range(26)
+ BEHAVIOUR_MANHANDLA, BEHAVIOUR_GOHMA, BEHAVIOUR_DIGDOGGER) = range(27)
 MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
                       0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP,
                       0x15: BEHAVIOUR_GEL, 0x01: BEHAVIOUR_LYNEL, 0x02: BEHAVIOUR_LYNEL,
@@ -108,6 +115,7 @@ MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIO
                       0x41: BEHAVIOUR_MOLDORM, 0x16: BEHAVIOUR_POLS, 0x23: BEHAVIOUR_WIZZROBE,
                       0x24: BEHAVIOUR_WIZZROBE, 0x2B: BEHAVIOUR_BUBBLE, 0x3C: BEHAVIOUR_MANHANDLA,
                       0x33: BEHAVIOUR_GOHMA, 0x34: BEHAVIOUR_GOHMA, 0xFD: BEHAVIOUR_GOHMA, 0xFC: BEHAVIOUR_GOHMA,
+                      0x38: BEHAVIOUR_DIGDOGGER, 0xFB: BEHAVIOUR_DIGDOGGER, 0x18: BEHAVIOUR_DIGDOGGER,
                       # the darknuts, gibdo, vire, zol and like-like walk like a stalfos (turn rate $80) or a gel
                       0x13: BEHAVIOUR_GEL, 0x1C: BEHAVIOUR_KEESE}
 
@@ -144,7 +152,9 @@ MODE_BUBBLE = 23    # one picture in each of the four sprite palette rows, a new
 MODE_MANHANDLA = 24  # eight images: hand up (2), hand to the side (2), the body (2), hand down (2)
 MODE_GOHMA = 25      # four images of the eye: shut (2), half open, open
 MODE_GOHMA_LEG = 26  # two images, a pair of legs
-FRAME_MODES = (MODE_MANHANDLA, MODE_GOHMA, MODE_GOHMA_LEG, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
+MODE_DIGDOGGER = 27  # a little Digdogger: two pictures
+MODE_DIGBIG = 28     # a quarter of a big one, as four images (plain, turned right-left, upside down, both)
+FRAME_MODES = (MODE_MANHANDLA, MODE_GOHMA, MODE_GOHMA_LEG, MODE_DIGDOGGER, MODE_DIGBIG, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
                MODE_DARKNUT, MODE_VIRE, MODE_ZOL, MODE_LIKELIKE, MODE_WIZZROBE, MODE_BUBBLE)
 MONSTER_DRAW = {
     0x06: ("wide", 4, MODE_WALKER),
@@ -192,10 +202,14 @@ MONSTER_DRAW = {
     0x34: ("mirror", 4, MODE_GOHMA),
     0xFD: ("wide", 2, MODE_GOHMA_LEG),
     0xFC: ("wide", 2, MODE_GOHMA_LEG),
+    0x18: ("mirror", 2, MODE_DIGDOGGER),
+    0x38: ("wide", 1, MODE_DIGBIG),
+    0xFB: ("wide", 1, MODE_DIGBIG),
 }
 # UpdateMoldorm draws every segment as the fireball tile $44 in palette row 2, and Dodongo_Draw uses row 3.
 # Gohma_SetSpriteAttributes: the red one (and its legs) use palette row 2, the blue one row 1.
-MONSTER_TILE_ROW = {0x31: (None, 3), 0x32: (None, 3), 0x41: (0x44, 2), 0x34: (None, 2), 0xFC: (None, 2)}
+MONSTER_TILE_ROW = {0x31: (None, 3), 0x32: (None, 3), 0x41: (0x44, 2), 0x34: (None, 2), 0xFC: (None, 2),
+                    0x38: (None, 3), 0xFB: (None, 3)}   # DigdoggerSpriteAttrs: palette row 3
 # Dodongo images 7 and 9 (bloated, facing up or down) are one half drawn twice, mirrored.
 DODONGO_MIRRORED_IMAGES = (7, 9)
 MOLDORM_SEGMENTS = 8        # two worms of four (the original has five each, but there are only eight monster slots)
@@ -533,6 +547,12 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             images = _octorok_images(tiles, palette, base, heap, attr_heap)
         elif mode == MODE_MANHANDLA:
             images = _manhandla_images(tiles, palette, base, heap, attr_heap, layout)
+        elif mode == MODE_DIGBIG:
+            # one picture, put four times in the corners: plain, flipped right-left, upside down, both (the part
+            # attributes $03, $03, $83, $83 and the horizontal flip of the odd parts)
+            row = B.LINK_PALETTE_ROW + MONSTER_TILE_ROW[nes_type][1]
+            plain = _monster_image(tiles, palette, row, heap[base], "wide")
+            images = [plain, _flip_rows(plain, True, False), _flip_rows(plain, False, True), _flip_rows(plain, True, True)]
         else:
             images = []
             for image in range(image_count if mode in FRAME_MODES else MONSTER_IMAGES):
@@ -758,6 +778,8 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
             expanded.extend([0x49] * (6 if t == 0x49 else 4))       # InitTrap_Full makes six or four traps
         elif t == 0x41:
             expanded.append(0x41)
+        elif t == 0x39:
+            expanded.append(0xFB)                                  # InitDigdogger2: a big one with one child
         else:
             expanded.append(t)
     types = expanded

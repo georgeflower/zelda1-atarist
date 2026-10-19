@@ -958,3 +958,324 @@ gohma_died:
     bra 1b
 9:  movem.l (%sp)+, %d0-%d1
     rts
+
+| --------------------------------------------------------------- Digdogger
+| UpdateDigdogger. A big one is four monsters: the one in the top left corner (ENEMY_STEP 0, which counts for the
+| room and does the thinking) and three pieces (STEP 1 right, 2 below, 3 below right) that follow it and are not
+| counted. Nothing hurts any of them; the recorder splits the big one ($40 frames later) into little ones (type
+| MON_DIG_KID), three of them, or one for the ROM's second kind (MON_DIGDOGGER2). A little one is a monster with
+| 8 hit points of its own.
+| Both kinds fly in eight directions: the speed is a 16-bit number (ENEMY_STATE whole, ENEMY_SPEED fraction) that
+| rises by one a frame to a target (ENEMY_DIST whole, ENEMY_TURN fraction) and then falls to another one
+| (ENEMY_WANT 0 rising, 1 falling): big ones between $40 and $80, little ones between $140 and $180 (1.25 to 1.5
+| pixels a frame). Every $10 frames (ENEMY_TIMER) it turns at random or toward Link; ENEMY_FRAC is the
+| accumulator of the speed's fraction, ENEMY_ANIMC counts down the $40 frames after the recorder.
+dig_init:
+    movem.l %d0-%d4/%d6/%a0, -(%sp)
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    lea OFF_ENEMY_SPEED(%a5), %a0
+    move.b #0x3f, 0(%a0, %d5.w)
+    lea OFF_ENEMY_TURN(%a5), %a0
+    move.b #0x80, 0(%a0, %d5.w)
+    lea OFF_ENEMY_DIST(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    cmpi.b #MON_DIG_KID, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 1f
+    move.b #1, 0(%a0, %d5.w)            | a little one aims at $0180
+1:  lea OFF_ENEMY_WANT(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_ANIMC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    bsr rand8_bf
+    and.w #7, %d0
+    lea dirs8(%pc), %a0
+    move.b 0(%a0, %d0.w), OFF_ENEMY_DIR(%a5, %d5.w)
+    cmpi.b #MON_DIG_KID, OFF_ENEMY_TYPE(%a5, %d5.w)
+    beq 9f
+    tst.b OFF_BOSS_BUSY(%a5)
+    bne 9f
+    move.b #1, OFF_BOSS_BUSY(%a5)       | a big one: put its three other quarters down
+    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d6
+    and.w #0xff, %d6
+    moveq #1, %d4
+2:  moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    move.w %d6, %d1
+    move.w %d4, -(%sp)
+    move.w %d6, -(%sp)
+    moveq #DIR_DOWN, %d4
+    bsr enemy_make_bf
+    move.w (%sp)+, %d6
+    move.w (%sp)+, %d4
+    tst.w %d0
+    bmi 3f
+    move.b %d4, OFF_ENEMY_STEP(%a5, %d0.w)
+    move.b #2, OFF_ENEMY_ACTIVE(%a5, %d0.w)
+3:  addq.w #1, %d4
+    cmp.w #4, %d4
+    blo 2b
+    clr.b OFF_BOSS_BUSY(%a5)
+9:  movem.l (%sp)+, %d0-%d4/%d6/%a0
+    rts
+
+| The recorder: every big Digdogger that has not been played to starts counting down.
+dig_flute:
+    movem.l %d0-%d1/%a0, -(%sp)
+    lea OFF_ENEMY_ANIMC(%a5), %a0
+    moveq #0, %d0
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d0
+    bhs 9f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d0.w)
+    beq 2f
+    tst.b OFF_ENEMY_STEP(%a5, %d0.w)
+    bne 2f
+    move.b OFF_ENEMY_TYPE(%a5, %d0.w), %d1
+    cmp.b #MON_DIGDOGGER, %d1
+    beq 3f
+    cmp.b #MON_DIGDOGGER2, %d1
+    bne 2f
+3:  tst.b 0(%a0, %d0.w)
+    bne 2f
+    move.b #0x40, 0(%a0, %d0.w)
+2:  addq.w #1, %d0
+    bra 1b
+9:  movem.l (%sp)+, %d0-%d1/%a0
+    rts
+
+| d5 = a Digdogger piece. Returns d0.w = 1: it moves itself.
+dmon_dig:
+    movem.l %d1-%d4/%d6-%d7/%a0-%a1, -(%sp)
+    tst.b OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 90f                             | a quarter goes where the corner puts it
+    moveq #0, %d7                       | d7 = 1 for a little one
+    cmpi.b #MON_DIG_KID, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 1f
+    moveq #1, %d7
+1:  tst.b OFF_INV_CLOCK(%a5)
+    bne 60f
+    lea OFF_ENEMY_ANIMC(%a5), %a0
+    tst.b 0(%a0, %d5.w)
+    beq 5f
+    subq.b #1, 0(%a0, %d5.w)            | the recorder has played: it stands there, then splits
+    beq dig_split
+    bra 60f
+5:  moveq #0, %d1                       | the speed, whole and fraction
+    move.b OFF_ENEMY_STATE(%a5, %d5.w), %d1
+    lsl.w #8, %d1
+    lea OFF_ENEMY_SPEED(%a5), %a0
+    move.b 0(%a0, %d5.w), %d1
+    moveq #0, %d2                       | the target
+    lea OFF_ENEMY_DIST(%a5), %a1
+    move.b 0(%a1, %d5.w), %d2
+    lsl.w #8, %d2
+    lea OFF_ENEMY_TURN(%a5), %a1
+    move.b 0(%a1, %d5.w), %d2
+    lea OFF_ENEMY_WANT(%a5), %a1
+    tst.b 0(%a1, %d5.w)
+    bne 51f
+    addq.w #1, %d1                      | rising
+    cmp.w %d2, %d1
+    bne 52f
+    move.b #1, 0(%a1, %d5.w)
+    moveq #0x40, %d2
+    bra 53f
+51: subq.w #1, %d1                      | falling
+    cmp.w %d2, %d1
+    bne 52f
+    clr.b 0(%a1, %d5.w)
+    move.w #0x80, %d2
+53: move.w %d7, %d0                     | the new target: a little one's is a whole pixel higher
+    lsl.w #8, %d0
+    add.w %d0, %d2
+    lea OFF_ENEMY_TURN(%a5), %a1
+    move.b %d2, 0(%a1, %d5.w)
+    lsr.w #8, %d2
+    lea OFF_ENEMY_DIST(%a5), %a1
+    move.b %d2, 0(%a1, %d5.w)
+52: move.b %d1, 0(%a0, %d5.w)
+    lsr.w #8, %d1
+    move.b %d1, OFF_ENEMY_STATE(%a5, %d5.w)
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)   | turn every $10 frames
+    beq 6f
+    subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bra 20f
+6:  move.b #0x10, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bsr rand8_bf
+    cmp.b #0x80, %d0
+    bhs 61f
+    and.w #7, %d0                       | at random
+    lea dirs8(%pc), %a0
+    move.b 0(%a0, %d0.w), OFF_ENEMY_DIR(%a5, %d5.w)
+    bra 20f
+61: moveq #0, %d1                       | or toward Link, a pixel level counting as level
+    moveq #0, %d0
+    move.b OFF_LINK_X(%a5), %d0
+    moveq #0, %d3
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d3
+    sub.w %d3, %d0
+    cmp.w #8, %d0
+    ble 62f
+    moveq #DIR_RIGHT, %d1
+    bra 63f
+62: cmp.w #-8, %d0
+    bge 63f
+    moveq #DIR_LEFT, %d1
+63: moveq #0, %d0
+    move.b OFF_LINK_Y(%a5), %d0
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    sub.w %d3, %d0
+    cmp.w #8, %d0
+    ble 64f
+    or.b #DIR_DOWN, %d1
+    bra 65f
+64: cmp.w #-8, %d0
+    bge 65f
+    or.b #DIR_UP, %d1
+65: tst.b %d1
+    beq 20f
+    move.b %d1, OFF_ENEMY_DIR(%a5, %d5.w)
+20: lea OFF_ENEMY_SPEED(%a5), %a0       | the fraction ($E0 of it) piles up; its carry adds a pixel
+    moveq #0, %d1
+    move.b 0(%a0, %d5.w), %d1
+    and.w #0xe0, %d1
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    moveq #0, %d2
+    move.b 0(%a0, %d5.w), %d2
+    add.w %d1, %d2
+    move.b %d2, 0(%a0, %d5.w)
+    lsr.w #8, %d2
+    moveq #0, %d6
+    move.b OFF_ENEMY_STATE(%a5, %d5.w), %d6
+    add.w %d2, %d6                      | pixels to move
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
+    move.w %d6, %d1
+    beq 30f
+    subq.w #1, %d1
+21: btst #0, %d4
+    beq 22f
+    addq.w #1, %d2
+22: btst #1, %d4
+    beq 23f
+    subq.w #1, %d2
+23: btst #2, %d4
+    beq 24f
+    addq.w #1, %d3
+24: btst #3, %d4
+    beq 25f
+    subq.w #1, %d3
+25: dbra %d1, 21b
+30: moveq #0, %d6                       | bounce off the room's bounds (a big one needs 16 more on the right and below)
+    tst.w %d7
+    bne 31f
+    moveq #16, %d6
+31: moveq #0, %d0
+    move.b OFF_OBJ_LEFT(%a5), %d0
+    cmp.w %d0, %d2
+    bge 32f
+    move.w %d0, %d2
+    and.b #(0xff - DIR_LEFT), %d4
+    or.b #DIR_RIGHT, %d4
+32: moveq #0, %d0
+    move.b OFF_OBJ_RIGHT(%a5), %d0
+    sub.w %d6, %d0
+    cmp.w %d0, %d2
+    ble 33f
+    move.w %d0, %d2
+    and.b #(0xff - DIR_RIGHT), %d4
+    or.b #DIR_LEFT, %d4
+33: moveq #0, %d0
+    move.b OFF_OBJ_UP(%a5), %d0
+    cmp.w %d0, %d3
+    bge 34f
+    move.w %d0, %d3
+    and.b #(0xff - DIR_UP), %d4
+    or.b #DIR_DOWN, %d4
+34: moveq #0, %d0
+    move.b OFF_OBJ_DOWN(%a5), %d0
+    sub.w %d6, %d0
+    cmp.w %d0, %d3
+    ble 35f
+    move.w %d0, %d3
+    and.b #(0xff - DIR_DOWN), %d4
+    or.b #DIR_UP, %d4
+35: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+    move.b %d4, OFF_ENEMY_DIR(%a5, %d5.w)
+60: tst.w %d7                           | a big one: the other three quarters
+    bne 90f
+    moveq #0, %d3
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d3
+    moveq #0, %d4
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d4
+    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d7
+    moveq #0, %d6
+61: cmp.b OFF_ENEMY_COUNT(%a5), %d6
+    bhs 90f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d6.w)
+    beq 69f
+    cmp.b OFF_ENEMY_TYPE(%a5, %d6.w), %d7
+    bne 69f
+    moveq #0, %d0
+    move.b OFF_ENEMY_STEP(%a5, %d6.w), %d0
+    beq 69f
+    moveq #0, %d1                       | the corner: 1 is to the right, 2 below, 3 both
+    moveq #0, %d2
+    btst #0, %d0
+    beq 62f
+    moveq #16, %d1
+62: btst #1, %d0
+    beq 63f
+    moveq #16, %d2
+63: add.w %d3, %d1
+    add.w %d4, %d2
+    move.b %d1, OFF_ENEMY_X(%a5, %d6.w)
+    move.b %d2, OFF_ENEMY_Y(%a5, %d6.w)
+69: addq.w #1, %d6
+    bra 61b
+90: movem.l (%sp)+, %d1-%d4/%d6-%d7/%a0-%a1
+    moveq #1, %d0
+    rts
+
+| d5 = a big Digdogger that has been played to: it and its quarters go, and little ones take its place.
+dig_split:
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    moveq #3, %d6                       | how many children: three, or one for the second kind
+    cmpi.b #MON_DIGDOGGER2, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 1f
+    moveq #1, %d6
+1:  move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d7
+    moveq #0, %d0
+2:  cmp.b OFF_ENEMY_COUNT(%a5), %d0     | the quarters leave with their corner
+    bhs 4f
+    cmp.b OFF_ENEMY_TYPE(%a5, %d0.w), %d7
+    bne 3f
+    clr.b OFF_ENEMY_ACTIVE(%a5, %d0.w)
+3:  addq.w #1, %d0
+    bra 2b
+4:  sfx SFX_MONSTER_DIED
+    move.b #1, OFF_BOSS_BUSY(%a5)
+5:  moveq #MON_DIG_KID, %d1
+    movem.l %d2-%d3/%d6, -(%sp)
+    moveq #DIR_DOWN, %d4
+    bsr enemy_make_bf
+    movem.l (%sp)+, %d2-%d3/%d6
+    subq.w #1, %d6
+    bne 5b
+    clr.b OFF_BOSS_BUSY(%a5)
+    movem.l (%sp)+, %d1-%d4/%d6-%d7/%a0-%a1
+    moveq #1, %d0
+    rts

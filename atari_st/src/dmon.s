@@ -42,8 +42,8 @@
     .equ MODE_MANHANDLA, 24
     .equ MODE_GOHMA, 25
     .equ MODE_GOHMA_LEG, 26
-    .equ MODE_GOHMA, 25
-    .equ MODE_GOHMA_LEG, 26
+    .equ MODE_DIGDOGGER, 27
+    .equ MODE_DIGBIG, 28
 
 | Called once a frame from update_enemies.
 dmon_tick:
@@ -277,8 +277,12 @@ dmon_init:
     bsr boss_manhandla_init_f
     bra 9f
 11: cmp.w #BEH_GOHMA, %d0
-    bne 2f
+    bne 12f
     bsr boss_gohma_init_f
+    bra 9f
+12: cmp.w #BEH_DIGDOGGER, %d0
+    bne 2f
+    bsr boss_dig_init_f
     bra 9f
 2:  cmp.w #BEH_POLS, %d0
     bne 9f
@@ -401,7 +405,11 @@ dmon_frame:
     beq 70f
     subq.w #1, %d2
     beq 80f
-    bra 85f
+    subq.w #1, %d2
+    beq 85f
+    subq.w #1, %d2
+    beq 86f
+    bra 87f
 
 10: move.w %d4, %d6                     | a darknut: the step changes every eight frames
     lsr.w #3, %d6
@@ -511,6 +519,16 @@ dmon_frame:
     subq.w #1, %d6
     add.w %d6, %d1
     and.w #1, %d1
+    bra 99f
+
+86: move.w %d4, %d1                     | a little Digdogger: two pictures, swapped every eight frames
+    lsr.w #3, %d1
+    and.w #1, %d1
+    bra 99f
+
+87: moveq #0, %d1                       | a quarter of a big one: its place in the square is its picture
+    move.b OFF_ENEMY_STEP(%a5, %d3.w), %d1
+    and.w #3, %d1
 99: movem.l (%sp)+, %d0/%d2/%d4/%d6/%a0
     rts
 
@@ -528,3 +546,6 @@ vire_hops:
     farstub boss_gohma_f, dmon_gohma
     farstub boss_gohma_init_f, gohma_init
     farstub boss_gohma_died_f, gohma_died
+    farstub boss_dig_f, dmon_dig
+    farstub boss_dig_init_f, dig_init
+    farstub boss_dig_flute_f, dig_flute

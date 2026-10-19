@@ -446,6 +446,7 @@ use_recorder:
     bne 9f
     move.b #FLUTE_FRAMES, OFF_FLUTE_TIMER(%a5)
     jingle SFX_RECORDER
+    bsr boss_dig_flute_f                | a big Digdogger splits up
 9:  rts
 
 flute_update:
