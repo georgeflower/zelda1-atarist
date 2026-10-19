@@ -24,10 +24,36 @@ class ActorTableTests(unittest.TestCase):
     def test_behaviour_numbers_match_the_assembly_equates(self) -> None:
         source = (Path(__file__).resolve().parents[1] / "src" / "ai.s").read_text(encoding="utf-8")
         for name in ("WANDER", "ROPE", "GORIYA", "WALLMASTER", "BOSS", "KEESE", "TRAP", "GEL",
-                     "OCTOROK", "MOBLIN", "LYNEL", "OCTOROK_BLUE"):
+                     "OCTOROK", "MOBLIN", "LYNEL", "OCTOROK_BLUE", "TEKTITE", "LEEVER", "ZORA",
+                     "PEAHAT", "GHINI", "BOULDER", "BOULDER_SET", "DODONGO", "MOLDORM"):
             match = re.search(rf"\.equ BEH_{name}, (\d+)", source)
             self.assertIsNotNone(match, name)
             self.assertEqual(int(match.group(1)), getattr(actors, f"BEHAVIOUR_{name}"), name)
+
+    def test_b_item_tables_agree_with_the_b_codes(self) -> None:
+        src = Path(__file__).resolve().parents[1] / "src"
+        items = (src / "items.s").read_text(encoding="utf-8")
+        last = int(re.search(r"\.equ B_LAST, (\d+)", items).group(1))
+
+        def bytes_of(label: str, text: str) -> list[int]:
+            block = re.search(rf"^{label}:\n((?:\s+\.byte [^\n]*\n)+)", text, re.M).group(1)
+            return [int(v, 0) for line in block.splitlines() for v in line.split("|")[0].replace(".byte", "").split(",")]
+
+        slots = bytes_of("b_slots", items)
+        self.assertEqual(len(slots), 3 * (last + 1))          # slot, second slot, "both needed" per code
+        icons = bytes_of("b_icons", items)
+        self.assertEqual(len(icons), last + 1)
+        for code in range(1, last + 1):
+            self.assertLess(icons[code], len(actors.HUD_ITEM_IDS))
+            self.assertLess(slots[3 * code], 32)
+            self.assertLess(slots[3 * code + 1], 32)
+        menu = (src / "menu.s").read_text(encoding="utf-8")
+        names = re.search(r"menu_names:\n(.*?)\s+\.align", menu, re.S).group(1)
+        self.assertEqual(len(re.findall(r"\.asciz", names)), last)
+        # a name plus its padding is ten bytes, so menu_draw can index the table by code * 10
+        total = sum(len(m) + 1 for m in re.findall(r'\.asciz "([^"]*)"', names)) + sum(
+            int(n) for n in re.findall(r"\.space (\d+)", names))
+        self.assertEqual(total, 10 * last)
 
     def test_overworld_walkers_are_listed_with_their_data(self) -> None:
         for nes_type in actors.OVERWORLD_MONSTERS:
@@ -47,6 +73,20 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(actors.overworld_room_types(lists, 0x07 | (1 << 6), 0x00, foe_counts), [0x07] * 4)
         self.assertEqual(actors.overworld_room_types(lists, 0x00, 0x00, foe_counts), [])
 
+    def test_the_movers_are_listed_with_their_behaviours_and_damage(self) -> None:
+        for nes_type, behaviour in ((0x0D, actors.BEHAVIOUR_TEKTITE), (0x0E, actors.BEHAVIOUR_TEKTITE),
+                                    (0x0F, actors.BEHAVIOUR_LEEVER), (0x10, actors.BEHAVIOUR_LEEVER),
+                                    (0x11, actors.BEHAVIOUR_ZORA), (0x1A, actors.BEHAVIOUR_PEAHAT),
+                                    (0x21, actors.BEHAVIOUR_GHINI), (0x20, actors.BEHAVIOUR_BOULDER),
+                                    (0x1F, actors.BEHAVIOUR_BOULDER_SET)):
+            self.assertIn(nes_type, actors.OVERWORLD_MONSTERS)
+            self.assertEqual(actors.MONSTER_BEHAVIOUR[nes_type], behaviour, hex(nes_type))
+        # ObjTypeToDamagePoints: the boulder set hurts nobody, peahats and zoras one half heart
+        self.assertEqual(actors.MONSTER_DAMAGE[0x1F], 0)
+        self.assertEqual(actors.MONSTER_DAMAGE[0x1A], 1)
+        self.assertEqual(actors.MONSTER_DAMAGE[0x21], 2)
+        self.assertIn(0x1A, actors.MONSTER_FLYERS)
+
     def test_a_placeholder_has_a_picture_start_for_every_monster(self) -> None:
         data = actors.build_placeholder()
         self.assertEqual(len(data.mon_art), 2 * (len(data.mon_table) // 8))
@@ -60,13 +100,30 @@ class ActorTableTests(unittest.TestCase):
 
     def test_projectile_sprites_cover_shots_and_the_boss(self) -> None:
         data = actors.build_placeholder()
-        # 8 boomerang turns and its spark, 2 fireball frames, 4 images of 4 boss pieces.
-        self.assertEqual(len(data.proj_sprites), 27 * B.SPRITE_FRAME_BYTES)
+        # 8 boomerang turns and its spark, 2 fireball frames, 4 images of 4 boss pieces, a rock, 4 arrows.
+        self.assertEqual(len(data.proj_sprites), 32 * B.SPRITE_FRAME_BYTES)
         self.assertEqual(len(data.mon_table) % 8, 0)
+
+    def test_shot_frames_follow_the_boss_pieces_in_proj_sprites(self) -> None:
+        source = (Path(__file__).resolve().parents[1] / "src" / "ai.s").read_text(encoding="utf-8")
+        equ = {name: int(value) for name, value in re.findall(r"\.equ (\w+), (\d+)", source)}
+        self.assertEqual(equ["PF_ARROW"], equ["PF_ROCK"] + 1)
+        # rock + four arrows are the last five frames of the 32-frame table
+        self.assertEqual(equ["PF_ARROW"] + 4, 32)
+        self.assertEqual((equ["PK_ROCK"], equ["PK_ARROW"], equ["PK_SWORDSHOT"]), (9, 10, 11))
+        self.assertEqual(equ["SHOT_LIMIT"], 4)
+        # the sword shot flies as fast as the rock, the arrow slower (1/64 px per frame)
+        self.assertEqual((equ["SHOT_SPEED"], equ["ARROW_SPEED"]), (192, 128))
+
+    def test_the_reach_check_finds_ltab_symbols(self) -> None:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+        import check_reach
+        self.assertEqual(check_reach.LTAB.match("    ltab room_maps, %a0 | note").group(1), "room_maps")
+        self.assertIsNone(check_reach.LTAB.match("    lea room_maps(%pc), %a0"))
 
     def test_effect_sprites_have_every_frame_the_game_indexes(self) -> None:
         data = actors.build_placeholder()
-        self.assertEqual(len(data.sword_sprites), 4 * B.SPRITE_FRAME_BYTES)
+        self.assertEqual(len(data.sword_sprites), 16 * B.SPRITE_FRAME_BYTES)  # four directions x (three swords + the rod)
         self.assertEqual(len(data.beam_sprites), 16 * B.SPRITE_FRAME_BYTES)   # direction x palette row
         self.assertEqual(len(data.fx_sprites), 20 * B.SPRITE_FRAME_BYTES)     # 2 clouds, 4 corners x 4 rows, 2 fires
 
@@ -83,6 +140,32 @@ class ActorTableTests(unittest.TestCase):
         for attr_d, attr_f, want in ((0xDA, 0x00, 0x80), (0x62, 0x04, 0x84), (0x1F, 0x07, 0x07), (0x80, 0x00, 0x00)):
             record = actors._room_info(0, ([0], [attr_d], [0], [attr_f]), [3, 5, 6, 8], bytes(64))
             self.assertEqual(record[1], want, f"D {attr_d:#x} F {attr_f:#x}")
+
+    def test_a_lone_moldorm_becomes_two_worms_of_four_segments(self) -> None:
+        segment = actors.MONSTER_TYPES.index(0x41)
+        attrs = ([0x22], [0x80], [0], [0])      # list id $62, the first of the ObjLists: here a single Moldorm
+        record = actors._room_info(0, attrs, [1, 4, 5, 6], bytes(64), lists=[[0x41]])
+        self.assertEqual(list(record[6:6 + actors.MOLDORM_SEGMENTS]), [segment] * actors.MOLDORM_SEGMENTS)
+        self.assertEqual(record[0], actors.MOLDORM_SEGMENTS)
+
+    def test_the_new_monsters_have_their_tables(self) -> None:
+        for nes_type in (0x05, 0x31, 0x32, 0x41):
+            self.assertIn(nes_type, actors.MONSTER_TYPES)
+        self.assertEqual(actors.MONSTER_BEHAVIOUR[0x31], actors.BEHAVIOUR_DODONGO)
+        self.assertEqual(actors.MONSTER_BEHAVIOUR[0x41], actors.BEHAVIOUR_MOLDORM)
+
+    def test_the_makefile_and_the_asset_builder_build_the_same_levels(self) -> None:
+        make = (Path(__file__).resolve().parents[1] / "Makefile").read_text(encoding="utf-8")
+        levels = tuple(int(n) for n in re.search(r"^UW_LEVELS := ([\d ]+)$", make, re.M).group(1).split())
+        self.assertEqual(levels, tuple(B.UW_LEVELS))
+
+    def test_the_reach_check_reads_the_target_of_a_word_branch(self) -> None:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+        import check_reach
+        wrapped = "    2230:\t6100 8006      \tbsrw ffffa238 <x>"
+        near = "    2220:\t6100 012a      \tbsrw 234c <init_buffers>"
+        self.assertEqual(int(check_reach.BRANCH.match(wrapped).group(2), 16), 0xFFFFA238)
+        self.assertEqual(int(check_reach.BRANCH.match(near).group(2), 16), 0x234C)
 
 
 if __name__ == "__main__":

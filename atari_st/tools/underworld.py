@@ -359,7 +359,8 @@ def build_cellars(asm: str, info: bytes, attrs, bank_id) -> tuple[list[bytes], l
     return maps, records
 
 
-def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes, ow_map, ow_sprite_tiles=None) -> UwData:
+def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes, ow_map, ow_sprite_tiles=None,
+                text_base: int | None = None) -> UwData:
     asm = (source_root / "src" / "Z_05.asm").read_text(encoding="utf-8", errors="replace")
     heap, starts = parse_heaps(asm)
     primary = B.parse_asm_byte_table(asm, "PrimarySquaresUW")
@@ -448,7 +449,8 @@ def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes
         triforce_room=info[B.LEVEL_INFO_TRIFORCE_ROOM_ID],
         map_col0=minimap_first_column(stored),
         actors=actors.build_actors(
-            source_root, level, bg_tiles, ow_map, stored, (attrs[2], attrs_d, attrs[4], attrs[5]), info, ow_sprite_tiles
+            source_root, level, bg_tiles, ow_map, stored, (attrs[2], attrs_d, attrs[4], attrs[5]), info, ow_sprite_tiles,
+            text_base=text_base,
         ),
         cellar_maps=tuple(cellar_maps),
         cellar_info=tuple(cellar_info),

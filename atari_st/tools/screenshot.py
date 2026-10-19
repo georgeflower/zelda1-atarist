@@ -59,6 +59,8 @@ def parse_globals_layout(globals_source: Path) -> dict[str, int]:
         if match:
             offsets[match.group(1)] = offset
             offset += int(match.group(2) or 1)
+        elif (alias := re.match(r"^\.equ\s+OFF_(\w+),\s*OFF_(\w+)\s*\+\s*(\d+)$", stripped)):
+            offsets[alias.group(1)] = offsets[alias.group(2)] + int(alias.group(3))
         elif stripped == "galign":
             offset = ((offset + 1) // 2) * 2
     if "KEY_STATES" not in offsets:
@@ -320,14 +322,27 @@ def main() -> None:
     report = {
         name: ram[globals_addr + layout[name]]
         for name in ("ROOM_ID", "LINK_X", "LINK_Y", "LINK_DIR", "GAME_MODE", "LEVEL", "HOTSPOT_TILE", "COMMIT", "EXIT_GUARD",
-                     "HP_HALVES", "ENEMY_COUNT", "ENEMY_X", "ENEMY_Y", "ENEMY_DIR", "ENEMY_TYPE", "ENEMY_HP", "ENEMY_ACTIVE", "ITEM_ACTIVE", "ITEM_ID", "ITEM_X", "ITEM_Y", "IN_CELLAR", "HAS_SWORD", "BEAM_ACTIVE", "BEAM_X", "BEAM_Y", "INV_KEYS", "INV_RUPEES", "INV_BOMBS", "ATTACK", "LINK_HURT", "PROJ_KIND", "PROJ_X", "PROJ_Y", "LINK_HELD", "TRIFORCE", "ENEMY_STATE", "ENEMY_TIMER", "CLOUD_TIMER", "SPARK_K", "FLASH_ON", "WORLD_KILLS", "HELP_COUNT", "BOMB_TIMER", "B_ITEM", "INV_BOOMERANG", "INV_CANDLE", "FIRE_STATE", "FIRE_X", "BLOCK_STATE", "BLOCK_X", "BLOCK_Y", "MENU_KEYS", "ENEMY_STUN", "ENDING_PHASE", "ENDING_STEP", "ENDING_TIMER", "INV_MAP", "INV_COMPASS", "PROJ_KIND")
+                     "HP_HALVES", "ENEMY_COUNT", "ENEMY_X", "ENEMY_Y", "ENEMY_DIR", "ENEMY_TYPE", "ENEMY_HP", "ENEMY_ACTIVE", "ITEM_ACTIVE", "ITEM_ID", "ITEM_X", "ITEM_Y", "IN_CELLAR", "HAS_SWORD", "BEAM_ACTIVE", "BEAM_X", "BEAM_Y", "INV_KEYS", "INV_RUPEES", "INV_BOMBS", "ATTACK", "LINK_HURT", "PROJ_KIND", "PROJ_X", "PROJ_Y", "LINK_HELD", "TRIFORCE", "ENEMY_STATE", "ENEMY_TIMER", "CLOUD_TIMER", "SPARK_K", "FLASH_ON", "WORLD_KILLS", "HELP_COUNT", "BOMB_TIMER", "B_ITEM", "INV_BOOMERANG", "INV_CANDLE", "FIRE_STATE", "FIRE_X", "BLOCK_STATE", "BLOCK_X", "BLOCK_Y", "MENU_KEYS", "ENEMY_STUN", "ENDING_PHASE", "ENDING_STEP", "ENDING_TIMER", "INV_MAP", "INV_COMPASS", "PROJ_KIND",
+                     "ROOM_KILLS", "ROOM_OBJ", "SPAWNED_ROOM", "EDGE_PENDING", "HP_FRAC", "INV_CLOCK", "INV_RING", "INV_MAGIC_SHIELD", "INV_ARROW", "INV_POTION", "HEART_CONTAINERS", "HEART_FILL", "FOOD_TIMER", "FLUTE_TIMER", "CHASE_X", "CHASE_Y", "ATTACK_ROD", "HIT_DAMAGE")
     }
     print(f"video base {base:#08x}, wrote {args.out}")
     print(" ".join(f"{k}={v:#04x}" for k, v in report.items()))
+    hist = ram[globals_addr + layout["ROOM_HIST"]:][:6]
+    print("ROOM_HIST " + " ".join(f"{b:02x}" for b in hist) +
+          "  OW_KILLS(nonzero) " + " ".join(
+              f"{i:02x}:{ram[globals_addr + layout['OW_KILLS'] + i]:#04x}" for i in range(128)
+              if ram[globals_addr + layout['OW_KILLS'] + i]))
     count = ram[globals_addr + layout["ENEMY_COUNT"]]
+    def enemy_byte(name, i):
+        return ram[globals_addr + layout[name] + i]
+
     print("ENEMIES " + " ".join(
-        f"({ram[globals_addr + layout['ENEMY_X'] + i]:#04x},{ram[globals_addr + layout['ENEMY_Y'] + i]:#04x})"
+        f"[{i}:({enemy_byte('ENEMY_X', i):#04x},{enemy_byte('ENEMY_Y', i):#04x}) t={enemy_byte('ENEMY_TYPE', i):02x} "
+        f"s={enemy_byte('ENEMY_STATE', i):02x} tm={enemy_byte('ENEMY_TIMER', i):02x} hp={enemy_byte('ENEMY_HP', i):02x} "
+        f"a={enemy_byte('ENEMY_ACTIVE', i)}]"
         for i in range(count)))
+    if "ZORA_ACTIVE" in layout:
+        print(f"ZORA_ACTIVE={ram[globals_addr + layout['ZORA_ACTIVE']]} BOULDERS={ram[globals_addr + layout['BOULDERS']]}")
     # Opened door masks of the rooms either side of the first locked door of Level 1.
     print(f"UW_OPEN[0x73]={ram[globals_addr + layout['UW_OPEN'] + 0x73]:#04x} "
           f"UW_OPEN[0x63]={ram[globals_addr + layout['UW_OPEN'] + 0x63]:#04x}")

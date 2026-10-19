@@ -80,14 +80,35 @@
     gvar EXIT_REQUESTED, 1
     gvar HEART_CONTAINERS, 1
     gvar HP_HALVES, 1           | Link's life in half hearts
+    gvar HIT_DAMAGE, 1          | hits' worth of the blow hit_enemy is about to deal; 0 means one
+    gvar HP_FRAC, 1             | how far below that count he really is, in 128ths of a half heart (a ring halves the blows)
     gvar INV_RUPEES, 1
     gvar INV_KEYS, 1
-    gvar INV_BOMBS, 1
     gvar HOTSPOT_TILE, 1
     gvar CAVE_SOURCE_ROOM, 1
     gvar CAVE_DOOR_X, 1
     gvar ENEMY_COUNT, 1
-    gvar HAS_SWORD, 1
+    gvar ITEMS, 32              | the original's Items block, one byte per item slot (sword grade, bombs, ...)
+    .equ OFF_HAS_SWORD, OFF_ITEMS + 0           | sword grade: 0 none, 1 wood, 2 white, 3 magic
+    .equ OFF_INV_BOMBS, OFF_ITEMS + 1
+    .equ OFF_INV_ARROW, OFF_ITEMS + 2           | 0 none, 1 wooden, 2 silver
+    .equ OFF_INV_BOW, OFF_ITEMS + 3
+    .equ OFF_INV_CANDLE, OFF_ITEMS + 4          | 1 blue (once a screen), 2 red
+    .equ OFF_INV_RECORDER, OFF_ITEMS + 5
+    .equ OFF_INV_FOOD, OFF_ITEMS + 6
+    .equ OFF_INV_POTION, OFF_ITEMS + 7          | 0 none, 1 blue, 2 red (two bottles at most)
+    .equ OFF_INV_ROD, OFF_ITEMS + 8
+    .equ OFF_INV_RAFT, OFF_ITEMS + 9
+    .equ OFF_INV_BOOK, OFF_ITEMS + 10
+    .equ OFF_INV_RING, OFF_ITEMS + 11           | 0 none, 1 blue, 2 red
+    .equ OFF_INV_LADDER, OFF_ITEMS + 12
+    .equ OFF_INV_MAGIC_KEY, OFF_ITEMS + 13
+    .equ OFF_INV_BRACELET, OFF_ITEMS + 14
+    .equ OFF_INV_LETTER, OFF_ITEMS + 15
+    .equ OFF_INV_CLOCK, OFF_ITEMS + 21          | the clock: monsters freeze until Link leaves the screen
+    .equ OFF_INV_BOOMERANG, OFF_ITEMS + 29
+    .equ OFF_INV_MAGIC_BOOMERANG, OFF_ITEMS + 30
+    .equ OFF_INV_MAGIC_SHIELD, OFF_ITEMS + 31
     gvar ATTACK, 1              | frames left of a sword swing
     gvar SWORD_VALID, 1
     gvar SPACE_HELD, 1
@@ -219,8 +240,6 @@
     galign
     gvar OLD_IKBD_VEC, 4       | TOS' own IKBD interrupt handler
 
-    gvar INV_BOOMERANG, 1
-    gvar INV_CANDLE, 1
     gvar B_ITEM, 1             | what the B button uses: 0 nothing, 1 bombs, 2 boomerang, 3 candle
     gvar CANDLE_USED, 1        | the candle can be lit once in a room
     gvar MENU_KEYS, 1          | keys the inventory screen saw last frame: 1 tab, 2 left, 4 right
@@ -247,12 +266,67 @@
     galign
     gvar ENEMY_TURN, 8         | frames until a wanderer may turn toward Link again (ObjTurnTimer)
     gvar ENEMY_WANT, 8         | a goriya that has Link in range (ObjWantsToShoot)
+    gvar ENEMY_SHOOT, 8        | an overworld walker's shooting timer: $30 down to 0, it shoots at $10 (ObjShootTimer)
     gvar LIFT_TIMER, 1         | frames left of Link holding a new weapon up (ItemLiftTimer)
-    gvar INV_BOW, 1            | he has the bow (InvBow); arrows are not in yet, so it only shows on the Tab screen
 
     gvar PAL_LEVEL, 1          | the level whose palette the ST is showing (0 = overworld); palette_sync follows OFF_LEVEL
 
+    gvar ROOM_HIST, 6          | the last six overworld screens entered (RoomHistory)
+    gvar ROOM_HIST_I, 1        | where the next one goes (CurRoomHistoryIndex)
+    gvar ROOM_KILLS, 1         | monsters killed on this screen so far (RoomKillCount)
+    gvar ROOM_OBJ, 1           | how many monsters this screen started with (RoomObjCount)
+    gvar SPAWNED_ROOM, 1       | the overworld screen whose monsters are on show
+    gvar SPAWNED_VALID, 1      | SPAWNED_ROOM holds one
+    gvar EDGE_PENDING, 1       | monsters still to walk in from the edge of the screen
+    gvar EDGE_NEXT, 1          | the slot the next one takes
+    gvar EDGE_TIMER, 1         | tenths of a second until the next one comes (MonstersFromEdgesLongTimer)
+    gvar EDGE_CELL, 1          | the last edge square a monster came in at (CurEdgeSpawnCell), 0 = the first one, $40
+    gvar OW_KILLS, 128         | per overworld screen, low three bits: kills remembered (the room flags' kill count)
+    | The movers (movers.s): per-monster fields of tektites, boulders, leevers, zoras and peahats. They are
+    | one block so clear_enemies can wipe them together; the four counters follow the eight rows.
+    gvar ENEMY_GHOST, 8        | bit 0: weapons pass through it; bit 1: it does Link no harm (burrowed, submerged, flying high)
+    gvar ENEMY_ANIMC, 8        | animation counter (ObjAnimCounter)
+    gvar ENEMY_ANIMF, 8        | animation frame, 0 or 1 (ObjAnimFrame)
+    gvar ENEMY_JY, 8           | a jumper's vertical speed, whole pixels (signed)
+    gvar ENEMY_JF, 8           | and its fraction
+    gvar ENEMY_REV, 8          | how many jumps in a row ran into a room bound (Jumper_ObjReversalCount)
+    gvar ENEMY_TGT, 8          | where the jump is to land (Jumper_ObjTargetY)
+    gvar ENEMY_DIST, 8         | a flyer's distance travelled (Flyer_ObjDistTraveled)
+    gvar RED_LEEVER_LONG, 1    | RedLeeverLongTimer, in tenths of a second
+    gvar RED_LEEVERS, 1        | ActiveRedLeeverCount
+    gvar ZORA_ACTIVE, 1        | ZoraActive
+    gvar BOULDERS, 1           | ActiveBoulders
+    gvar ATTACK_ROD, 1         | the swing is the rod's
+    gvar HEART_FILL, 1         | a potion is filling his hearts
+    gvar HEART_FILL_T, 1
+    gvar FLUTE_TIMER, 1        | the recorder's tune is playing
+    gvar FOOD_TIMER, 1         | the food is on the floor
+    gvar CHASE_X, 1            | ChaseTargetX/Y: Link, or the food
+    gvar CHASE_Y, 1
     galign
+    gvar EDGE_REC, 4           | the record of the screen whose monsters are coming in from the edge
     gvar MON_SPR, 4            | the monster pictures (mon_sprites), found at start-up: see init_pointers
+    | The tables of the dungeon Link is in, set by uw_select_level from level_table (levels.inc), in this order.
+    gvar UWP_ROOM_INDEX, 4
+    gvar UWP_ROOMS, 4
+    gvar UWP_DOORS, 4
+    gvar UWP_TILES, 4
+    gvar UWP_TILE_NES, 4
+    gvar UWP_ROOM_INFO, 4
+    gvar UWP_CELLAR_MAPS, 4
+    gvar UWP_CELLAR_INFO, 4
+    gvar UWL_BYTES, 8
+    .equ OFF_UW_START_ROOM, OFF_UWL_BYTES + 0
+    .equ OFF_UW_START_Y, OFF_UWL_BYTES + 1
+    .equ OFF_UW_TRIFORCE_ROOM, OFF_UWL_BYTES + 2
+    .equ OFF_UW_MAP_COL0, OFF_UWL_BYTES + 3
+    .equ OFF_UW_CELLARS, OFF_UWL_BYTES + 4
+
+    | A Dodongo is two sprites wide: the second one's erase offsets, and Moldorm's chain fields.
+    galign
+    gvar ENEMY_ERASE2_OFFSETS, 32
+    gvar OLD_ENEMY_ERASE2_OFFSETS, 32
+    gvar ENEMY_OLDDIR, 8       | a Moldorm segment's previous heading, which the segment below it takes up
+    gvar ENEMY_BOUNCE, 8       | a Moldorm head's heading after bouncing off a wall, kept for the next turn (Moldorm_ObjBounceDir)
 
     .equ GLOBALS_BYTES, gvar_offset

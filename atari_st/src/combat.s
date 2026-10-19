@@ -41,6 +41,27 @@
     .equ ENDING_PAUSE_FRAMES, 128    | Sub4: the black room with Link and the piece
     .equ ITEM_LINK_LIFT, 0x3f        | the item picture of Link with his arms up (not an item)
     .equ ITEM_LIFTED, 4              | the triforce piece over Link's head: drawn, never picked up
+    .equ ITEM_WHITE_SWORD, 0x02
+    .equ ITEM_MAGIC_SWORD, 0x03
+    .equ ITEM_FOOD, 0x04
+    .equ ITEM_RECORDER, 0x05
+    .equ ITEM_RED_CANDLE, 0x07
+    .equ ITEM_ARROW, 0x08
+    .equ ITEM_SILVER_ARROW, 0x09
+    .equ ITEM_MAGIC_KEY, 0x0b
+    .equ ITEM_RAFT, 0x0c
+    .equ ITEM_LADDER, 0x0d
+    .equ ITEM_ROD, 0x10
+    .equ ITEM_BOOK, 0x11
+    .equ ITEM_BLUE_RING, 0x12
+    .equ ITEM_RED_RING, 0x13
+    .equ ITEM_BRACELET, 0x14
+    .equ ITEM_LETTER, 0x15
+    .equ ITEM_MAGIC_SHIELD, 0x1c
+    .equ ITEM_MAGIC_BOOMERANG, 0x1e
+    .equ ITEM_BLUE_POTION, 0x1f
+    .equ ITEM_RED_POTION, 0x20
+    .equ ITEM_CLOCK, 0x21
     .equ ITEM_HEART, 0x22
     .equ ITEM_FAIRY, 0x23
     .equ HELP_KILLS, 10
@@ -69,6 +90,7 @@ sword_input:
     bne 9f
     tst.b OFF_LINK_HELD(%a5)
     bne 9f
+    clr.b OFF_ATTACK_ROD(%a5)
     move.b #ATTACK_FRAMES, OFF_ATTACK(%a5)
     sfx SFX_SWORD
     bra 9f
@@ -131,6 +153,16 @@ draw_sword:
     move.w %d0, %d5
     add.w %d0, %d0
     add.w %d0, %d3
+    moveq #3, %d0                       | the rod's pictures follow the three swords'
+    tst.b OFF_ATTACK_ROD(%a5)
+    bne 5f
+    moveq #0, %d0
+    move.b OFF_HAS_SWORD(%a5), %d0
+    subq.w #1, %d0
+    bpl 5f
+    moveq #0, %d0
+5:  lsl.w #2, %d0
+    add.w %d0, %d5
     lea sword_offsets(%pc), %a0
     moveq #0, %d1
     move.b OFF_LINK_X(%a5), %d1
@@ -263,6 +295,10 @@ beam_update:
     beq 7f
     tst.b OFF_ENEMY_HURT(%a5, %d6.w)
     bne 7f
+    exg %d5, %d6
+    bsr enemy_untouchable
+    exg %d5, %d6
+    bne 7f
     moveq #0, %d0
     move.b OFF_ENEMY_X(%a5, %d6.w), %d0
     sub.w %d4, %d0
@@ -279,6 +315,7 @@ beam_update:
     bhs 7f
     move.w %d6, %d5
     move.b OFF_BEAM_DIR(%a5), OFF_ENEMY_SHOVE(%a5, %d5.w)
+    bsr set_sword_damage
     bsr hit_enemy
     bra 8f
 7:  addq.w #1, %d6
@@ -511,8 +548,14 @@ update_combat:
     bsr sword_hits
     cmpi.b #BEAM_PHASE, OFF_ATTACK(%a5)
     bne 11f
-    bsr beam_launch
+    tst.b OFF_ATTACK_ROD(%a5)
+    beq 12f
+    bsr rod_launch
+    bra 11f
+12: bsr beam_launch
 11: subq.b #1, OFF_ATTACK(%a5)
+    bne 2f
+    clr.b OFF_ATTACK_ROD(%a5)
 2:  bsr enemy_contact
     bsr item_pickup
     bsr items_age
@@ -543,12 +586,11 @@ sword_hits:
     beq 8f
     tst.b OFF_ENEMY_HURT(%a5, %d5.w)
     bne 8f
-    moveq #0, %d3
-    move.b OFF_ENEMY_X(%a5, %d5.w), %d3
-    sub.w %d1, %d3
-    bpl 2f
-    neg.w %d3
-2:  cmp.w #SWORD_REACH, %d3
+    bsr enemy_untouchable
+    bne 8f                      | burrowed, submerged or flying high: the blade passes through
+    move.w %d1, %d0
+    bsr enemy_dx                | d3 = how far the blade is from the monster's body
+    cmp.w #SWORD_REACH, %d3
     bhs 8f
     moveq #0, %d3
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
@@ -558,7 +600,17 @@ sword_hits:
 3:  cmp.w #SWORD_REACH, %d3
     bhs 8f
     move.b OFF_LINK_DIR(%a5), OFF_ENEMY_SHOVE(%a5, %d5.w)
-    bsr hit_enemy
+    bsr set_sword_damage
+    tst.b OFF_ATTACK_ROD(%a5)
+    beq 4f
+    move.b #ROD_STAB_HITS, OFF_HIT_DAMAGE(%a5)
+4:  bsr enemy_behaviour
+    cmp.w #BEH_DODONGO, %d0
+    bne 41f
+    clr.b OFF_HIT_DAMAGE(%a5)
+    bsr dodongo_sword           | only a stunned Dodongo is hurt, and it dies
+    bra 8f
+41: bsr hit_enemy
 8:  addq.w #1, %d5
     bra 1b
 9:  movem.l (%sp)+, %d0-%d6/%a0
@@ -569,16 +621,76 @@ hit_enemy:
     movem.l %d0/%a0, -(%sp)
     bsr enemy_behaviour
     cmp.w #BEH_TRAP, %d0
-    movem.l (%sp)+, %d0/%a0
-    bne 1f
+    beq 5f
+    cmp.w #BEH_DODONGO, %d0
+    beq 5f                              | nor a Dodongo, except by the sword when a bomb has stunned it
+    cmp.w #BEH_MOLDORM, %d0
+    bne 6f
+    clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | a Moldorm segment is hurt but not knocked about
+6:  movem.l (%sp)+, %d0/%a0
+    bra 1f
+5:  movem.l (%sp)+, %d0/%a0
     clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | nothing hurts a blade trap
     rts
 1:  move.b #ENEMY_HURT_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
+    move.l %d1, -(%sp)
+    moveq #1, %d1                       | the hit's weight: set by the weapon, one by default
+    tst.b OFF_HIT_DAMAGE(%a5)
+    beq 2f
+    move.b OFF_HIT_DAMAGE(%a5), %d1
+2:  clr.b OFF_HIT_DAMAGE(%a5)
     move.b OFF_ENEMY_HP(%a5, %d5.w), %d0
-    cmp.b #1, %d0
-    bls kill_enemy
-    subq.b #1, %d0
+    cmp.b %d1, %d0
+    bls 3f
+    sub.b %d1, %d0
     move.b %d0, OFF_ENEMY_HP(%a5, %d5.w)
+    move.l (%sp)+, %d1
+    rts
+3:  move.l (%sp)+, %d1
+    bsr enemy_behaviour
+    cmp.w #BEH_MOLDORM, %d0
+    beq moldorm_died
+    bra kill_enemy
+
+| The sword's weight in hits: SwordDamagePoints is $10, $20, $40 for the wooden, white and magic sword.
+set_sword_damage:
+    move.l %d0, -(%sp)
+    moveq #1, %d0
+    move.b OFF_HAS_SWORD(%a5), %d0      | the grade 1 to 3: 1, 2 or 4 hits' worth
+    subq.b #1, %d0
+    bpl 1f
+    moveq #0, %d0
+1:  and.w #3, %d0
+    move.b sword_hits_table(%pc, %d0.w), OFF_HIT_DAMAGE(%a5)
+    move.l (%sp)+, %d0
+    rts
+
+sword_hits_table:
+    .byte 1, 2, 4, 4
+
+| A Moldorm segment has run out of hit points. It does not die: it comes back with fresh ones, and the worm's tail
+| segment is what is lost instead (UpdateMoldorm swaps them), so the worm shrinks from the tail until only the
+| head is left, and that one dies for good. d5 = the segment.
+moldorm_died:
+    movem.l %d0-%d2, -(%sp)
+    move.w %d5, %d1
+    and.w #0xfc, %d1                    | the worm's lowest slot
+    move.w %d1, %d2
+    addq.w #(MOLDORM_SEGMENTS - 1), %d2 | its head
+    move.w %d1, %d0
+1:  tst.b OFF_ENEMY_ACTIVE(%a5, %d0.w)
+    bne 2f
+    addq.w #1, %d0
+    cmp.w %d2, %d0
+    bls 1b
+2:  cmp.w %d2, %d0
+    beq 3f                              | only the head is left: that is the end of the worm
+    move.b #MOLDORM_HP_REVIVED, OFF_ENEMY_HP(%a5, %d5.w)
+    clr.b OFF_ENEMY_ACTIVE(%a5, %d0.w)  | the tail goes
+    sfx SFX_MONSTER_DIED
+    bra 9f
+3:  bsr kill_enemy
+9:  movem.l (%sp)+, %d0-%d2
     rts
 
 | Remove enemy d5, count the kill and roll for a drop the way HandleMonsterDied
@@ -588,7 +700,11 @@ hit_enemy:
 kill_enemy:
     sfx SFX_MONSTER_DIED
     clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
-    addq.b #1, OFF_WORLD_KILLS(%a5)
+    bsr mover_died                          | a red leever stops being counted; a zora's death is not the screen's
+    tst.w %d0
+    beq 0f
+    addq.b #1, OFF_ROOM_KILLS(%a5)         | the screen remembers it (RoomKillCount)
+0:    addq.b #1, OFF_WORLD_KILLS(%a5)
     cmpi.b #HELP_KILLS, OFF_HELP_COUNT(%a5)
     bhs 1f
     addq.b #1, OFF_HELP_COUNT(%a5)
@@ -680,6 +796,8 @@ enemy_contact:
     movem.l %d0-%d5/%a0, -(%sp)
     tst.b OFF_LINK_HURT(%a5)
     bne 9f
+    tst.b OFF_INV_CLOCK(%a5)
+    bne 9f                      | with the clock nothing can touch him
     tst.b OFF_LINK_HELD(%a5)
     bne 9f
     moveq #0, %d5
@@ -690,14 +808,13 @@ enemy_contact:
     lea OFF_ENEMY_STUN(%a5), %a0
     tst.b 0(%a0, %d5.w)
     bne 8f                      | a stunned monster does no harm
-    moveq #0, %d3
-    move.b OFF_ENEMY_X(%a5, %d5.w), %d3
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    btst #1, 0(%a0, %d5.w)
+    bne 8f                      | nor does one under the ground or the water
     moveq #0, %d0
     move.b OFF_LINK_X(%a5), %d0
-    sub.w %d0, %d3
-    bpl 2f
-    neg.w %d3
-2:  cmp.w #CONTACT_RANGE, %d3
+    bsr enemy_dx                | d3 = how far Link is from the monster's body
+    cmp.w #CONTACT_RANGE, %d3
     bhs 8f
     moveq #0, %d3
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
@@ -738,7 +855,12 @@ link_knockback:
     moveq #0, %d2
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
     bsr link_shove_from
-    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
+    bsr enemy_behaviour
+    cmp.w #BEH_GHINI, %d0
+    beq 1f
+    cmp.w #BEH_TEKTITE, %d0
+    bhs 9f                      | jumpers, flyers and burrowers keep their way
+1:  move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
     move.b %d0, %d2
     and.b #(DIR_RIGHT + DIR_DOWN), %d0
     add.b %d0, %d0
@@ -789,7 +911,8 @@ link_shove_from:
     movem.l (%sp)+, %d0-%d4
     rts
 
-| d1.w = half hearts of damage
+| d1.w = half hearts of damage. Every level of ring halves the blow (Link_BeHarmed), so the life is
+| kept in 128ths of a half heart: HP_HALVES is the count rounded up, HP_FRAC what is missing from it.
 hurt_link:
     move.l %d0, -(%sp)
     sfx SFX_HARMED
@@ -798,21 +921,63 @@ hurt_link:
     clr.b OFF_HELP_COUNT(%a5)
     clr.b OFF_HELP_VALUE(%a5)
     moveq #0, %d0
-    move.b OFF_HP_HALVES(%a5), %d0
-    sub.w %d1, %d0
+    move.w %d1, %d0
+    lsl.w #7, %d0
+    moveq #0, %d1
+    move.b OFF_INV_RING(%a5), %d1
+    lsr.w %d1, %d0                      | the ring: half the damage, or a quarter
+    moveq #0, %d1
+    move.b OFF_HP_FRAC(%a5), %d1
+    add.w %d1, %d0
+    move.w %d0, %d1
+    and.b #127, %d1
+    move.b %d1, OFF_HP_FRAC(%a5)
+    lsr.w #7, %d0                       | whole half hearts lost
+    moveq #0, %d1
+    move.b OFF_HP_HALVES(%a5), %d1
+    sub.w %d0, %d1
     bgt 1f
-    moveq #0, %d0
-1:  move.b %d0, OFF_HP_HALVES(%a5)
+    moveq #0, %d1
+1:  move.b %d1, OFF_HP_HALVES(%a5)
     move.b #1, OFF_HUD_DIRTY(%a5)
-    tst.b %d0
+    tst.b %d1
     bne 9f
+    clr.b OFF_HP_FRAC(%a5)
     bsr link_dies
 9:  move.l (%sp)+, %d0
     rts
 
+| d1.w = half hearts to give back, up to his containers' worth.
+heal_link:
+    movem.l %d0/%d2, -(%sp)
+    moveq #0, %d0
+    move.b OFF_HEART_CONTAINERS(%a5), %d0
+    add.w %d0, %d0
+    moveq #0, %d2
+    move.b OFF_HP_HALVES(%a5), %d2
+    and.w #0xff, %d1
+    add.w %d1, %d2
+    cmp.w %d0, %d2
+    bls 1f
+    move.w %d0, %d2
+    clr.b OFF_HP_FRAC(%a5)
+1:  move.b %d2, OFF_HP_HALVES(%a5)
+    move.b #1, OFF_HUD_DIRTY(%a5)
+    movem.l (%sp)+, %d0/%d2
+    rts
+
+| Link's tunic takes on the ring's colour. (Filled in with the Link art.)
+link_ring_colour:
+    rts
+
 | Out of hearts: full health and back to the start of the overworld.
 link_dies:
-    movem.l %d0-%d1, -(%sp)
+    movem.l %d0-%d1/%a0, -(%sp)
+    lea OFF_ROOM_HIST(%a5), %a0         | ClearRoomHistory: every screen starts afresh
+    moveq #5, %d0
+0:  clr.b (%a0)+
+    dbra %d0, 0b
+    clr.b OFF_ROOM_HIST_I(%a5)
     jingle MUS_DEATH
     moveq #0, %d0
     move.b OFF_HEART_CONTAINERS(%a5), %d0
@@ -841,7 +1006,7 @@ link_dies:
     move.b #START_DIR, OFF_LINK_DIR(%a5)
     bsr enter_room
     move.b #1, OFF_HUD_DIRTY(%a5)
-    movem.l (%sp)+, %d0-%d1
+    movem.l (%sp)+, %d0-%d1/%a0
     rts
 
 | ---------------------------------------------------------------------- bombs
@@ -863,12 +1028,7 @@ link_dies:
     .equ BOMB_DOOR_SLACK, 0x20
     .equ BOMB_DOOR_TYPE, 4
 
-    .equ B_NOTHING, 0
-    .equ B_BOMB, 1
-    .equ B_BOOMERANG, 2
-    .equ B_CANDLE, 3
-
-| Control or Alternate use the B item: the bombs, the boomerang or the candle.
+| Control or Alternate use the B item (items.s says what each one does).
 b_item_input:
     movem.l %d0/%a0, -(%sp)
     lea OFF_KEY_STATES(%a5), %a0
@@ -886,71 +1046,10 @@ b_item_input:
     bsr b_item_fix
     moveq #0, %d0
     move.b OFF_B_ITEM(%a5), %d0
-    cmp.w #B_BOMB, %d0
-    bne 2f
-    bsr place_bomb
-    bra 9f
-2:  cmp.w #B_BOOMERANG, %d0
-    bne 3f
-    bsr throw_boomerang
-    bra 9f
-3:  cmp.w #B_CANDLE, %d0
-    bne 9f
-    bsr use_candle
+    bsr b_item_use
     bra 9f
 8:  clr.b OFF_B_HELD(%a5)
 9:  movem.l (%sp)+, %d0/%a0
-    rts
-
-| d0.w = B item code: does Link own it?  Returns d0.w = 1 when he does.
-b_item_owned:
-    cmp.w #B_BOMB, %d0
-    bne 1f
-    moveq #0, %d0
-    tst.b OFF_INV_BOMBS(%a5)
-    beq 9f
-    moveq #1, %d0
-    rts
-1:  cmp.w #B_BOOMERANG, %d0
-    bne 2f
-    moveq #0, %d0
-    tst.b OFF_INV_BOOMERANG(%a5)
-    beq 9f
-    moveq #1, %d0
-    rts
-2:  cmp.w #B_CANDLE, %d0
-    bne 3f
-    moveq #0, %d0
-    tst.b OFF_INV_CANDLE(%a5)
-    beq 9f
-    moveq #1, %d0
-    rts
-3:  moveq #0, %d0
-9:  rts
-
-| The B button never rests on something Link does not have: it moves to the
-| first thing he does, or to nothing.
-b_item_fix:
-    movem.l %d0-%d1, -(%sp)
-    moveq #0, %d0
-    move.b OFF_B_ITEM(%a5), %d0
-    bsr b_item_owned
-    tst.w %d0
-    bne 9f
-    moveq #1, %d1
-1:  move.w %d1, %d0
-    bsr b_item_owned
-    tst.w %d0
-    bne 2f
-    addq.w #1, %d1
-    cmp.w #B_CANDLE, %d1
-    bls 1b
-    moveq #0, %d1
-2:  cmp.b OFF_B_ITEM(%a5), %d1
-    beq 9f
-    move.b %d1, OFF_B_ITEM(%a5)
-    move.b #1, OFF_HUD_DIRTY(%a5)
-9:  movem.l (%sp)+, %d0-%d1
     rts
 
 place_bomb:
@@ -1023,6 +1122,7 @@ draw_bomb:
 | BOMB_BLAST_FRAMES it hurts every monster near it (and the screen flashes),
 | and when the second part starts it blows open a bombable wall.
 bomb_tick:
+    bsr dodongo_bomb_tick       | a Dodongo eats a bomb at its mouth, or is stunned by the cloud
     tst.b OFF_BOMB_TIMER(%a5)
     beq 1f
     subq.b #1, OFF_BOMB_TIMER(%a5)
@@ -1054,6 +1154,8 @@ bomb_hurt_enemies:
     tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
     beq 4f
     tst.b OFF_ENEMY_HURT(%a5, %d5.w)
+    bne 4f
+    bsr enemy_untouchable
     bne 4f
     moveq #0, %d1
     move.b OFF_CLOUD_X(%a5), %d1
@@ -1167,9 +1269,11 @@ clear_bomb:
 | burning every monster it touches.
 use_candle:
     movem.l %d0-%d2, -(%sp)
+    cmpi.b #2, OFF_INV_CANDLE(%a5)
+    beq 0f                              | the red candle can be lit as often as he likes
     tst.b OFF_CANDLE_USED(%a5)
     bne 9f
-    tst.b OFF_FIRE_STATE(%a5)
+0:    tst.b OFF_FIRE_STATE(%a5)
     bne 9f
     move.b #1, OFF_CANDLE_USED(%a5)
     moveq #0, %d1
@@ -1258,6 +1362,8 @@ fire_update:
     beq 29f
     tst.b OFF_ENEMY_HURT(%a5, %d5.w)
     bne 29f
+    bsr enemy_untouchable
+    bne 29f
     moveq #0, %d0
     move.b OFF_ENEMY_X(%a5, %d5.w), %d0
     moveq #0, %d1
@@ -1324,13 +1430,13 @@ bomb_open_wall:
 
 8:  moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
-    ltab uw_room_index, %a0
+    lvtab ROOM_INDEX, %a0
     moveq #0, %d3
     move.b 0(%a0, %d0.w), %d3
     cmpi.b #0xff, %d3
     beq 9f
     mulu.w #UW_DOOR_RECORD_BYTES, %d3
-    ltab uw_doors, %a1
+    lvtab DOORS, %a1
     adda.l %d3, %a1
     cmpi.b #BOMB_DOOR_TYPE, 0(%a1, %d6.w)
     bne 9f
@@ -1365,6 +1471,7 @@ items_age:
 
 clear_items:
     movem.l %d0/%a0, -(%sp)
+    clr.b OFF_FOOD_TIMER(%a5)
     lea OFF_ITEM_ACTIVE(%a5), %a0
     moveq #(ITEM_SLOTS - 1), %d0
 1:  clr.b (%a0)+
@@ -1474,6 +1581,8 @@ item_pickup:
     beq 8f
     cmp.b #ITEM_LIFTED, %d0
     beq 8f
+    cmp.b #ITEM_FOOD_STATE, %d0
+    beq 8f
     cmp.b #1, %d0
     bne 10f
     lea OFF_ITEM_LIFE(%a5), %a0
@@ -1555,32 +1664,8 @@ lift_update:
 | Apply the effect of item d0.b to Link's counters. Items without an effect
 | here yet (weapons, ...) are simply collected.
 take_item:
-    movem.l %d0-%d2, -(%sp)
+    movem.l %d0-%d2/%a0-%a1, -(%sp)
     move.b #1, OFF_HUD_DIRTY(%a5)
-    cmp.b #ITEM_BOOMERANG, %d0
-    bne 15f
-    move.b #1, OFF_INV_BOOMERANG(%a5)
-    jingle MUS_ITEM
-    bsr lift_begin
-    bra 9f
-15: cmp.b #ITEM_BOW, %d0
-    bne 17f
-    move.b #1, OFF_INV_BOW(%a5)
-    jingle MUS_ITEM
-    bsr lift_begin
-    bra 9f
-17: cmp.b #ITEM_BLUE_CANDLE, %d0
-    bne 16f
-    move.b #1, OFF_INV_CANDLE(%a5)
-    jingle MUS_ITEM
-    bsr lift_begin
-    bra 9f
-16: cmp.b #ITEM_WOOD_SWORD, %d0
-    bne 0f
-    move.b #1, OFF_HAS_SWORD(%a5)
-    jingle MUS_ITEM
-    bsr lift_begin
-    bra 9f
 0:  cmp.b #ITEM_KEY, %d0
     bne 1f
     sfx SFX_KEY
@@ -1667,7 +1752,7 @@ take_item:
 22: cmp.b #ITEM_MAP, %d0
     beq 23f
     cmp.b #ITEM_COMPASS, %d0
-    bne 9f
+    bne 40f
 23: moveq #0, %d1
     move.b OFF_LEVEL(%a5), %d1
     beq 9f
@@ -1682,8 +1767,68 @@ take_item:
 24: or.b %d2, OFF_INV_COMPASS(%a5)
 25: sfx SFX_ITEM_TAKEN
 9:  bsr b_item_fix
-    movem.l (%sp)+, %d0-%d2
+    movem.l (%sp)+, %d0-%d2/%a0-%a1
     rts
+
+    | Everything else is looked up the way TakeItem does: ItemIdToSlot says which byte of the Items
+    | block it goes into and ItemIdToDescriptor how (class 0: you have it, 1: an amount to add,
+    | 2: a grade, which only ever goes up).
+40: cmp.b #ITEM_FAIRY, %d0
+    bne 41f
+    moveq #6, %d1                       | a fairy is worth three hearts
+    bsr heal_link
+    sfx SFX_HEART
+    bra 9b
+41: moveq #0, %d1
+    move.b %d0, %d1
+    ltab item_slot, %a0
+    moveq #0, %d2
+    move.b 0(%a0, %d1.w), %d2
+    ltab item_desc, %a0
+    move.b 0(%a0, %d1.w), %d1
+    lea OFF_ITEMS(%a5), %a1
+    adda.w %d2, %a1                     | a1 = the Items byte
+    move.b %d1, %d2
+    and.b #0x0f, %d2                    | the value
+    lsr.b #4, %d1                       | the class
+    beq 43f
+    cmp.b #2, %d1
+    beq 44f
+    bhi 45f
+    add.b (%a1), %d2                    | class 1: an amount, never past $FF
+    bcc 46f
+    move.b #0xff, %d2
+46: cmp.b #ITEM_BLUE_POTION, %d0
+    bne 47f
+    cmp.b #3, %d2                       | two bottles at most
+    blo 47f
+    moveq #2, %d2
+47: move.b %d2, (%a1)
+    sfx SFX_ITEM_TAKEN
+    bra 9b
+45: move.b #0xff, (%a1)
+    bra 9b
+44: cmp.b (%a1), %d2                    | class 2: a lower grade changes nothing
+    blo 48f
+    move.b %d2, (%a1)
+    cmp.b #ITEM_BLUE_RING, %d0
+    blo 48f
+    cmp.b #ITEM_RED_RING, %d0
+    bhi 48f
+    bsr link_ring_colour
+48: jingle MUS_ITEM
+    cmp.b #ITEM_RED_POTION, %d0
+    beq 9b                              | a bottle of the red stuff is not held up
+    bsr lift_begin
+    bra 9b
+43: move.b %d2, (%a1)                   | class 0: it is his
+    cmp.b #ITEM_CLOCK, %d0
+    beq 49f
+    jingle MUS_ITEM
+    bsr lift_begin
+    bra 9b
+49: sfx SFX_ITEM_TAKEN                  | the clock stops the monsters at once and is not held up
+    bra 9b
 
 | The end of the level, UpdateMode12EndLevel_Full: Link holds the triforce piece up
 | (phase 1), the screen flashes (2), his hearts fill one by one (3), a curtain closes
@@ -1816,7 +1961,22 @@ uw_check_clear:
     lea OFF_UW_FLAGS(%a5), %a0
     btst #0, 0(%a0, %d0.w)
     bne 9f
-    moveq #0, %d1
+    cmpi.b #TRIGGER_RINGLEADER, OFF_ROOM_TRIGGER(%a5)
+    bne 0f
+    tst.b OFF_ENEMY_COUNT(%a5)
+    beq 0f
+    tst.b OFF_ENEMY_ACTIVE(%a5)
+    bne 0f
+    moveq #0, %d1                   | CheckSecretTriggerRingleader: the first monster is gone, so the rest die with it
+5:  cmp.b OFF_ENEMY_COUNT(%a5), %d1
+    bhs 0f
+    cmpi.b #1, OFF_ENEMY_ACTIVE(%a5, %d1.w)
+    bne 6f
+    clr.b OFF_ENEMY_ACTIVE(%a5, %d1.w)
+    sfx SFX_MONSTER_DIED
+6:  addq.w #1, %d1
+    bra 5b
+0:  moveq #0, %d1
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d1
     bhs 2f
     cmpi.b #1, OFF_ENEMY_ACTIVE(%a5, %d1.w)
@@ -1846,6 +2006,7 @@ uw_check_clear:
 | then slides 16 pixels (here it swaps places with the floor there) and the
 | room's shutters open for good. BLOCK_X/Y are the origin of its top-left tile.
     .equ TRIGGER_PUSH_BLOCK, 4
+    .equ TRIGGER_RINGLEADER, 2
     .equ BLOCK_TILE, 0xb0
     .equ BLOCK_ROW_Y, 0x40          | the top of the play area, where tile row 0 starts
     .equ BLOCK_PUSH_FRAMES, 16
@@ -2044,13 +2205,13 @@ block_slide:
 uw_open_shutters:
     movem.l %d0/%d2-%d3/%a0-%a2, -(%sp)
     moveq #0, %d3
-    ltab uw_room_index, %a0
+    lvtab ROOM_INDEX, %a0
     moveq #0, %d2
     move.b 0(%a0, %d0.w), %d2
     cmpi.b #0xff, %d2
     beq 8f
     mulu.w #UW_DOOR_RECORD_BYTES, %d2
-    ltab uw_doors, %a1
+    lvtab DOORS, %a1
     adda.l %d2, %a1
     lea OFF_UW_OPEN(%a5), %a2
     moveq #3, %d2

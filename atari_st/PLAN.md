@@ -36,8 +36,9 @@ Remaining, in the words of your request:
 | #18 | M0 palette strategy (risk R1): slot-stable per-level palettes for all nine dungeons; M0 PAL check (risk R2): 50 Hz run in Hatari | M0 |
 
 | #20 | Overworld walkers (M2 step 1): octoroks (red, blue, slow, fast), moblins and lynels on their real screens, from a per-screen table (`ow_room_info`); art from the overworld sprite patterns | M2 |
+| #21 | Overworld shots (M2 step 2): rock, arrow and sword shot (shoot timers, shot limit 4, parry, bounce), drops through `mon_table`, the edge-spawn ring, the six-screen room history and per-screen kill counts; `table_anchor` moved and `tools/check_reach.py` guards the reach | M2 |
 
-Still open from M0: the table-dump tool, the reach budget (R3) and the golden images. M2 has its first step (walkers); projectiles, drops by kill history, edge-spawn screens and the special movers are still to do. Nothing of M1 (hidden spots) or M4 (overworld specials) has been started, and only the first cave of M3.
+Still open from M0: the table-dump tool, the reach budget (R3) and the golden images. M2 has its first three steps (walkers; shots, edge spawns and kill history; the special movers); armos, gravestones and flying ghinis wait for the room-tile patch overlay. Nothing of M1 (hidden spots) or M4 (overworld specials) has been started, and only the first cave of M3.
 
 ## 2. Order of work
 
@@ -154,13 +155,13 @@ Appendix B1 lists every screen with its monsters and count, plus the Zora, edge-
 ### 5.4 Work items
 
 - [x] **Step 1 (done): data plus plain walkers.** Octorok (`$07`-`$0A`), moblin (`$03`, `$04`) and lynel (`$01`, `$02`) are in `MONSTER_TYPES`; octoroks have their own draw mode (`MODE_OCTOROK`: side, front and back views in two animation sets, art mirrored to face right) and `mon_art` says where each monster's art starts in `mon_sprites` (the slow and fast octorok share it). Red/blue octoroks turn at `$70`/`$A0`, moblins `$A0`, lynels walk like goriyas without throwing. Every overworld screen has a 16-byte record in `ow_room_info.bin` (count, flags for edge-spawn and Zora, monster indices), expanded from the ROM's monster lists. Peahats, leevers, zoras, ghinis, armos, boulders and tektites spawn nothing yet.
-- [ ] **Step 2: projectiles, drops, edge-spawn ring, kill history.** Rock, arrow and sword beam; drop rows checked for the new types; the edge-spawn walk (`FindNextEdgeSpawnCell`; now these screens spawn on entry); the room-history rule (`ModifyObjCountByHistoryOW`).
-- [ ] **Step 3: special movers.** Leever, peahat, zora, ghini, tektite (jumper physics).
+- [x] **Step 2 (done): projectiles, edge-spawn ring, kill history.** `walker_shoot`/`walker_fire` (`ai.s`) follow `_TryShooting`: shoot timer `$30`, shot at `$10`, red types start only on a random `>= $F8`, at most 4 shots; rock and sword shot fly 3 px/frame, the arrow 2; damage 1 half-heart (rock, arrow) or 4 (sword shot); Link parries rock and arrow with the sword facing them while standing still (bounce 16 frames); rock and arrow stop at walls, the sword shot does not. `proj_sprites` has 32 frames (rock `PF_ROCK`, arrows `PF_ARROW`). Drops use the ROM rows already in `mon_table` (fairy and clock pickups are still missing). Screens flagged for edge spawning (`FindNextEdgeSpawnCell`) bring monsters in one by one over the border (`edge_spawn_tick`), and `ow_history_count`/`ow_save_kills` keep the last six screens and their kill counts (`ModifyObjCountByHistoryOW`, `SaveKillCountOW`); dying clears the history. Checked in Hatari: kills 2 of 4 in `$78`, leave and return, 2 come back.
+- [x] **Step 3 (done): special movers** (`src/movers.s`). Tektite and boulder share `UpdateTektiteOrBoulder` jump physics (`jumper_*` tables from the ROM); blue leever wanders and burrows, red leever surfaces 40 px ahead of or behind Link (`red_leever_place`); peahat is `MoveFlyer` with the `$B0`/`$20` rolls, hittable only in state 5; zora is made by `zora_check` on screens with water (13 tries on tiles `$8D`-`$98`), fires one fireball and is untouchable unless it is up; ghini is the wanderer with `$FF`; boulders come from the boulder set (`$1F`). Weapons pass through anything with `ENEMY_GHOST` bit 0 set, bit 1 means it harms nobody. The room spawn list now cycles like `AssignObjSpawnPositions` (it used to give up after nine spots, so peahat screens came up short).
 - [ ] (original item, kept for reference) Add each type to `MONSTER_TYPES` in `actors.py` with the HP/damage above, sprite frames from the CHR data, a draw mode and a behaviour in `ai.s` (recipe in `AGENTS.md` section 12).
 - [ ] Overworld sprite pattern tables: unlike the underworld, the overworld swaps pattern blocks by region. List the blocks needed (octorok/moblin/lynel/tektite/leever/peahat/zora/ghini/armos/boulders) and load them at room entry.
 - [ ] Build `room_monsters.bin` for the overworld the same way `actors.py` builds it for dungeon rooms, including the edge-spawn flag and the Zora flag.
 - [ ] Drops: extend the drop table rows for every new type; fairy (kill 16) and clock drops need their pickups (section 8).
-- [ ] Projectiles: rock, arrow, sword beam, fireball (the port has a projectile system and placeholder fireball art).
+- [x] Projectiles: rock, arrow, sword shot done (M2 step 2); fireball still placeholder art.
 - [ ] Acceptance: screenshot a screen of each type with the monster present; unit test that every screen's list expands to the same types as appendix B1; Hatari scripts that check one behaviour per type (for example a Leever surfacing within N frames of Link standing in sand).
 
 ## 6. M3 Caves, shops and people
@@ -443,7 +444,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 
 - **R1 Palettes.** Settled for the dungeons: slot-stable per-level palettes (section 3). The title and story screens still need their own rows when they are built.
 - **R2 PAL / 50 Hz.** Verified in a 50 Hz Hatari (section 3); a real PAL STFM is untried. The music is tuned for 50 Hz and skips one in six VBLs at 60 Hz.
-- **R3 Memory and addressing reach.** `table_anchor` has about 5 KB / 3 KB slack (`AGENTS.md` section 6). Eight more levels will not fit without re-planning.
+- **R3 Memory and addressing reach.** After step 2 the anchor sits just before `fx_sprites` (about 5 KB back, 6 KB ahead) and `tools/check_reach.py` fails the build when an `ltab` table is out of the signed 16-bit range (GNU as silently wraps instead). The image now starts with `.data` and the code can grow by about 30 KB (`AGENTS.md` section 6). Eight more levels will not fit without re-planning.
 - **R4 Sprite budget.** 16x16 masked sprites with runtime shifting; Gleeok, Patra and Moldorm are multi-object bosses and can blow the frame budget at 8 MHz.
 - **R5 Copyright.** All ROM-derived data stays out of the repo. The dump tool and the generated tables here are for planning; commit the tool, not its output.
 

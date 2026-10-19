@@ -25,13 +25,29 @@ spawn_room_enemies:
     tst.b OFF_LEVEL(%a5)
     bne uw_spawn
 
+    bsr ow_save_kills               | the screen just left remembers how many died there
     moveq #0, %d0                   | overworld: the screen's record in ow_room_info
     move.b OFF_ROOM_ID(%a5), %d0
     move.w %d0, %d1
     lsl.w #4, %d1
     ltab ow_room_info, %a1
     adda.w %d1, %a1
-    bra spawn_from_record
+    bsr ow_history_count            | d1 = how many monsters, once the history has had its say
+    move.b %d1, OFF_ROOM_OBJ(%a5)
+    clr.b OFF_ROOM_KILLS(%a5)
+    move.b %d0, OFF_SPAWNED_ROOM(%a5)
+    move.b #1, OFF_SPAWNED_VALID(%a5)
+    clr.b OFF_EDGE_PENDING(%a5)
+    btst #0, 1(%a1)
+    beq spawn_counted
+    tst.w %d1                       | these screens place nothing: the monsters walk in from the edge
+    beq 9f
+    move.b %d1, OFF_ENEMY_COUNT(%a5)
+    move.b %d1, OFF_EDGE_PENDING(%a5)
+    clr.b OFF_EDGE_NEXT(%a5)
+    clr.b OFF_EDGE_TIMER(%a5)
+    move.l %a1, OFF_EDGE_REC(%a5)
+    bra 9f
 9:  movem.l (%sp)+, %d0-%d7/%a0-%a2
     rts
 
@@ -67,6 +83,8 @@ uw_spawn:
 spawn_from_record:
     moveq #0, %d1
     move.b (%a1), %d1           | monsters to place
+spawn_counted:                  | d1 = how many
+    tst.w %d1
     beq 9b
 
     moveq #0, %d3
@@ -78,12 +96,16 @@ spawn_from_record:
 
     moveq #0, %d4               | spawn spots tried
     moveq #0, %d5               | monsters placed
-1:  cmp.w #9, %d4
+1:  cmp.w #72, %d4                | the list goes round and round until every monster has a safe spot
     bhs 8f
     cmp.w %d1, %d5
     bhs 8f
     moveq #0, %d0
-    move.b 0(%a0, %d4.w), %d0
+    moveq #0, %d0
+    move.w %d4, %d0
+    divu.w #9, %d0
+    swap %d0                        | spot = tries mod 9
+    move.b 0(%a0, %d0.w), %d0
     addq.w #1, %d4
     move.w %d0, %d6
     lsl.w #4, %d6
@@ -134,17 +156,189 @@ spawn_from_record:
 8:  move.b %d5, OFF_ENEMY_COUNT(%a5)
     bra 9b
 
+| ModifyObjCountByHistoryOW. d0 = the screen, a1 = its record. Returns d1.w = the number of monsters
+| it starts with. A screen entered within the last six keeps what is left of its monsters (its kill
+| count is taken off); one that was cleared and has since dropped out of that history starts afresh.
+| The screen then goes into the history.
+ow_history_count:
+    movem.l %d2-%d3/%a0, -(%sp)
+    moveq #0, %d1
+    move.b (%a1), %d1
+    lea OFF_ROOM_HIST(%a5), %a0
+    moveq #5, %d2
+1:  cmp.b 0(%a0, %d2.w), %d0
+    beq 2f
+    dbra %d2, 1b
+    lea OFF_OW_KILLS(%a5), %a0      | not among the last six
+    moveq #0, %d2
+    move.b 0(%a0, %d0.w), %d2
+    and.b #7, %d2
+    cmp.b #7, %d2
+    bne 3f
+    and.b #0xf8, 0(%a0, %d0.w)      | all of them were killed: they come back
+    bra 5f
+2:  lea OFF_OW_KILLS(%a5), %a0
+    moveq #0, %d2
+    move.b 0(%a0, %d0.w), %d2
+    and.b #7, %d2
+3:  tst.b %d2
+    beq 5f
+    cmp.b #7, %d2
+    beq 4f                          | cleared, and still in the history: nobody is here
+    sub.w %d2, %d1
+    bpl 5f
+4:  moveq #0, %d1
+5:  lea OFF_ROOM_HIST(%a5), %a0     | note the screen, unless it is there already
+    moveq #5, %d2
+6:  cmp.b 0(%a0, %d2.w), %d0
+    beq 9f
+    dbra %d2, 6b
+    moveq #0, %d2
+    move.b OFF_ROOM_HIST_I(%a5), %d2
+    move.b %d0, 0(%a0, %d2.w)
+    addq.b #1, %d2
+    cmp.b #6, %d2
+    blo 7f
+    moveq #0, %d2
+7:  move.b %d2, OFF_ROOM_HIST_I(%a5)
+9:  movem.l (%sp)+, %d2-%d3/%a0
+    rts
+
+| SaveKillCountOW, for the screen whose monsters were last shown: its remembered kills grow by the
+| ones made here, and become 7 (everyone) when they were all of the screen's monsters.
+ow_save_kills:
+    tst.b OFF_SPAWNED_VALID(%a5)
+    beq 9f
+    movem.l %d0-%d3/%a0, -(%sp)
+    moveq #0, %d3
+    move.b OFF_SPAWNED_ROOM(%a5), %d3
+    lea OFF_OW_KILLS(%a5), %a0
+    move.b 0(%a0, %d3.w), %d1
+    move.b %d1, %d2
+    and.b #7, %d2                   | what was remembered
+    and.b #0xf8, %d1
+    move.b OFF_ROOM_KILLS(%a5), %d0
+    cmp.b OFF_ROOM_OBJ(%a5), %d0
+    bhs 1f
+    and.b #7, %d0
+    add.b %d2, %d0
+    cmp.b #7, %d0
+    blo 2f
+1:  moveq #7, %d0
+2:  or.b %d0, %d1
+    move.b %d1, 0(%a0, %d3.w)
+    movem.l (%sp)+, %d0-%d3/%a0
+9:  rts
+
+| Once a frame: the next monster of a screen that spawns them at its edge comes in, a few tenths of a
+| second after the last, on the next free square of the ring that runs counter-clockwise round the
+| screen (FindNextEdgeSpawnCell).
+edge_spawn_tick:
+    tst.b OFF_EDGE_PENDING(%a5)
+    beq 9f
+    movem.l %d0-%d7/%a0-%a2, -(%sp)
+    tst.b OFF_EDGE_TIMER(%a5)
+    beq 2f
+    moveq #0, %d0
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    divu.w #10, %d0
+    swap %d0
+    tst.w %d0
+    bne 8f
+    subq.b #1, OFF_EDGE_TIMER(%a5)
+    bra 8f
+2:  bsr edge_next_cell              | d0 = the square
+    move.w %d0, %d6
+    and.w #15, %d6
+    lsl.w #4, %d6                   | X
+    move.w %d0, %d7
+    and.w #0xf0, %d7
+    sub.w #3, %d7                   | Y
+    moveq #0, %d5
+    move.b OFF_EDGE_NEXT(%a5), %d5
+    movea.l OFF_EDGE_REC(%a5), %a1
+    moveq #0, %d0
+    move.b 6(%a1, %d5.w), %d0       | monster index from the screen's record
+    move.b %d6, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d7, OFF_ENEMY_Y(%a5, %d5.w)
+    move.b %d0, OFF_ENEMY_TYPE(%a5, %d5.w)
+    ltab mon_table, %a2
+    lsl.w #3, %d0
+    move.b 1(%a2, %d0.w), OFF_ENEMY_HP(%a5, %d5.w)
+    move.b #1, OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    move.b %d5, %d0
+    andi.b #3, %d0
+    moveq #1, %d2
+    lsl.b %d0, %d2
+    move.b %d2, OFF_ENEMY_DIR(%a5, %d5.w)
+    bsr enemy_init_special
+    addq.b #1, OFF_EDGE_NEXT(%a5)
+    subq.b #1, OFF_EDGE_PENDING(%a5)
+    bsr rand8
+    and.b #3, %d0
+    addq.b #2, %d0
+    move.b %d0, OFF_EDGE_TIMER(%a5) | the next one comes 20 to 50 frames later
+8:  movem.l (%sp)+, %d0-%d7/%a0-%a2
+9:  rts
+
+| FindNextEdgeSpawnCell. Returns d0.w = the next square of the screen's border (row in the high
+| nibble, column in the low) whose tile can be walked on (below $84, which leaves out sand).
+edge_next_cell:
+    movem.l %d1-%d5, -(%sp)
+    moveq #0, %d4
+    move.b OFF_EDGE_CELL(%a5), %d4
+    bne 0f
+    moveq #0x40, %d4
+0:  move.w %d4, %d1
+1:  move.w %d1, %d2
+    and.w #15, %d2
+    moveq #0x10, %d3
+    tst.w %d2
+    beq 2f                          | the left edge: down
+    moveq #-0x10, %d3
+    cmp.w #15, %d2
+    bne 3f                          | the right edge: up
+2:  add.w %d3, %d1
+    and.w #0xff, %d1
+3:  move.w %d1, %d2
+    and.w #0xf0, %d2
+    cmp.w #0xe0, %d2
+    bne 4f
+    addq.w #1, %d1                  | the bottom: right
+    bra 5f
+4:  cmp.w #0x40, %d2
+    bne 5f
+    subq.w #1, %d1                  | the top: left
+5:  and.w #0xff, %d1
+    move.w %d1, %d2
+    and.w #0xf0, %d2
+    sub.w #NES_PLAY_AREA_TOP, %d2
+    lsr.w #3, %d2                   | the tile row
+    move.w %d1, %d3
+    and.w #15, %d3
+    add.w %d3, %d3                  | the tile column
+    bsr fetch_tile
+    cmp.w #0x84, %d0
+    blo 9f
+    cmp.b %d4, %d1
+    bne 1b
+9:  move.b %d1, OFF_EDGE_CELL(%a5)
+    moveq #0, %d0
+    move.b %d1, %d0
+    movem.l (%sp)+, %d1-%d5
+    rts
+
 | d0.w = room id. Returns a1 = its record in uw_room_info and d1.w = 0, or
 | d1.w = -1 when the room is not part of the level.
 uw_room_info_ptr:
     movem.l %d2/%a0, -(%sp)
-    ltab uw_room_index, %a0
+    lvtab ROOM_INDEX, %a0
     moveq #0, %d2
     move.b 0(%a0, %d0.w), %d2
     cmpi.b #0xff, %d2
     beq 1f
     mulu.w #UW_INFO_BYTES, %d2
-    ltab uw_room_info, %a1
+    lvtab ROOM_INFO, %a1
     adda.l %d2, %a1
     moveq #0, %d1
     bra 2f
@@ -194,11 +388,15 @@ clear_enemies:
     moveq #(MAX_ENEMIES - 1), %d0
 6:  clr.b (%a0)+
     dbra %d0, 6b
-    lea OFF_ENEMY_TURN(%a5), %a0            | turn timers and want-to-shoot flags
-    moveq #(MAX_ENEMIES * 2 - 1), %d0
+    lea OFF_ENEMY_TURN(%a5), %a0            | turn timers, want-to-shoot flags and shoot timers
+    moveq #(MAX_ENEMIES * 3 - 1), %d0
 7:  clr.b (%a0)+
     dbra %d0, 7b
     clr.b OFF_WALL_TIMER(%a5)
+    lea OFF_ENEMY_GHOST(%a5), %a0               | the movers' fields: eight rows and four counters
+    moveq #(MAX_ENEMIES * 8 + 4 - 1), %d0
+8:  clr.b (%a0)+
+    dbra %d0, 8b
     movem.l (%sp)+, %d0/%a0
     rts
 
@@ -212,7 +410,15 @@ erase_enemies:
     lsl.w #2, %d0
     move.l 0(%a0, %d0.w), %d0
     bsr erase_at
-    clr.b OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+    btst #1, OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+    beq 3f
+    move.w %d3, %d0                 | a second sprite (the Dodongo's other half)
+    lsl.w #2, %d0
+    lea OFF_ENEMY_ERASE2_OFFSETS(%a5), %a0
+    move.l 0(%a0, %d0.w), %d0
+    bsr erase_at
+    lea OFF_ENEMY_ERASE_OFFSETS(%a5), %a0
+3:  clr.b OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
 2:  addq.w #1, %d3
     cmp.w #MAX_ENEMIES, %d3
     blo 1b
@@ -223,6 +429,9 @@ update_enemies:
     movem.l %d0-%d7/%a0-%a1, -(%sp)
     tst.b OFF_LIFT_TIMER(%a5)
     bne 9f                      | Link is holding something up: everything waits
+    bsr edge_spawn_tick         | a monster walks in from the edge, if one is due
+    bsr zora_check              | and a zora rises in the water of a screen that has some
+    bsr long_timers             | the leevers' timer runs in tenths of a second
     moveq #0, %d5
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
     bhs 9f
@@ -233,10 +442,15 @@ update_enemies:
     subq.b #1, OFF_ENEMY_HURT(%a5, %d5.w)
     cmp.b #ENEMY_SHOVE_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
     blo 2f                      | the shove is over; it flashes on but carries on
+    bsr enemy_behaviour
+    cmp.w #BEH_MOLDORM, %d0
+    beq 2f                      | a Moldorm segment is not knocked about: it swims on while it flashes
     bsr enemy_shove
     bra 8f
 
-2:  lea OFF_ENEMY_STUN(%a5), %a0
+2:  tst.b OFF_INV_CLOCK(%a5)
+    bne 8f                      | the clock: every monster stands still
+    lea OFF_ENEMY_STUN(%a5), %a0
     tst.b 0(%a0, %d5.w)
     beq 29f
     subq.b #1, 0(%a0, %d5.w)    | stunned: it does nothing at all
@@ -265,9 +479,25 @@ update_enemies:
     bsr boss_ai
     bra 8f
 22: cmp.w #BEH_KEESE, %d7
-    bne 24f
+    bne 222f
     bsr keese_ai
     bra 8f
+222: cmp.w #BEH_MOLDORM, %d7
+    bne 223f
+    bsr moldorm_ai              | a segment of Moldorm steers (the head) and swims
+    bra 8f
+223: cmp.w #BEH_DODONGO, %d7
+    bne 221f
+    bsr dodongo_ai
+    tst.w %d0
+    bne 8f                      | bloated or stunned
+    bra 3f
+221: cmp.w #BEH_TEKTITE, %d7
+    blo 24f
+    bsr mover_update            | tektites, leevers, zoras, peahats, ghinis and the boulders
+    tst.w %d0
+    bne 8f
+    bra 3f
 24: cmp.w #BEH_ROPE, %d7
     bne 23f
     bsr rope_turn
@@ -290,7 +520,10 @@ update_enemies:
     bra 3f
 26: cmp.w #BEH_LYNEL, %d7
     bne 27f
-    bsr goriya_ai               | a lynel walks like a goriya (its sword beam comes later)
+    bsr goriya_ai               | a lynel walks like a goriya
+    bsr walker_shoot            | and shoots sword shots
+    tst.w %d0
+    bne 8f                      | standing still to shoot
     bra 3f
 27: moveq #0x70, %d1            | a red octorok turns toward Link at rate $70
     cmp.w #BEH_OCTOROK, %d7
@@ -304,6 +537,11 @@ update_enemies:
     cmp.w #BEH_WANDER, %d7
     bne 3f
 28: bsr wander_tick
+    cmp.w #BEH_WANDER, %d7
+    beq 3f                      | stalfos do not shoot
+    bsr walker_shoot            | octoroks shoot rocks, moblins arrows
+    tst.w %d0
+    bne 8f
 3:  moveq #0, %d1
     move.w OFF_FRAME_COUNTER(%a5), %d1
     add.w %d5, %d1
@@ -312,7 +550,10 @@ update_enemies:
     tst.w %d1
     bne 8f
 
+    move.w %d7, %d1             | d1 keeps the behaviour: only ropes charge
     moveq #1, %d7               | pixels to move this frame
+    cmp.w #BEH_ROPE, %d1
+    bne 31f
     tst.b OFF_ENEMY_STATE(%a5, %d5.w)
     beq 31f
     move.w OFF_FRAME_COUNTER(%a5), %d0
@@ -326,6 +567,15 @@ update_enemies:
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
     moveq #0, %d6
     move.b OFF_ENEMY_DIR(%a5, %d5.w), %d6
+    and.l #0xffff, %d1
+    cmp.w #BEH_DODONGO, %d1
+    bne 311f
+    move.b %d6, %d0             | a Dodongo going any way but left is steered by its leading end, 16 along
+    and.b #0x0d, %d0
+    beq 311f
+    add.w #16, %d2
+    or.l #0x00010000, %d1       | and remembers to give the 16 back
+311:
 
     | Monsters keep to the lanes of a 16-pixel grid. Only when a square has been
     | crossed may one turn, and it has to find the square ahead open.
@@ -342,9 +592,13 @@ update_enemies:
     beq 45f
     cmp.b %d4, %d6
     beq 4f
+    cmp.w #BEH_ROPE, %d1
+    bne 4f
     clr.b OFF_ENEMY_STATE(%a5, %d5.w)       | a charging rope stops
     bra 4f
-45: clr.b OFF_ENEMY_STATE(%a5, %d5.w)       | boxed in: stand still
+45: cmp.w #BEH_ROPE, %d1
+    bne 8f
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)       | boxed in: stand still
     bra 8f
 
 4:  btst #0, %d6
@@ -360,7 +614,10 @@ update_enemies:
     addq.w #1, %d3
     bra 10f
 62: subq.w #1, %d3
-10: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+10: btst #16, %d1
+    beq 101f
+    sub.w #16, %d2
+101: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
     move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
     move.b %d6, OFF_ENEMY_DIR(%a5, %d5.w)
     subq.w #1, %d7
@@ -383,7 +640,22 @@ enemy_shove:
     beq 4f                      | Aquamentus and the keese are never shoved
     cmp.w #BEH_KEESE, %d0
     beq 4f
-    moveq #0, %d2
+    cmp.w #BEH_ZORA, %d0
+    beq 4f                      | nor are a zora and the boulder set
+    cmp.w #BEH_BOULDER_SET, %d0
+    beq 4f
+    cmp.w #BEH_TEKTITE, %d0
+    beq 5f                      | tektites and peahats are shoved wherever they stand
+    cmp.w #BEH_PEAHAT, %d0
+    beq 5f
+    cmp.w #BEH_LEEVER, %d0
+    bne 6f
+    bsr enemy_nes_type
+    cmp.b #NES_RED_LEEVER, %d0
+    bne 6f
+5:  bsr enemy_free_shove
+    bra 9f
+6:    moveq #0, %d2
     move.b OFF_ENEMY_X(%a5, %d5.w), %d2
     moveq #0, %d3
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
@@ -516,8 +788,12 @@ enemy_cell_blocked:
 | walking monster.
 enemy_square_blocked:
     movem.l %d1-%d5, -(%sp)
-    bsr enemy_out_of_bounds
-    tst.w %d0
+    tst.b OFF_LEVEL(%a5)
+    bne 0f
+    bsr enemy_out_of_bounds_ow
+    bra 1f
+0:  bsr enemy_out_of_bounds
+1:  tst.w %d0
     bne 9f
     move.w %d3, %d4
     sub.w #(NES_PLAY_AREA_TOP - 3), %d4
@@ -561,6 +837,31 @@ enemy_out_of_bounds:
     cmp.w %d1, %d2
     bgt 9f
     move.b OFF_OBJ_UP(%a5), %d1
+    cmp.w %d1, %d3
+    blt 9f
+    move.b OFF_OBJ_DOWN(%a5), %d1
+    cmp.w %d1, %d3
+    bgt 9f
+    moveq #0, %d0
+9:  move.l (%sp)+, %d1
+    rts
+
+| The overworld's version of the bounds: a monster may stop on the square next to a bound, because
+| BoundByRoom only stops it going on through it (left bound $11 still lets it reach lane $10, up bound
+| $4E lane $4D). Monsters that walk in from the edge need this to get going.
+enemy_out_of_bounds_ow:
+    move.l %d1, -(%sp)
+    moveq #1, %d0
+    moveq #0, %d1
+    move.b OFF_OBJ_LEFT(%a5), %d1
+    subq.w #1, %d1
+    cmp.w %d1, %d2
+    blt 9f
+    move.b OFF_OBJ_RIGHT(%a5), %d1
+    cmp.w %d1, %d2
+    bgt 9f
+    move.b OFF_OBJ_UP(%a5), %d1
+    subq.w #1, %d1
     cmp.w %d1, %d3
     blt 9f
     move.b OFF_OBJ_DOWN(%a5), %d1
@@ -639,7 +940,19 @@ draw_enemies:
     beq 19f                     | the blade trap has one picture
     cmp.w #8, %d2
     beq 33f
-    move.w %d4, %d1             | keese: wings beat
+    cmp.w #MODE_MOLDORM, %d2
+    beq 19f                     | a Moldorm segment has one picture
+    cmp.w #MODE_DODONGO, %d2
+    bne 36f
+    bsr draw_dodongo            | two sprites wide, drawn and remembered for erasing by its own routine
+    bra 8f
+36: cmp.w #MODE_TEKTITE, %d2
+    blo 37f
+    bsr mover_frame             | the movers pick their own pictures
+    tst.w %d1
+    bmi 8f
+    bra 19f
+37: move.w %d4, %d1             | keese: wings beat
     lsr.w #2, %d1
     and.w #1, %d1
     bra 19f

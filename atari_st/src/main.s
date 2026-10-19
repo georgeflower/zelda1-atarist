@@ -18,10 +18,18 @@
     .endif
 
 | A6 holds table_anchor for the whole run. The read-only tables total more than
-| a signed 16-bit PC-relative displacement can reach from the code, so they are
-| addressed as signed offsets from an anchor placed in the middle of them.
+| a signed 16-bit displacement can reach, so a table is found as the anchor plus a 32-bit
+| link-time distance (twelve cycles more than a lea with a 16-bit displacement, and no limit on how
+| far from the anchor, or from each other, the tables may sit). The condition codes are untouched.
     .macro ltab sym, reg
-    lea \sym - table_anchor(%a6), \reg
+    move.l #(\sym - table_anchor), \reg
+    adda.l %a6, \reg
+    .endm
+
+| lvtab name, reg: the address of the current dungeon's table (room_index, rooms, doors, tiles, tile_nes,
+| room_info, cellar_maps or cellar_info), which uw_select_level put in the variable block.
+    .macro lvtab name, reg
+    movea.l OFF_UWP_\name(%a5), \reg
     .endm
 
 | Sound: sfx plays an effect over the music, jingle an event song that replaces it
@@ -176,9 +184,15 @@
     .equ BP_BSS_LEN, 28
     .equ BASEPAGE_BYTES, 256
 
-    .section .text
+    | The image starts with .data (variables and stack, see link.ld), then the code, so the first
+    | instruction is this jump over them.
+    .section .text.boot, "ax"
     .globl _start
 _start:
+    bra.w game_start
+
+    .section .text
+game_start:
     lea globals(%pc), %a5
     | The table anchor is set up by a routine at the very end of the code (init_anchor),
     | which is the only place close enough to the tables for a PC-relative lea: code,
@@ -223,7 +237,8 @@ _start:
     bsr music_init
     .if DEV_START_UW != 255
     | Development shortcut: start inside the level, with a sword and a key.
-    move.b #UW_LEVEL, OFF_LEVEL(%a5)
+    moveq #DEV_START_LEVEL, %d0
+    bsr uw_select_level
     move.b #UW_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
     move.b #UW_BOUND_RIGHT, OFF_BOUND_RIGHT(%a5)
     move.b #UW_BOUND_UP, OFF_BOUND_UP(%a5)
@@ -236,10 +251,10 @@ _start:
     move.b #0x78, OFF_LINK_X(%a5)
     move.b #0x8d, OFF_LINK_Y(%a5)
     move.b #1, OFF_HAS_SWORD(%a5)
-    move.b #0x37, OFF_CAVE_SOURCE_ROOM(%a5)     | the level 1 entrance, where leaving comes out
+    move.b #DEV_START_ENTRANCE, OFF_CAVE_SOURCE_ROOM(%a5)   | the level's entrance, where leaving comes out
     .endif
     bsr enter_room
-    bsr draw_hud
+    bsr draw_hud_far
 
 main_loop:
     bsr wait_vbl
@@ -261,12 +276,12 @@ main_loop:
     beq 4f
     bsr update_cave
     bra 3f
-4:  bsr update_menu
+4:  bsr update_menu_far
     bra 3f
 1:  bsr update_play
     bra 3f
 2:  bsr update_scroll
-3:  bsr minimap_tick
+3:  bsr minimap_tick_far
     tst.b OFF_HUD_DIRTY(%a5)
     beq main_loop
     bsr draw_hud
@@ -350,6 +365,7 @@ init_buffers:
 | Render the current room into bg_cur and show it.
 enter_room:
     clr.b OFF_COMMIT(%a5)
+    clr.b OFF_INV_CLOCK(%a5)            | the clock lasts until he leaves the screen (ResetPlayerState)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
     movea.l OFF_BG_CUR(%a5), %a1
@@ -687,6 +703,7 @@ swap_erase_state:
     movem.l %d0-%d1/%a0-%a1, -(%sp)
     xchg_state ENEMY_ERASE_VALID, OLD_ENEMY_ERASE_VALID, 8
     xchg_state ENEMY_ERASE_OFFSETS, OLD_ENEMY_ERASE_OFFSETS, 32
+    xchg_state ENEMY_ERASE2_OFFSETS, OLD_ENEMY_ERASE2_OFFSETS, 32
     xchg_state PROJ_ERASE_VALID, OLD_PROJ_ERASE_VALID, 8
     xchg_state PROJ_ERASE_OFFSETS, OLD_PROJ_ERASE_OFFSETS, 32
     xchg_state ITEM_ERASE_VALID, OLD_ITEM_ERASE_VALID, 3
@@ -756,6 +773,8 @@ update_play:
 4:  rts
 3:
     bsr uw_person_update
+    bsr items_update
+    bsr chase_target_update
     bsr update_enemies
     bsr update_combat
     bsr update_projectiles
@@ -770,24 +789,23 @@ update_play:
     bra present_frame
 
 
+    | input.s, music.s and video.s reach .data (in front of the code) by PC-relative displacements, so
+    | they come first; the rest only uses a5 and may grow without limit but the 16-bit branches.
+    .include "input.s"
+    .include "music.s"
     .include "video.s"
     .include "sprite.s"
     .include "ai.s"
+    .include "movers.s"
     .include "enemy.s"
     .include "combat.s"
-    .include "link.s"
-    .include "uw.s"
-    .include "hud.s"
-    .include "menu.s"
-    .include "input.s"
-    .include "music.s"
+    .include "items.s"
 
-| ---------------------------------------------------------------------------
     | room_palette is the first read-only table and close enough for a PC-relative
     | lea from here; the anchor in the middle of the tables is then a link-time constant
-    | away. This routine sits after all the other code (link.ld places .text.late
-    | right after .text) so that code size never pushes room_palette out of reach.
-    .section .text.late, "ax"
+    | away. This routine sits in the middle of the code: game_start reaches it by a
+    | 16-bit branch and it reaches room_palette by a 16-bit displacement, however large the code grows
+    | (up to 64 KB).
 init_anchor:
     lea room_palette(%pc), %a6
     adda.l #(table_anchor - room_palette), %a6
@@ -801,31 +819,34 @@ init_pointers:
     move.l %a0, OFF_MON_SPR(%a5)
     rts
 
+    | The code has outgrown what one 16-bit branch spans, so the modules at the end reach main.s's frame routines
+    | through these stubs in the middle.
+clear_erase_state_far:
+    bra clear_erase_state
+show_background_far:
+    bra show_background
+draw_hud_far:
+    bra draw_hud
+update_menu_far:
+    bra update_menu
+minimap_tick_far:
+    bra minimap_tick
+
+    .include "link.s"
+    .include "uw.s"
+    .include "hud.s"
+    .include "menu.s"
+
+| ---------------------------------------------------------------------------
+
     .section .rodata
-    .align 2
-uw_tiles:
-    .incbin "uw_tiles.bin"
-uw_tile_nes:
-    .incbin "uw_tile_nes.bin"
-uw_room_index:
-    .incbin "uw_room_index.bin"
     .align 2
 uw_door_cells:
     .incbin "uw_door_cells.bin"
     .align 2
-uw_doors:
-    .incbin "uw_doors.bin"
-    .align 2
-uw_rooms:
-    .incbin "uw_rooms.bin"
-    .align 2
 item_sprites:
     .incbin "item_sprites.bin"
     .align 2
-table_anchor:
-    | Every table is reached from here by a signed 16-bit displacement, so the
-    | anchor sits in the middle of them: the tables before it are about 32K
-    | back and those after it have the other half to grow into.
 hud_tiles:
     .incbin "hud_tiles.bin"
 link_sprites:
@@ -839,6 +860,10 @@ sword_sprites:
     .incbin "sword_sprites.bin"
 beam_sprites:
     .incbin "beam_sprites.bin"
+table_anchor:
+    | Every table is reached from here by a signed 16-bit displacement, so the
+    | anchor sits in the middle of them. tools/check_reach.py fails the build when a table
+    | is out of reach (the assembler would not notice a table 32768 to 65535 bytes ahead).
 fx_sprites:
     .incbin "fx_sprites.bin"
 proj_sprites:
@@ -858,14 +883,6 @@ drop_table:
     .incbin "drop_table.bin"
 drop_rates:
     .incbin "drop_rates.bin"
-uw_room_info:
-    .incbin "uw_room_info.bin"
-uw_cellar_info:
-    .incbin "uw_cellar_info.bin"
-    .align 2
-uw_cellar_maps:
-    .incbin "uw_cellar_maps.bin"
-    .align 2
 cave_map:
     .incbin "cave_map.bin"
 cave_text:
@@ -890,13 +907,17 @@ music_bank:
     .align 2
 mon_sprites:
     .incbin "mon_sprites.bin"
+    | Each dungeon's tables and level_table (generated). They are reached through pointers that
+    | uw_select_level builds, so they may sit anywhere, however far from table_anchor.
+    .align 2
+    .include "levels.inc"
 
     .section .data
     .align 2
-    | The stack lives in .data rather than after .rodata because _start reaches
-    | it with a PC-relative lea, which the 68000 limits to a signed 16-bit
-    | displacement. It comes first in .data (and .data before the big tables), so
-    | it stays in range however large the code grows.
+    | .data is the first thing in the image (link.ld), so code reaches it with PC-relative
+    | displacements as long as it lies within 32 KB of it. The stack is only used by _start, so it
+    | goes first; what the rest of the code touches by PC (ikbd_state, music_old_vbl, the digidrum
+    | engine) goes after it, nearest to the code.
 stack_bottom:
     .space STACK_BYTES
 stack_top:
@@ -906,14 +927,13 @@ globals_marker:
     .ascii "ZELDAST1"
 globals:
     .space GLOBALS_BYTES
-
-    | The digidrum engine writes to itself, so it has to live in RAM.
     .align 2
-ymdrum_code:
-    .incbin "music_engine.bin"
 music_old_vbl:
     .long 0
     | head, tail, then the ring the IKBD interrupt fills (see ikbd_isr)
 ikbd_state:
     .space 258
-
+    | The digidrum engine writes to itself, so it has to live in RAM.
+    .align 2
+ymdrum_code:
+    .incbin "music_engine.bin"

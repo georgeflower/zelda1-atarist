@@ -16,33 +16,54 @@ import build_assets as B
 # Monsters this port draws and moves so far (Level 1's repertoire). Others in a
 # room (traps, and the monsters of later levels) are left out for now.
 MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
-                 0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A)
+                 0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A,
+                 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x1A, 0x1F, 0x20, 0x21,
+                 # Level 2: the blue goriya, the two Dodongos and Moldorm
+                 0x05, 0x31, 0x32, 0x41)
 # The ones of them that live on the overworld: lynels (blue, red), moblins (blue, red) and octoroks
 # (red slow, red fast, blue slow, blue fast). Their art comes from the overworld's sprite pattern table.
-OVERWORLD_MONSTERS = (0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A)
+OVERWORLD_MONSTERS = (0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A,
+                      0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x1A, 0x1F, 0x20, 0x21)
+# Zoras are not in any room's list: a screen whose attribute A has bit 3 makes one in the water (CheckZora).
 # Frames between one-pixel steps: the 6502's quarter-speed $20 is half a pixel
 # a frame; keese are quicker and wallmasters slower. A gel walks a pixel a frame (quarter-speed
 # $40) but rests at the edge of every square. Aquamentus moves a
 # pixel every eighth frame.
 MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8, 0x49: 1,
                   # lynels and moblins walk at quarter-speed $20; octoroks too, the fast ones at $40
-                  0x01: 2, 0x02: 2, 0x03: 2, 0x04: 2, 0x07: 2, 0x08: 1, 0x09: 2, 0x0A: 1}
+                  0x01: 2, 0x02: 2, 0x03: 2, 0x04: 2, 0x07: 2, 0x08: 1, 0x09: 2, 0x0A: 1,
+                  # ghinis walk at $20; the others move by their own rules (the period is not used)
+                  0x0D: 1, 0x0E: 1, 0x0F: 2, 0x10: 2, 0x11: 1, 0x1A: 1, 0x1F: 1, 0x20: 1, 0x21: 2,
+                  # blue goriya like the red; Dodongo walks at the default quarter-speed; Moldorm moves itself
+                  0x05: 2, 0x31: 2, 0x32: 2, 0x41: 1}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
                   # ObjTypeToDamagePoints: blue lynel $02 (two hearts), red lynel $01, the rest $80
-                  0x01: 4, 0x02: 2, 0x03: 1, 0x04: 1, 0x07: 1, 0x08: 1, 0x09: 1, 0x0A: 1}
+                  0x01: 4, 0x02: 2, 0x03: 1, 0x04: 1, 0x07: 1, 0x08: 1, 0x09: 1, 0x0A: 1,
+                  # tektites $80, the blue leever one heart ($01), the red leever, the zora and the peahat
+                  # $80, boulders $80, a ghini one heart (ObjTypeToDamagePoints)
+                  0x0D: 1, 0x0E: 1, 0x0F: 2, 0x10: 1, 0x11: 1, 0x1A: 1, 0x1F: 0, 0x20: 1, 0x21: 2,
+                  # blue goriya $01 (a heart), Dodongo $01, Moldorm $80
+                  0x05: 2, 0x31: 2, 0x32: 2, 0x41: 1}
 # Keese ignore walls and blocks and are only held in by the room edges.
-MONSTER_FLYERS = (0x1B,)
+MONSTER_FLYERS = (0x1B, 0x1A)
 
 # What the game does with a monster every frame, besides drawing it.
 (BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS,
  BEHAVIOUR_KEESE, BEHAVIOUR_TRAP, BEHAVIOUR_GEL, BEHAVIOUR_OCTOROK, BEHAVIOUR_MOBLIN,
- BEHAVIOUR_LYNEL, BEHAVIOUR_OCTOROK_BLUE) = range(12)
+ BEHAVIOUR_LYNEL, BEHAVIOUR_OCTOROK_BLUE, BEHAVIOUR_TEKTITE, BEHAVIOUR_LEEVER, BEHAVIOUR_ZORA,
+ BEHAVIOUR_PEAHAT, BEHAVIOUR_GHINI, BEHAVIOUR_BOULDER, BEHAVIOUR_BOULDER_SET,
+ BEHAVIOUR_DODONGO, BEHAVIOUR_MOLDORM) = range(21)
 MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
                       0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP,
                       0x15: BEHAVIOUR_GEL, 0x01: BEHAVIOUR_LYNEL, 0x02: BEHAVIOUR_LYNEL,
                       0x03: BEHAVIOUR_MOBLIN, 0x04: BEHAVIOUR_MOBLIN, 0x07: BEHAVIOUR_OCTOROK,
-                      0x08: BEHAVIOUR_OCTOROK, 0x09: BEHAVIOUR_OCTOROK_BLUE, 0x0A: BEHAVIOUR_OCTOROK_BLUE}
+                      0x08: BEHAVIOUR_OCTOROK, 0x09: BEHAVIOUR_OCTOROK_BLUE, 0x0A: BEHAVIOUR_OCTOROK_BLUE,
+                      0x0D: BEHAVIOUR_TEKTITE, 0x0E: BEHAVIOUR_TEKTITE, 0x0F: BEHAVIOUR_LEEVER,
+                      0x10: BEHAVIOUR_LEEVER, 0x11: BEHAVIOUR_ZORA, 0x1A: BEHAVIOUR_PEAHAT,
+                      0x21: BEHAVIOUR_GHINI, 0x20: BEHAVIOUR_BOULDER, 0x1F: BEHAVIOUR_BOULDER_SET,
+                      0x05: BEHAVIOUR_GORIYA, 0x31: BEHAVIOUR_DODONGO, 0x32: BEHAVIOUR_DODONGO,
+                      0x41: BEHAVIOUR_MOLDORM}
 
 # How each monster is drawn: (sprite layout, images, mode). The layout says how
 # the two 8x16 halves of an image are put together; the mode tells the game
@@ -57,6 +78,18 @@ MODE_WALLMASTER = 5  # open and closed hand, swapped every eight frames
 MODE_BOSS = 6       # drawn from the boss pieces instead
 MODE_STATIC = 7     # one picture, never mirrored: the blade trap
 MODE_OCTOROK = 8    # six images: side, front, back, each in two animation sets
+# The modes from here on keep every frame of the monster's animation, in the ROM's order, and the game
+# picks the frame (ai.s mover_frame): tektite 2, leever 10, zora 10, peahat 2, ghini 2, boulder 2.
+MODE_TEKTITE = 9
+MODE_LEEVER = 10
+MODE_ZORA = 11
+MODE_PEAHAT = 12
+MODE_GHINI = 13
+MODE_BOULDER = 14
+MODE_NONE = 15      # the boulder set that makes the boulders is never seen
+MODE_DODONGO = 16   # ten images (two squares wide, or one when it faces up or down), picked by dodongo_frame in enemy.s
+MODE_MOLDORM = 17   # one picture, a fireball tile in the red row
+FRAME_MODES = (MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO)
 MONSTER_DRAW = {
     0x06: ("wide", 4, MODE_WALKER),
     0x15: ("narrow", 2, MODE_GEL),
@@ -74,7 +107,25 @@ MONSTER_DRAW = {
     0x08: ("octorok", 6, MODE_OCTOROK),
     0x09: ("octorok", 6, MODE_OCTOROK),
     0x0A: ("octorok", 6, MODE_OCTOROK),
+    0x0D: ("mirror", 2, MODE_TEKTITE),
+    0x0E: ("mirror", 2, MODE_TEKTITE),
+    0x0F: ("mirror", 10, MODE_LEEVER),
+    0x10: ("mirror", 10, MODE_LEEVER),
+    0x11: ("mirror", 10, MODE_ZORA),
+    0x1A: ("mirror", 2, MODE_PEAHAT),
+    0x1F: ("wide", 1, MODE_NONE),
+    0x20: ("wide", 2, MODE_BOULDER),
+    0x21: ("wide", 2, MODE_GHINI),
+    0x05: ("wide", 4, MODE_WALKER),
+    0x31: ("wide", 10, MODE_DODONGO),
+    0x32: ("wide", 10, MODE_DODONGO),
+    0x41: ("mirror", 1, MODE_MOLDORM),
 }
+# UpdateMoldorm draws every segment as the fireball tile $44 in palette row 2, and Dodongo_Draw uses row 3.
+MONSTER_TILE_ROW = {0x31: (None, 3), 0x32: (None, 3), 0x41: (0x44, 2)}
+# Dodongo images 7 and 9 (bloated, facing up or down) are one half drawn twice, mirrored.
+DODONGO_MIRRORED_IMAGES = (7, 9)
+MOLDORM_SEGMENTS = 8        # two worms of four (the original has five each, but there are only eight monster slots)
 MONSTER_IMAGES = 4          # image slots of an ordinary monster, each stored plain and flipped
 OCTOROK_IMAGES = 6          # side, front and back, in two animation sets (mon_art says where each art starts)
 # Octorok frames in ObjAnimFrameHeap order: side, back, front for set one, then the same for set two. The back
@@ -95,10 +146,17 @@ PERSON_SELECTOR_LABELS = {1: "A", 2: "A", 3: "B", 4: "B", 5: "A", 6: "B", 7: "A"
 # Anim_ItemFrameTiles) that DrawLinkLiftingItem shows while he holds the triforce piece.
 LINK_LIFT_ID = 0x3F
 LINK_LIFT_TILE = 0x78
-ITEM_IDS = (0x00, 0x01, 0x0A, 0x0F, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1D, 0x22, 0x06, LINK_LIFT_ID)
+ITEM_COUNT = 0x24             # every item id of the game: bombs to the fairy
+ITEM_IDS = tuple(range(ITEM_COUNT)) + (LINK_LIFT_ID,)
 BOOMERANG_ITEM = 0x1D
 FIRE_ANIM_INDEX = 0x41
-HUD_ITEM_IDS = (0x01, 0x00, BOOMERANG_ITEM, 0x06, 0x16, 0x17, 0x0A)    # sword, bomb, boomerang, candle, compass, map, bow
+# The status bar and inventory pictures, two 8x8 tiles each. menu.s and hud.s index them: 0-3 are the B item codes
+# of the first four B items (sword, bomb, boomerang, candle), then compass, map and bow, then the rest.
+HUD_ITEM_IDS = (0x01, 0x00, BOOMERANG_ITEM, 0x06, 0x16, 0x17, 0x0A,
+                0x05, 0x04, 0x1F, 0x20, 0x10,         # 7 recorder, 8 food, 9 blue potion, 10 red potion, 11 rod
+                0x1E, 0x07, 0x02, 0x03,               # 12 magic boomerang, 13 red candle, 14 white sword, 15 magic sword
+                0x08, 0x09, 0x0C, 0x11, 0x12, 0x13,   # 16 arrow, 17 silver arrow, 18 raft, 19 book, 20 blue ring, 21 red ring
+                0x0D, 0x0B, 0x14, 0x1C, 0x15)         # 22 ladder, 23 magic key, 24 bracelet, 25 magic shield, 26 letter
 
 UW_SP_COMMON = "dat/CommonSpritePatterns.dat"
 UW_SP_DEMO = "dat/DemoSpritePatterns.dat"
@@ -122,13 +180,15 @@ class ActorData:
     item_index: bytes         # item id (0..63) -> item index, 0xFF for none
     drop_table: bytes
     drop_rates: bytes
-    sword_sprites: bytes      # up, down, left, right
+    sword_sprites: bytes      # up, down, left, right for the wooden, white and magic sword, then the rod
     beam_sprites: bytes       # the sword's shot: up, down, left, right, each in four palette rows
     fx_sprites: bytes         # two bomb clouds, then four spark corners in four palette rows each
     proj_sprites: bytes       # 4 boomerang turns, 2 fireball frames, then 4 pieces for each Aquamentus image
     hud_items: bytes          # sword, bomb, boomerang, candle, compass, map, bow as two status bar tiles each, top then bottom
     room_info: list[bytes]    # ROOM_INFO_BYTES per stored room
     keese_index: int = 0      # monster index of the keese the cellars are full of
+    item_slot: bytes = b""    # ItemIdToSlot: the Items byte an item id goes into
+    item_desc: bytes = b""    # ItemIdToDescriptor: class in the high nibble (0 own, 1 amount, 2 grade), value in the low
     person_text: bytes = b""  # the speeches of the level's dungeon people, appended to the first cave's text
 
 
@@ -259,21 +319,28 @@ def _flip_rows(rows: list[list[int]], h: bool, v: bool) -> list[list[int]]:
     return [r[::-1] for r in rows] if h else rows
 
 
-def _weapon_rows(sp_tiles, bg_tiles, palette, direction: str, row: int) -> list[list[int]]:
+def _weapon_rows(sp_tiles, bg_tiles, palette, direction: str, row: int,
+                 tiles: tuple[int, int] = (SWORD_TILE_VERTICAL, SWORD_TILE_HORIZONTAL)) -> list[list[int]]:
     """The sword (and the shot that copies it) for one direction, as UpdateSwordOrRod flips it."""
     vertical = direction in ("up", "down")
-    tile = SWORD_TILE_VERTICAL if vertical else SWORD_TILE_HORIZONTAL
+    tile = tiles[0] if vertical else tiles[1]
     rows = _item_rows(sp_tiles, bg_tiles, palette, tile, row)
     return _flip_rows(rows, h=direction == "left", v=direction == "down")
 
 
 WEAPON_DIRECTIONS = ("up", "down", "left", "right")
+ROD_TILES = (0x4A, 0x8A)          # the rod's two pictures, Anim_ItemFrameTiles from Anim_ItemFrameOffsets[8]
+SWORD_SETS = 4                    # wooden, white and magic sword, then the rod
 
 
 def _sword_frames(sp_tiles, bg_tiles, palette) -> bytes:
-    """Link's wooden sword (palette row 0 of the sprites) facing up, down, left, right."""
+    """Link's sword facing up, down, left, right: one set a grade (the palette row is the grade - 1, as
+    UpdateSwordOrRod adds it), then the magic rod (its base attribute with bit 0 set: row 5)."""
+    rows = [(B.LINK_PALETTE_ROW, None), (B.LINK_PALETTE_ROW + 1, None), (B.LINK_PALETTE_ROW + 2, None),
+            (B.LINK_PALETTE_ROW + 1, ROD_TILES)]
     return b"".join(
-        _pack_masked(_weapon_rows(sp_tiles, bg_tiles, palette, d, B.LINK_PALETTE_ROW))
+        _pack_masked(_weapon_rows(sp_tiles, bg_tiles, palette, d, row, tiles or (SWORD_TILE_VERTICAL, SWORD_TILE_HORIZONTAL)))
+        for row, tiles in rows
         for d in WEAPON_DIRECTIONS
     )
 
@@ -323,7 +390,8 @@ def _octorok_images(tiles, palette, anim_base: int, heap, attr_heap) -> list[lis
     return images
 
 
-def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, attrs, info, ow_sp_tiles=None) -> ActorData:
+def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, attrs, info, ow_sp_tiles=None,
+                 text_base: int | None = None) -> ActorData:
     asm1 = (source_root / "src" / "Z_01.asm").read_text(encoding="utf-8", errors="replace")
     asm4 = (source_root / "src" / "Z_04.asm").read_text(encoding="utf-8", errors="replace")
     asm7 = (source_root / "src" / "Z_07.asm").read_text(encoding="utf-8", errors="replace")
@@ -343,7 +411,8 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         "palette": B.parse_asm_byte_table(asm1, "ItemSlotToPaletteOffsetsOrValues"),
     }
 
-    person_blob, person_offsets = dungeon_people(source_root, level, room_ids, attrs, B.PERSON_TEXT_BYTES)
+    person_blob, person_offsets = dungeon_people(
+        source_root, level, room_ids, attrs, B.PERSON_TEXT_BYTES if text_base is None else text_base)
 
     sp_tiles = _sprite_table(source_root, level)
     sprites = bytearray()
@@ -364,10 +433,15 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             images = _octorok_images(tiles, palette, base, heap, attr_heap)
         else:
             images = []
-            for image in range(MONSTER_IMAGES):
+            for image in range(image_count if mode in FRAME_MODES else MONSTER_IMAGES):
                 frame = min(image, image_count - 1)
                 tile = heap[base + frame]
                 row = B.LINK_PALETTE_ROW + (attr_heap[base + frame] & 3)
+                if nes_type in MONSTER_TILE_ROW:
+                    override_tile, override_row = MONSTER_TILE_ROW[nes_type]
+                    tile = tile if override_tile is None else override_tile
+                    row = B.LINK_PALETTE_ROW + override_row
+                image_layout = "mirror" if mode == MODE_DODONGO and image in DODONGO_MIRRORED_IMAGES else layout
                 if mode == MODE_BOSS:
                     images.append(_blank(16))
                 elif mode == MODE_WALLMASTER and frame == 1:
@@ -376,7 +450,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
                     right = _tile_rows(tiles, palette, row, tile + 2)
                     images.append(_join(left, right))
                 else:
-                    images.append(_monster_image(tiles, palette, row, tile, layout))
+                    images.append(_monster_image(tiles, palette, row, tile, image_layout))
         art = bytearray()
         for rows in images:
             art.extend(_pack_masked(rows))
@@ -409,6 +483,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             items.extend(_item_frame(code, sp_tiles, bg_tiles, palette, item_id))
 
     foe_counts = list(info[B.LEVEL_INFO_FOE_COUNTS : B.LEVEL_INFO_FOE_COUNTS + 4])
+    lists = overworld_monster_lists(source_root)
     return ActorData(
         mon_sprites=bytes(sprites),
         mon_table=bytes(table),
@@ -421,11 +496,13 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         sword_sprites=_sword_frames(sp_tiles, bg_tiles, palette),
         beam_sprites=_beam_frames(sp_tiles, bg_tiles, palette),
         fx_sprites=_effect_frames(sp_tiles, bg_tiles, palette, _fire_rows(anim, heap, attr_heap, sp_tiles, palette)),
-        proj_sprites=_projectile_sprites(code, sp_tiles, bg_tiles, palette),
+        proj_sprites=_projectile_sprites(code, sp_tiles, bg_tiles, palette, ow_sp_tiles or sp_tiles, heap, attr_heap, anim),
         hud_items=_hud_items(code, sp_tiles, bg_tiles, palette),
-        room_info=[_room_info(r, attrs, foe_counts, info, person_offsets.get(r, NO_PERSON)) for r in room_ids],
+        room_info=[_room_info(r, attrs, foe_counts, info, person_offsets.get(r, NO_PERSON), lists) for r in room_ids],
         person_text=person_blob,
         keese_index=MONSTER_TYPES.index(0x1B),
+        item_slot=bytes(code["slot"][:ITEM_COUNT]),
+        item_desc=bytes(code["descriptor"][:ITEM_COUNT]),
     )
 
 
@@ -474,8 +551,32 @@ def _boss_pieces(sp_tiles, palette) -> list[bytes]:
     return frames
 
 
-def _projectile_sprites(code, sp_tiles, bg_tiles, palette) -> bytes:
-    """Eight boomerang images and its spark, two fireball frames, then the Aquamentus pieces."""
+ROCK_TYPE = 0x53            # the octorok's flying rock
+ARROW_SLOT = 2              # the item slot of the arrow (Anim_ItemFrameOffsets)
+MONSTER_ARROW_ROW = 2       # a monster's arrow adds 2 to the base attribute: palette row 6
+
+
+def _rock_frame(heap, attr_heap, anim, ow_sp_tiles, palette) -> bytes:
+    """The flying rock: image 0 of its animation, always palette row 0, drawn four pixels in (8 wide)."""
+    base = anim[ROCK_TYPE + 1]
+    rows = _monster_image(ow_sp_tiles, palette, B.LINK_PALETTE_ROW, heap[base], "narrow")
+    return _pack_masked(rows)
+
+
+def _arrow_frames(code, sp_tiles, bg_tiles, palette) -> bytes:
+    """A monster's arrow flying up, down, left and right (frame 0 is vertical, frame 1 sideways)."""
+    first = code["offsets"][ARROW_SLOT]
+    row = B.LINK_PALETTE_ROW + MONSTER_ARROW_ROW
+    frames = []
+    for direction in WEAPON_DIRECTIONS:
+        tile = code["tiles"][first + (0 if direction in ("up", "down") else 1)]
+        rows = _item_rows(sp_tiles, bg_tiles, palette, tile, row)
+        frames.append(_pack_masked(_flip_rows(rows, h=direction == "left", v=direction == "down")))
+    return b"".join(frames)
+
+
+def _projectile_sprites(code, sp_tiles, bg_tiles, palette, ow_sp_tiles, heap, attr_heap, anim) -> bytes:
+    """Eight boomerang images and its spark, two fireball frames, the Aquamentus pieces, a rock, four arrows."""
     fire = palette.index(B.LINK_PALETTE_ROW + 2, 3)
     fire_dark = palette.index(B.LINK_PALETTE_ROW + 2, 2)
     frames = _boomerang_frames(code, sp_tiles, bg_tiles, palette)
@@ -487,7 +588,9 @@ def _projectile_sprites(code, sp_tiles, bg_tiles, palette) -> bytes:
                 if distance <= 36:
                     rows[4 + y][4 + x] = fire if (distance <= 16) == (phase == 0) else fire_dark
         frames.append(_pack_masked(rows))
-    return b"".join(frames) + b"".join(_boss_pieces(sp_tiles, palette))
+    return (b"".join(frames) + b"".join(_boss_pieces(sp_tiles, palette))
+            + _rock_frame(heap, attr_heap, anim, ow_sp_tiles, palette)
+            + _arrow_frames(code, sp_tiles, bg_tiles, palette))
 
 
 def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_bytes: int):
@@ -526,7 +629,7 @@ def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_by
     return bytes(blob), offsets
 
 
-def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON) -> bytes:
+def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, lists=()) -> bytes:
     """count, secret trigger (bit 7: the room has a push block), item id, item X, item Y, unsupported,
     eight monsters, then where the person's speech starts in the cave text (0xFF: nobody talks here)."""
     attr_c, attr_d, attr_e, attr_f = attrs
@@ -535,8 +638,19 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON) -> b
     if 0x32 <= list_id < 0x62:
         count = 1
     types = [list_id] * count if 0 < list_id < 0x62 else []
-    if list_id in (0x49, 0x4A):
-        types = [0x49] * (6 if list_id == 0x49 else 4)    # InitTrap_Full makes six or four traps
+    if list_id >= 0x62 and list_id - 0x62 < len(lists):
+        types = [t for t in lists[list_id - 0x62][:count] if t]     # a mixed group; empty slots belong to the traps
+    expanded = []
+    for t in types:
+        if t in (0x49, 0x4A):
+            expanded.extend([0x49] * (6 if t == 0x49 else 4))       # InitTrap_Full makes six or four traps
+        elif t == 0x41:
+            expanded.append(0x41)
+        else:
+            expanded.append(t)
+    types = expanded
+    if types.count(0x41) == 1:
+        types = [t for t in types if t != 0x41] + [0x41] * MOLDORM_SEGMENTS   # InitMoldorm makes the worms' segments
     monsters = [MONSTER_TYPES.index(t) for t in types if t in MONSTER_TYPES][:8]
     # CheckHasLivingMonsters ignores bubbles ($2B-$2D) and everything from $49 up,
     # which includes the traps; any other monster has to be killed before the room clears.
@@ -588,8 +702,8 @@ def overworld_room_types(lists, attr_c: int, attr_d: int, foe_counts) -> list[in
 def overworld_room_info(source_root: Path, attrs_a, attrs_c, attrs_d, attrs_f, foe_counts) -> bytes:
     """128 records of OW_ROOM_INFO_BYTES: count, flags, then the monster indices from byte 6 (as uw_room_info).
 
-    Only the types this port can draw and move are kept; the others (peahats, leevers, zoras, ghinis,
-    armos, boulders) are left out until they are ported. The count is the foe count the game would place.
+    Only the types this port can draw and move are kept; armos, gravestones and flying ghinis are left out
+    until the room-tile patch overlay exists. The count is the foe count the game would place.
     """
     lists = overworld_monster_lists(source_root)
     records = bytearray()
@@ -615,10 +729,12 @@ def build_placeholder() -> ActorData:
         item_index=bytes([0xFF]) * 64,
         drop_table=bytes(40),
         drop_rates=bytes(4),
-        sword_sprites=frame * 4,
+        sword_sprites=frame * (4 * SWORD_SETS),
         beam_sprites=frame * 16,
         fx_sprites=frame * 20,
-        proj_sprites=frame * 27,
-        hud_items=bytes(448),
+        proj_sprites=frame * 32,
+        hud_items=bytes(len(HUD_ITEM_IDS) * 2 * B.HUD_TILE_BYTES),
         room_info=[bytes([0, 0, 0xFF, 0, 0, 0] + [0xFF] * 10)],
+        item_slot=bytes(ITEM_COUNT),
+        item_desc=bytes(ITEM_COUNT),
     )
