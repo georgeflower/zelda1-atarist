@@ -84,10 +84,10 @@
     .endif
 
     .equ PF_BOOM_SPARK, 8           | frames in proj_sprites: 0-7 the boomerang turning, 8 its spark
-    .equ PF_FIREBALL, 9
-    .equ PF_BOSS, 11
-    .equ PF_ROCK, 27                | after the 16 boss pieces: the rock, then four arrows (up, down, left, right)
-    .equ PF_ARROW, 28
+    .equ PF_FIREBALL, 9             | 9-12 the fireball in the four sprite palettes
+    .equ PF_BOSS, 13
+    .equ PF_ROCK, 29                | after the 16 boss pieces: the rock, then four arrows (up, down, left, right)
+    .equ PF_ARROW, 30
     .equ SHOT_LIMIT, 4              | ActiveMonsterShots
     .equ SHOT_SPEED, 192            | a rock or sword shot flies 3 pixels a frame, an arrow 2
     .equ ARROW_SPEED, 128
@@ -1466,8 +1466,7 @@ draw_projectiles:
     and.w #7, %d1                   | a boomerang spins: two frames to each turn
     move.w %d1, %d0
     bra 6f
-4:  lsr.w #2, %d1
-    and.w #1, %d1
+4:  and.w #3, %d1                   | a fireball flashes through the four palettes, one a frame (FrameCounter & 3)
     add.w #PF_FIREBALL, %d1
     move.w %d1, %d0
     bra 6f

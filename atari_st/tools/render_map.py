@@ -91,7 +91,7 @@ def main() -> None:
     parser.add_argument("--underworld", action="store_true", help="render the stored underworld rooms")
     args = parser.parse_args()
 
-    bundle = B.load_assets(args.source_root, require_source=True)
+    bundle = B.load_assets(args.source_root)
     if args.underworld:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         write_png(args.out, render_underworld(bundle))

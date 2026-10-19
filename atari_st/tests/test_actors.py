@@ -10,6 +10,19 @@ import actors  # noqa: E402
 import build_assets as B  # noqa: E402
 
 
+ROM_ROOT = Path(__file__).resolve().parents[2]
+HAS_ROM = (ROM_ROOT / "ext" / "Original.nes").exists()
+_ROM_ACTORS = None
+
+
+def rom_actors():
+    """The ROM's tables of level 1: nothing in the port is drawn or invented separately, so there is no stand-in."""
+    global _ROM_ACTORS
+    if _ROM_ACTORS is None:
+        _ROM_ACTORS = B.load_assets(ROM_ROOT).uw.actors
+    return _ROM_ACTORS
+
+
 class ActorTableTests(unittest.TestCase):
     def test_every_monster_has_the_data_the_tables_need(self) -> None:
         for nes_type in actors.MONSTER_TYPES:
@@ -156,8 +169,9 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(actors.MONSTER_DAMAGE[0x2F], 0)
         self.assertEqual(len(actors.FAIRY_TILES), 2)
 
-    def test_a_placeholder_has_a_picture_start_for_every_monster(self) -> None:
-        data = actors.build_placeholder()
+    @unittest.skipUnless(HAS_ROM, "needs ext/Original.nes")
+    def test_every_monster_has_a_picture_start(self) -> None:
+        data = rom_actors()
         self.assertEqual(len(data.mon_art), 2 * (len(data.mon_table) // 8))
 
     def test_a_gel_walks_a_pixel_a_frame_and_rests_between_squares(self) -> None:
@@ -167,18 +181,20 @@ class ActorTableTests(unittest.TestCase):
         source = (Path(__file__).resolve().parents[1] / "src" / "ai.s").read_text(encoding="utf-8")
         self.assertIn(".byte 0x08, 0x18, 0x28, 0x38", source)
 
+    @unittest.skipUnless(HAS_ROM, "needs ext/Original.nes")
     def test_projectile_sprites_cover_shots_and_the_boss(self) -> None:
-        data = actors.build_placeholder()
-        # 8 boomerang turns and its spark, 2 fireball frames, 4 images of 4 boss pieces, a rock, 4 arrows.
-        self.assertEqual(len(data.proj_sprites), 32 * B.SPRITE_FRAME_BYTES)
+        data = rom_actors()
+        # 8 boomerang turns and its spark, 4 fireball frames, 4 images of 4 boss pieces, a rock, 4 arrows.
+        self.assertEqual(len(data.proj_sprites), 34 * B.SPRITE_FRAME_BYTES)
         self.assertEqual(len(data.mon_table) % 8, 0)
 
     def test_shot_frames_follow_the_boss_pieces_in_proj_sprites(self) -> None:
         source = (Path(__file__).resolve().parents[1] / "src" / "ai.s").read_text(encoding="utf-8")
         equ = {name: int(value) for name, value in re.findall(r"\.equ (\w+), (\d+)", source)}
         self.assertEqual(equ["PF_ARROW"], equ["PF_ROCK"] + 1)
-        # rock + four arrows are the last five frames of the 32-frame table
-        self.assertEqual(equ["PF_ARROW"] + 4, 32)
+        # rock + four arrows are the last five frames of the 34-frame table
+        self.assertEqual(equ["PF_ARROW"] + 4, 34)
+        self.assertEqual(equ["PF_BOSS"], equ["PF_FIREBALL"] + 4)
         self.assertEqual((equ["PK_ROCK"], equ["PK_ARROW"], equ["PK_SWORDSHOT"]), (9, 10, 11))
         self.assertEqual(equ["SHOT_LIMIT"], 4)
         # the sword shot flies as fast as the rock, the arrow slower (1/64 px per frame)
@@ -190,8 +206,9 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(check_reach.LTAB.match("    ltab room_maps, %a0 | note").group(1), "room_maps")
         self.assertIsNone(check_reach.LTAB.match("    lea room_maps(%pc), %a0"))
 
+    @unittest.skipUnless(HAS_ROM, "needs ext/Original.nes")
     def test_effect_sprites_have_every_frame_the_game_indexes(self) -> None:
-        data = actors.build_placeholder()
+        data = rom_actors()
         self.assertEqual(len(data.sword_sprites), 16 * B.SPRITE_FRAME_BYTES)  # four directions x (three swords + the rod)
         self.assertEqual(len(data.beam_sprites), 16 * B.SPRITE_FRAME_BYTES)   # direction x palette row
         self.assertEqual(len(data.fx_sprites), 20 * B.SPRITE_FRAME_BYTES)     # 2 clouds, 4 corners x 4 rows, 2 fires

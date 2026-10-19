@@ -29,7 +29,7 @@
     gvar ENEMY_DIR, 8
     gvar ENEMY_ACTIVE, 8
     gvar ENEMY_ERASE_VALID, 8
-    gvar ENEMY_TYPE, 8          | monster index, 255 for the overworld blobs
+    gvar ENEMY_TYPE, 8          | monster index
     gvar ENEMY_HP, 8
     gvar ENEMY_HURT, 8          | frames left of knock-back invincibility
     gvar ITEM_X, 3

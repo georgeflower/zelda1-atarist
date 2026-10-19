@@ -516,33 +516,3 @@ def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes
         cellar_maps=tuple(cellar_maps),
         cellar_info=tuple(cellar_info),
     )
-
-
-def build_placeholder() -> UwData:
-    """One brick-bordered room, so the ST target still assembles without a ROM."""
-    grid = bytearray()
-    for row in range(UW_ROWS):
-        for col in range(UW_COLS):
-            edge = row in (0, UW_ROWS - 1) or col in (0, UW_COLS - 1)
-            grid.append(1 if edge else 0)
-    bank = bytearray()
-    for tile in range(2):
-        for _ in range(8):
-            bank.extend(B.pack_hud_row([1 + tile * 2] * 8))
-    room_index = [0xFF] * 128
-    room_index[0x73] = 0
-    return UwData(
-        tile_bank=bytes(bank),
-        tile_nes=bytes((0x24, 0xF6)),
-        rooms=[bytes(grid)],
-        room_index=room_index,
-        door_types=[(DOOR_WALL, DOOR_WALL, DOOR_OPEN, DOOR_WALL)],
-        open_faces=[[[0] * DOOR_TILE_COUNT for _ in range(4)]],
-        door_cells=[[0] * DOOR_TILE_COUNT for _ in range(4)],
-        start_room=0x73,
-        start_y=0xDD,
-        level=1,
-        triforce_room=0x73,
-        map_col0=2,
-        actors=actors.build_placeholder(),
-    )

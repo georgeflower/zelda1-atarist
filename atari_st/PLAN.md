@@ -25,7 +25,7 @@ Remaining, in the words of your request:
 | #4, #6 | `nes_music_rip.py`: every song, jingle and sound effect of the ROM ripped to `.ym` by running its own sound engine | M11 |
 | #5 | Music player: YM2149 register streams from a VBL hook, four contexts (song, effect over voice A, B, noise effect over voice C), digidrums | M11 |
 | #8 | Effect-channel sounds hooked: sword, boomerang, flame, bomb blast, stairs, low-life beep, menu and cave clicks | M11 |
-| #9 | The overworld plays the NES original theme by default (`MUSIC_OVERWORLD=qum` keeps the shipped arrangement) | M11 |
+| #9 | The overworld plays the NES original theme (the earlier hand-made arrangement is gone since 0.33.1) | M11 |
 | #10 | The bow room's push block (room `$22`) works: follows the ROM's push-block flag, not only trigger 4 | M6 |
 | #11 | Triforce ending as in the original: hold, white flash, hearts fill, curtain, pause, back to the overworld | M6, M9 |
 | #12, #13 | Map and compass: bit per level in `INV_MAP`/`INV_COMPASS`, dungeon minimap on the ribbon, the same map bigger on the Tab screen | M5, M6 |
@@ -182,7 +182,7 @@ Appendix B1 lists every screen with its monsters and count, plus the Zora, edge-
 - [ ] Overworld sprite pattern tables: unlike the underworld, the overworld swaps pattern blocks by region. List the blocks needed (octorok/moblin/lynel/tektite/leever/peahat/zora/ghini/armos/boulders) and load them at room entry.
 - [ ] Build `room_monsters.bin` for the overworld the same way `actors.py` builds it for dungeon rooms, including the edge-spawn flag and the Zora flag.
 - [ ] Drops: extend the drop table rows for every new type; fairy (kill 16) and clock drops need their pickups (section 8).
-- [x] Projectiles: rock, arrow, sword shot done (M2 step 2); fireball still placeholder art.
+- [x] Projectiles: rock, arrow, sword shot done (M2 step 2); the fireball is the ROM's tile `$44` flashing through the four sprite palettes.
 - [ ] Acceptance: screenshot a screen of each type with the monster present; unit test that every screen's list expands to the same types as appendix B1; Hatari scripts that check one behaviour per type (for example a Leever surfacing within N frames of Link standing in sand).
 
 ## 6. M3 Caves, shops and people

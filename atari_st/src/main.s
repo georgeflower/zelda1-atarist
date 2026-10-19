@@ -915,8 +915,6 @@ hud_tiles:
     .incbin "hud_tiles.bin"
 link_sprites:
     .incbin "link_sprites.bin"
-enemy_sprites:
-    .incbin "enemy_sprites.bin"
 metatile_tiles:
     .incbin "metatile_tiles.bin"
     .align 2
