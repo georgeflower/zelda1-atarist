@@ -254,6 +254,9 @@ game_start:
     move.b #DEV_START_ENTRANCE, OFF_CAVE_SOURCE_ROOM(%a5)   | the level's entrance, where leaving comes out
     .endif
     bsr enter_room
+    .if DEV_START_CAVE
+    bsr start_cave_entry_far            | development shortcut: start inside the cave behind the start screen
+    .endif
     bsr draw_hud_far
 
 main_loop:
@@ -282,7 +285,8 @@ main_loop:
 1:  bsr update_play
     bra 3f
 2:  bsr update_scroll_far
-3:  bsr minimap_tick_far
+3:  bsr rupee_drip_far
+    bsr minimap_tick_far
     tst.b OFF_HUD_DIRTY(%a5)
     beq main_loop
     bsr draw_hud_far
@@ -413,51 +417,19 @@ enter_cave:
     bsr clear_enemies
     bsr clear_items
     sfx SFX_STAIRS
-    bsr cave_setup
+    bsr cave_setup_far
     bsr cave_redraw
+    bsr cave_dress_far
     clr.b OFF_ERASE_VALID(%a5)
     bsr draw_link
     rts
 
-| The first cave (type $40) has the old man, who gives the wooden sword.
-cave_setup:
-    movem.l %d0/%a0, -(%sp)
-    clr.b OFF_CAVE_PERSON(%a5)
-    clr.b OFF_CAVE_TEXT_ON(%a5)
-    tst.b OFF_HAS_SWORD(%a5)
-    bne 9f
-    ltab room_attr_b, %a0
-    moveq #0, %d0
-    move.b OFF_CAVE_SOURCE_ROOM(%a5), %d0
-    move.b 0(%a0, %d0.w), %d0
-    and.w #0x00fc, %d0
-    cmp.w #0x40, %d0
-    bne 9f
-    move.b #1, OFF_CAVE_PERSON(%a5)
-    move.b #1, OFF_CAVE_TEXT_ON(%a5)
-    clr.w OFF_CAVE_TEXT_IDXW(%a5)
-    move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
-    move.b #CAVE_TEXT_ROW0, OFF_CAVE_TEXT_ROW(%a5)
-    move.b #CAVE_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
-    move.b #2, OFF_ITEM_ACTIVE(%a5)
-    move.b #ITEM_WOOD_SWORD, OFF_ITEM_ID(%a5)
-    move.b #CAVE_DOOR_CENTER, OFF_ITEM_X(%a5)
-    move.b #CAVE_ITEM_Y, OFF_ITEM_Y(%a5)
-9:  movem.l (%sp)+, %d0/%a0
-    rts
-
-| Draw the cave room with its bonfires and, while he is there, the old man.
+| Draw the cave room with its bonfires; the person and the rupee tag are sprites (caves.s).
 cave_redraw:
     movem.l %d0-%d2, -(%sp)
     movea.l OFF_BG_CUR(%a5), %a1
     bsr render_cave_room
-    tst.b OFF_CAVE_PERSON(%a5)
-    beq 1f
-    moveq #0, %d0
-    move.w #CAVE_DOOR_CENTER, %d1
-    move.w #CAVE_PERSON_Y, %d2
-    bsr cave_bake_sprite
-1:  bsr show_background
+    bsr show_background
     bsr draw_cave_fires
     movem.l (%sp)+, %d0-%d2
     rts
@@ -512,23 +484,6 @@ draw_cave_fires:
     blo 1b
     move.b #1, OFF_CAVE_FIRE_VALID(%a5)
 9:  movem.l (%sp)+, %d0-%d4/%a0-%a2
-    rts
-
-| Paint cave sprite d0 into the clean room, so erasing Link never wipes it.
-| d1.w = X, d2.w = Y
-cave_bake_sprite:
-    movem.l %d0-%d4/%a0-%a1, -(%sp)
-    mulu.w #SPRITE_FRAME_BYTES, %d0
-    ltab cave_sprites, %a0
-    adda.l %d0, %a0
-    bsr sprite_offset
-    tst.w %d4
-    bmi 9f
-    movea.l OFF_BG_CUR(%a5), %a1
-    adda.l %d1, %a1
-    move.w %d4, %d0
-    bsr draw_sprite
-9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
     rts
 
 | The old man's speech, one character every few frames. Link stands still
@@ -587,17 +542,6 @@ cave_talk:
 4:  clr.b OFF_CAVE_TEXT_ON(%a5)     | the last line: he has finished
 9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
     rts
-
-| Once the sword is in Link's hands the old man and his words are gone.
-cave_check_taken:
-    tst.b OFF_CAVE_PERSON(%a5)
-    beq 9f
-    tst.b OFF_HAS_SWORD(%a5)
-    beq 9f
-    clr.b OFF_CAVE_PERSON(%a5)
-    bsr cave_redraw
-    clr.b OFF_ERASE_VALID(%a5)
-9:  rts
 
 | Copy the whole playfield from bg_cur to the visible screen.
 show_background:
@@ -897,8 +841,28 @@ enter_cave_far:
     bra enter_cave
 erase_cave_fires_far:
     bra erase_cave_fires
-cave_check_taken_far:
-    bra cave_check_taken
+cave_setup_far:
+    bra cave_setup
+start_cave_entry_far:
+    bra start_cave_entry
+cave_dress_far:
+    bra cave_dress
+erase_at_far:
+    bra erase_at
+draw_sprite_far:
+    bra draw_sprite
+sprite_offset_far:
+    bra sprite_offset
+cave_update_far:
+    bra cave_update
+cave_sprites_erase_far:
+    bra cave_sprites_erase
+cave_sprites_draw_far:
+    bra cave_sprites_draw
+cave_stairs_far:
+    bra cave_stairs
+rupee_drip_far:
+    bra rupee_drip
 draw_cave_fires_far:
     bra draw_cave_fires
 ow_bomb_secret_far:
@@ -913,6 +877,7 @@ render_room_far:
     .include "link.s"
     .include "uw.s"
     .include "secrets.s"
+    .include "caves.s"
     .include "hud.s"
     .include "menu.s"
     .include "bosses.s"
@@ -976,6 +941,12 @@ text_glyphs:
     .align 2
 cave_sprites:
     .incbin "cave_sprites.bin"
+    .align 2
+cave_table:
+    .incbin "cave_table.bin"
+cave_shortcuts:
+    .incbin "cave_shortcuts.bin"
+    .align 2
 metatiles:
     .incbin "metatiles.bin"
 | room_maps is by far the largest table, so it goes last: every label above it

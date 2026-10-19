@@ -2,7 +2,27 @@
 
 Versions are milestones of the Atari ST port (`0.NN`), tagged on the commit that finishes them. A big change (a dungeon,
 a new mechanic family, a milestone package of `atari_st/PLAN.md`) gets its own version; fixes and docs ride along with the
-version they belong to. The current version is **0.31**.
+version they belong to. The current version is **0.32**.
+
+## 0.32 (2026-10-19) - caves, shops and people (M3)
+- All twenty overworld cave types work, driven by `cave_table.bin` (16 bytes a cave: flags, who, three wares, three prices, speech and
+  hint offsets), which `build_assets.py` reads from the ROM's `LevelBlockAttrsE`, text selectors and prices. The person (old man,
+  old woman, shopkeeper, moblin) is a sprite, so he can flicker; `caves.s` holds the state machine of `UpdateCavePerson`.
+- Gifts: the wooden sword, "take any one" (red potion or heart container, the other vanishes), the white sword (5 hearts) and the magic
+  sword (12 hearts; without them nothing happens), the letter. Shops with the rupee tag and prices on the price row, paid for with
+  the rupee drip; the medicine woman wakes when Link shows her the letter (B); paid hints, whose speech depends on the ware; the money
+  making game (ten rupees to play, +/- amounts in a random order); the door repair charge (20 rupees, once); the moblins' rupees.
+- Given things stay given: `OW_KILLS` bit 4 marks types `$6A`-`$6D`, `$71`, `$72` and `$7B`-`$7D`; the shops, hints and the money game
+  come back. After a take the person, the other wares and the tag flicker for `$40` frames and vanish.
+- Take-any-road: the second cave room with its three stairs (the middle one is white, as the palette has it); they lead to the next but
+  one of the rooms `$1D $23 $49 $79`, and Link comes out at that screen's cave.
+- Rupees are paid out and taken one every other frame with the heart blip (`RUPEES_ADD`, `RUPEES_SUB`), in every mode. The status bar
+  shows three-digit counts (it showed garbage above 99 rupees).
+- Link now enters a cave at X `$70`, as in the ROM, so the middle ware is not in his way.
+- `screenshot.py --cave` (and `ZELDA_START_CAVE`) starts inside the cave behind the start screen, for the scripted checks.
+- Differences from the ROM: B opens the medicine woman's shop (the B-item menu has no letter), the money game's six orders are
+  equally likely, wares are touched within 6 pixels of their column.
+- Fourteen golden scenes (`cave_*`) and `test_cave_table_follows_the_rom`.
 
 ## 0.31 (2026-10-19) - hidden bomb, fire and push spots (M1)
 - The overworld's six marker squares are drawn as the squares they imitate (rock, rock wall, tree, gravestone), as the ROM does; the

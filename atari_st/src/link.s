@@ -550,7 +550,7 @@ start_cave_entry:
     movem.l %d0-%d2, -(%sp)
     move.b OFF_ROOM_ID(%a5), OFF_CAVE_SOURCE_ROOM(%a5)
     move.b OFF_LINK_X(%a5), OFF_CAVE_DOOR_X(%a5)
-    move.b #CAVE_DOOR_CENTER, OFF_LINK_X(%a5)
+    move.b #CAVE_ENTRY_X, OFF_LINK_X(%a5)
     move.b #CAVE_START_Y, OFF_LINK_Y(%a5)
     move.b #DIR_UP, OFF_LINK_DIR(%a5)
     clr.b OFF_LINK_POS_FRAC(%a5)
@@ -585,7 +585,9 @@ update_cave:
     bsr erase_items
     bsr erase_sprite
     bsr erase_cave_fires_far
+    bsr cave_sprites_erase_far
     bsr cave_talk_far
+    bsr cave_update_far
     tst.b OFF_CAVE_TEXT_ON(%a5)
     bne 2f                      | Link waits while the old man speaks
     tst.b OFF_LIFT_TIMER(%a5)
@@ -598,10 +600,12 @@ update_cave:
     bsr link_animate
 1:  cmp.b #MODE_CAVE, OFF_GAME_MODE(%a5)
     bne 9f
-    bsr item_pickup
-    bsr cave_check_taken_far
+    bsr cave_stairs_far
+    cmp.b #MODE_CAVE, OFF_GAME_MODE(%a5)
+    bne 9f
 4:  bsr lift_update
 2:  bsr draw_cave_fires_far
+    bsr cave_sprites_draw_far
     bsr draw_items
     bsr draw_link
 9:  movem.l (%sp)+, %d0-%d3

@@ -79,10 +79,13 @@ Overworld
   hotspot and the walkable-tile exception list, the two-column test on
   vertical moves, and the original screen-edge coordinates
 - 16-pixel stepped scrolling between screens in all four directions
-- cave entry and exit. The first cave is rebuilt from the original cave layout
-  with the old man, his two bonfires, his speech typed out character by
-  character, and the wooden sword on the floor. Other caves are the same room
-  without a person
+- cave entry and exit. All twenty kinds of cave are built from the ROM's
+  tables: the old man and his sword, "take any one", the white and magic
+  sword (five and twelve hearts), take-any-road with its three stairs, the
+  letter, the medicine woman (she wakes when B shows her the letter), paid
+  hints, the money making game, the door repair charge, the shops with their
+  prices and the moblins' free rupees. What was given stays gone; rupees
+  are paid out and taken one at a time with the little blip
 - the game starts just below the first cave; dying refills the hearts and
   returns Link there
 - octoroks, moblins and lynels walk on the screens where the original puts them

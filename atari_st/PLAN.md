@@ -1,6 +1,6 @@
 # Zelda 1 for Atari ST - plan for all remaining work
 
-Status: **work in progress, version 0.31** (see `CHANGELOG.md`). Written as a plan after PR #2; PRs #4 to #32 have since implemented parts of it, listed in section 1.1, and ticked boxes (`[x]`) below show what is done. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged.
+Status: **work in progress, version 0.32** (see `CHANGELOG.md`). Written as a plan after PR #2; PRs #4 to #35 have since implemented parts of it, listed in section 1.1, and ticked boxes (`[x]`) below show what is done. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged.
 
 How to read this: section 2 is the order of work. Sections 3 to 12 are one work package each, with a checklist and an acceptance test. Section 13 records the decisions, the risks and the checks still open. The appendices hold the data tables, decoded from the PAL (Europe, Rev 1) ROM you supplied. That ROM has the same data layout as the disassembly in `src/` (start room `$77`, start Y `$8D`, same blob offsets), so the tables should apply to the NTSC ROM the build expects as well.
 
@@ -46,8 +46,9 @@ Remaining, in the words of your request:
 | #30 | Credits after Zelda's thanks (typed pages, "ATARI ST PORT / BY Q"), Ganon's music, the "more bombs" and "life or money" men, `MAX_BOMBS` as a variable | M5, M9, M11 |
 | #31 (0.30) | The magic key opens locked doors (HUD "XA"), the ladder crosses moats, reachability test of every level's doors, scripted Hatari checks of the Levels 3-9 mechanics; versions and `CHANGELOG.md` | M5, M9 |
 | #32 (0.31) | M1: the overworld's marker squares drawn as the squares they imitate, `room_secrets`, bomb walls, burnable trees, pushable gravestone and bracelet rocks (`secrets.s`), room flags; seven golden scenes | M1 |
+| #35 (0.32) | M3: the 20 cave types (`caves.s`, `cave_table`), shops, hints, money game, door repair, take-any-road, medicine woman, rupee drip, three-digit HUD counters; 14 golden scenes | M3 |
 
-M0 is complete (table-dump tool, reach budget, golden frames). M1 is done except the armos (they are an enemy, so they go with M2/M4). M2 has its first three steps (walkers; shots, edge spawns and kill history; the special movers); armos and flying ghinis can now use the room-tile patch of `secrets.s`. Nothing of M4 (overworld specials) has been started, and only the first cave of M3.
+M0 is complete (table-dump tool, reach budget, golden frames). M1 is done except the armos (they are an enemy, so they go with M2/M4). M2 has its first three steps (walkers; shots, edge spawns and kill history; the special movers); armos and flying ghinis can now use the room-tile patch of `secrets.s`. M3 (the caves) is done in 0.32. Nothing of M4 (overworld specials) has been started.
 
 ## 2. Order of work
 
@@ -56,7 +57,7 @@ M0 is complete (table-dump tool, reach budget, golden frames). M1 is done except
 | M0 | Foundations: table-dump tool, palette strategy, PAL timing, regression screenshots | - | S | **done** (#18, #25) |
 | M1 | **Hidden bomb/fire/push spots fixed** (the visible bug) | M0 | M | **done** (0.31, #32); the armos spots wait for M4 |
 | M2 | Overworld enemies, spawn rules, drops | M0 | L | steps 1-3 done (#20-#22); armos and gravestone ghinis can use the overlay of M1 (0.31) |
-| M3 | Caves: people, shops, hints, money game, door repair, take-any-road, old woman | M1 | L | first cave and the Level 1 old man |
+| M3 | Caves: people, shops, hints, money game, door repair, take-any-road, old woman | M1 | L | **done** (0.32, #35) |
 | M4 | Overworld specials: armos, bracelet rocks, gravestones, docks/raft, ladder, recorder + whirlwind, Lost Woods/Hills, fairy ponds | M1, M2 | L | not started |
 | M5 | Items, inventory screen, HUD, every B item and passive item | M3 | L | mostly done (#23, 0.30); the magic key opens doors, the ladder crosses dungeon moats and the bomb upgrade is sold; bracelet, raft, book effects and the overworld ladder open |
 | M6 | Dungeon engine generalised: doors, dark rooms, stair rooms, triggers, per-level palettes and tiles | M0 | L | mostly done: per-level tables, Levels 1 to 8, palettes, dark rooms, rupee stashes, Grumble; Level 9 open |
@@ -72,7 +73,7 @@ M0 is complete (table-dump tool, reach budget, golden frames). M1 is done except
 
 Versions are milestones, not PR numbers: `0.NN`, tagged on the commit that finishes the milestone, with a line in `CHANGELOG.md`. A big change (a new dungeon, a new mechanic family, a new milestone package) gets its own version; fixes and docs ride along with the version they belong to. The current version is **0.31**.
 
-Next step: **M3, the caves** (target 0.32): the openings of M1 and the cave and dungeon stairs of the overworld lead to rooms that are empty except the first cave. M3 puts the people, the shops, the hints, the money games, the door-repair man and take-any-road behind them, and with them most of the items the engine already has. Then M4 (armos with their stairs and the bracelet, raft, ladder, recorder, Lost Woods), then M10 (title, name entry, save), then a person's play-through of all nine dungeons and the memory check for a 512 KB machine (M12).
+Next step: **M4, the overworld specials** (target 0.33): armos with their stairs and the power bracelet, the raft and its docks, the ladder over water, the recorder and whirlwind, the Lost Woods and Lost Hills, the fairy ponds. Then M10 (title, name entry, save), then a person's play-through of all nine dungeons and the memory check for a 512 KB machine (M12).
 
 Reasoning: M1 went first because it was the bug you could see and it fixed the data model (secret objects per room, patched into the room maps) that M3, M4 and M9 reuse; M3 follows because every hidden spot, stair and cave of the overworld now leads to it. M6 comes before the monsters because every dungeon monster needs the room, door and palette machinery to be tested in place. M10 comes late because save files store the inventory, so the inventory must be final first.
 
@@ -207,22 +208,22 @@ Three item slots are drawn at X `$58 $78 $98`; the person stands at (`$78`, `$80
 ### 6.2 What each cave does
 
 - [x] `$6A` start cave (H8): "IT'S DANGEROUS TO GO ALONE! TAKE THIS." gives the Wooden Sword free. Already done.
-- [ ] `$6B` "TAKE ANY ONE YOU WANT": Red Potion (left) or Heart Container (right), free, take one and the other vanishes. Q1 screens: P3, M3, H5, L8 (appendix C). **(verify)** the left item is the second potion, not a different potion id.
-- [ ] `$6C` White Sword (K1): needs 5 heart containers. `$6D` Magical Sword (B3 in Q1, behind a pushable gravestone): needs 12.
-- [ ] `$6E` "TAKE ANY ROAD YOU WANT": four Power-Bracelet-rock caves (N2, D3, J5, J8). Entering sends Link to the next of the four rooms `$1D $23 $49 $79` (the four-entry shortcut array in the overworld level info); the choice depends on which of the three exits he takes.
-- [ ] `$6F` (M2): "SECRET IS IN THE TREE AT THE DEAD-END."
-- [ ] `$70` money game: you need at least 10 rupees; three boxes show +/- amounts picked from a random permutation; picking 20 or 50 adds, anything else subtracts. Six screens.
-- [ ] `$71` door repair: 20 rupees are taken once per room (the room flag is set so it does not repeat). Ten screens.
-- [ ] `$72` Letter, "SHOW THIS TO THE OLD WOMAN" (O1; B2 is Q2).
-- [ ] `$73` "MEET THE OLD MAN AT THE GRAVE." (F8).
-- [ ] `$74` potion shop, "BUY MEDICINE BEFORE YOU GO": Blue (Life) Potion 40, Red (2nd) Potion 68. Needs the Letter shown first (the letter is used from the B-item box; it changes the selected slot to the potion). **(verify)** exactly when the old woman appears and when she refuses.
-- [ ] `$75` (K2) and `$76` (A8) "PAY ME AND I'LL TALK": three prices (5/10/20 and 10/30/50); which price you pay picks the text. K2 (5/10/20): the first two say "THIS AIN'T ENOUGH TO TALK.", 20 says "GO UP,UP, THE MOUNTAIN AHEAD." (Lost Hills). A8 (10/30/50): 10 says "THIS AIN'T ENOUGH...", 30 says "GO NORTH,WEST,SOUTH, WEST TO THE FOREST OF MAZE." (Lost Woods), 50 says "BOY, YOU'RE RICH!". Mapping read from `HintCaveTextSelectors0/1`. **(verify)** whether the "not enough" answers still take the rupees.
-- [ ] `$77`, `$78`, `$79`, `$7A` shops "BUY SOMETHIN' WILL YA!" / "BOY, THIS IS REALLY EXPENSIVE!": Magical Shield (160 / 130 / 90), Bombs 20, Arrow 80, Key (100 / 80), Blue Candle 60, Bait (100 / 60), Small Heart 10, Blue Ring 250.
-- [ ] `$7B`, `$7C`, `$7D` "IT'S A SECRET TO EVERYBODY": free rupees, 30, 100 or 10 depending on the type. Eighteen screens.
-- [ ] Persistence rules: types `$6A`..`$6D`, `$72` and `$7B`+ remember "taken" in the room flags; the shop types do not.
-- [ ] Text: the 38 ROM texts are in `texts.json` (appendix E). They use the NES text codes; the port already has `text_glyphs` and `menu_text`.
-- [ ] Rupee/price HUD: `FormatDecimalByte` style three-digit prices, the rupee icon at (`$30`, `$AB`), and the `RupeesToAdd`/`RupeesToSubtract` drip counters (the counter ticks up or down one per frame with a sound, not instantly).
-- [ ] Acceptance: one scripted Hatari run per cave type; unit test that the table `cave_table.bin` equals the ROM bytes.
+- [x] `$6B` "TAKE ANY ONE YOU WANT": Red Potion (left) or Heart Container (right), free, take one and the other vanishes. Q1 screens: P3, M3, H5, L8 (appendix C). **(verify)** the left item is the second potion, not a different potion id.
+- [x] `$6C` White Sword (K1): needs 5 heart containers. `$6D` Magical Sword (B3 in Q1, behind a pushable gravestone): needs 12.
+- [x] `$6E` "TAKE ANY ROAD YOU WANT": four Power-Bracelet-rock caves (N2, D3, J5, J8). Entering sends Link to the next of the four rooms `$1D $23 $49 $79` (the four-entry shortcut array in the overworld level info); the choice depends on which of the three exits he takes.
+- [x] `$6F` (M2): "SECRET IS IN THE TREE AT THE DEAD-END."
+- [x] `$70` money game: you need at least 10 rupees; three boxes show +/- amounts picked from a random permutation; picking 20 or 50 adds, anything else subtracts. Six screens.
+- [x] `$71` door repair: 20 rupees are taken once per room (the room flag is set so it does not repeat). Ten screens.
+- [x] `$72` Letter, "SHOW THIS TO THE OLD WOMAN" (O1; B2 is Q2).
+- [x] `$73` "MEET THE OLD MAN AT THE GRAVE." (F8).
+- [x] `$74` potion shop, "BUY MEDICINE BEFORE YOU GO": Blue (Life) Potion 40, Red (2nd) Potion 68. Needs the Letter shown first (the letter is used from the B-item box; it changes the selected slot to the potion). **(verify)** exactly when the old woman appears and when she refuses.
+- [x] `$75` (K2) and `$76` (A8) "PAY ME AND I'LL TALK": three prices (5/10/20 and 10/30/50); which price you pay picks the text. K2 (5/10/20): the first two say "THIS AIN'T ENOUGH TO TALK.", 20 says "GO UP,UP, THE MOUNTAIN AHEAD." (Lost Hills). A8 (10/30/50): 10 says "THIS AIN'T ENOUGH...", 30 says "GO NORTH,WEST,SOUTH, WEST TO THE FOREST OF MAZE." (Lost Woods), 50 says "BOY, YOU'RE RICH!". Mapping read from `HintCaveTextSelectors0/1`. **(verify)** whether the "not enough" answers still take the rupees.
+- [x] `$77`, `$78`, `$79`, `$7A` shops "BUY SOMETHIN' WILL YA!" / "BOY, THIS IS REALLY EXPENSIVE!": Magical Shield (160 / 130 / 90), Bombs 20, Arrow 80, Key (100 / 80), Blue Candle 60, Bait (100 / 60), Small Heart 10, Blue Ring 250.
+- [x] `$7B`, `$7C`, `$7D` "IT'S A SECRET TO EVERYBODY": free rupees, 30, 100 or 10 depending on the type. Eighteen screens.
+- [x] (Done in 0.32: `OW_KILLS` bit 4.) Persistence rules: types `$6A`..`$6D`, `$72` and `$7B`+ remember "taken" in the room flags; the shop types do not.
+- [x] Text: the 38 ROM texts are in `texts.json` (appendix E). They use the NES text codes; the port already has `text_glyphs` and `menu_text`.
+- [x] Rupee/price HUD: `FormatDecimalByte` style three-digit prices, the rupee icon at (`$30`, `$AB`), and the `RupeesToAdd`/`RupeesToSubtract` drip counters (the counter ticks up or down one per frame with a sound, not instantly).
+- [x] Acceptance (0.32): fourteen golden scenes made by scripted Hatari runs (`cave_*` in `tools/golden.py`, started with `screenshot.py --cave`), and `test_cave_table_follows_the_rom`. Differences from the ROM: the letter is used by pressing B in the medicine woman's cave (the B-item menu has no letter), the six orders of the money game are equally likely, and Link touches a ware within 6 pixels instead of on the exact column.
 
 ### 6.3 Dungeon people
 

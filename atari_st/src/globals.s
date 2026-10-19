@@ -380,5 +380,21 @@
     gvar UW_PERSON_WARES, 1    | his prices and goods are on show
     gvar UW_PERSON_TIMER, 1    | the frames before he vanishes, once something was taken
     gvar GLEEOK_SEGS, 1        | one more than the middle segments a neck has: its pictures are drawn as the frame allows
+    gvar CAVE_TYPE, 1          | the cave's index in cave_table
+    gvar CAVE_STATE, 1         | the person's state, CS_* in caves.s
+    gvar CAVE_FLAGS, 1         | the cave flags: pick up, pay, show wares and prices, hint, money game, hearts, minus signs
+    gvar CAVE_WHO, 1           | 0 old man, 1 old woman, 2 shopkeeper, 3 moblin
+    gvar CAVE_CHOSEN, 1        | the ware Link touched
+    gvar CAVE_TIMER, 1         | frames until the cave empties after something was taken
+    gvar CAVE_ROOMKIND, 1      | 0 the usual cave, 1 the take-any-road room
+    gvar CAVE_ICON, 1          | the price tag's rupee is on show
+    gvar CAVE_B, 1             | B was down last frame (the letter)
+    gvar RUPEES_ADD, 1         | rupees still to be paid out, one every other frame
+    gvar RUPEES_SUB, 1         | rupees still to be paid
+    gvar CAVE_ITEMS, 3         | the wares (id, $3F none, $FF taken)
+    gvar CAVE_PRICES, 3
+    gvar CAVE_AMOUNTS, 3       | the money game's hidden amounts
+    gvar CAVE_SPR_VALID, 2     | the person and the rupee tag were drawn
     galign
+    gvar CAVE_SPR_OFFS, 8
     .equ GLOBALS_BYTES, gvar_offset

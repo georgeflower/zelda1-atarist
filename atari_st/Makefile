@@ -51,6 +51,7 @@ GENERATED := $(GENERATED_DIR)/assets.inc $(GENERATED_DIR)/metatiles.bin \
 	$(GENERATED_DIR)/beam_sprites.bin $(GENERATED_DIR)/fx_sprites.bin \
 	$(GENERATED_DIR)/mon_art.bin \
 	$(GENERATED_DIR)/ow_room_info.bin $(GENERATED_DIR)/room_secrets.bin \
+	$(GENERATED_DIR)/cave_table.bin $(GENERATED_DIR)/cave_shortcuts.bin \
 	$(GENERATED_DIR)/asset_manifest.txt
 MUSIC_SRC := music/zelda_intro_by_qum.h
 MUSIC_PLAYER := music/ymplay.h
