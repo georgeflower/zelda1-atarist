@@ -19,7 +19,16 @@ draw_hud:
     move.b OFF_INV_KEYS(%a5), %d4
     moveq #1, %d2
     bsr draw_hud_counter
-
+    tst.b OFF_INV_MAGIC_KEY(%a5)
+    beq 1f
+    moveq #(HUD_COUNTER_COL + 2), %d1   | the magic key: "XA" instead of a count
+    moveq #1, %d2
+    moveq #HUD_CH_A, %d0
+    bsr draw_hud_tile
+    addq.w #1, %d1
+    moveq #HUD_BLANK, %d0
+    bsr draw_hud_tile
+1:
     moveq #HUD_BOMB, %d3
     moveq #0, %d4
     move.b OFF_INV_BOMBS(%a5), %d4

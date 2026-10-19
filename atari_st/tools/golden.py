@@ -50,6 +50,7 @@ SCENES: dict[str, list[str]] = {
     "uw9_patra": ["--uw", "0x21", "--level", "9", "--vbls", "420"],
     "uw9_ganon": ["--uw", "0x42", "--level", "9", "--vbls", "420"],
     "uw9_zelda": ["--uw", "0x32", "--level", "9", "--vbls", "420"],
+    "uw1_magic_key_door": ["--uw", "0x73", "--level", "1", "--vbls", "500", "--keys", "190:=ITEMS.13=1,200:+up"],
     "uw5_bombs_man": ["--uw", "0x17", "--level", "5", "--vbls", "420"],
     "uw9_credits_port": ["--uw", "0x32", "--level", "9", "--vbls", "3250", "--keys", "190:=HP_HALVES=40,190:=LINK_Y=0x95"],
     "uw9_zelda_thanks": ["--uw", "0x32", "--level", "9", "--vbls", "800", "--keys", "190:=HP_HALVES=40,190:=LINK_Y=0x95"],
