@@ -266,6 +266,7 @@ main_loop:
     tst.b OFF_EXIT_REQUESTED(%a5)
     bne exit_program
     addq.w #1, OFF_FRAME_COUNTER(%a5)
+    bsr catch_up
 
     moveq #0, %d0
     move.b OFF_GAME_MODE(%a5), %d0
@@ -291,6 +292,29 @@ main_loop:
     bsr draw_hud_far
     bsr swap_screens
     bra main_loop
+
+| A frame that took two VBLs (a room full of monsters costs more than one) would run the game at half speed. The
+| game runs its update once more without drawing anything, so the speed stays that of 60 Hz and only the picture
+| is shown at 30 Hz. At most one pass: a long pause (a room being built) is not caught up.
+catch_up:
+    movem.l %d0-%d1, -(%sp)
+    move.l FR_CLOCK, %d0
+    move.l OFF_LAST_CLOCK(%a5), %d1
+    move.l %d0, OFF_LAST_CLOCK(%a5)
+    sub.l %d1, %d0
+    cmp.l #2, %d0
+    blo 9f
+    cmp.l #3, %d0
+    bhi 9f
+    tst.b OFF_GAME_MODE(%a5)
+    bne 9f
+    move.b #1, OFF_SKIP_DRAW(%a5)
+    addq.w #1, OFF_FRAME_COUNTER(%a5)
+    addq.w #1, OFF_LATE_FRAMES(%a5)
+    bsr update_play
+    clr.b OFF_SKIP_DRAW(%a5)
+9:  movem.l (%sp)+, %d0-%d1
+    rts
 
 exit_program:
     bsr music_exit
@@ -365,6 +389,7 @@ init_buffers:
 | Render the current room into bg_cur and show it.
 enter_room:
     clr.b OFF_COMMIT(%a5)
+    clr.b OFF_ROOM_LIT(%a5)             | a room is dark when he comes in (if it is one)
     clr.b OFF_INV_CLOCK(%a5)            | the clock lasts until he leaves the screen (ResetPlayerState)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
@@ -749,6 +774,8 @@ clear_erase_state:
     rts
 
 update_play:
+    tst.b OFF_SKIP_DRAW(%a5)
+    bne 5f                   | a catch-up pass: nothing is on the screen to take away
     bsr erase_beam
     bsr erase_effects
     bsr erase_bomb
@@ -757,7 +784,7 @@ update_play:
     bsr erase_enemies
     bsr erase_projectiles
     bsr erase_sprite
-    bsr menu_check_open_far
+5:  bsr menu_check_open_far
     tst.b OFF_GAME_MODE(%a5)
     bne 4f                   | the inventory screen is up
     bsr sword_input
@@ -767,6 +794,8 @@ update_play:
     move.b OFF_GAME_MODE(%a5), %d0
     beq 3f
     bsr dbl_end
+    tst.b OFF_SKIP_DRAW(%a5)
+    bne 4f                   | a catch-up pass leaves the transition to the main loop
     cmp.b #MODE_SCROLL, %d0
     beq update_scroll       | a room transition started this frame
     rts                      | cave entry already redrew the new background
@@ -774,11 +803,16 @@ update_play:
 3:
     bsr uw_person_update
     bsr items_update
+    bsr boss_misc_f
     bsr chase_target_update
     bsr update_enemies
     bsr update_combat
     bsr update_projectiles
-    bsr draw_items
+    tst.b OFF_SKIP_DRAW(%a5)
+    beq 6f
+    clr.b OFF_BP_COUNT(%a5)  | the pieces the bosses put in the pool are not drawn this time
+    rts
+6:  bsr draw_items
     bsr draw_bomb
     bsr draw_enemies
     bsr draw_projectiles
@@ -835,6 +869,9 @@ minimap_tick_far:
     bra minimap_tick
 music_play_far:
     bra music_play
+uw_light_room_far:
+    bra uw_light_room
+
 enter_room_far:
     bra enter_room
 dbl_end_far:

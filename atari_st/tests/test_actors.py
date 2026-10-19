@@ -30,6 +30,57 @@ class ActorTableTests(unittest.TestCase):
             self.assertIsNotNone(match, name)
             self.assertEqual(int(match.group(1)), getattr(actors, f"BEHAVIOUR_{name}"), name)
 
+    def test_every_behaviour_and_draw_mode_number_matches_the_assembly(self) -> None:
+        src = Path(__file__).resolve().parents[1] / "src"
+        text = "\n".join(path.read_text(encoding="utf-8") for path in src.glob("*.s"))
+        names = [n for n in dir(actors) if n.startswith("BEHAVIOUR_")]
+        self.assertGreaterEqual(len(names), 30)
+        for name in names:
+            match = re.search(rf"\.equ BEH_{name[len('BEHAVIOUR_'):]}, (\d+)", text)
+            self.assertIsNotNone(match, name)
+            self.assertEqual(int(match.group(1)), getattr(actors, name), name)
+        modes = [n for n in dir(actors) if n.startswith("MODE_") and isinstance(getattr(actors, n), int)
+                 and getattr(actors, n) >= actors.MODE_DARKNUT]       # the ones dmon.s draws
+        self.assertGreaterEqual(len(modes), 10)
+        for name in modes:
+            match = re.search(rf"\.equ {name}, (\d+)", text)
+            self.assertIsNotNone(match, name)
+            self.assertEqual(int(match.group(1)), getattr(actors, name), name)
+
+    def test_the_later_dungeons_monsters_have_data_and_a_behaviour(self) -> None:
+        for nes_type in (0x16, 0x23, 0x24, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46):
+            if nes_type in actors.MONSTER_TYPES:
+                self.assertIn(nes_type, actors.MONSTER_BEHAVIOUR, hex(nes_type))
+        self.assertEqual(actors.MONSTER_BEHAVIOUR[0x43], actors.BEHAVIOUR_GLEEOK)
+        self.assertEqual(actors.MONSTER_BEHAVIOUR[0xF9], actors.BEHAVIOUR_GLEEOK_HEAD)
+
+    def test_a_gleeok_art_ends_with_two_pre_shifted_tables(self) -> None:
+        # image 12 (a neck segment) and 13 (a head) are followed by 16 shifts of 16 two-group rows of 20 bytes each,
+        # which the boss sprite pool's shift-free blitter indexes by frame (28 + 32 * image + 2 * shift)
+        rows = [[3] * 8 + [-1] * 8 for _ in range(16)]
+        table = actors._preshift_narrow(rows)
+        self.assertEqual(len(table), 16 * 16 * 20)
+        self.assertEqual(len(table) % actors.FRAME_BYTES, 0)
+        self.assertEqual(len(table) // actors.FRAME_BYTES, 32)
+        first = table[:20]                       # shift 0: the left group is eight columns, the right group empty
+        self.assertEqual(first[8:10], (0x00FF).to_bytes(2, "big"))
+        self.assertEqual(first[18:20], (0xFFFF).to_bytes(2, "big"))
+        last = table[15 * 320 : 15 * 320 + 20]   # shift 15: one column in the left group, seven in the right
+        self.assertEqual(last[8:10], (0xFFFE).to_bytes(2, "big"))
+        self.assertEqual(last[18:20], (0x01FF).to_bytes(2, "big"))
+
+    def test_the_stash_and_grumble_rooms_mark_their_trigger_byte(self) -> None:
+        attrs = ([0x35], [0x00], [0], [0])
+        record = actors._room_info(0, attrs, [1, 4, 5, 6], bytes(64))
+        self.assertTrue(record[1] & 0x40, "bit 6: a rupee stash")
+        self.assertEqual(record[0], 0)           # no monster to kill
+        self.assertEqual(record[5], 0)           # and nothing unsupported
+        attrs = ([0x36], [0x00], [0], [0])
+        record = actors._room_info(0, attrs, [1, 4, 5, 6], bytes(64))
+        self.assertTrue(record[1] & 0x20, "bit 5: Grumble")
+        self.assertEqual(record[5], 0)
+        self.assertEqual((actors.RUPEE_STASH, actors.GRUMBLE), (0x35, 0x36))
+
     def test_b_item_tables_agree_with_the_b_codes(self) -> None:
         src = Path(__file__).resolve().parents[1] / "src"
         items = (src / "items.s").read_text(encoding="utf-8")

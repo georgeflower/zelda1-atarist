@@ -59,9 +59,14 @@ uw_spawn:
     bsr uw_room_info_ptr
     tst.w %d1
     bmi 9b
+    bsr boss_room_init_f            | the rupee stash, Grumble
     cmpi.w #0xffff, 14(%a1)
     beq 0f
-    bsr uw_person_begin             | an old man waits here with something to say
+    btst #5, 1(%a1)
+    beq 4f
+    tst.b OFF_GRUMBLE_ON(%a5)       | Grumble has nothing to say once he has been fed
+    beq 0f
+4:  bsr uw_person_begin             | an old man waits here with something to say
 0:
     move.b 1(%a1), %d2
     move.b %d2, %d3
@@ -71,6 +76,9 @@ uw_spawn:
     and.b #1, %d3
     move.b %d3, OFF_ROOM_BLOCK(%a5)
     move.b 5(%a1), OFF_ROOM_UNSUPPORTED(%a5)
+    move.b 5(%a1), OFF_ROOM_DARK(%a5)
+    and.b #0x7f, OFF_ROOM_UNSUPPORTED(%a5)
+    and.b #0x80, OFF_ROOM_DARK(%a5)
     bsr uw_setup_item
     bsr block_setup
     lea OFF_UW_FLAGS(%a5), %a2

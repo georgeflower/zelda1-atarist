@@ -247,6 +247,9 @@ PERSON_LIST_FIRST = 0x4B      # Person1..Person8 in the monster lists
 PERSON_LIST_LAST = 0x52
 PERSON_MORE_BOMBS = 0x4F      # in the dungeons whose people are table A this one and the next do more than talk
 PERSON_LIFE_OR_MONEY = 0x51
+RUPEE_STASH = 0x35           # ten rupees on the floor (trigger bit 6)
+GRUMBLE = 0x36               # the moblin who wants food (trigger bit 5); his text is selector $24
+GRUMBLE_SELECTOR = 0x24
 # CurLevel -> which of the two selector tables (InitUnderworldPerson_Full_JumpTable); 9 has a third
 PERSON_SELECTOR_LABELS = {1: "A", 2: "A", 3: "B", 4: "B", 5: "A", 6: "B", 7: "A", 8: "B"}
 
@@ -822,11 +825,14 @@ def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_by
     placed: dict[int, int] = {}
     for room in room_ids:
         list_id = (attr_c[room] & 0x3F) | (0x40 if attr_d[room] & 0x80 else 0)
-        if not PERSON_LIST_FIRST <= list_id <= PERSON_LIST_LAST or list_id == PERSON_LIFE_OR_MONEY:
-            continue
-        if list_id == PERSON_MORE_BOMBS and label == "A":
-            continue                    # the man who sells bomb capacity (InitUnderworldPersonA): not ported
-        selector = selectors[list_id - PERSON_LIST_FIRST]
+        if list_id == GRUMBLE:
+            selector = GRUMBLE_SELECTOR
+        else:
+            if not PERSON_LIST_FIRST <= list_id <= PERSON_LIST_LAST or list_id == PERSON_LIFE_OR_MONEY:
+                continue
+            if list_id == PERSON_MORE_BOMBS and label == "A":
+                continue                # the man who sells bomb capacity (InitUnderworldPersonA): not ported
+            selector = selectors[list_id - PERSON_LIST_FIRST]
         if selector not in placed:
             entry = selector // 2
             end = starts[entry + 1] if entry + 1 < len(starts) else len(texts)
@@ -839,7 +845,8 @@ def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_by
 
 
 def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, lists=()) -> bytes:
-    """count, secret trigger (bit 7: the room has a push block), item id, item X, item Y, unsupported,
+    """count, secret trigger (bit 7: the room has a push block, 6 a rupee stash, 5 Grumble), item id, item X, item Y,
+    unsupported (bit 7: a dark room),
     eight monsters, then where the person's speech starts in the cave text (0xFF: nobody talks here)."""
     attr_c, attr_d, attr_e, attr_f = attrs
     list_id = (attr_c[room] & 0x3F) | (0x40 if attr_d[room] & 0x80 else 0)
@@ -867,6 +874,7 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
     # which includes the traps; any other monster has to be killed before the room clears.
     unsupported = sum(
         1 for t in types if t not in MONSTER_TYPES and not (0x2B <= t <= 0x2D) and t < 0x49
+        and t not in (RUPEE_STASH, GRUMBLE)
     )
 
     item = attr_e[room] & 0x1F
@@ -875,7 +883,9 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
     item_id = 0xFF if item == 3 else item
     # FindAndCreatePushBlockObject runs for every room whose attribute D has $40, whatever its secret trigger
     trigger = (attr_f[room] & 7) | (0x80 if attr_d[room] & 0x40 else 0)
-    record = bytearray([len(monsters), trigger, item_id, pos & 0xF0, (pos & 0x0F) << 4, unsupported])
+    trigger |= (0x40 if RUPEE_STASH in types else 0) | (0x20 if GRUMBLE in types else 0)   # not monsters: the room's own things
+    dark = 0x80 if attr_e[room] & 0x80 else 0           # attribute E bit 7: a dark room (until the candle is lit)
+    record = bytearray([len(monsters), trigger, item_id, pos & 0xF0, (pos & 0x0F) << 4, unsupported | dark])
     record.extend(monsters)
     record.extend([0xFF] * (ROOM_INFO_BYTES - 2 - len(record)))
     record.extend(person.to_bytes(2, "big"))

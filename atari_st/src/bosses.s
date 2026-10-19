@@ -25,6 +25,7 @@
     farstub draw_sprite_bf, draw_sprite
     farstub music_play_bf, music_play
     farstub uw_redraw_room_bf, uw_redraw_room
+    farstub take_item_bf, take_item
 
 | ---------------------------------------------------------------- wizzrobes
 | Wizzrobes (UpdateBlueWizzrobe, UpdateRedWizzrobe). ENEMY_GHOST is set while one is not drawn: weapons pass through
@@ -1771,4 +1772,204 @@ dmon_gflyer:
     bsr gleeok_fire
 1:  movem.l (%sp)+, %d0
     moveq #1, %d0
+    rts
+
+| ------------------------------------------------------- the rupee stash and Grumble
+| Things a dungeon room has that are not monsters. The ten rupees (InitRupeeStash: a pyramid, taken one at a time
+| by walking over them, and once one is taken the stash is gone for good) are painted into the room like Gleeok's
+| body, and the room is drawn again without a rupee that Link has taken (STASH_MASK says which are left). Grumble
+| (InitGrumble) stands at ($78, $80) as a moblin the room draws, blocks Link (link_collide) and eats the food that
+| is put down beside him; then he goes, for good (room flag bit 1).
+    .equ STASH_COUNT, 10
+    .equ GRUMBLE_X, 0x78
+    .equ GRUMBLE_Y, 0x80
+    .equ GRUMBLE_REACH, 0x10
+stash_x:
+    .byte 0x78, 0x70, 0x80, 0x60, 0x70, 0x80, 0x90, 0x70, 0x80, 0x78
+stash_y:
+    .byte 0x70, 0x80, 0x80, 0x90, 0x90, 0x90, 0x90, 0xa0, 0xa0, 0xb0
+
+| d0.b = room, a1 = its record (the room has just been entered): what is on its floor and who stands in it.
+boss_room_init:
+    movem.l %d0-%d2/%a0, -(%sp)
+    clr.b OFF_GRUMBLE_ON(%a5)
+    move.b 1(%a1), %d1
+    lea OFF_UW_FLAGS(%a5), %a0
+    btst #5, %d1
+    beq 1f
+    btst #1, 0(%a0, %d0.w)
+    bne 1f                              | he has been fed
+    move.b #1, OFF_GRUMBLE_ON(%a5)
+1:  btst #6, %d1
+    beq 9f
+    move.b %d0, %d2
+    or.b #0x80, %d2
+    cmp.b OFF_STASH_ROOM(%a5), %d2
+    beq 9f
+    move.b %d2, OFF_STASH_ROOM(%a5)
+    move.w #0x3ff, %d1
+    btst #2, 0(%a0, %d0.w)
+    beq 8f
+    moveq #0, %d1                       | one was taken on an earlier visit: the rest are gone
+8:  move.w %d1, OFF_STASH_MASK(%a5)
+9:  movem.l (%sp)+, %d0-%d2/%a0
+    rts
+
+| d0.w = a room: d1.w = the rupees of its stash that are on the floor.
+stash_mask_for:
+    movem.l %d2/%a0, -(%sp)
+    move.b %d0, %d2
+    or.b #0x80, %d2
+    cmp.b OFF_STASH_ROOM(%a5), %d2
+    bne 1f
+    move.w OFF_STASH_MASK(%a5), %d1
+    bra 9f
+1:  move.w #0x3ff, %d1
+    lea OFF_UW_FLAGS(%a5), %a0
+    btst #2, 0(%a0, %d0.w)
+    beq 9f
+    moveq #0, %d1
+9:  movem.l (%sp)+, %d2/%a0
+    rts
+
+| d0.w = room, a1 = the buffer it has just been drawn into: its rupees.
+stash_bake:
+    movem.l %d0-%d7/%a0-%a3, -(%sp)
+    movea.l %a1, %a3
+    bsr stash_mask_for
+    move.w %d1, %d7
+    ltab item_index, %a0
+    moveq #0, %d0
+    move.b ITEM_RUPEE(%a0), %d0
+    mulu.w #SPRITE_FRAME_BYTES, %d0
+    ltab item_sprites, %a2
+    adda.l %d0, %a2
+    moveq #0, %d6
+1:  btst %d6, %d7
+    beq 2f
+    lea stash_x(%pc), %a0
+    moveq #0, %d1
+    move.b 0(%a0, %d6.w), %d1
+    lea stash_y(%pc), %a0
+    moveq #0, %d2
+    move.b 0(%a0, %d6.w), %d2
+    bsr sprite_offset_bf
+    tst.w %d4
+    bmi 2f
+    movea.l %a3, %a1
+    adda.l %d1, %a1
+    movea.l %a2, %a0
+    move.w %d4, %d0
+    bsr draw_sprite_bf
+2:  addq.w #1, %d6
+    cmp.w #STASH_COUNT, %d6
+    blo 1b
+    movem.l (%sp)+, %d0-%d7/%a0-%a3
+    rts
+
+| d0.w = room, a1 = the buffer it has just been drawn into: Grumble, unless he has been fed.
+grumble_bake:
+    movem.l %d0-%d7/%a0-%a3, -(%sp)
+    lea OFF_UW_FLAGS(%a5), %a0
+    btst #1, 0(%a0, %d0.w)
+    bne 9f
+    movea.l %a1, %a3
+    moveq #MON_MOBLIN, %d0
+    add.w %d0, %d0
+    bsr mon_art_ptr_bf
+    moveq #0, %d7
+    move.w 0(%a0, %d0.w), %d7
+    addq.w #4, %d7                      | the moblin facing down: image 2, the plain copy
+    mulu.w #SPRITE_FRAME_BYTES, %d7
+    movea.l OFF_MON_SPR(%a5), %a2
+    adda.l %d7, %a2
+    moveq #0, %d1
+    move.w #GRUMBLE_X, %d1
+    moveq #0, %d2
+    move.w #GRUMBLE_Y, %d2
+    bsr sprite_offset_bf
+    tst.w %d4
+    bmi 9f
+    movea.l %a3, %a1
+    adda.l %d1, %a1
+    movea.l %a2, %a0
+    move.w %d4, %d0
+    bsr draw_sprite_bf
+9:  movem.l (%sp)+, %d0-%d7/%a0-%a3
+    rts
+
+| Once a frame: Link on a rupee takes it, the food beside Grumble is eaten.
+boss_misc_update:
+    movem.l %d0-%d7/%a0-%a2, -(%sp)
+    moveq #0, %d0
+    move.b OFF_ROOM_ID(%a5), %d0
+    tst.b OFF_GRUMBLE_ON(%a5)
+    beq 5f
+    cmpi.b #ITEM_FOOD_STATE, (OFF_ITEM_ACTIVE + FOOD_SLOT)(%a5)
+    bne 5f
+    moveq #0, %d1
+    move.b (OFF_ITEM_X + FOOD_SLOT)(%a5), %d1
+    sub.w #GRUMBLE_X, %d1
+    bpl 1f
+    neg.w %d1
+1:  cmp.w #GRUMBLE_REACH, %d1
+    bhi 5f
+    moveq #0, %d1
+    move.b (OFF_ITEM_Y + FOOD_SLOT)(%a5), %d1
+    sub.w #GRUMBLE_Y, %d1
+    bpl 2f
+    neg.w %d1
+2:  cmp.w #GRUMBLE_REACH, %d1
+    bhi 5f
+    clr.b OFF_FOOD_TIMER(%a5)           | he eats it: the food is gone, and so is he
+    clr.b (OFF_ITEM_ACTIVE + FOOD_SLOT)(%a5)
+    clr.b OFF_INV_FOOD(%a5)
+    clr.b OFF_GRUMBLE_ON(%a5)
+    move.b #1, OFF_HUD_DIRTY(%a5)
+    lea OFF_UW_FLAGS(%a5), %a0
+    bset #1, 0(%a0, %d0.w)
+    sfx SFX_SECRET
+    bsr uw_redraw_room_bf
+    bra 9f
+5:  move.b %d0, %d2
+    or.b #0x80, %d2
+    cmp.b OFF_STASH_ROOM(%a5), %d2
+    bne 9f
+    move.w OFF_STASH_MASK(%a5), %d7
+    beq 9f
+    moveq #0, %d6
+6:  btst %d6, %d7
+    beq 8f
+    lea stash_x(%pc), %a0
+    moveq #0, %d1
+    move.b 0(%a0, %d6.w), %d1
+    moveq #0, %d3
+    move.b OFF_LINK_X(%a5), %d3
+    sub.w %d1, %d3
+    bpl 61f
+    neg.w %d3
+61: cmp.w #9, %d3
+    bhs 8f
+    lea stash_y(%pc), %a0
+    moveq #0, %d1
+    move.b 0(%a0, %d6.w), %d1
+    moveq #0, %d3
+    move.b OFF_LINK_Y(%a5), %d3
+    sub.w %d1, %d3
+    bpl 62f
+    neg.w %d3
+62: cmp.w #9, %d3
+    bhs 8f
+    bclr %d6, %d7                       | Link has it
+    move.w %d7, OFF_STASH_MASK(%a5)
+    lea OFF_UW_FLAGS(%a5), %a0
+    bset #2, 0(%a0, %d0.w)
+    moveq #ITEM_RUPEE, %d0
+    bsr take_item_bf
+    bsr uw_redraw_room_bf
+    bra 9f
+8:  addq.w #1, %d6
+    cmp.w #STASH_COUNT, %d6
+    blo 6b
+9:  movem.l (%sp)+, %d0-%d7/%a0-%a2
     rts

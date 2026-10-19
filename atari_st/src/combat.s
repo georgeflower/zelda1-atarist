@@ -473,6 +473,8 @@ draw_effects:
     bsr fx_put
 55: tst.b OFF_UW_PERSON(%a5)
     beq 57f
+    tst.b OFF_GRUMBLE_ON(%a5)
+    bne 57f                     | no bonfires for Grumble
     tst.b OFF_LEVEL(%a5)
     beq 57f
     moveq #9, %d6               | the old man's two bonfires
@@ -1303,6 +1305,7 @@ use_candle:
 0:    tst.b OFF_FIRE_STATE(%a5)
     bne 9f
     move.b #1, OFF_CANDLE_USED(%a5)
+    bsr uw_light_room_far
     moveq #0, %d1
     move.b OFF_LINK_X(%a5), %d1
     moveq #0, %d2

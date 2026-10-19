@@ -351,6 +351,16 @@
     gvar GLEEOK_ANIM, 2        | the body's picture timer and picture
     gvar GSEG_X, 12            | the middle segments of the four necks, three each
     gvar GSEG_Y, 12
+    gvar SKIP_DRAW, 1          | the update that is running draws nothing (see catch_up)
+    galign
+    gvar LATE_FRAMES, 2        | how many times a slow frame was caught up
+    gvar LAST_CLOCK, 4         | the VBL clock when the last frame began
+    gvar ROOM_DARK, 1          | this room is dark by nature (bit 7), until it is lit
+    gvar ROOM_LIT, 1           | the candle has lit it
+    gvar STASH_ROOM, 1         | the rupee stash's room (bit 7 set) while its rupees are on the floor
+    gvar GRUMBLE_ON, 1        | Grumble stands in this room, waiting for food
+    galign
+    gvar STASH_MASK, 2         | the rupees of the stash still lying there, a bit each
     gvar GLEEOK_GONE, 1        | the room (bit 7 set) whose Gleeok has just died: the room is drawn without its body
     gvar GLEEOK_SEGS, 1        | one more than the middle segments a neck has: its pictures are drawn as the frame allows
     galign

@@ -332,7 +332,20 @@ link_collide:
     cmp.w #(PLAY_AREA_ROWS - 1), %d2
     bls 8f
     moveq #(PLAY_AREA_ROWS - 1), %d2
-8:  bsr fetch_tile
+8:  tst.b OFF_GRUMBLE_ON(%a5)
+    beq 80f
+    cmp.w #14, %d3                      | Grumble stands in the way: the squares around ($78, $80)
+    blo 80f
+    cmp.w #16, %d3
+    bhi 80f
+    cmp.w #8, %d2
+    blo 80f
+    cmp.w #9, %d2
+    bhi 80f
+    moveq #1, %d0
+    movem.l (%sp)+, %d1-%d5
+    rts
+80: bsr fetch_tile
     move.w %d0, %d5
 
     | Moving vertically also looks at the next column along and keeps the

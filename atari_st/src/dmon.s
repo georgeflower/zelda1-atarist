@@ -575,5 +575,9 @@ vire_hops:
     farstub boss_ghead_died_f, gleeok_head_died
     farstub boss_draw_f, boss_pool_draw
     farstub boss_bake_f, gleeok_bake
+    farstub boss_stash_bake_f, stash_bake
+    farstub boss_grumble_bake_f, grumble_bake
+    farstub boss_room_init_f, boss_room_init
+    farstub boss_misc_f, boss_misc_update
     farstub boss_dig_init_f, dig_init
     farstub boss_dig_flute_f, dig_flute

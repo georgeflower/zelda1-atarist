@@ -261,6 +261,29 @@ class RomUnderworldTests(unittest.TestCase):
 
 
 @unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
+@unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
+class RomAllDungeonsTests(unittest.TestCase):
+    ROOMS = {1: 17, 2: 18, 3: 18, 4: 20, 5: 23, 6: 25, 7: 33, 8: 25}
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+
+    def test_every_dungeon_has_its_rooms_and_a_triforce_room_among_them(self) -> None:
+        for level, count in self.ROOMS.items():
+            uw = self.bundle.levels[level - 1]
+            stored = [room for room, index in enumerate(uw.room_index) if index != 0xFF]
+            self.assertEqual(len(stored), count, level)
+            self.assertIn(uw.triforce_room, stored, level)
+            self.assertIn(uw.start_room, stored, level)
+
+    def test_no_room_of_the_first_eight_dungeons_holds_an_unported_monster(self) -> None:
+        for level in self.ROOMS:
+            uw = self.bundle.levels[level - 1]
+            for record in uw.actors.room_info:
+                self.assertEqual(record[5] & 0x7F, 0, (level, record.hex()))
+
+
 class RomLevelPaletteTests(unittest.TestCase):
     """Risk R1: every dungeon must fit the 16 ST colours without disturbing what is baked once for all modes."""
 

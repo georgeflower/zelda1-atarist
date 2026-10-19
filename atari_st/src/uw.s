@@ -196,6 +196,7 @@ uw_render_current:
     bsr uw_render_map
     lea OFF_UW_MAP(%a5), %a0
     bsr uw_open_false_walls
+    bsr uw_dark_fill
     bsr uw_bake_person
     bsr uw_bake_boss
     movem.l (%sp)+, %d1/%a0
@@ -205,6 +206,8 @@ uw_render_current:
 | d0.w = room id, d1.b = direction Link is travelling, a1 = destination buffer
 uw_render_next:
     movem.l %d1-%d3/%a0, -(%sp)
+    clr.b OFF_STASH_ROOM(%a5)           | Link is leaving a room: its rupees are no longer on show
+    clr.b OFF_ROOM_LIT(%a5)             | and a room he lit is dark again
     | The door Link comes in through is the opposite one; E/W and S/N swap.
     move.b %d1, %d2
     and.b #5, %d2
@@ -221,6 +224,7 @@ uw_render_next:
     bsr uw_render_map
     lea OFF_UW_MAP_NEXT(%a5), %a0
     bsr uw_open_false_walls
+    bsr uw_dark_fill
     bsr uw_bake_person
     bsr uw_bake_boss
     movem.l (%sp)+, %d1-%d3/%a0
@@ -265,7 +269,10 @@ uw_person_update:
     tst.b OFF_CAVE_TEXT_ON(%a5)
     bne 9f
     move.b #2, OFF_UW_PERSON(%a5)
-    clr.b OFF_LINK_HELD(%a5)
+    tst.b OFF_GRUMBLE_ON(%a5)
+    beq 1f
+    clr.b OFF_UW_PERSON(%a5)           | Grumble is a moblin, not an old man by two fires
+1:  clr.b OFF_LINK_HELD(%a5)
 9:  rts
 
 | Paint the old man into the room just drawn. d0.w = room id, a1 = the buffer it went to.
@@ -292,35 +299,92 @@ uw_bake_person:
 9:  movem.l (%sp)+, %d0-%d4/%a0-%a2
     rts
 
-| Paint a living Gleeok's body into the room just drawn. d0.w = room id, a1 = the buffer it went to.
-uw_bake_boss:
-    movem.l %d0-%d2/%a0-%a2, -(%sp)
+| A dark room (record byte 5, bit 7) is drawn black until the candle lights it: the walls, floor and doors vanish,
+| the sprites do not (a dark room's background palette fades out in the original). d0.w = room id, a1 = buffer.
+uw_dark_fill:
+    movem.l %d0-%d7/%a0-%a3, -(%sp)
+    tst.b OFF_ROOM_LIT(%a5)
+    bne 9f
     movea.l %a1, %a2
-    lea OFF_UW_FLAGS(%a5), %a0
+    bsr uw_room_info_ptr
+    tst.w %d1
+    bmi 9f
+    tst.b 5(%a1)
+    bpl 9f
+    adda.l #PLAYFIELD_ORIGIN, %a2
+    moveq #0, %d0                       | eight zero longs: d0-d6 and a3
+    moveq #0, %d1
+    moveq #0, %d2
+    moveq #0, %d3
+    moveq #0, %d4
+    moveq #0, %d5
+    moveq #0, %d6
+    suba.l %a3, %a3
+    move.w #(UW_ROWS * 8 - 1), %d7
+1:  lea 128(%a2), %a0                   | the line is 256 pixels: 128 bytes, cleared back to front
+    movem.l %d0-%d6/%a3, -(%a0)
+    movem.l %d0-%d6/%a3, -(%a0)
+    movem.l %d0-%d6/%a3, -(%a0)
+    movem.l %d0-%d6/%a3, -(%a0)
+    lea SCREEN_STRIDE(%a2), %a2
+    dbra %d7, 1b
+9:  movem.l (%sp)+, %d0-%d7/%a0-%a3
+    rts
+
+| The candle has been lit: a dark room shows itself.
+uw_light_room:
+    movem.l %d0/%a1, -(%sp)
+    tst.b OFF_LEVEL(%a5)
+    beq 9f
+    tst.b OFF_ROOM_LIT(%a5)
+    bne 9f
+    tst.b OFF_ROOM_DARK(%a5)
+    beq 9f
+    move.b #1, OFF_ROOM_LIT(%a5)
+    bsr uw_redraw_room
+9:  movem.l (%sp)+, %d0/%a1
+    rts
+
+| Paint what a dungeon room has besides its tiles into the room just drawn: a living Gleeok's body, the rupee
+| stash, Grumble. d0.w = room id, a1 = the buffer it went to.
+uw_bake_boss:
+    movem.l %d0-%d2/%a0-%a3, -(%sp)
+    movea.l %a1, %a2
+    bsr uw_room_info_ptr
+    tst.w %d1
+    bmi 9f
+    movea.l %a1, %a3
+    move.b 1(%a3), %d2
+    btst #6, %d2
+    beq 1f
+    movea.l %a2, %a1
+    bsr boss_stash_bake_f
+1:  btst #5, %d2
+    beq 2f
+    movea.l %a2, %a1
+    bsr boss_grumble_bake_f
+2:  lea OFF_UW_FLAGS(%a5), %a0
     btst #0, 0(%a0, %d0.w)
     bne 9f                              | the room is won
     move.b %d0, %d1
     or.b #0x80, %d1
     cmp.b OFF_GLEEOK_GONE(%a5), %d1
     beq 9f                              | its Gleeok has just died
-    bsr uw_room_info_ptr
-    tst.w %d1
-    bmi 9f
     moveq #0, %d1
-    move.b (%a1), %d1                   | the monsters of the room
+    move.b (%a3), %d1                   | the monsters of the room
     beq 9f
     subq.w #1, %d1
-    lea 6(%a1), %a0
-1:  move.b (%a0)+, %d0
-    cmp.b #MON_GLEEOK2, %d0
-    blo 2f
-    cmp.b #MON_GLEEOK4, %d0
-    bhi 2f
+    lea 6(%a3), %a0
+3:  move.b (%a0)+, %d2
+    cmp.b #MON_GLEEOK2, %d2
+    blo 4f
+    cmp.b #MON_GLEEOK4, %d2
+    bhi 4f
     movea.l %a2, %a1
     bsr boss_bake_f
     bra 9f
-2:  dbra %d1, 1b
-9:  movem.l (%sp)+, %d0-%d2/%a0-%a2
+4:  dbra %d1, 3b
+9:  movem.l (%sp)+, %d0-%d2/%a0-%a3
     rts
 
 | A door has opened: redraw the room behind Link.
@@ -617,6 +681,7 @@ uw_enter_cellar:
     bsr clear_items
     clr.b OFF_ROOM_TRIGGER(%a5)
     clr.b OFF_ROOM_UNSUPPORTED(%a5)
+    clr.b OFF_ROOM_DARK(%a5)
     lea cellar_keese(%pc), %a1
     ltab mon_table, %a2
     moveq #MON_KEESE, %d1

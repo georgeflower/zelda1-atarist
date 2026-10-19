@@ -382,7 +382,8 @@ def main() -> None:
           f"UW_OPEN[0x63]={ram[globals_addr + layout['UW_OPEN'] + 0x63]:#04x}")
     # A loop that keeps pace with the VBL advances this once per frame.
     frames = int.from_bytes(ram[globals_addr + layout["FRAME_COUNTER"] :][:2], "big")
-    print(f"FRAME_COUNTER={frames} after {args.vbls} VBLs")
+    late = int.from_bytes(ram[globals_addr + layout["LATE_FRAMES"] :][:2], "big")
+    print(f"FRAME_COUNTER={frames} after {args.vbls} VBLs LATE_FRAMES={late}")
     sync = re.search(r"^00FF8200: ((?:[0-9a-fA-F]{2} ){16})", log, re.M)
     if sync:
         # $FF820A bit 1 set = 50 Hz (PAL), clear = 60 Hz
