@@ -48,7 +48,7 @@ version they belong to. The current version is **0.31**.
 
 ## 0.26 - stashes, Grumble, dark rooms (PR #27, #28)
 - Rupee stashes, Grumble, dark rooms (the candle lights them) and a catch-up pass that keeps the game speed when a crowded room
-  takes two VBLs. Golden scenes for Levels 3-8. `SCREENSHOTS/` folder.
+  takes two VBLs. Golden scenes for Levels 3-8. `SCREENSHOTS/` folder (taken out of the repository again later; it stays in the history).
 
 ## 0.25 - the bosses of Levels 3-8 (PR #27)
 - Manhandla, Gohma, Digdogger (the recorder splits it) and Gleeok; `bosses.s` with far trampolines, a boss sprite pool.
