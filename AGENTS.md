@@ -28,6 +28,13 @@ The repository root also contains the original disassembly the port is built on
 **reference for every behaviour**: when you need a number (speed, timer,
 damage, tile id, table), read it from there rather than guessing.
 
+## 1.1 Versions
+
+The port has versions `0.NN` (current: **0.30**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
+the commit that finishes it. A big change (a dungeon, a mechanic family, a package of `atari_st/PLAN.md`) takes the next number; fixes
+and docs ride along. When you finish one: bump `VERSION`, the "Version" line of `README.md`, the status line of `atari_st/PLAN.md`
+and add the `CHANGELOG.md` entry, in the same PR; tag it after the merge. The next step is named in `atari_st/PLAN.md` section 2.1.
+
 ## 2. References and links (provided by the project owner - treat as truth)
 
 - **Code truth, raw**: <https://github.com/camthesaxman/zeldasource> (unlabelled
