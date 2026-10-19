@@ -30,6 +30,57 @@ class ActorTableTests(unittest.TestCase):
             self.assertIsNotNone(match, name)
             self.assertEqual(int(match.group(1)), getattr(actors, f"BEHAVIOUR_{name}"), name)
 
+    def test_every_behaviour_and_draw_mode_number_matches_the_assembly(self) -> None:
+        src = Path(__file__).resolve().parents[1] / "src"
+        text = "\n".join(path.read_text(encoding="utf-8") for path in src.glob("*.s"))
+        names = [n for n in dir(actors) if n.startswith("BEHAVIOUR_")]
+        self.assertGreaterEqual(len(names), 30)
+        for name in names:
+            match = re.search(rf"\.equ BEH_{name[len('BEHAVIOUR_'):]}, (\d+)", text)
+            self.assertIsNotNone(match, name)
+            self.assertEqual(int(match.group(1)), getattr(actors, name), name)
+        modes = [n for n in dir(actors) if n.startswith("MODE_") and isinstance(getattr(actors, n), int)
+                 and getattr(actors, n) >= actors.MODE_DARKNUT]       # the ones dmon.s draws
+        self.assertGreaterEqual(len(modes), 10)
+        for name in modes:
+            match = re.search(rf"\.equ {name}, (\d+)", text)
+            self.assertIsNotNone(match, name)
+            self.assertEqual(int(match.group(1)), getattr(actors, name), name)
+
+    def test_the_later_dungeons_monsters_have_data_and_a_behaviour(self) -> None:
+        for nes_type in (0x16, 0x23, 0x24, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46):
+            if nes_type in actors.MONSTER_TYPES:
+                self.assertIn(nes_type, actors.MONSTER_BEHAVIOUR, hex(nes_type))
+        self.assertEqual(actors.MONSTER_BEHAVIOUR[0x43], actors.BEHAVIOUR_GLEEOK)
+        self.assertEqual(actors.MONSTER_BEHAVIOUR[0xF9], actors.BEHAVIOUR_GLEEOK_HEAD)
+
+    def test_a_gleeok_art_ends_with_two_pre_shifted_tables(self) -> None:
+        # image 12 (a neck segment) and 13 (a head) are followed by 16 shifts of 16 two-group rows of 20 bytes each,
+        # which the boss sprite pool's shift-free blitter indexes by frame (28 + 32 * image + 2 * shift)
+        rows = [[3] * 8 + [-1] * 8 for _ in range(16)]
+        table = actors._preshift_narrow(rows)
+        self.assertEqual(len(table), 16 * 16 * 20)
+        self.assertEqual(len(table) % actors.FRAME_BYTES, 0)
+        self.assertEqual(len(table) // actors.FRAME_BYTES, 32)
+        first = table[:20]                       # shift 0: the left group is eight columns, the right group empty
+        self.assertEqual(first[8:10], (0x00FF).to_bytes(2, "big"))
+        self.assertEqual(first[18:20], (0xFFFF).to_bytes(2, "big"))
+        last = table[15 * 320 : 15 * 320 + 20]   # shift 15: one column in the left group, seven in the right
+        self.assertEqual(last[8:10], (0xFFFE).to_bytes(2, "big"))
+        self.assertEqual(last[18:20], (0x01FF).to_bytes(2, "big"))
+
+    def test_the_stash_and_grumble_rooms_mark_their_trigger_byte(self) -> None:
+        attrs = ([0x35], [0x00], [0], [0])
+        record = actors._room_info(0, attrs, [1, 4, 5, 6], bytes(64))
+        self.assertTrue(record[1] & 0x40, "bit 6: a rupee stash")
+        self.assertEqual(record[0], 0)           # no monster to kill
+        self.assertEqual(record[5], 0)           # and nothing unsupported
+        attrs = ([0x36], [0x00], [0], [0])
+        record = actors._room_info(0, attrs, [1, 4, 5, 6], bytes(64))
+        self.assertTrue(record[1] & 0x20, "bit 5: Grumble")
+        self.assertEqual(record[5], 0)
+        self.assertEqual((actors.RUPEE_STASH, actors.GRUMBLE), (0x35, 0x36))
+
     def test_b_item_tables_agree_with_the_b_codes(self) -> None:
         src = Path(__file__).resolve().parents[1] / "src"
         items = (src / "items.s").read_text(encoding="utf-8")
@@ -159,13 +210,26 @@ class ActorTableTests(unittest.TestCase):
         levels = tuple(int(n) for n in re.search(r"^UW_LEVELS := ([\d ]+)$", make, re.M).group(1).split())
         self.assertEqual(levels, tuple(B.UW_LEVELS))
 
-    def test_the_reach_check_reads_the_target_of_a_word_branch(self) -> None:
+    def test_the_reach_check_catches_a_branch_that_wraps(self) -> None:
+        import tempfile
         sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
         import check_reach
-        wrapped = "    2230:\t6100 8006      \tbsrw ffffa238 <x>"
-        near = "    2220:\t6100 012a      \tbsrw 234c <init_buffers>"
-        self.assertEqual(int(check_reach.BRANCH.match(wrapped).group(2), 16), 0xFFFFA238)
-        self.assertEqual(int(check_reach.BRANCH.match(near).group(2), 16), 0x234C)
+        symbols = {"game_start": 0x2000, "near": 0x2100, "far": 0x2000 + 0x8100}
+        listing = "\n".join([
+            " 10 0000 4E71      \t    nop",
+            " 11 0002 6100 00FA \t    bsr near",
+            " 12 0006 6100 8100 \t    bsr far",            # 32,768 + bytes away: gas wraps it without a word
+            " 13 000a 6700 0004 \t    beq.s far",
+            " 14 000e 41FA 0000 \t    lea near(%pc), %a0",
+        ])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "x.lst"
+            path.write_text(listing + "\n", encoding="utf-8")
+            failures, checked, tight = check_reach.check_displacements(path, symbols)
+        self.assertEqual(checked, 4)
+        self.assertEqual(len(failures), 2)          # the word branch and the short one
+        self.assertTrue(failures[0].startswith("bsr far"))
+        self.assertEqual(tight[0][0] < 0, True)
 
 
 if __name__ == "__main__":

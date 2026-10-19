@@ -84,6 +84,8 @@ sword_input:
     move.b #1, OFF_SPACE_HELD(%a5)
     tst.b OFF_HAS_SWORD(%a5)
     beq 9f
+    tst.b OFF_SWORD_BLOCK(%a5)
+    bne 9f                      | a bubble has touched it
     tst.b OFF_ATTACK(%a5)
     bne 9f
     tst.b OFF_GAME_MODE(%a5)
@@ -316,6 +318,8 @@ beam_update:
     move.w %d6, %d5
     move.b OFF_BEAM_DIR(%a5), OFF_ENEMY_SHOVE(%a5, %d5.w)
     bsr set_sword_damage
+    move.b #HIT_SWORD, OFF_HIT_TYPE(%a5)
+    move.b OFF_BEAM_DIR(%a5), OFF_HIT_DIR(%a5)
     bsr hit_enemy
     bra 8f
 7:  addq.w #1, %d6
@@ -396,7 +400,7 @@ erase_effects:
     bsr erase_at
     clr.b 0(%a1, %d3.w)
 2:  addq.w #1, %d3
-    cmp.w #12, %d3
+    cmp.w #36, %d3
     blo 1b
     movem.l (%sp)+, %d0/%d3/%a0-%a1
     rts
@@ -469,6 +473,8 @@ draw_effects:
     bsr fx_put
 55: tst.b OFF_UW_PERSON(%a5)
     beq 57f
+    tst.b OFF_GRUMBLE_ON(%a5)
+    bne 57f                     | no bonfires for Grumble
     tst.b OFF_LEVEL(%a5)
     beq 57f
     moveq #9, %d6               | the old man's two bonfires
@@ -610,7 +616,9 @@ sword_hits:
     clr.b OFF_HIT_DAMAGE(%a5)
     bsr dodongo_sword           | only a stunned Dodongo is hurt, and it dies
     bra 8f
-41: bsr hit_enemy
+41: move.b #HIT_SWORD, OFF_HIT_TYPE(%a5)
+    move.b OFF_LINK_DIR(%a5), OFF_HIT_DIR(%a5)
+    bsr hit_enemy
 8:  addq.w #1, %d5
     bra 1b
 9:  movem.l (%sp)+, %d0-%d6/%a0
@@ -625,14 +633,21 @@ hit_enemy:
     cmp.w #BEH_DODONGO, %d0
     beq 5f                              | nor a Dodongo, except by the sword when a bomb has stunned it
     cmp.w #BEH_MOLDORM, %d0
+    beq 61f
+    cmp.w #BEH_GLEEOK_HEAD, %d0
+    beq 61f
+    cmp.w #BEH_MANHANDLA, %d0
     bne 6f
-    clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | a Moldorm segment is hurt but not knocked about
+61: clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | a Moldorm segment or a Manhandla hand is hurt but not knocked about
 6:  movem.l (%sp)+, %d0/%a0
     bra 1f
 5:  movem.l (%sp)+, %d0/%a0
     clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | nothing hurts a blade trap
     rts
-1:  move.b #ENEMY_HURT_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
+1:  bsr dmon_hit_filter                 | a darknut's shield, or a weapon the monster shrugs off
+    beq 11f
+    rts
+11: move.b #ENEMY_HURT_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
     move.l %d1, -(%sp)
     moveq #1, %d1                       | the hit's weight: set by the weapon, one by default
     tst.b OFF_HIT_DAMAGE(%a5)
@@ -645,11 +660,13 @@ hit_enemy:
     sub.b %d1, %d0
     move.b %d0, OFF_ENEMY_HP(%a5, %d5.w)
     move.l (%sp)+, %d1
-    rts
+    bra dmon_survived                   | a zol or vire falls apart
 3:  move.l (%sp)+, %d1
     bsr enemy_behaviour
     cmp.w #BEH_MOLDORM, %d0
     beq moldorm_died
+    cmp.w #BEH_GLEEOK_HEAD, %d0
+    beq boss_ghead_died_f               | a head cut off becomes a flying one
     bra kill_enemy
 
 | The sword's weight in hits: SwordDamagePoints is $10, $20, $40 for the wooden, white and magic sword.
@@ -696,10 +713,11 @@ moldorm_died:
 | Remove enemy d5, count the kill and roll for a drop the way HandleMonsterDied
 | and SetUpDroppedItem do. Ten kills in a row without being hurt guarantee a
 | drop (a bomb if the tenth was a bomb kill, else five rupees), and the
-| sixteenth is a fairy, which this port has no picture for yet.
+| sixteenth is a fairy.
 kill_enemy:
     sfx SFX_MONSTER_DIED
     clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    bsr dmon_died                           | a like-like lets go of Link
     bsr mover_died                          | a red leever stops being counted; a zora's death is not the screen's
     tst.w %d0
     beq 0f
@@ -835,7 +853,12 @@ enemy_contact:
     lsl.w #3, %d0
     moveq #0, %d1
     move.b 3(%a0, %d0.w), %d1
-4:  bsr link_knockback
+4:  bsr dmon_contact                | bubbles harm nobody, a like-like swallows him instead of shoving
+    move.w %d0, %d4
+    bne 41f
+    bsr link_knockback
+41: cmp.w #1, %d4
+    beq 8f
     bsr hurt_link
     bra 9f
 8:  addq.w #1, %d5
@@ -1175,6 +1198,10 @@ bomb_hurt_enemies:
     neg.w %d3
 3:  cmp.w #BOMB_RANGE, %d3
     bhs 4f
+    move.b #HIT_BOMB, OFF_HIT_TYPE(%a5)
+    clr.b OFF_HIT_DIR(%a5)
+    bsr dmon_hit_filter                 | some monsters shrug a bomb off
+    bne 4f
     clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)
     moveq #0, %d0
     move.b OFF_ENEMY_HP(%a5, %d5.w), %d0
@@ -1184,6 +1211,8 @@ bomb_hurt_enemies:
     bra 32f
 31: sub.w #(BOMB_DAMAGE - 1), %d0
 32: move.b %d0, OFF_ENEMY_HP(%a5, %d5.w)
+    move.b #HIT_BOMB, OFF_HIT_TYPE(%a5)
+    clr.b OFF_HIT_DIR(%a5)
     bsr hit_enemy
 4:  addq.w #1, %d5
     bra 1b
@@ -1276,6 +1305,7 @@ use_candle:
 0:    tst.b OFF_FIRE_STATE(%a5)
     bne 9f
     move.b #1, OFF_CANDLE_USED(%a5)
+    bsr uw_light_room_far
     moveq #0, %d1
     move.b OFF_LINK_X(%a5), %d1
     moveq #0, %d2
@@ -1383,6 +1413,8 @@ fire_update:
 23: cmp.w #FIRE_RANGE, %d0
     bhs 29f
     move.b OFF_FIRE_DIR(%a5), OFF_ENEMY_SHOVE(%a5, %d5.w)
+    move.b #HIT_FIRE, OFF_HIT_TYPE(%a5)
+    move.b OFF_FIRE_DIR(%a5), OFF_HIT_DIR(%a5)
     bsr hit_enemy
 29: addq.w #1, %d5
     bra 21b

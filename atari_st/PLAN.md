@@ -1,6 +1,6 @@
 # Zelda 1 for Atari ST - plan for all remaining work
 
-Status: **work in progress.** Written as a plan after PR #2; PRs #4 to #18 have since implemented parts of it, listed in section 1.1, and ticked boxes (`[x]`) below show what is done. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged.
+Status: **work in progress.** Written as a plan after PR #2; PRs #4 to #25 have since implemented parts of it, listed in section 1.1, and ticked boxes (`[x]`) below show what is done. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged.
 
 How to read this: section 2 is the order of work. Sections 3 to 12 are one work package each, with a checklist and an acceptance test. Section 13 records the decisions, the risks and the checks still open. The appendices hold the data tables, decoded from the PAL (Europe, Rev 1) ROM you supplied. That ROM has the same data layout as the disassembly in `src/` (start room `$77`, start Y `$8D`, same blob offsets), so the tables should apply to the NTSC ROM the build expects as well.
 
@@ -8,7 +8,7 @@ Where I could not confirm something from the disassembly or the ROM, the line sa
 
 ## 1. Where the port stands, and what "all remaining" means
 
-Done (see `AGENTS.md` section 14): the whole 128-screen overworld is walkable; the first cave and wooden sword work; Level 1 is playable from the entrance to the triforce ending (Aquamentus, map and compass with a minimap, the old man, the bow cellar, the push-block rooms); sword, beam, bombs, boomerang and candle work, and picking up a weapon holds it overhead; the Tab inventory screen shows the B items, map, compass and bow; the music and sound effects are the ROM's own; the ST colours switch per dungeon and the game runs at 50 and 60 Hz.
+Done (see `AGENTS.md` section 14): the whole 128-screen overworld is walkable with its monsters (octoroks, moblins, lynels, tektites, leevers, zoras, peahats, ghinis, boulders); the first cave and wooden sword work; Level 1 and Level 2 are playable from the entrance to the triforce (Aquamentus; the Dodongo, Moldorm, blue goriyas, traps and the ringleader room; map and compass with a minimap, the old men, the bow cellar, the push-block rooms), and Levels 3 to 8 are built with their rooms, items, monsters and bosses (darknuts, vires, zols, pols voice, like-likes, wizzrobes, bubbles, gibdos, Manhandla, Gohma, Digdogger, Gleeok; rupee stashes, Grumble, dark rooms), not yet played through; the engine builds a dungeon's tables per level (`level_table`), so the next level is data; every item of the inventory is in the code (three sword grades, bow and arrows, rod, potions, food, recorder, rings, magic shield, clock, fairy) though most have no shop or cave to find them in yet; sword, beam, bombs, boomerangs and candles work, and picking up a weapon holds it overhead; the Tab inventory screen shows the B items and what is carried; the music and sound effects are the ROM's own; the ST colours switch per dungeon and the game runs at 50 and 60 Hz; M0's tooling (table dump, 16-bit reach check, golden frames) is in.
 
 Remaining, in the words of your request:
 
@@ -18,7 +18,7 @@ Remaining, in the words of your request:
 4. Title/intro screen, player select and save.
 5. All overworld enemies with behaviour and location (section 5 and appendices A and B).
 
-### 1.1 Implemented so far (PRs #4 to #18, all merged)
+### 1.1 Implemented so far (PRs #4 to #26, then the Levels 3-8 branch)
 
 | PR | What | Plan section |
 |---|---|---|
@@ -37,40 +37,49 @@ Remaining, in the words of your request:
 
 | #20 | Overworld walkers (M2 step 1): octoroks (red, blue, slow, fast), moblins and lynels on their real screens, from a per-screen table (`ow_room_info`); art from the overworld sprite patterns | M2 |
 | #21 | Overworld shots (M2 step 2): rock, arrow and sword shot (shoot timers, shot limit 4, parry, bounce), drops through `mon_table`, the edge-spawn ring, the six-screen room history and per-screen kill counts; `table_anchor` moved and `tools/check_reach.py` guards the reach | M2 |
+| #22 | Overworld movers (M2 step 3): tektites, boulders, leevers, zoras, peahats, ghinis and the boulder set (`movers.s`); weapons pass through ghost monsters | M2 |
+| #23 | Items and power-ups (M5): the ROM's Items block, table-driven `take_item`, white and magic sword, bow and arrows, rod, potion, food, recorder, red candle, magic boomerang, rings, magic shield, clock, fairy; the 2x4 Tab grid; 32-bit `ltab`, `init_anchor` mid-code | M5 |
+| #24 | Level 2 (M6, M7, M9): per-level tables (`level_table`, `uw_select_level`, `lvtab`), the 18 rooms, blue goriya, Dodongo, Moldorm worms, trap and keese room, the ringleader trigger, entrance from overworld `$3C`; far stubs for the main-loop calls that overflowed 16 bits | M6, M7, M9 |
+| #25 | M0 foundations: `dump_tables.py`, the listing-based 16-bit reach check, `screenshot.py --room/--uw/--level`, golden frames | M0 |
+| #27 (Levels 3-8) | Levels 3 to 8 (M6 to M9): the asset pipeline builds all eight dungeons; darknuts, vires, zols, pols voice, like-likes, wizzrobes, bubbles, gibdos; bosses Manhandla, Gohma, Digdogger and Gleeok (`bosses.s`, `farstub` trampolines, a boss sprite pool with pre-shifted narrow art and a body baked into the room); rupee stashes, Grumble and dark rooms (candle lights them); a catch-up pass keeps the game speed when a crowded room takes two VBLs; golden scenes for the new rooms; 123 unit tests | M6 to M9 |
 
-Still open from M0: the table-dump tool, the reach budget (R3) and the golden images. M2 has its first three steps (walkers; shots, edge spawns and kill history; the special movers); armos, gravestones and flying ghinis wait for the room-tile patch overlay. Nothing of M1 (hidden spots) or M4 (overworld specials) has been started, and only the first cave of M3.
+M0 is complete (table-dump tool, reach budget, golden frames). M2 has its first three steps (walkers; shots, edge spawns and kill history; the special movers); armos, gravestones and flying ghinis wait for the room-tile patch overlay. Nothing of M1 (hidden spots) or M4 (overworld specials) has been started, and only the first cave of M3.
 
 ## 2. Order of work
 
 | # | Work package | Depends on | Size | Status |
 |---|---|---|---|---|
-| M0 | Foundations: table-dump tool, palette strategy, PAL timing, regression screenshots | - | S | partly: palettes and PAL done (#18) |
+| M0 | Foundations: table-dump tool, palette strategy, PAL timing, regression screenshots | - | S | **done** (#18, #25) |
 | M1 | **Hidden bomb/fire/push spots fixed** (the visible bug) | M0 | M | not started |
-| M2 | Overworld enemies, spawn rules, drops | M0 | L | step 1 done: octoroks, moblins, lynels walk (no shooting yet) |
+| M2 | Overworld enemies, spawn rules, drops | M0 | L | steps 1-3 done (#20-#22); armos and gravestone ghinis wait for M1's overlay |
 | M3 | Caves: people, shops, hints, money game, door repair, take-any-road, old woman | M1 | L | first cave and the Level 1 old man |
 | M4 | Overworld specials: armos, bracelet rocks, gravestones, docks/raft, ladder, recorder + whirlwind, Lost Woods/Hills, fairy ponds | M1, M2 | L | not started |
-| M5 | Items, inventory screen, HUD, every B item and passive item | M3 | L | partly: Level 1 items, HUD, Tab screen |
-| M6 | Dungeon engine generalised: doors, dark rooms, stair rooms, triggers, per-level palettes and tiles | M0 | L | partly: Level 1 engine, palettes for all levels |
-| M7 | Dungeon monsters (all underworld types) | M6 | XL | partly: 8 types |
-| M8 | Bosses | M7 | XL | Aquamentus only |
-| M9 | Levels 2 to 9 content, triforce sequence, map/compass minimap | M6, M7, M8 | XL | Level 1 done incl. triforce sequence and minimap |
+| M5 | Items, inventory screen, HUD, every B item and passive item | M3 | L | mostly done (#23); bracelet, raft, ladder, magic key, book effects and the bomb upgrade open |
+| M6 | Dungeon engine generalised: doors, dark rooms, stair rooms, triggers, per-level palettes and tiles | M0 | L | mostly done: per-level tables, Levels 1 to 8, palettes, dark rooms, rupee stashes, Grumble; Level 9 open |
+| M7 | Dungeon monsters (all underworld types) | M6 | XL | all types of Levels 1 to 8 (darknuts, vire, zol/gel, pols voice, like-like, wizzrobes, bubbles, gibdos, keese, ropes, stalfos, traps); Level 9's are open |
+| M8 | Bosses | M7 | XL | Aquamentus, Dodongo, Moldorm (two worms of four), Manhandla, Gohma, Digdogger, Gleeok; Lanmola, Patra, Ganon and Zelda open |
+| M9 | Levels 2 to 9 content, triforce sequence, map/compass minimap | M6, M7, M8 | XL | Levels 1 to 8 built (rooms, layout, items, monsters, bosses); only partly play-tested, see 9.3; Level 9 open |
 | M10 | Title/story, file select, name entry, save, continue/death, ending | M5 | L | not started (death returns to the start) |
 | M11 | Sound effects and music (player, bank and the Level 1 events done; the rest are hooks, see 12) | any | M | mostly done (#4 to #9) |
-| M12 | Polish: PAL 50 Hz, performance, memory, unit tests, docs | all | M | PAL checked (#18); the rest open |
+| M12 | Polish: PAL 50 Hz, performance, memory, unit tests, docs | all | M | PAL checked (#18); docs refreshed after #25; the rest open |
 | M13 | Deferred (decided: not now): Second Quest | all | L | deferred |
 
 Reasoning: M1 is first because it is the bug you can see now and it fixes the data model (secret objects per room) that M3, M4 and M9 reuse. M6 comes before the monsters because every dungeon monster needs the room, door and palette machinery to be tested in place. M10 comes late because save files store the inventory, so the inventory must be final first.
 
 ## 3. M0 Foundations
 
-- [ ] Commit the ROM table-dump tool (the one used for these appendices) as `atari_st/tools/dump_tables.py`. It reads `ext/Original.nes`, writes JSON and Markdown under `build/`, never writes the ROM anywhere else. Rerunning it keeps this plan checkable.
+- [x] **Table-dump tool.** `atari_st/tools/dump_tables.py` reads the same sources as `build_assets.py` (the extracted `bin/dat` tree or `ext/Original.nes` through `src/bins.xml`), decodes all 128 overworld screens, the rooms of all nine dungeons (items, secret triggers, dark flags, monsters after the port's expansion) and the monster lists, and writes `build/dump/tables.json` and `tables.md`. It checks the ROM (start room `$77`, start Y `$8D`, group sizes 1/4/5/6) and never writes the ROM anywhere. Rerun it after touching a decoder to see what moved (`tests/test_dump_tables.py`).
 - [x] **Palette strategy (risk R1).** Done. The overworld uses all 16 ST colours; Levels 3-9 each need 1-3 colours it lacks (3: `$1B $2B $0B`, 4 and 6: `$18 $28 $08`, 5 and 7: `$2A $0A`, 8 and 9: `$10`), Levels 1-2 fit as they are, and no level needs more than 15 on its own. Decision: **one palette per mode, slot-stable.** Every colour keeps the slot it has in the overworld table, because Link, items, effects, the HUD and the cellar walls are baked once with those slot numbers; a level swaps its missing colours into spare slots (background-only ones first, never Link's row, the HUD rows, the cave row or the minimap slots 1, 2, 4, 7, 9). `underworld.palette_lookup` does this and returns the level's 16 ST colours; `build_assets` writes them as `level_palettes` (9 rows). `palette_sync` (video.s, once a frame) loads the table for `OFF_LEVEL`; the flash and ending code restore through `cur_palette`. The title, story and game-over screens will get their own rows in `level_palettes`' successor when they are built (M10). Still to do per level (M6 to M9): bake that level's monsters with its own sprite rows, since the baked monster art takes the overworld's colours.
 
 - [x] **PAL timing (risk R2).** Done in Hatari with EmuTOS 1.4 German (`etos512de.img`, 50 Hz, `SYNC_MODE=0xfe`) against the US image (60 Hz, `0xfc`): over 600 VBLs the game ran exactly 600 frames in both, also with Link swinging the sword among two stalfos, so `present_frame` and `wait_vbl` hold at 50 Hz and never skip a frame; Link covers the same pixels per frame, so speeds and every frame-counted timer (invincibility, bombs, boomerang, lift) behave the same per frame. The music plays one tick per VBL at 50 Hz (600 of 600) and five of six at 60 Hz (500 of 600), as designed. Nothing uses another clock (no MFP timer, no `_hz_200`): the whole game follows the VBL. Q7 stands: the pace follows the monitor. A 50 Hz machine runs at the PAL NES's own speed with music and game in step; a 60 Hz one runs the game at NTSC speed with the music held to PAL tempo. Not tried: a real PAL STFM.
 
-- [ ] **Memory and reach budget (risk R3).** `AGENTS.md` section 6 documents 32 KB reach limits around `table_anchor` (about 5 KB and 3 KB slack). Eight more dungeons, 20 cave types, many monsters and the title screen will not fit without moving tables or adding a second anchor register. Plan this with M6, not at the end.
-- [ ] Extend `screenshot.py` with `--room`/`--level` shortcuts that already exist as `ZELDA_START_ROOM`/`ZELDA_START_UW`, and add a golden-image directory (`atari_st/tests/golden/`) for the screens each package changes.
-- [ ] Keep every table a unit test can recompute from the ROM, as the current tests do.
+- [x] **Memory and reach budget (risk R3).** Two different limits, and only one of them bites.
+  - *Tables* are free: `ltab` is a 32-bit anchor-relative load, and `lvtab`/`level_table` reach a dungeon's tables through pointers, so tables may sit anywhere in the image (`check_reach.py` still fails the build when a name an `ltab` uses is missing).
+  - *Code* is not: `bsr`/`bra`/`Bcc` and `(label,%pc)` operands span a signed 16 bits, and **GNU as does not complain when they do not fit, it wraps** (verified with binutils 2.42 `as -m68000`, also for an explicit `.w`). Level 2 hit it: three main-loop calls to `draw_hud`, `update_menu` and `minimap_tick` sat 32,786 to 32,972 bytes from their target and the game died with a Line-F exception at start. `check_reach.py` now reads the assembler listing (`build/zelda_st.lst`), computes every branch and PC-relative distance against the linked symbols and fails the build on any that does not fit. After Levels 3-8: 876 references, the tightest with 479 bytes to spare (`bsr update_cave`); `bosses.s` and `dmon.s` reach main.s through `*_far` and `*_bf` stubs and `farstub` trampolines. The code is **full** in the 16-bit sense: the first 43 KB (code plus `.data`) is one cluster whose far ends cannot call each other directly.
+  - The rule for new code: a module that would call across the image goes through a `*_far` stub (`bra target`) placed in the middle (`main.s`, before `.include "link.s"`), as `clear_erase_state_far`, `show_background_far`, `draw_hud_far`, `update_menu_far` and `minimap_tick_far` do. New code and data that nothing branches into (tables, text, sprite banks) go after `room_palette` in `.rodata` and cost nothing. The levels 3 to 9 monsters add code, so expect more stubs; the check tells you the moment one is needed.
+  - Memory: the PRG is 220 KB. Every run so far was in Hatari with 1 MB (`--memsize 1`); how much a 512 KB machine has left after the buffers `init_buffers` takes is **not measured** and should be before the release build (M12).
+- [x] **Golden frames.** `tools/screenshot.py` takes `--room` (overworld screen) and `--uw`/`--level` (dungeon room) and builds the matching dev PRG into `build/dev`, leaving the normal build alone; it prints a `FRAMEHASH` of the pixels and palette. `tools/golden.py` runs fifteen fixed scenes (overworld start and the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo, Moldorm, traps, goriyas and the old man, and from Levels 3 to 8 a crowded room, a dark room, a rupee stash, Grumble and a dark crowd) and compares the hashes with `tests/golden/frames.json`; `make check` runs it (skipped without Hatari, an EmuTOS image in `TOS`, and `ext/Original.nes`), `make golden-update` accepts new ones, `build/golden/*.png` shows the pictures. Hashes, not images, because the images are frames of Nintendo's artwork. Runs are deterministic (the same hash twice).
+- [x] Keep every table a unit test can recompute from the ROM, as the current tests do (standing rule; `dump_tables.py` and the golden frames add to it).
 
 ## 4. M1 Hidden bomb, fire and push spots (the visible bug)
 
@@ -283,9 +292,9 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 
 ### 8.2 Work items
 
-- [ ] Done for bombs, wooden sword, blue candle, bow, boomerang, rupee, 5 rupees, key, heart container, triforce piece, compass, map and heart (the Level 1 set); still to do for the rest: `take_item` in `combat.s` for each id; `ITEM_IDS` in `actors.py`; icons for the inventory and for floor items (the NES draws narrow, slim and wide items differently; see `AGENTS.md` section 11).
-- [ ] Done: bombs, boomerang and candle as B items; the Tab screen lists them with the map, the compass and the bow (not yet a B item). Still to do: B-item list: bombs, boomerang(s), bow and arrow pair, candle(s), recorder, bait, letter/potion, rod (and book). The Tab screen needs the real layout (eight B slots, passive items on the right, triforce frame, map and compass when owned). `DrawSubmenuItems`, `SubmenuItemXs` in `Z_05.asm` give positions.
-- [ ] Passive effects: shield size, rings (damage division in `Link_BeHarmed`), Power Bracelet, Raft, Ladder, Magical Key, Book of Magic, white/magic sword damage and beam range.
+- [x] Done (#23): `take_item` is table driven from the ROM's `ItemIdToSlot`/`ItemIdToDescriptor` and covers every id (bombs, three swords, candles, arrows, bow, recorder, food, potions, rings, magic shield, boomerangs, rupees, key, heart container, triforce, compass, map, heart, clock, fairy); the bracelet, raft, ladder, magic key, book and letter are taken but have no effect yet. Originally: still to do for the rest: `take_item` in `combat.s` for each id; `ITEM_IDS` in `actors.py`; icons for the inventory and for floor items (the NES draws narrow, slim and wide items differently; see `AGENTS.md` section 11).
+- [x] Done (#23): bombs, boomerang(s), candle(s), bow with arrows, recorder (tune only), food, potion and rod are B items (`items.s`); the Tab screen is a 2x4 grid plus a row of carried items. Not in: the letter as a B item, the recorder's whirlwind. The Tab screen needs the real layout (eight B slots, passive items on the right, triforce frame, map and compass when owned). `DrawSubmenuItems`, `SubmenuItemXs` in `Z_05.asm` give positions.
+- [ ] Passive effects: done (#23): magic shield (parries fireballs and sword shots), rings (damage division, recolour), white/magic sword damage, the clock; still open: Power Bracelet, Raft, Ladder, Magical Key, Book of Magic beyond the rod's flame, beam range per sword.
 - [ ] Done: heart containers from the dungeon, the half-heart damage unit, the low-hearts beep, refill at the triforce. Still to do: container count up to 16, partial heart, low-hearts beep, the half-heart damage unit `$80`, refill by fairy or pond.
 - [ ] Bomb capacity upgrade and `MaxBombs` handling.
 - [x] HUD: the minimap on the ribbon in dungeons (map/compass, #12), the level label, the B/A boxes, key count, bomb count, rupee count. (The overworld has no map on the ribbon yet.)
@@ -295,10 +304,10 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 
 ### 9.1 General systems still to generalise
 
-- [ ] Palettes, start room/Y, triforce room and the minimap window are built for Level 1 (`UW_*` equates, #12, #18); still to do for the rest: Level load: per-level info block (palettes, pattern block, foe counts, start room/Y, triforce room, cellar array of up to ten rooms, boss room, minimap rotation/mask). Level info bytes are at `LevelInfo_*` in `Variables.inc`.
+- [x] Level load (#24): every level's tables are built per level (`UW_LEVELS`) and `uw_select_level` loads the pointers and the start room/Y, triforce room, minimap window and cellar count from `level_table`; Level 2 plays. Still open per level: the pattern block and the monsters' own sprite rows. Originally: palettes, start room/Y, triforce room and the minimap window were built for Level 1 (`UW_*` equates, #12, #18); still to do for the rest: Level load: per-level info block (palettes, pattern block, foe counts, start room/Y, triforce room, cellar array of up to ten rooms, boss room, minimap rotation/mask). Level info bytes are at `LevelInfo_*` in `Variables.inc`.
 - [ ] **Dark rooms** (attribute E bit 7): Level 4 has seven, Level 5 five, Level 6 six, Level 7 three, Level 8 four, Level 9 ten (appendix D). The screen stays dark until a candle flame lights it **(verify)**.
 - [ ] **Boss roar** (attribute E bits 5-6): 1 Dodongo-type sound, 2 Digdogger-type, 3 Gleeok-type, plays while the boss room is entered and the boss lives (`CheckBossSoundEffectUW`).
-- [ ] **Secret triggers** (attribute F bits 0-2): 0 none; 1 kill all, shutters open; 2 kill the ringleader, shutters open; 3 last boss; 4 push block, door opens; 5 push block, stairs open (not in Level 1); 6 life-or-money; 7 kill all, item appears.
+- [ ] **Secret triggers** (attribute F bits 0-2; 2 done in #24): 0 none; 1 kill all, shutters open; 2 kill the ringleader, shutters open; 3 last boss; 4 push block, door opens; 5 push block, stairs open (not in Level 1); 6 life-or-money; 7 kill all, item appears.
 - [ ] **Door types**: open, wall, locked, shutter, bombable (false wall), key; the port has them for Level 1. Check that every level uses only these.
 - [ ] **Stair links come from the data, not the info array.** Level 3's cellar array in the level info is empty, yet its raft stairs work in the original. The port should build every stair link from the destination attributes (A = left stairs, B = right stairs) of each layout-62 or layout-63 room and the stair square in the room that holds it, instead of relying on `CellarRoomIdArray`.
 - [ ] **Stair rooms**: layout 62 joins two dungeon rooms (left stairs use attribute A as destination, right stairs use B); layout 63 is an item cellar with four blue keese. The cellar array (up to ten rooms) holds them; Level 9 has eight.
@@ -326,7 +335,8 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 ### 9.3 Notes per level (what is special)
 
 - **Level 1** (done, including the triforce sequence, the bow cellar and the push-block rooms): the old man at `$41` is in too (speech, flames, blocking; no fireballs) (the map and compass, the dungeon minimap on the ribbon and the Tab screen are in).
-- **Level 2**: Dodongo boss room `$0E` takes bombs; Moldorm mini-boss `$3E`; Magical Boomerang from the Goriya room `$4F`; eight rope rooms.
+- **Level 2** (done, #24: all 18 rooms, items and monsters; the Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by a play-through): Dodongo boss room `$0E` takes bombs; Moldorm mini-boss `$3E`; Magical Boomerang from the Goriya room `$4F`; eight rope rooms.
+- **Levels 3 to 8** (built in the Levels 3-8 branch: rooms, layout, doors, items and monsters come from the ROM tables through `tools/actors.py`; a sweep of every room loads without a crash; **not yet played through**: the Digdogger kill and heart container, Pols Voice hops, Vire hops, the rupee stash on leave and return, and dark-room scrolling are verified by reading the ROM and by screenshots only). Rooms with seven or more monsters take two VBLs to draw; `catch_up` in `main.s` runs the logic one extra time so the speed stays that of 60 Hz and only the picture drops to 30 Hz. Still unported: the "more bombs" man (`$4F`) and the "life or money" man (`$51`).
 - **Level 3**: Manhandla boss; the Raft is down the stairs in the eight-Darknut room `$69` (stairs room `$0F`); the old man asks about "the sword from the old man on top of the waterfall".
 - **Level 4**: seven dark rooms; Vire and Zol rooms; Manhandla at `$10` then Gleeok (3 heads) at `$13`; stepladder in the cellar `$60`.
 - **Level 5**: Recorder in cellar `$04`; Digdogger boss (needs the recorder); Dodongo room `$56`; Gibdo and Pols Voice rooms; Darknut rooms; a bomb capacity man at `$17`.
@@ -346,7 +356,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 
 | Type | Name | HP | Dmg | Routine | Behaviour summary |
 |---|---|---|---|---|---|
-| `$05`/`$06` | Goriya blue / red | 5 / 3 | 1 heart / half | `UpdateGoriya` | Walks, throws a boomerang that returns. Done for red (#15: facing and throw rolls as in the ROM). |
+| `$05`/`$06` | Goriya blue / red | 5 / 3 | 1 heart / half | `UpdateGoriya` | Walks, throws a boomerang that returns. Done (#15 red: facing and throw rolls as in the ROM; #24 blue: throws whenever its timer is 0). |
 | `$0B`/`$0C` | Darknut red / blue | 4 / 8 | 1 / 2 hearts | `UpdateDarknut` | Armoured: front hits blocked, side or back hurts; blue is tougher. |
 | `$12` | Vire | 4 | 1 heart | `UpdateVire` | Hops; splits into two Keese when killed. |
 | `$13` | Zol | 2 | 1 heart | `UpdateZol` | Slow; splits into two Gel when killed. |
@@ -360,7 +370,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 | `$2A` | Stalfos | 2 | half | `UpdateStalfos` | Done. |
 | `$2B`..`$2D` | Bubble black / blue / red | n/a | none | `UpdateBubble` | Bounces around; contact stops Link from using the sword for a while, the colour decides how **(verify)**. |
 | `$30` | Gibdo | 7 | 2 hearts | `UpdateGibdo` | Slow mummy. |
-| `$49`/`$4A` | Trap 6 / 4 | n/a | 1 heart | `UpdateTrap` | Done. |
+| `$49`/`$4A` | Trap 6 / 4 | n/a | 1 heart | `UpdateTrap` | Done (Level 1 `$22`, Level 2 `$3F`). |
 | `$3F`/`$40` | Guard fire / standing fire | 1 / n/a | half | `UpdateGuardFire`, `UpdateStandingFire` | Fire in "life or money" and other rooms. |
 
 ### 10.2 Bosses
@@ -368,12 +378,12 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 | Boss | Type | HP | Dmg | Where | Behaviour summary | What hurts it |
 |---|---|---|---|---|---|---|
 | Aquamentus | `$3D` | 6 | 1 heart | Level 1 `$35`, Level 7 `$2A` | Walks sideways, spits three fireballs in a spread. Done for Level 1. | sword to the head |
-| Dodongo | `$31`/`$32` | 15 (special) | 1 heart | Level 2 `$0E` (one), Levels 5 `$56` and 7 `$0C`, `$58` (three each) | Swallows bombs, bloats, explodes. | bombs in the mouth; sword when stunned **(verify)** |
+| Dodongo | `$31`/`$32` | 15 (special) | 1 heart | Level 2 `$0E` (one), Levels 5 `$56` and 7 `$0C`, `$58` (three each) | Swallows bombs, bloats, explodes. **Done (#24)**: two bombs at the mouth kill it, a bomb cloud stuns it, the sword kills a stunned one (it leaves a bomb); no death cloud. | bombs in the mouth; sword when stunned |
 | Manhandla | `$3C` | 4 | 1 heart | Level 3 `$4D`, Level 4 `$10`, Level 8 `$2E`, `$6E`, `$7D` | Four hands that speed up as they are killed. | sword on the hands |
 | Gohma | `$33`/`$34` | 6 / 2 | 2 hearts | Level 6 boss `$1C` (blue), Level 8 `$1E`, `$4D` (red) | Crab with an eye that opens; shoots fireballs. | arrows on the open eye |
 | Digdogger | `$38`/`$39` | 15 (special) | 2 hearts | Level 5 `$24`, Level 7 `$1C`, `$39`, `$6C` | Big one splits into small ones when the recorder plays. | the Recorder, then sword on the small ones |
 | Gleeok | `$42`..`$45`, heads `$46` | 10 | 1 heart | Level 4 `$13` (3 heads), Level 6 `$18` (4), Level 8 `$3C` (1) | Dragon whose heads detach and fly; neck must be hit. | sword on the neck |
-| Moldorm | `$41` | 2 | half | Level 2 `$3E`, Level 7 `$0B`, `$3A`, `$7A` | Segmented worm moving at the walls. | sword on the tail |
+| Moldorm | `$41` | 2 | half | Level 2 `$3E`, Level 7 `$0B`, `$3A`, `$7A` | Segmented worm moving at the walls. **Done (#24) as two worms of four segments** (the ROM has ten; the engine has eight monster slots): chained headings, a killed segment returns once, the tail goes first, no death cloud. | sword on the tail |
 | Lanmola | `$3A`/`$3B` | 2 | 2 hearts | Level 9 `$11`, `$12`, `$55`, `$74` | Sand worm that bursts out of the floor in a chain. | sword on the head |
 | Patra | `$47`/`$48`, children `$25`/`$26` | 11 | 2 hearts | Level 9 `$16`, `$21`, `$27`, `$52`, `$61` | Eye ringed by children. | sword on the eye after the children |
 | Ganon | `$3E` | 15 (special) | 4 hearts | Level 9 `$42` | Teleporting; invisible until hurt; throws fire. | Silver Arrow to finish |
@@ -387,7 +397,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 
 - [ ] For each type: sprite frames, behaviour routine, hit rule, drop row, test.
 - [ ] Boss music and roars, boss-dead flag and the heart container or triforce that appears after (secret trigger 7 and 3). `MUS_GANON` is in the music bank; the roars are DPCM or noise effects that are not ripped yet.
-- [ ] Gleeok head object (`UpdateGleeokHead`), Patra child orbit, Moldorm segment chain: these need new multi-object structures in `enemy.s`.
+- [ ] Gleeok head object (`UpdateGleeokHead`), Patra child orbit: these need new multi-object structures in `enemy.s`; the Moldorm chain is done (#24) with the segment-per-slot model, which also means the eight-slot limit (`MAX_ENEMIES`, section 13.2) is what a 10-segment worm, Gleeok heads and Patra's children will run into.
 - [ ] Acceptance: one scripted fight per boss in Hatari with the dev-start variable for that room; check the kill sets the room flag and spawns the reward.
 
 ## 11. M10 Title, player select, save and ending
@@ -423,7 +433,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 ## 12. M11 Sound, M12 polish, M13 Second Quest
 
 - [ ] M11 sound: list every `SongRequest`, `Tune0Request`, `Tune1Request`, `SampleRequest` value in the disassembly; write a YM2149 version for each: title, overworld (done), underworld, boss, death, ending, secret found, item get, level end, low health beep, sword, beam, bomb, hurt, rupee, key, door, boss roar, Zora and water sounds. Use the existing `ym_convert.py` and `music/` player; two AY channels may be needed for effects over music. `tools/nes_music_rip.py` already records all 9 songs, 8 jingles and 7 sound effects from the ROM as `.ym` (noise drums or digidrums, PAL pitch); `tools/music_pack.py` packs them (plus the shipped overworld song) into the bank that `music.s` plays: area music follows the state (overworld, dungeon, level 9, caves silent) and item, triforce, hurt, death, bomb, kill, rupee, key, heart and shutter events are hooked, and so are the Effect-channel sounds (sword, boomerang, flame, stairs, bomb blast, ripped as noise on voice C), the low-life beep, the menu click and the cave text blips. Still open: title, ending, Ganon, Zelda and game-over songs, recorder, parry, magic, sea ambience, boss roars, DPCM samples (`SampleRequest`) and the sounds of enemies that do not exist yet.
-- [ ] M12 (PAL 50 Hz checked in #18, the rest open): PAL and speed (R2), performance of 8 enemies plus projectiles at 8 MHz, memory map (R3), full unit test suite update (`test_build_assets.py`, `test_actors.py`), docs update in `AGENTS.md`/`CLAUDE.md` section 14, `README.md`, a `make check` that covers the new tables, a release build (stock TOS PRG).
+- [ ] M12 (PAL 50 Hz checked in #18; docs refreshed after #25; the rest open): PAL and speed (R2), performance of 8 enemies plus projectiles at 8 MHz, free memory on a 512 KB machine (R3), a docs refresh with each milestone (`README.md`s, `AGENTS.md`/`CLAUDE.md`, this file), a release build (stock TOS PRG).
 - [ ] M13 Second Quest (**deferred by your decision, not now**): the ROM contains `LevelBlockUW1Q2`/`UW2Q2` and the overworld patch (`PatchQ2Rooms` in `Z_06.asm`). Different dungeon layouts, item places, entrances and the Q2-tagged secrets in appendix A. Triggered by naming a profile ZELDA or by winning the game.
 
 ## 13. Risks, questions for you, and things to verify
@@ -439,14 +449,17 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 | Q5 | Sixteenth heart | Eight dungeon hearts, four cave hearts (P3, M3, H5, L8) and one item on screen P6 (`$5F`) that needs the Stepladder: 13 containers, 16 hearts. Matches the Zelda Dungeon heart container page. |
 | Q6 | Where the plan lives | `atari_st/PLAN.md`, with pointers in `AGENTS.md`, `CLAUDE.md` section 14 and `atari_st/README.md`. |
 | Q7 | Pace | Frame-based: the pace follows the monitor (60 Hz = NTSC speed, 50 Hz = PAL speed). Checked in Hatari at 50 Hz (section 3, PAL timing): no dropped frames, music in step. |
+| Q8 | Golden frames | Stored as SHA-256 hashes of pixels plus palette (`tests/golden/frames.json`), not as images: the frames are Nintendo's artwork. `build/golden/*.png` shows a run. |
+| Q9 | Moldorm | Two worms of four segments instead of one of ten, because the engine has eight monster slots (risk R6). |
 
 ### 13.2 Risks
 
 - **R1 Palettes.** Settled for the dungeons: slot-stable per-level palettes (section 3). The title and story screens still need their own rows when they are built.
 - **R2 PAL / 50 Hz.** Verified in a 50 Hz Hatari (section 3); a real PAL STFM is untried. The music is tuned for 50 Hz and skips one in six VBLs at 60 Hz.
-- **R3 Memory and addressing reach.** After step 2 the anchor sits just before `fx_sprites` (about 5 KB back, 6 KB ahead) and `tools/check_reach.py` fails the build when an `ltab` table is out of the signed 16-bit range (GNU as silently wraps instead). The image now starts with `.data` and the code can grow by about 30 KB (`AGENTS.md` section 6). Eight more levels will not fit without re-planning.
+- **R3 Memory and addressing reach.** Tables are free (32-bit `ltab`, per-level pointers through `level_table`); **code is the limit**: 16-bit branches wrap silently in GNU as, the code cluster is full (the tightest reference had 86 bytes to spare after Level 2) and every cross-image call needs a `*_far` stub. `check_reach.py` fails the build on a wrap. Details in section 3. Free memory on a 512 KB machine is not measured.
 - **R4 Sprite budget.** 16x16 masked sprites with runtime shifting; Gleeok, Patra and Moldorm are multi-object bosses and can blow the frame budget at 8 MHz.
 - **R5 Copyright.** All ROM-derived data stays out of the repo. The dump tool and the generated tables here are for planning; commit the tool, not its output.
+- **R6 Monster slots.** `MAX_ENEMIES` is 8 (arrays indexed with an 8-bit displacement, stride-8 accesses in several places). A 10-segment Moldorm, Gleeok with its heads, Patra with its children and Level 7's three-Dodongo rooms do not fit as they are; the Moldorm is already two worms of four. Raising the limit means moving the per-monster arrays out of the front 128 bytes of the variable block and removing the stride-8 assumptions; decide before M8.
 
 ### 13.3 Everything marked "verify"
 

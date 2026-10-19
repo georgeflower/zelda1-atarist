@@ -132,7 +132,6 @@
     gvar IKBD_PKT, 1            | which byte of a joystick or mouse packet comes next
     gvar CAVE_PERSON, 1         | the old man is still in the cave
     gvar CAVE_TEXT_ON, 1        | his speech is still being typed, and Link is halted
-    gvar CAVE_TEXT_IDX, 1
     gvar CAVE_TEXT_COL, 1
     gvar CAVE_TEXT_ROW, 1
     gvar CAVE_TEXT_TIMER, 1
@@ -230,10 +229,10 @@
 
     | Effect sprites (spark corners and cloud puffs) have a slot each for erasing.
     galign
-    gvar FX_ERASE_OFFSETS, 48
-    gvar OLD_FX_ERASE_OFFSETS, 48
-    gvar FX_VALID, 12
-    gvar OLD_FX_VALID, 12
+    gvar FX_ERASE_OFFSETS, 144
+    gvar OLD_FX_ERASE_OFFSETS, 144
+    gvar FX_VALID, 36
+    gvar OLD_FX_VALID, 36
     gvar CAVE_FIRE_OFFSETS, 8  | where the two bonfires were drawn, to put the cave floor back
     gvar CAVE_FIRE_VALID, 1
 
@@ -315,6 +314,8 @@
     gvar UWP_ROOM_INFO, 4
     gvar UWP_CELLAR_MAPS, 4
     gvar UWP_CELLAR_INFO, 4
+    gvar UWP_MON_ART, 4
+    gvar UWP_QUADS, 4
     gvar UWL_BYTES, 8
     .equ OFF_UW_START_ROOM, OFF_UWL_BYTES + 0
     .equ OFF_UW_START_Y, OFF_UWL_BYTES + 1
@@ -329,4 +330,38 @@
     gvar ENEMY_OLDDIR, 8       | a Moldorm segment's previous heading, which the segment below it takes up
     gvar ENEMY_BOUNCE, 8       | a Moldorm head's heading after bouncing off a wall, kept for the next turn (Moldorm_ObjBounceDir)
 
+    galign
+    gvar CAVE_TEXT_IDXW, 2     | where the next letter is in cave_text (a word: the dungeons' speeches add up to more than 255)
+
+    | Weapons and the dungeon monsters (dmon.s).
+    gvar HIT_TYPE, 1           | the damage type of the blow hit_enemy is about to deal (HIT_*): which weapon it is
+    gvar HIT_DIR, 1            | and the way the weapon points, for the darknuts' shields
+    gvar DRAW_DY, 1            | pixels (signed) to draw the monster lower than it stands: the vire's hops
+    gvar SWORD_BLOCK, 1        | frames left that a bubble keeps Link from swinging his sword
+    gvar LINK_EATEN, 1         | a like-like has him: he cannot walk, but he can swing
+    gvar EATER, 1              | the like-like's slot
+    gvar EATEN_FRAMES, 1       | frames since it caught him, to the shield's loss
+    gvar BOSS_BUSY, 1          | a boss is putting its pieces down: they are not bosses themselves
+    | The boss sprite pool (Gleeok's body and necks): up to 24 pictures a frame, drawn in effect slots 12 up.
+    gvar BP_FRAME, 24          | the image in the body's art
+    gvar BP_X, 24
+    gvar BP_Y, 24
+    gvar BP_COUNT, 1
+    gvar GLEEOK_DEAD, 1        | the necks that have been cut off, a bit each
+    gvar GLEEOK_ANIM, 2        | the body's picture timer and picture
+    gvar GSEG_X, 12            | the middle segments of the four necks, three each
+    gvar GSEG_Y, 12
+    gvar SKIP_DRAW, 1          | the update that is running draws nothing (see catch_up)
+    galign
+    gvar LATE_FRAMES, 2        | how many times a slow frame was caught up
+    gvar LAST_CLOCK, 4         | the VBL clock when the last frame began
+    gvar ROOM_DARK, 1          | this room is dark by nature (bit 7), until it is lit
+    gvar ROOM_LIT, 1           | the candle has lit it
+    gvar STASH_ROOM, 1         | the rupee stash's room (bit 7 set) while its rupees are on the floor
+    gvar GRUMBLE_ON, 1        | Grumble stands in this room, waiting for food
+    galign
+    gvar STASH_MASK, 2         | the rupees of the stash still lying there, a bit each
+    gvar GLEEOK_GONE, 1        | the room (bit 7 set) whose Gleeok has just died: the room is drawn without its body
+    gvar GLEEOK_SEGS, 1        | one more than the middle segments a neck has: its pictures are drawn as the frame allows
+    galign
     .equ GLOBALS_BYTES, gvar_offset

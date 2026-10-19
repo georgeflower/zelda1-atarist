@@ -37,7 +37,7 @@
     .macro sfx id
     move.l %d0, -(%sp)
     moveq #\id, %d0
-    bsr music_play
+    bsr music_play_far
     move.l (%sp)+, %d0
     .endm
 
@@ -238,7 +238,7 @@ game_start:
     .if DEV_START_UW != 255
     | Development shortcut: start inside the level, with a sword and a key.
     moveq #DEV_START_LEVEL, %d0
-    bsr uw_select_level
+    bsr uw_select_level_far
     move.b #UW_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
     move.b #UW_BOUND_RIGHT, OFF_BOUND_RIGHT(%a5)
     move.b #UW_BOUND_UP, OFF_BOUND_UP(%a5)
@@ -261,11 +261,12 @@ main_loop:
     bsr frame_begin
     bsr palette_sync
     bsr poll_keyboard
-    bsr debug_keys
+    bsr debug_keys_far
     bsr music_update
     tst.b OFF_EXIT_REQUESTED(%a5)
     bne exit_program
     addq.w #1, OFF_FRAME_COUNTER(%a5)
+    bsr catch_up
 
     moveq #0, %d0
     move.b OFF_GAME_MODE(%a5), %d0
@@ -280,17 +281,40 @@ main_loop:
     bra 3f
 1:  bsr update_play
     bra 3f
-2:  bsr update_scroll
+2:  bsr update_scroll_far
 3:  bsr minimap_tick_far
     tst.b OFF_HUD_DIRTY(%a5)
     beq main_loop
-    bsr draw_hud
+    bsr draw_hud_far
     tst.b OFF_DBL_ACTIVE(%a5)
     beq main_loop
     bsr swap_screens            | the other buffer needs the new ribbon too
-    bsr draw_hud
+    bsr draw_hud_far
     bsr swap_screens
     bra main_loop
+
+| A frame that took two VBLs (a room full of monsters costs more than one) would run the game at half speed. The
+| game runs its update once more without drawing anything, so the speed stays that of 60 Hz and only the picture
+| is shown at 30 Hz. At most one pass: a long pause (a room being built) is not caught up.
+catch_up:
+    movem.l %d0-%d1, -(%sp)
+    move.l FR_CLOCK, %d0
+    move.l OFF_LAST_CLOCK(%a5), %d1
+    move.l %d0, OFF_LAST_CLOCK(%a5)
+    sub.l %d1, %d0
+    cmp.l #2, %d0
+    blo 9f
+    cmp.l #3, %d0
+    bhi 9f
+    tst.b OFF_GAME_MODE(%a5)
+    bne 9f
+    move.b #1, OFF_SKIP_DRAW(%a5)
+    addq.w #1, OFF_FRAME_COUNTER(%a5)
+    addq.w #1, OFF_LATE_FRAMES(%a5)
+    bsr update_play
+    clr.b OFF_SKIP_DRAW(%a5)
+9:  movem.l (%sp)+, %d0-%d1
+    rts
 
 exit_program:
     bsr music_exit
@@ -365,6 +389,7 @@ init_buffers:
 | Render the current room into bg_cur and show it.
 enter_room:
     clr.b OFF_COMMIT(%a5)
+    clr.b OFF_ROOM_LIT(%a5)             | a room is dark when he comes in (if it is one)
     clr.b OFF_INV_CLOCK(%a5)            | the clock lasts until he leaves the screen (ResetPlayerState)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
@@ -373,7 +398,7 @@ enter_room:
     bne 1f
     bsr render_room
     bra 2f
-1:  bsr uw_render_current
+1:  bsr uw_render_current_far
 2:  bsr spawn_room_enemies
     bsr show_background
     clr.b OFF_ERASE_VALID(%a5)
@@ -409,7 +434,7 @@ cave_setup:
     bne 9f
     move.b #1, OFF_CAVE_PERSON(%a5)
     move.b #1, OFF_CAVE_TEXT_ON(%a5)
-    clr.b OFF_CAVE_TEXT_IDX(%a5)
+    clr.w OFF_CAVE_TEXT_IDXW(%a5)
     move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
     move.b #CAVE_TEXT_ROW0, OFF_CAVE_TEXT_ROW(%a5)
     move.b #CAVE_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
@@ -516,10 +541,10 @@ cave_talk:
     ltab cave_text, %a0
     ltab text_glyphs, %a1
 1:  moveq #0, %d0
-    move.b OFF_CAVE_TEXT_IDX(%a5), %d0
+    move.w OFF_CAVE_TEXT_IDXW(%a5), %d0
     moveq #0, %d4
     move.b 0(%a0, %d0.w), %d4
-    addq.b #1, OFF_CAVE_TEXT_IDX(%a5)
+    addq.w #1, OFF_CAVE_TEXT_IDXW(%a5)
     move.w %d4, %d3
     and.w #0x3f, %d3
     cmp.w #0x25, %d3            | a space that takes no time
@@ -532,16 +557,16 @@ cave_talk:
     move.b OFF_CAVE_TEXT_COL(%a5), %d1
     moveq #0, %d2
     move.b OFF_CAVE_TEXT_ROW(%a5), %d2
-    bsr draw_hud_tile
+    bsr draw_hud_tile_far
     move.l OFF_SCREEN_PTR(%a5), -(%sp)  | and into the clean room, to survive Link's erasing
     move.l OFF_BG_CUR(%a5), OFF_SCREEN_PTR(%a5)
-    bsr draw_hud_tile
+    bsr draw_hud_tile_far
     move.l (%sp)+, OFF_SCREEN_PTR(%a5)
     tst.b OFF_DBL_ACTIVE(%a5)
     beq 21f
     move.l OFF_SCREEN_PTR(%a5), -(%sp)  | in a dungeon room the other buffer needs the letter too
     move.l OFF_BG_NEXT(%a5), OFF_SCREEN_PTR(%a5)
-    bsr draw_hud_tile
+    bsr draw_hud_tile_far
     move.l (%sp)+, OFF_SCREEN_PTR(%a5)
 21:
     sfx SFX_HEART                       | the text blip
@@ -684,7 +709,7 @@ dbl_enter:
     .macro xchg_state first, second, count
     lea OFF_\first(%a5), %a0
     lea OFF_\second(%a5), %a1
-    moveq #(\count - 1), %d0
+    move.w #(\count - 1), %d0
 1:  move.b (%a0), %d1
     move.b (%a1), (%a0)+
     move.b %d1, (%a1)+
@@ -693,7 +718,7 @@ dbl_enter:
 
     .macro clear_state name, count
     lea OFF_\name(%a5), %a0
-    moveq #(\count - 1), %d0
+    move.w #(\count - 1), %d0
 1:  clr.b (%a0)+
     dbra %d0, 1b
     .endm
@@ -716,8 +741,8 @@ swap_erase_state:
     xchg_state ERASE_OFFSET, OLD_ERASE_OFFSET, 4
     xchg_state BEAM_VALID, OLD_BEAM_VALID, 1
     xchg_state BEAM_ERASE_OFFSET, OLD_BEAM_ERASE_OFFSET, 4
-    xchg_state FX_VALID, OLD_FX_VALID, 12
-    xchg_state FX_ERASE_OFFSETS, OLD_FX_ERASE_OFFSETS, 48
+    xchg_state FX_VALID, OLD_FX_VALID, 36
+    xchg_state FX_ERASE_OFFSETS, OLD_FX_ERASE_OFFSETS, 144
     movem.l (%sp)+, %d0-%d1/%a0-%a1
     rts
 
@@ -730,7 +755,7 @@ clear_old_erase_state:
     clr.b OFF_OLD_BOMB_VALID(%a5)
     clr.b OFF_OLD_ERASE_VALID(%a5)
     clr.b OFF_OLD_BEAM_VALID(%a5)
-    clear_state OLD_FX_VALID, 12
+    clear_state OLD_FX_VALID, 36
     movem.l (%sp)+, %d0/%a0
     rts
 
@@ -744,11 +769,13 @@ clear_erase_state:
     clr.b OFF_BOMB_VALID(%a5)
     clr.b OFF_ERASE_VALID(%a5)
     clr.b OFF_BEAM_VALID(%a5)
-    clear_state FX_VALID, 12
+    clear_state FX_VALID, 36
     movem.l (%sp)+, %d0/%a0
     rts
 
 update_play:
+    tst.b OFF_SKIP_DRAW(%a5)
+    bne 5f                   | a catch-up pass: nothing is on the screen to take away
     bsr erase_beam
     bsr erase_effects
     bsr erase_bomb
@@ -757,7 +784,7 @@ update_play:
     bsr erase_enemies
     bsr erase_projectiles
     bsr erase_sprite
-    bsr menu_check_open
+5:  bsr menu_check_open_far
     tst.b OFF_GAME_MODE(%a5)
     bne 4f                   | the inventory screen is up
     bsr sword_input
@@ -767,6 +794,8 @@ update_play:
     move.b OFF_GAME_MODE(%a5), %d0
     beq 3f
     bsr dbl_end
+    tst.b OFF_SKIP_DRAW(%a5)
+    bne 4f                   | a catch-up pass leaves the transition to the main loop
     cmp.b #MODE_SCROLL, %d0
     beq update_scroll       | a room transition started this frame
     rts                      | cave entry already redrew the new background
@@ -774,17 +803,23 @@ update_play:
 3:
     bsr uw_person_update
     bsr items_update
+    bsr boss_misc_f
     bsr chase_target_update
     bsr update_enemies
     bsr update_combat
     bsr update_projectiles
-    bsr draw_items
+    tst.b OFF_SKIP_DRAW(%a5)
+    beq 6f
+    clr.b OFF_BP_COUNT(%a5)  | the pieces the bosses put in the pool are not drawn this time
+    rts
+6:  bsr draw_items
     bsr draw_bomb
     bsr draw_enemies
     bsr draw_projectiles
     bsr draw_link_blink
     bsr draw_beam
     bsr draw_effects
+    bsr boss_draw_f                     | Gleeok's body and necks
     bsr draw_sword
     bra present_frame
 
@@ -800,6 +835,7 @@ update_play:
     .include "enemy.s"
     .include "combat.s"
     .include "items.s"
+    .include "dmon.s"
 
     | room_palette is the first read-only table and close enough for a PC-relative
     | lea from here; the anchor in the middle of the tables is then a link-time constant
@@ -831,11 +867,43 @@ update_menu_far:
     bra update_menu
 minimap_tick_far:
     bra minimap_tick
+music_play_far:
+    bra music_play
+uw_light_room_far:
+    bra uw_light_room
+
+enter_room_far:
+    bra enter_room
+dbl_end_far:
+    bra dbl_end
+draw_hud_tile_far:
+    bra draw_hud_tile
+menu_check_open_far:
+    bra menu_check_open
+uw_select_level_far:
+    bra uw_select_level
+cave_talk_far:
+    bra cave_talk
+debug_keys_far:
+    bra debug_keys
+update_scroll_far:
+    bra update_scroll
+uw_render_current_far:
+    bra uw_render_current
+enter_cave_far:
+    bra enter_cave
+erase_cave_fires_far:
+    bra erase_cave_fires
+cave_check_taken_far:
+    bra cave_check_taken
+draw_cave_fires_far:
+    bra draw_cave_fires
 
     .include "link.s"
     .include "uw.s"
     .include "hud.s"
     .include "menu.s"
+    .include "bosses.s"
 
 | ---------------------------------------------------------------------------
 
@@ -872,6 +940,8 @@ hud_items:
     .incbin "hud_items.bin"
 mon_table:
     .incbin "mon_table.bin"
+mon_mask:
+    .incbin "mon_mask.bin"
     .align 2
 mon_art:
     .incbin "mon_art.bin"

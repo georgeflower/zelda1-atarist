@@ -261,6 +261,29 @@ class RomUnderworldTests(unittest.TestCase):
 
 
 @unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
+@unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
+class RomAllDungeonsTests(unittest.TestCase):
+    ROOMS = {1: 17, 2: 18, 3: 18, 4: 20, 5: 23, 6: 25, 7: 33, 8: 25}
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+
+    def test_every_dungeon_has_its_rooms_and_a_triforce_room_among_them(self) -> None:
+        for level, count in self.ROOMS.items():
+            uw = self.bundle.levels[level - 1]
+            stored = [room for room, index in enumerate(uw.room_index) if index != 0xFF]
+            self.assertEqual(len(stored), count, level)
+            self.assertIn(uw.triforce_room, stored, level)
+            self.assertIn(uw.start_room, stored, level)
+
+    def test_no_room_of_the_first_eight_dungeons_holds_an_unported_monster(self) -> None:
+        for level in self.ROOMS:
+            uw = self.bundle.levels[level - 1]
+            for record in uw.actors.room_info:
+                self.assertEqual(record[5] & 0x7F, 0, (level, record.hex()))
+
+
 class RomLevelPaletteTests(unittest.TestCase):
     """Risk R1: every dungeon must fit the 16 ST colours without disturbing what is baked once for all modes."""
 
@@ -400,7 +423,7 @@ class RomActorTests(unittest.TestCase):
         uw = bundle.uw
         letters = {0x0A + n: chr(ord("A") + n) for n in range(26)}
         letters.update({0x24: " ", 0x25: " ", 0x2C: "."})
-        offset = uw.actors.room_info[uw.room_index[0x41]][14]
+        offset = int.from_bytes(uw.actors.room_info[uw.room_index[0x41]][14:16], "big")
         self.assertGreaterEqual(offset, build_assets.PERSON_TEXT_BYTES)
         speech = bytearray()
         for code in bundle.cave_text[offset:]:
@@ -412,7 +435,7 @@ class RomActorTests(unittest.TestCase):
         others = [
             index
             for index, record in enumerate(uw.actors.room_info)
-            if index != uw.room_index[0x41] and record[14] != self.actors.NO_PERSON
+            if index != uw.room_index[0x41] and int.from_bytes(record[14:16], "big") != self.actors.NO_PERSON
         ]
         self.assertEqual(others, [])
 

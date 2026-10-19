@@ -59,9 +59,14 @@ uw_spawn:
     bsr uw_room_info_ptr
     tst.w %d1
     bmi 9b
-    cmpi.b #0xff, 14(%a1)
+    bsr boss_room_init_f            | the rupee stash, Grumble
+    cmpi.w #0xffff, 14(%a1)
     beq 0f
-    bsr uw_person_begin             | an old man waits here with something to say
+    btst #5, 1(%a1)
+    beq 4f
+    tst.b OFF_GRUMBLE_ON(%a5)       | Grumble has nothing to say once he has been fed
+    beq 0f
+4:  bsr uw_person_begin             | an old man waits here with something to say
 0:
     move.b 1(%a1), %d2
     move.b %d2, %d3
@@ -71,6 +76,9 @@ uw_spawn:
     and.b #1, %d3
     move.b %d3, OFF_ROOM_BLOCK(%a5)
     move.b 5(%a1), OFF_ROOM_UNSUPPORTED(%a5)
+    move.b 5(%a1), OFF_ROOM_DARK(%a5)
+    and.b #0x7f, OFF_ROOM_UNSUPPORTED(%a5)
+    and.b #0x80, OFF_ROOM_DARK(%a5)
     bsr uw_setup_item
     bsr block_setup
     lea OFF_UW_FLAGS(%a5), %a2
@@ -150,10 +158,15 @@ spawn_counted:                  | d1 = how many
     moveq #1, %d2
     lsl.b %d0, %d2
     move.b %d2, OFF_ENEMY_DIR(%a5, %d5.w)
+    move.b %d5, %d0
+    addq.b #1, %d0
+    move.b %d0, OFF_ENEMY_COUNT(%a5)    | a boss that puts down more pieces needs this one counted
     bsr enemy_init_special
     addq.w #1, %d5
     bra 1b
-8:  move.b %d5, OFF_ENEMY_COUNT(%a5)
+8:  cmp.b OFF_ENEMY_COUNT(%a5), %d5     | (the pieces a boss made are counted already)
+    bls 9b
+    move.b %d5, OFF_ENEMY_COUNT(%a5)
     bra 9b
 
 | ModifyObjCountByHistoryOW. d0 = the screen, a1 = its record. Returns d1.w = the number of monsters
@@ -361,6 +374,7 @@ enemy_spawn_list_index:
 
 clear_enemies:
     movem.l %d0/%a0, -(%sp)
+    clr.b OFF_LINK_EATEN(%a5)
     clr.b OFF_ENEMY_COUNT(%a5)
     clr.b OFF_BEAM_ACTIVE(%a5)
     bsr clear_bomb
@@ -429,6 +443,7 @@ update_enemies:
     movem.l %d0-%d7/%a0-%a1, -(%sp)
     tst.b OFF_LIFT_TIMER(%a5)
     bne 9f                      | Link is holding something up: everything waits
+    bsr dmon_tick               | a bubble's hold on Link's sword runs out
     bsr edge_spawn_tick         | a monster walks in from the edge, if one is due
     bsr zora_check              | and a zora rises in the water of a screen that has some
     bsr long_timers             | the leevers' timer runs in tenths of a second
@@ -445,6 +460,8 @@ update_enemies:
     bsr enemy_behaviour
     cmp.w #BEH_MOLDORM, %d0
     beq 2f                      | a Moldorm segment is not knocked about: it swims on while it flashes
+    cmp.w #BEH_GLEEOK_HEAD, %d0
+    beq 2f                      | nor is a head of Gleeok
     bsr enemy_shove
     bra 8f
 
@@ -455,7 +472,10 @@ update_enemies:
     beq 29f
     subq.b #1, 0(%a0, %d5.w)    | stunned: it does nothing at all
     bra 8f
-29: moveq #4, %d4               | frames between pixel steps
+29: bsr dmon_eater             | a like-like with Link inside it does nothing else
+    tst.w %d0
+    bne 8f
+    moveq #4, %d4               | frames between pixel steps
     moveq #0, %d7               | behaviour
     moveq #0, %d0
     move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
@@ -545,11 +565,20 @@ update_enemies:
 3:  moveq #0, %d1
     move.w OFF_FRAME_COUNTER(%a5), %d1
     add.w %d5, %d1
-    divu.w %d4, %d1
+    cmp.w #PERIOD_PATTERN, %d4
+    blo 32f
+    and.w #7, %d1                   | a period of $80 and up names the frames of eight it steps on
+    sub.w #PERIOD_PATTERN, %d4
+    lea step_patterns(%pc), %a0
+    move.b 0(%a0, %d4.w), %d0
+    btst %d1, %d0
+    beq 8f
+    bra 33f
+32: divu.w %d4, %d1
     swap %d1
     tst.w %d1
     bne 8f
-
+33:
     move.w %d7, %d1             | d1 keeps the behaviour: only ropes charge
     moveq #1, %d7               | pixels to move this frame
     cmp.w #BEH_ROPE, %d1
@@ -946,7 +975,13 @@ draw_enemies:
     bne 36f
     bsr draw_dodongo            | two sprites wide, drawn and remembered for erasing by its own routine
     bra 8f
-36: cmp.w #MODE_TEKTITE, %d2
+36: cmp.w #MODE_DARKNUT, %d2
+    blo 361f
+    bsr dmon_frame              | the dungeon monsters of dmon.s
+    tst.w %d1
+    bmi 8f
+    bra 19f
+361: cmp.w #MODE_TEKTITE, %d2
     blo 37f
     bsr mover_frame             | the movers pick their own pictures
     tst.w %d1
@@ -1019,7 +1054,7 @@ draw_enemies:
     moveq #1, %d5               | its side view looks left; mirror it to face right
 19: add.w %d1, %d1
     add.w %d5, %d1              | frame within the monster's art
-    ltab mon_art, %a0
+    bsr mon_art_ptr
     add.w %d0, %d0
     add.w 0(%a0, %d0.w), %d1
     mulu.w #SPRITE_FRAME_BYTES, %d1
@@ -1039,6 +1074,10 @@ draw_enemies:
     moveq #0, %d2
     move.b OFF_ENEMY_X(%a5, %d3.w), %d1
     move.b OFF_ENEMY_Y(%a5, %d3.w), %d2
+    move.b OFF_DRAW_DY(%a5), %d0        | drawn higher or lower than it stands (a hop)
+    ext.w %d0
+    add.w %d0, %d2
+    clr.b OFF_DRAW_DY(%a5)
     bsr sprite_offset
     tst.w %d4
     bmi 8f
@@ -1078,6 +1117,23 @@ sprite_offset:
     add.l %d2, %d1
 9:  movem.l (%sp)+, %d0/%d2
     rts
+
+| a0 = the table of where each monster's art starts in mon_sprites: the dungeon's own, which is
+| drawn from its sprite patterns and colours, or the overworld's.
+mon_art_ptr:
+    tst.b OFF_LEVEL(%a5)
+    bne 1f
+    ltab mon_art, %a0
+    rts
+1:  lvtab MON_ART, %a0
+    rts
+
+| Quarter-speeds that are not a whole number of frames a pixel: a bit for each frame of eight that takes a step.
+| 0 is $18 (a zol, three in eight), 1 is $28 (a blue darknut, five in eight).
+    .equ PERIOD_PATTERN, 0x80
+step_patterns:
+    .byte 0x92, 0xb5
+    .align 2
 
 enemy_spawn_lists:
     .byte 0x55, 0xb5, 0x78, 0x98, 0x7a, 0x9a, 0x6c, 0xac, 0x8d

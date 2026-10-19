@@ -26,6 +26,15 @@
     .equ BEH_BOULDER_SET, 18
     .equ BEH_DODONGO, 19            | Dodongo and Moldorm are handled before the movers' test
     .equ BEH_MOLDORM, 20
+    .equ BEH_POLS, 21               | the dungeon monsters of dmon.s (they pass through mover_update)
+    .equ BEH_WIZZROBE, 22
+    .equ BEH_BUBBLE, 23
+    .equ BEH_MANHANDLA, 24
+    .equ BEH_GOHMA, 25
+    .equ BEH_DIGDOGGER, 26
+    .equ BEH_GLEEOK, 27
+    .equ BEH_GLEEOK_HEAD, 28
+    .equ BEH_GLEEOK_FLYER, 29
     .equ MODE_DODONGO, 16           | draw modes (tools/actors.py MODE_*)
     .equ MODE_MOLDORM, 17
 
@@ -108,6 +117,7 @@ enemy_behaviour:
     lsl.w #3, %d0
     ltab mon_table, %a0
     move.b 7(%a0, %d0.w), %d0
+    and.w #0xff, %d0                | (the index was shifted into the high byte: 32 monsters and more)
     rts
 1:  moveq #0, %d0
     rts
@@ -147,7 +157,10 @@ enemy_init_special:
     bne 6f
     lea OFF_ENEMY_SPEED(%a5), %a0   | a keese starts slow, at $1F, and picks up speed
     move.b #0x1f, 0(%a0, %d5.w)
-    lea OFF_ENEMY_FRAC(%a5), %a0
+    cmpi.b #MON_RED_KEESE, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 51f
+    move.b #0x7f, 0(%a0, %d5.w)     | a red one is quicker off the mark
+51: lea OFF_ENEMY_FRAC(%a5), %a0
     clr.b 0(%a0, %d5.w)
     clr.b OFF_ENEMY_STATE(%a5, %d5.w)
     clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
@@ -187,7 +200,11 @@ enemy_init_special:
     bra 9f
 72: cmp.w #BEH_TEKTITE, %d0
     blo 9f
-    bsr mover_init
+    cmp.w #BEH_POLS, %d0
+    blo 73f
+    bsr dmon_init
+    bra 9f
+73: bsr mover_init
 9:  movem.l (%sp)+, %d0-%d1/%a0
     rts
 
@@ -629,12 +646,19 @@ walker_fire:
     move.w #ARROW_SPEED, %d2
     bra 4f
 3:  cmp.w #BEH_LYNEL, %d0
+    beq 31f
+    cmp.w #BEH_WIZZROBE, %d0            | a wizzrobe's magic flies like the lynel's sword shot
     bne 4f
-    moveq #PK_SWORDSHOT, %d1
+31: moveq #PK_SWORDSHOT, %d1
 4:  bsr proj_alloc
     tst.w %d0
     bmi 8f
     move.b %d1, PJ_KIND(%a4, %d0.w)
+    clr.b PJ_OWNER(%a4, %d0.w)          | 2 marks the red wizzrobe's, which costs four hearts
+    cmpi.b #MON_WIZ_RED, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 41f
+    move.b #2, PJ_OWNER(%a4, %d0.w)
+41:
     move.b OFF_ENEMY_X(%a5, %d5.w), PJ_X(%a4, %d0.w)
     move.b OFF_ENEMY_Y(%a5, %d5.w), PJ_Y(%a4, %d0.w)
     move.b OFF_ENEMY_DIR(%a5, %d5.w), %d3
@@ -1370,6 +1394,9 @@ shot_meets_link:
     cmp.b #PK_SWORDSHOT, %d3
     bne 6f
     moveq #4, %d1
+    cmpi.b #2, PJ_OWNER(%a4, %d7.w)
+    bne 6f
+    moveq #8, %d1
 6:  movem.l %d7/%a4, -(%sp)
     bsr hurt_link
     movem.l (%sp)+, %d7/%a4
@@ -2028,6 +2055,9 @@ boom_collide:
 3:  cmp.w #BOOM_HIT_RANGE, %d0
     bhs 7f
     moveq #1, %d6
+    bsr dmon_boomerang_hurts            | a darknut or a gohma only turns it back
+    tst.w %d0
+    beq 7f
     tst.b OFF_ENEMY_HP(%a5, %d5.w)
     bne 4f
     move.b #1, OFF_ENEMY_HP(%a5, %d5.w) | no hit points to speak of: one touch kills it
@@ -2465,7 +2495,7 @@ dodongo_frame:
     move.w %d6, %d1
     add.w %d1, %d1
     add.w %d5, %d1
-    ltab mon_art, %a0
+    bsr mon_art_ptr
     move.w %d7, %d0
     add.w %d0, %d0
     add.w 0(%a0, %d0.w), %d1

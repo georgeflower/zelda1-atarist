@@ -9,6 +9,7 @@ can be checked without a human at the keyboard.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import shutil
@@ -215,6 +216,33 @@ def parse_key_schedule(spec: str) -> dict[int, list[tuple[str, int]]]:
     return schedule
 
 
+def build_dev(project: Path, room: int | None, uw: int | None, level: int) -> Path:
+    """Build a PRG that starts where asked (the ZELDA_START_* switches of the Makefile) into build/dev, so the
+    normal build is left alone."""
+    out = project / "build" / "dev"
+    env = dict(os.environ)
+    for name in ("ZELDA_START_ROOM", "ZELDA_START_UW", "ZELDA_START_LEVEL"):
+        env.pop(name, None)
+    if room is not None:
+        env["ZELDA_START_ROOM"] = f"{room:#x}"
+    if uw is not None:
+        env["ZELDA_START_UW"] = f"{uw:#x}"
+        env["ZELDA_START_LEVEL"] = str(level)
+    subprocess.run(["make", "-C", str(project), f"BUILD_DIR={out}", f"{out}/ZELDAST.PRG"], check=True, env=env,
+                   stdout=subprocess.DEVNULL)
+    return out / "ZELDAST.PRG"
+
+
+def frame_hash(rows: list[list[int]], palette_words: list[int]) -> str:
+    """A fingerprint of what is on screen: every pixel's palette index and the 16 colours, so a golden check does
+    not depend on a PNG encoder."""
+    digest = hashlib.sha256()
+    for row in rows:
+        digest.update(bytes(row))
+    digest.update(struct.pack(">16H", *palette_words))
+    return digest.hexdigest()
+
+
 def main() -> None:
     here = Path(__file__).resolve().parent
     project = here.parent
@@ -237,6 +265,9 @@ def main() -> None:
     )
     parser.add_argument("--press-at", type=int, default=620)
     parser.add_argument("--work", type=Path, default=project / "build" / "shots")
+    parser.add_argument("--room", type=lambda v: int(v, 0), help="start on this overworld screen (a dev build in build/dev)")
+    parser.add_argument("--uw", type=lambda v: int(v, 0), help="start in this dungeon room, with a sword (a dev build)")
+    parser.add_argument("--level", type=int, default=1, help="the dungeon --uw means (default 1)")
     parser.add_argument(
         "--trace",
         default="",
@@ -244,8 +275,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if not args.tos or not args.tos.exists():
+    if not str(args.tos) or not args.tos.is_file():
         raise SystemExit("Pass --tos <tos.img> or set the TOS environment variable")
+    if args.room is not None or args.uw is not None:
+        args.prg = build_dev(project, args.room, args.uw, args.level)
 
     schedule = parse_key_schedule(args.keys)
     for key in (name.strip() for name in args.hold.split(",")):
@@ -316,6 +349,7 @@ def main() -> None:
     rows, palette = decode_screen(ram, base, palette_words)
     write_png(args.out, rows, palette)
     print("PALETTE " + " ".join(f"{word:03x}" for word in palette_words))
+    print("FRAMEHASH " + frame_hash(rows, palette_words))
 
     globals_addr = find_globals(ram)
     layout = parse_globals_layout(project / "src" / "globals.s")
@@ -339,7 +373,7 @@ def main() -> None:
     print("ENEMIES " + " ".join(
         f"[{i}:({enemy_byte('ENEMY_X', i):#04x},{enemy_byte('ENEMY_Y', i):#04x}) t={enemy_byte('ENEMY_TYPE', i):02x} "
         f"s={enemy_byte('ENEMY_STATE', i):02x} tm={enemy_byte('ENEMY_TIMER', i):02x} hp={enemy_byte('ENEMY_HP', i):02x} "
-        f"a={enemy_byte('ENEMY_ACTIVE', i)}]"
+        f"a={enemy_byte('ENEMY_ACTIVE', i)} d={enemy_byte('ENEMY_DIR', i):x} turn={enemy_byte('ENEMY_TURN', i)} dist={enemy_byte('ENEMY_DIST', i)} step={enemy_byte('ENEMY_STEP', i)}]"
         for i in range(count)))
     if "ZORA_ACTIVE" in layout:
         print(f"ZORA_ACTIVE={ram[globals_addr + layout['ZORA_ACTIVE']]} BOULDERS={ram[globals_addr + layout['BOULDERS']]}")
@@ -348,7 +382,8 @@ def main() -> None:
           f"UW_OPEN[0x63]={ram[globals_addr + layout['UW_OPEN'] + 0x63]:#04x}")
     # A loop that keeps pace with the VBL advances this once per frame.
     frames = int.from_bytes(ram[globals_addr + layout["FRAME_COUNTER"] :][:2], "big")
-    print(f"FRAME_COUNTER={frames} after {args.vbls} VBLs")
+    late = int.from_bytes(ram[globals_addr + layout["LATE_FRAMES"] :][:2], "big")
+    print(f"FRAME_COUNTER={frames} after {args.vbls} VBLs LATE_FRAMES={late}")
     sync = re.search(r"^00FF8200: ((?:[0-9a-fA-F]{2} ){16})", log, re.M)
     if sync:
         # $FF820A bit 1 set = 50 Hz (PAL), clear = 60 Hz

@@ -31,9 +31,10 @@ ELF := $(BUILD_DIR)/zelda_st.elf
 BIN := $(BUILD_DIR)/zelda_st.bin
 PRG := $(BUILD_DIR)/ZELDAST.PRG
 OBJ := $(BUILD_DIR)/zelda_st.o
+LISTING := $(BUILD_DIR)/zelda_st.lst
 # The dungeons the assets are built for (tools/build_assets.py UW_LEVELS says the same) and the tables each has.
-UW_LEVELS := 1 2
-UW_LEVEL_TABLES := room_index rooms doors tiles tile_nes room_info cellar_maps cellar_info
+UW_LEVELS := 1 2 3 4 5 6 7 8
+UW_LEVEL_TABLES := room_index rooms doors tiles tile_nes room_info cellar_maps cellar_info mon_art quads
 MAIN_SRC := $(SRC_DIR)/main.s
 SOURCES := $(wildcard $(SRC_DIR)/*.s)
 # main.s .includes the other modules, so one assembler run covers them all.
@@ -42,7 +43,7 @@ GENERATED := $(GENERATED_DIR)/assets.inc $(GENERATED_DIR)/metatiles.bin \
 	$(GENERATED_DIR)/link_sprites.bin $(GENERATED_DIR)/hud_tiles.bin \
 	$(foreach l,$(UW_LEVELS),$(foreach t,$(UW_LEVEL_TABLES),$(GENERATED_DIR)/uw$(l)_$(t).bin)) \
 	$(GENERATED_DIR)/levels.inc $(GENERATED_DIR)/uw_door_cells.bin \
-	$(GENERATED_DIR)/mon_sprites.bin $(GENERATED_DIR)/mon_table.bin \
+	$(GENERATED_DIR)/mon_sprites.bin $(GENERATED_DIR)/mon_table.bin $(GENERATED_DIR)/mon_mask.bin \
 	$(GENERATED_DIR)/mon_index.bin $(GENERATED_DIR)/item_sprites.bin \
 	$(GENERATED_DIR)/item_index.bin $(GENERATED_DIR)/drop_table.bin \
 	$(GENERATED_DIR)/drop_rates.bin $(GENERATED_DIR)/sword_sprites.bin \
@@ -63,7 +64,7 @@ MUSIC_ROM := $(wildcard $(ROOT_DIR)/ext/Original.nes)
 MUSIC_PACKED := $(GENERATED_DIR)/music_bank.bin $(GENERATED_DIR)/music_drum_table.bin \
 	$(GENERATED_DIR)/music_ids.inc
 
-.PHONY: all assets check clean run screenshot
+.PHONY: all assets check clean run screenshot golden-update
 
 all: $(PRG)
 
@@ -91,11 +92,11 @@ $(MUSIC_PACKED) &: $(TOOLS_DIR)/music_pack.py $(TOOLS_DIR)/nes_music_rip.py $(MU
 
 $(OBJ): $(SOURCES) $(GENERATED) $(MUSIC_GENERATED) $(MUSIC_PACKED)
 	@mkdir -p $(BUILD_DIR)
-	$(AS) $(ASFLAGS) -o $@ $(MAIN_SRC)
+	$(AS) $(ASFLAGS) -al=$(LISTING) -o $@ $(MAIN_SRC)
 
 $(ELF): $(OBJ) link.ld
 	$(LD) $(LDFLAGS) -o $@ $(OBJ)
-	$(PYTHON) $(TOOLS_DIR)/check_reach.py --nm $(NM) $@ $(SOURCES)
+	$(PYTHON) $(TOOLS_DIR)/check_reach.py --nm $(NM) --listing $(LISTING) $@ $(SOURCES)
 
 $(BIN): $(ELF)
 	$(OBJCOPY) -O binary $< $@
@@ -107,6 +108,11 @@ check: all
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py'
 	$(PYTHON) $(TOOLS_DIR)/build_assets.py --source-root $(ROOT_DIR) --out-dir $(GENERATED_DIR) --verify-only
 	$(PYTHON) $(TOOLS_DIR)/make_prg.py --check $(PRG)
+	$(PYTHON) $(TOOLS_DIR)/golden.py
+
+# Accept what the golden scenes show now (after looking at build/golden/*.png).
+golden-update:
+	$(PYTHON) $(TOOLS_DIR)/golden.py --update
 
 # Headless Hatari run that renders the framebuffer to a PNG. TOS=<path to a
 # TOS image> is required; see tools/screenshot.py --help for the other options.
