@@ -33,7 +33,7 @@ PRG := $(BUILD_DIR)/ZELDAST.PRG
 OBJ := $(BUILD_DIR)/zelda_st.o
 LISTING := $(BUILD_DIR)/zelda_st.lst
 # The dungeons the assets are built for (tools/build_assets.py UW_LEVELS says the same) and the tables each has.
-UW_LEVELS := 1 2 3 4 5 6 7 8
+UW_LEVELS := 1 2 3 4 5 6 7 8 9
 UW_LEVEL_TABLES := room_index rooms doors tiles tile_nes room_info cellar_maps cellar_info mon_art quads
 MAIN_SRC := $(SRC_DIR)/main.s
 SOURCES := $(wildcard $(SRC_DIR)/*.s)

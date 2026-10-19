@@ -251,7 +251,7 @@ RUPEE_STASH = 0x35           # ten rupees on the floor (trigger bit 6)
 GRUMBLE = 0x36               # the moblin who wants food (trigger bit 5); his text is selector $24
 GRUMBLE_SELECTOR = 0x24
 # CurLevel -> which of the two selector tables (InitUnderworldPerson_Full_JumpTable); 9 has a third
-PERSON_SELECTOR_LABELS = {1: "A", 2: "A", 3: "B", 4: "B", 5: "A", 6: "B", 7: "A", 8: "B"}
+PERSON_SELECTOR_LABELS = {1: "A", 2: "A", 3: "B", 4: "B", 5: "A", 6: "B", 7: "A", 8: "B", 9: "C"}
 
 # 0x3F is not an item: it is Link with both arms up (tile $78, a mirrored pair, from
 # Anim_ItemFrameTiles) that DrawLinkLiftingItem shows while he holds the triforce piece.
@@ -707,7 +707,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         fx_sprites=_effect_frames(sp_tiles, bg_tiles, palette, _fire_rows(anim, heap, attr_heap, sp_tiles, palette)),
         proj_sprites=_projectile_sprites(code, sp_tiles, bg_tiles, palette, ow_sp_tiles or sp_tiles, heap, attr_heap, anim),
         hud_items=_hud_items(code, sp_tiles, bg_tiles, palette),
-        room_info=[_room_info(r, attrs, foe_counts, info, person_offsets.get(r, NO_PERSON), lists) for r in room_ids],
+        room_info=[_room_info(r, attrs, foe_counts, info, person_offsets.get(r, NO_PERSON), lists, level) for r in room_ids],
         person_text=person_blob,
         monster_arts=tuple(monster_arts),
         keese_index=MONSTER_TYPES.index(0x1B),
@@ -844,8 +844,8 @@ def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_by
     return bytes(blob), offsets
 
 
-def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, lists=()) -> bytes:
-    """count, secret trigger (bit 7: the room has a push block, 6 a rupee stash, 5 Grumble), item id, item X, item Y,
+def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, lists=(), level: int = 0) -> bytes:
+    """count, secret trigger (bit 7: the room has a push block, 6 a rupee stash, 5 Grumble, 4 the man at Level 9's door), item id, item X, item Y,
     unsupported (bit 7: a dark room),
     eight monsters, then where the person's speech starts in the cave text (0xFF: nobody talks here)."""
     attr_c, attr_d, attr_e, attr_f = attrs
@@ -884,6 +884,8 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
     # FindAndCreatePushBlockObject runs for every room whose attribute D has $40, whatever its secret trigger
     trigger = (attr_f[room] & 7) | (0x80 if attr_d[room] & 0x40 else 0)
     trigger |= (0x40 if RUPEE_STASH in types else 0) | (0x20 if GRUMBLE in types else 0)   # not monsters: the room's own things
+    if level == 9 and list_id == PERSON_LIST_FIRST:
+        trigger |= 0x10                                 # the man who lets Link in once he holds all eight pieces
     dark = 0x80 if attr_e[room] & 0x80 else 0           # attribute E bit 7: a dark room (until the candle is lit)
     record = bytearray([len(monsters), trigger, item_id, pos & 0xF0, (pos & 0x0F) << 4, unsupported | dark])
     record.extend(monsters)

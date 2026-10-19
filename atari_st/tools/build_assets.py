@@ -902,7 +902,7 @@ def link_tunic_indices(palette: PaletteMap) -> tuple[int | None, int | None, int
     return (None, blue, red)
 
 
-UW_LEVELS = (1, 2, 3, 4, 5, 6, 7, 8)      # the dungeons the game has so far (the Makefile's UW_LEVELS lists the same)
+UW_LEVELS = (1, 2, 3, 4, 5, 6, 7, 8, 9)      # the dungeons the game has so far (the Makefile's UW_LEVELS lists the same)
 LINK_TUNIC_SETS = 3     # no ring, blue ring, red ring
 
 

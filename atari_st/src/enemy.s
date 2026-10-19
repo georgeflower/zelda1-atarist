@@ -60,7 +60,13 @@ uw_spawn:
     tst.w %d1
     bmi 9b
     bsr boss_room_init_f            | the rupee stash, Grumble
-    cmpi.w #0xffff, 14(%a1)
+    btst #4, 1(%a1)
+    beq 3f
+    cmpi.b #0xff, OFF_TRIFORCE_PIECES(%a5)
+    bne 3f                          | the man at Level 9's door: with all eight pieces Link may pass (InitUnderworldPersonC)
+    bsr uw_open_shutters
+    bra 0f
+3:  cmpi.w #0xffff, 14(%a1)
     beq 0f
     btst #5, 1(%a1)
     beq 4f

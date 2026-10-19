@@ -44,7 +44,7 @@ DOOR_SHUTTER = 7
 
 # LevelInfo_CellarRoomIdArray: six room ids, $FF where unused.
 CELLAR_ARRAY_OFFSET = 0x6BB2 - B.LEVEL_INFO_BASE
-CELLAR_ARRAY_LENGTH = 6
+CELLAR_ARRAY_LENGTH = 10
 CELLAR_UNIQUE_IDS = (0x3E, 0x3F)   # tunnel, treasure room
 CELLAR_PALETTE_ROW = 2             # CellarAttrsTransferBuf makes every attribute $AA
 # room A, room B, position in the destination, item, item X, item Y, room id, kind
