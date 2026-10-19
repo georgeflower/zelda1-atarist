@@ -6,12 +6,13 @@ disassembly in `src/`. It runs as a stock TOS `.PRG` on a 512KB ST in 320x200
 sixteen-colour mode, and reads all of its graphics, room layouts, palettes and
 text out of a ROM you supply yourself.
 
-Status: a playable game with two dungeons. You can walk the whole overworld,
+Status: a playable game with eight dungeons. You can walk the whole overworld,
 fetch the wooden sword from the first cave, fight the overworld's monsters,
 and play Level 1 (to Aquamentus) and Level 2 (to the Dodongo, the heart
-container and the triforce piece) as in the original. Every item the game has
+container and the triforce piece) as in the original; Levels 3 to 8 are built
+with their rooms, items, monsters and bosses but not yet played through. Every item the game has
 is in the code, but most can only be found in the dungeons and caves that are
-not ported yet. It is not yet a complete game: seven dungeons, the shops and
+not ported yet. It is not yet a complete game: Level 9, the shops and
 most caves, the title screen and saving are missing, and there is no way to
 win.
 
@@ -166,6 +167,23 @@ Level 2 (underworld)
 - stairs between the overworld and the level work both ways: Level 2 is entered
   from screen `$3C` and leaves back to it
 
+Levels 3 to 8 (underworld)
+
+- every room of the six dungeons, with its doors, items, secrets and palette, from the ROM
+  tables; the dungeons are entered from the overworld by the level number of the stairs
+- monsters: red and blue darknuts (a head-on sword blow is turned aside), gibdos, zols and
+  vires (a blow that does not kill leaves two gels or two keese), pols voice (hops, an arrow
+  kills it), like-likes (swallow Link and the magic shield), wizzrobes (red and blue),
+  bubbles (stop the sword for a while)
+- bosses: Manhandla (four hands that speed up), Gohma (blue and red; arrows at the open
+  eye), Digdogger (the recorder splits it) and Gleeok (one to four necks; the body is baked
+  into the room, necks and heads are drawn from a pool of pre-shifted pieces)
+- rupee stash rooms, Grumble (fed with food to open the way) and dark rooms (black until
+  the candle is used)
+- rooms with seven or more monsters take two VBLs to draw: the game then runs its update
+  once more without drawing, so the speed stays that of 60 Hz and only the picture drops to
+  30 Hz (`catch_up`)
+
 Combat and items
 
 - sword: drawn from the original tiles in its four phases, and it only cuts
@@ -234,7 +252,7 @@ Tooling
 - `tools/check_reach.py`, run after every link, fails the build when a table
   name is missing or when a branch or PC-relative operand does not fit 16 bits
   (GNU as wraps those silently); see "Notes on the ST implementation"
-- golden frames: `tools/golden.py` runs ten fixed scenes in Hatari and compares a
+- golden frames: `tools/golden.py` runs fifteen fixed scenes in Hatari and compares a
   hash of each screen with `tests/golden/frames.json` (see Testing)
 - unit tests for the asset pipeline, and for the music packer and the 68000 music
   player (run on `machine68k`, every track checked frame by frame)
@@ -247,6 +265,9 @@ Known gaps
 Things that behave differently from the original, or are stand-ins:
 
 - fireball art is placeholder (Aquamentus himself is original)
+- Levels 3 to 8 were checked by loading every room in Hatari and by reading the ROM, not
+  played through (Digdogger's kill and heart container, pols voice and vire hops, a stash left
+  and re-entered, dark-room scrolling); the "more bombs" and "life or money" men are not ported
 - the Moldorm is two worms of four segments, not one of ten, because the engine
   has eight monster slots; the Dodongo and the Moldorm leave no death cloud
 - Level 2's Dodongo bomb and sword kill, the Moldorm's segment deaths and the

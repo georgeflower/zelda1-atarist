@@ -17,9 +17,10 @@ TOS `ZELDAST.PRG` that runs in Hatari (and should on real hardware): 320x200,
 Current scope: the whole overworld is walkable (128 screens) with its monsters,
 the first cave and the wooden sword, **Level 1 (the Eagle)** is playable to the
 boss Aquamentus and the triforce piece, and **Level 2 (the Moon)** to the Dodongo,
-its heart container and the triforce piece. Every item of the original's inventory
-is in the code. Everything else (the other seven dungeons, shops and most caves,
-the hidden overworld spots, title and save) is future work, see section 14 and
+its heart container and the triforce piece. **Levels 3 to 8** are built too (rooms,
+layouts, items, every monster and boss of those levels) but only partly play-tested.
+Every item of the original's inventory is in the code. Everything else (Level 9,
+shops and most caves, the hidden overworld spots, title and save) is future work, see section 14 and
 `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
@@ -68,7 +69,7 @@ atari_st/                the port
   README.md              user-facing docs: features, known gaps, roadmap, notes
   src/*.s                68000 code (one assembly unit, main.s .includes the rest)
   tools/*.py             asset pipeline, PRG packer, Hatari screenshot harness
-  tests/*.py             unittest suites (117 tests); tests/golden/frames.json = golden frame hashes
+  tests/*.py             unittest suites (123 tests); tests/golden/frames.json = golden frame hashes
   music/                 YM2149 song source (zelda_intro_by_qum.h) + player (ymplay.h)
   build/                 OUTPUT (gitignored): generated/, ZELDAST.PRG, scratch, shots/
 ```
@@ -83,6 +84,8 @@ atari_st/                the port
 | `sprite.s` | masked 16x16 blitter (`draw_sprite`), `erase_at`, Link drawing |
 | `link.s` | input -> direction, grid-step movement, collision, room transitions, caves, scroll |
 | `enemy.s` | monster spawn, walker AI (16-px lanes), shove, draw, `sprite_offset`, `rand8` |
+| `dmon.s` | the dungeon monsters of Levels 3-8 (darknuts, gibdo, zol, vire, pols voice, like-like, bubbles, wizzrobes), `mon_mask` (which weapons hurt what), `STEP_PATTERNS`, and the `farstub` trampoline macro + list |
+| `bosses.s` | Manhandla, Gohma, Digdogger, Gleeok (included last; its `*_bf` stubs reach back into main.s), the boss sprite pool (`bp_add`, `boss_pool_draw`), pre-shifted narrow art (`draw_pre`), the baked Gleeok body, rupee stashes and Grumble (`boss_room_init`, `stash_bake`, `grumble_bake`, `boss_misc_update`) |
 | `ai.s` | per-monster behaviours (rope, goriya incl. the blue one, wallmaster, Aquamentus, keese, blade trap, **Dodongo, Moldorm**), projectile system, **Link's boomerang** |
 | `movers.s` | the overworld monsters with rules of their own: tektites and boulders (jumps), leevers and zoras (burrowing), peahats, ghinis, the boulder set |
 | `items.s` | the B items beyond bombs/boomerang/candle (bow and arrows, rod, recorder, food, potion), Link's shots, heart fill, the `b_*` tables |
@@ -102,7 +105,7 @@ atari_st/                the port
 | `actors.py` | monsters, items, drops, sprites (sword, beam, effects, boomerang, HUD icons), per-room records |
 | `make_prg.py` | wraps the flat binary into a TOS PRG header (`--check` validates) |
 | `screenshot.py` | **headless Hatari harness**: runs the PRG, injects keys, pokes variables, dumps RAM, decodes framebuffer to PNG, prints a state report and a `FRAMEHASH`; `--room`, `--uw`/`--level` build a dev PRG into `build/dev` |
-| `golden.py` | golden frames: runs ten fixed scenes through `screenshot.py` and compares `FRAMEHASH` with `tests/golden/frames.json` (`--update`, `--only`, `--png-dir`); skipped without Hatari, `TOS` and the ROM; `make golden-update` |
+| `golden.py` | golden frames: runs fifteen fixed scenes through `screenshot.py` and compares `FRAMEHASH` with `tests/golden/frames.json` (`--update`, `--only`, `--png-dir`); skipped without Hatari, `TOS` and the ROM; `make golden-update` |
 | `dump_tables.py` | dumps the ROM tables the port is built from (overworld screens, all nine dungeons' rooms, monster lists) as `build/dump/tables.json` and `tables.md`; checks the ROM |
 | `check_reach.py` | run after every link: fails the build if an `ltab` symbol is missing or a branch or PC-relative operand does not fit 16 bits (reads `build/zelda_st.lst`) |
 | `dev_run.sh` | build with a start room + capture (needs `$TOS`) |
@@ -192,14 +195,14 @@ then says `source=generated placeholder CHR`). With the real ROM it should not a
 `test_nes_music_rip.py` (needs `py65` for the ROM part, `ZELDA_ROM` or `ext/Original.nes`),
 `test_dump_tables.py` (the table dump, and that every golden scene has a stored hash),
 `test_music_player.py` (the packer, and `music.s` run on `machine68k` through `tests/music_harness.s`; needs the m68k binutils and `pip install machine68k`, the real-bank part also the ROM and `py65`),
-...). Run `python -m unittest discover -s atari_st\tests` (117 tests at the time of
+...). Run `python -m unittest discover -s atari_st\tests` (123 tests at the time of
 writing). They cover the asset pipeline and tables; the 68000 music player is the one piece of
 68000 code with unit tests. `test_actors.py` also holds the Makefile-vs-`build_assets.UW_LEVELS` check and the
 reach-check listing parser.
 
 ### Golden frames (`tools/golden.py`, `tests/golden/frames.json`)
-Ten fixed scenes (overworld start, the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo,
-Moldorm, traps, goriyas, old man) are run through `screenshot.py` (dev builds in `build/dev` via `--room`/`--uw`/`--level`) and
+Fifteen fixed scenes (overworld start, the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo,
+Moldorm, traps, goriyas, old man, and Levels 3-8: a crowded room, a dark room, a rupee stash, Grumble, a dark crowd) are run through `screenshot.py` (dev builds in `build/dev` via `--room`/`--uw`/`--level`) and
 the `FRAMEHASH` (SHA-256 of pixel indices plus palette) is compared with the stored one. **Hashes, not images**: the frames are
 Nintendo's artwork and must not be committed. Runs are deterministic. After a change that moves pixels on purpose: look at
 `build/golden/<scene>.png`, then `make golden-update` and commit `frames.json`. `make check` runs it and skips quietly without
@@ -294,7 +297,7 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
   `bsr minimap_tick` in `main.s` were 32,786 to 32,972 bytes from their targets and the game died with a Line-F
   exception at start (the symptom in the harness: see section 5). `check_reach.py` now reads the assembler listing
   (`build/zelda_st.lst`, `as -al`), computes each branch and PC-relative distance against the linked symbols, and fails
-  the build on any that does not fit; it prints the tightest three (86 bytes to spare when this was written, so
+  the build on any that does not fit; it prints the tightest three (479 bytes to spare after Levels 3-8, 86 after Level 2, so
   **expect it to fail as soon as you add code**). Fix: route the call through a `*_far` stub (`bra target`) placed in
   the middle of the image in `main.s` before `.include "link.s"` (`clear_erase_state_far`, `show_background_far`,
   `draw_hud_far`, `update_menu_far`, `minimap_tick_far`), and call the stub. Data that nothing branches into
@@ -350,18 +353,24 @@ drawn two frames ago (`xchg_state` swaps the `*_ERASE_*` / `OLD_*` arrays in
 flag) in `globals.s`, erase it at the top of `update_play`, draw it at the bottom,
 add its arrays to `swap_erase_state`, `clear_old_erase_state`, `clear_erase_state`.
 The generic route is the **effect slots** (`FX_*`, 12 slots, `fx_put`, drawn from
-`fx_sprites`): slots 0-3 spark corners, 4-7 bomb cloud, 8 candle flame.
+`fx_sprites`): slots 0-3 spark corners, 4-7 bomb cloud, 8 candle flame; 36 slots in all, 12.. are the boss pool's
+(`bp_add` pieces, drawn by `boss_pool_draw` after `draw_effects`).
 Scrolls, caves and the menu bypass double buffering (`dbl_end` / `dbl_enter`).
 
 `update_play` order: erase everything -> `menu_check_open` -> `sword_input` ->
-`b_item_input` -> `link_update` -> `uw_person_update` -> `items_update` (the potion's heart fill, the recorder and food timers) ->
-`chase_target_update` -> `update_enemies` -> `update_combat` (sword
+`b_item_input` -> `link_update` -> `uw_person_update` -> `items_update` (potion, recorder, food,
+Link's shots' bookkeeping) -> `boss_misc_update` (rupee stash, Grumble) -> `chase_target_update` -> `update_enemies` -> `update_combat` (sword
 hits, beam, enemy contact, item pickup, beam/fire/block/bomb ticks incl. the Dodongo's bomb check,
 room clear) -> `update_projectiles` -> draw items, bomb, enemies, projectiles, Link (blinks when
-hurt), beam, effects, sword -> `present_frame`.
+hurt), beam, effects, `boss_draw` (Gleeok, boss pool), sword -> `present_frame`.
 
 Frame budget at 8 MHz: ~133,600 cycles (60 Hz) - the sprite blitter shifts at run
-time (no pre-shifted copies).
+time (no pre-shifted copies; only the bosses' narrow pieces are pre-shifted). A sprite costs
+~8k cycles to draw and ~1.7k to erase, so a room of seven or more monsters needs two VBLs. `catch_up`
+(`main.s`, called after `FRAME_COUNTER` is incremented) sees from `FR_CLOCK` (`$462`) that two VBLs passed and runs
+`update_play` once more with `SKIP_DRAW` set (no erase, no draw, no present, boss pool cleared), so the game speed
+stays that of 60 Hz and only the picture runs at 30 Hz; at most one extra pass, never during scrolls or menus.
+`LATE_FRAMES` counts the passes (the harness prints it); `FRAME_COUNTER` ~ VBLs - 170 means the loop kept up.
 
 ## 8. Screen, coordinates, rendering
 
@@ -495,6 +504,16 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `$3E` **Moldorm** + key, `$3F` 4 traps + 4 keese, `$4E` ropes + key, `$4F` 3 **blue goriyas** + magic boomerang, `$5E` red goriyas
   with a **ringleader** (trigger 2), `$5F` gels + map, `$6C`/`$6D`/`$6E`/`$7E` ropes (+ keys), `$6F` gels + compass. Entered from overworld
   `$3C` (`uw_enter_level` stores that screen in `CAVE_SOURCE_ROOM`; the dev start uses `DEV_START_ENTRANCE`).
+- **Levels 3-8** (built by the same pipeline; `UW_LEVELS := 1 2 3 4 5 6 7 8`, entered from the overworld by the level number
+  in `room_attr_b`; the dev start takes `ZELDA_START_LEVEL`). Room record (16 bytes): 0 monster count, 1 trigger (bits 0-2
+  trigger, bit 5 Grumble, bit 6 rupee stash, bit 7 push block), 2 item, 3/4 item X/Y, 5 unsupported monsters (bit 7: the room
+  is dark), 6-13 monsters, 14-15 person text offset. Dark rooms (`ROOM_DARK`, `uw_dark_fill`) show nothing but Link, monsters
+  and effects until the candle is used (`uw_light_room`, `ROOM_LIT`). Rupee stash: `stash_bake` paints the rupees into the room
+  and `boss_misc_update` collects them (`UW_FLAGS` bit 2). Grumble (`GRUMBLE_ON`): blocks the doorway tile until fed (food
+  on his tile), then `UW_FLAGS` bit 1. Gleeok's body is baked into the room (`uw_bake_boss`, `GLEEOK_GONE` after death);
+  necks and heads come from the boss pool, one segment per neck when there are four necks (`GLEEOK_SEGS`). Still unported: the
+  "more bombs" man (`$4F`) and the "life or money" man (`$51`). Unverified by play: Digdogger's kill and heart container,
+  pols voice hops, vire hops, the stash on leave and return, dark-room scrolling.
 - **Blue goriya** (`$05`): throws whenever its timer reaches 0, no `$23`/`$77` roll (`goriya_ai` reads the NES type from `mon_table`).
   **Ringleader** (`TRIGGER_RINGLEADER`, `uw_check_clear`): when slot 0 is dead, kill the others and open the shutters.
 - **Dodongo** (`$32`, `BEH_DODONGO`, `MODE_DODONGO`; ROM `UpdateDodongo`): a wanderer (turn rate `$20`) whose X is shifted by `$10` when it
@@ -637,13 +656,14 @@ Done: the overworld (all 128 screens) with octoroks, moblins, lynels, tektites, 
 shooting, edge spawns, kill history); the first cave; Level 1 (doors/keys/shutters/bombable and false walls, stairs + cellar, stalfos,
 keese, gels, ropes, goriyas, wallmasters, Aquamentus, blade traps, push blocks, triforce ending, map and compass with the minimap, the
 old man in `$41`); **Level 2** (18 rooms, blue goriyas, Dodongo, Moldorm worms, trap+keese room, the ringleader room, the magic
-boomerang, heart container, triforce); the multi-level pipeline (`level_table`, `uw_select_level`); every item of the original's
+boomerang, heart container, triforce); **Levels 3-8** (rooms, layouts, items, darknuts, vire, zol, pols voice, like-like,
+wizzrobes, bubbles, gibdos, Manhandla, Gohma, Digdogger, Gleeok, rupee stashes, Grumble, dark rooms, the catch-up pass); the multi-level pipeline (`level_table`, `uw_select_level`); every item of the original's
 inventory in the code (swords of three grades, bow and arrows, rod, potions, food, recorder, rings, magic shield, clock, fairy); drops with
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
 Open items (user-visible gaps): the hidden bomb/fire/push spots and armos on the overworld (M1, M4); shops and the other caves, which is where
-most items come from (M3); the other seven dungeons and their monsters and bosses (M6-M9); the other dungeon people (more bombs, life or
+most items come from (M3); Level 9 (Lanmola, Patra, Ganon, Zelda) and a play-through of Levels 3-8 (M6-M9); the other dungeon people (more bombs, life or
 money, fireballs from the old man's flames); the overworld map on the ribbon; fireball art (placeholder); the stairs-type push block
 (trigger 5); visible block slide animation; the recorder's whirlwind, raft, ladder; the rest of the sound (title, ending, game-over and
 boss music, DPCM); title/game-over/save (M10). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
