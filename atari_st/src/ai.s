@@ -24,6 +24,10 @@
     .equ BEH_GHINI, 16
     .equ BEH_BOULDER, 17
     .equ BEH_BOULDER_SET, 18
+    .equ BEH_DODONGO, 19            | Dodongo and Moldorm are handled before the movers' test
+    .equ BEH_MOLDORM, 20
+    .equ MODE_DODONGO, 16           | draw modes (tools/actors.py MODE_*)
+    .equ MODE_MOLDORM, 17
 
     .equ ENEMY_SHOVE_FRAMES, 16     | 64 pixels at 4 a frame
     .equ MAX_PROJ, 8
@@ -163,7 +167,25 @@ enemy_init_special:
     clr.b 0(%a0, %d5.w)
     move.b #2, OFF_ENEMY_ACTIVE(%a5, %d5.w)     | alive for good: it never counts as a monster of the room
     bra 9f
-7:  cmp.w #BEH_TEKTITE, %d0
+7:  cmp.w #BEH_DODONGO, %d0
+    bne 71f
+    bsr rand8                       | InitDodongo: face left or right at random
+    moveq #DIR_RIGHT, %d1
+    cmp.b #0x80, %d0
+    blo 70f
+    moveq #DIR_LEFT, %d1
+70: move.b %d1, OFF_ENEMY_DIR(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    lea OFF_ENEMY_WANT(%a5), %a0
+    clr.b 0(%a0, %d5.w)             | no bombs swallowed yet
+    bra 9f
+71: cmp.w #BEH_MOLDORM, %d0
+    bne 72f
+    bsr moldorm_init
+    bra 9f
+72: cmp.w #BEH_TEKTITE, %d0
     blo 9f
     bsr mover_init
 9:  movem.l (%sp)+, %d0-%d1/%a0
@@ -417,9 +439,9 @@ enemy_face_unblocked:
 | UpdateGoriya. At every square boundary a goriya with Link within $51 pixels
 | along the longer of the two ways turns to face him and wants to throw its
 | boomerang; otherwise it keeps its heading and only turns at walls. A red
-| goriya (the only kind here) acts on the wish only when its roll comes up $23
-| or $77, two frames in 256, and not before its timer has run out. After a
-| throw it stands still until the boomerang is back.
+| goriya acts on the wish only when its roll comes up $23 or $77, two frames
+| in 256, and not before its timer has run out; a blue one (type $05) throws as
+| soon as its timer allows. After a throw it stands still until the boomerang is back.
 |
 | d5 = monster. Returns d0.w = 1 while it must not move.
 goriya_ai:
@@ -474,6 +496,12 @@ goriya_ai:
     bsr enemy_behaviour
     cmp.w #BEH_LYNEL, %d0
     beq 9f                          | a lynel does not throw
+    moveq #0, %d0
+    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
+    lsl.w #3, %d0
+    ltab mon_table, %a0
+    cmpi.b #0x05, 0(%a0, %d0.w)
+    beq 4f                          | a blue goriya throws whenever it wants and its timer allows
     bsr rand8
     cmp.b #0x23, %d0
     beq 4f
@@ -2022,4 +2050,501 @@ boom_collide:
     move.b %d4, OFF_LINK_Y(%a5)
     move.w %d6, %d0
     movem.l (%sp)+, %d1-%d6/%a0
+    rts
+
+| ------------------------------------------------------------------ Dodongo
+| UpdateDodongo. A Dodongo is two squares long when it goes sideways (its X is the left end); nothing
+| but a bomb touches it. ENEMY_STATE: 0 walking, 1 bloated (it swallowed a bomb), 2 stunned (a bomb blew up
+| beside it). ENEMY_STEP is the bloated substate, ENEMY_TIMER the wait in it (and in the stun), ENEMY_WANT
+| the bombs it has swallowed. A bomb that is ticking beside its mouth is eaten; two of those finish it. A
+| bomb's cloud next to it stuns it for $20 frames, and the sword kills a stunned one (and it leaves a bomb).
+    .equ DODONGO_STUN_FRAMES, 0x20
+    .equ DODONGO_BOMBS_TO_DIE, 2
+
+| d5 = monster. Returns d0.w = 1 while it must stand still.
+dodongo_ai:
+    movem.l %d1-%d3/%a0, -(%sp)
+    moveq #0, %d1
+    move.b OFF_ENEMY_STATE(%a5, %d5.w), %d1
+    beq 1f
+    cmp.b #1, %d1
+    beq 20f
+    subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)  | stunned
+    bne 8f
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 8f
+1:  cmpi.b #0x20, OFF_ENEMY_X(%a5, %d5.w)   | near the left wall it faces right
+    bhs 11f
+    move.b #DIR_RIGHT, OFF_ENEMY_DIR(%a5, %d5.w)
+11: moveq #0, %d2                           | Wanderer_TargetPlayer sees the end of the body that leads
+    cmpi.b #DIR_LEFT, OFF_ENEMY_DIR(%a5, %d5.w)
+    beq 12f
+    moveq #16, %d2
+12: add.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.w #0x20, %d1                       | turn rate $20
+    bsr wander_tick
+    sub.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    moveq #0, %d0
+    bra 9f
+20: moveq #0, %d1                           | bloated: the substates wait $20, $40, $40 frames
+    move.b OFF_ENEMY_STEP(%a5, %d5.w), %d1
+    cmp.b #4, %d1
+    beq 29f
+    cmp.b #3, %d1
+    beq 28f
+    moveq #0, %d2
+    move.b OFF_ENEMY_TIMER(%a5, %d5.w), %d2
+    cmp.b #1, %d2
+    beq 25f
+    tst.b %d2
+    bne 26f
+    lea dodongo_waits(%pc), %a0             | the timer has run out: arm it for this substate
+    move.b 0(%a0, %d1.w), OFF_ENEMY_TIMER(%a5, %d5.w)
+    tst.b %d1
+    bne 26f
+    clr.b OFF_BOMB_TIMER(%a5)               | the swallowed bomb is gone
+    lea OFF_ENEMY_WANT(%a5), %a0
+    addq.b #1, 0(%a0, %d5.w)
+    bra 26f
+25: addq.b #1, OFF_ENEMY_STEP(%a5, %d5.w)   | on to the next substate
+    cmpi.b #2, OFF_ENEMY_STEP(%a5, %d5.w)
+    blo 26f
+    lea OFF_ENEMY_WANT(%a5), %a0
+    cmpi.b #DODONGO_BOMBS_TO_DIE, 0(%a0, %d5.w)
+    bhs 26f
+    move.b #4, OFF_ENEMY_STEP(%a5, %d5.w)   | one bomb is not enough: it walks again
+26: subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bra 8f
+28: bsr kill_enemy                          | the second bomb: it is dead
+    bra 8f
+29: clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+8:  moveq #1, %d0
+9:  movem.l (%sp)+, %d1-%d3/%a0
+    rts
+
+dodongo_waits:
+    .byte 0x20, 0x40, 0x40, 0x00
+    .align 2
+
+| The sword has struck Dodongo d5: only a stunned one is hurt, and it dies on the spot, leaving a bomb.
+dodongo_sword:
+    cmpi.b #2, OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 9f
+    move.b #10, OFF_HELP_COUNT(%a5)         | HelpDropCount and HelpDropValue $0A: the drop is a bomb
+    move.b #10, OFF_HELP_VALUE(%a5)
+    bsr kill_enemy
+9:  rts
+
+| Every frame: a Dodongo that is walking swallows a ticking bomb that is by its mouth, and is stunned by a
+| bomb's cloud next to it (Dodongo_CheckBombHit). The bomb's hotspot is its origin plus 8 in both ways, the
+| Dodongo's the same, with 8 more across when it faces sideways.
+dodongo_bomb_tick:
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    moveq #0, %d7                           | d7 = 1 for the bomb itself, 0 for its cloud
+    move.b OFF_BOMB_X(%a5), %d1
+    move.b OFF_BOMB_Y(%a5), %d2
+    tst.b OFF_BOMB_TIMER(%a5)
+    bne 0f
+    tst.b OFF_CLOUD_TIMER(%a5)
+    beq 9f
+    move.b OFF_CLOUD_X(%a5), %d1
+    move.b OFF_CLOUD_Y(%a5), %d2
+    bra 1f
+0:  moveq #1, %d7
+1:  and.w #0x00ff, %d1
+    and.w #0x00ff, %d2
+    addq.w #8, %d1
+    addq.w #8, %d2                          | the bomb's hotspot
+    moveq #0, %d5
+2:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
+    bhs 9f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    beq 8f
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 8f
+    bsr enemy_behaviour
+    cmp.w #BEH_DODONGO, %d0
+    bne 8f
+    moveq #0, %d3                           | the Dodongo's hotspot, as a distance from the bomb's
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d3
+    addq.w #8, %d3
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
+    and.b #3, %d0
+    beq 3f
+    addq.w #8, %d3
+3:  sub.w %d1, %d3                          | d3 = across
+    moveq #0, %d4
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d4
+    addq.w #8, %d4
+    sub.w %d2, %d4                          | d4 = along
+    lea dodongo_bomb_limits(%pc), %a0       | the bomb needs to be within -12/+12 (its cloud) or -16/+17 (itself)
+    move.w %d7, %d0
+    add.w %d0, %d0
+    move.b 0(%a0, %d0.w), %d6               | the positive limit
+    ext.w %d6
+    move.b 1(%a0, %d0.w), %d0               | the negative limit
+    ext.w %d0
+    cmp.w %d6, %d3
+    bge 8f
+    cmp.w %d0, %d3
+    blt 8f
+    cmp.w %d6, %d4
+    bge 8f
+    cmp.w %d0, %d4
+    blt 8f
+    tst.w %d7
+    bne 4f
+    move.b #2, OFF_ENEMY_STATE(%a5, %d5.w)  | the cloud: stunned
+    move.b #DODONGO_STUN_FRAMES, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bra 8f
+4:  moveq #0, %d0                           | the bomb: is it at the mouth?
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
+    lsr.w #1, %d0                           | 0 right, 1 left, 2 down, 4 up
+    lea dodongo_mouth(%pc), %a0
+    move.b 0(%a0, %d0.w), %d6               | across: negative, positive limits
+    ext.w %d6
+    cmp.w %d6, %d3
+    blt 8f
+    move.b 5(%a0, %d0.w), %d6
+    ext.w %d6
+    cmp.w %d6, %d3
+    bge 8f
+    move.b 10(%a0, %d0.w), %d6              | along
+    ext.w %d6
+    cmp.w %d6, %d4
+    blt 8f
+    move.b 15(%a0, %d0.w), %d6
+    ext.w %d6
+    cmp.w %d6, %d4
+    bge 8f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)  | swallowed: it bloats
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    clr.b OFF_BOMB_TIMER(%a5)
+8:  addq.w #1, %d5
+    bra 2b
+9:  movem.l (%sp)+, %d0-%d7/%a0-%a1
+    rts
+
+| (positive, negative) limits, the cloud's and the bomb's; then the mouth by facing: DodongoMouthNegativeLimits0,
+| DodongoMouthPositiveLimits0, DodongoMouthNegativeLimits1 and DodongoMouthPositiveLimits1, five each
+dodongo_bomb_limits:
+    .byte 0x0c, 0xf4, 0x11, 0xf0
+dodongo_mouth:
+    .byte 0xf0, 0x00, 0xf8, 0xff, 0xf8      | across, lower limit
+    .byte 0x00, 0x10, 0x08, 0xff, 0x08      | across, upper limit
+    .byte 0xfc, 0xfc, 0xf0, 0xff, 0x00      | along, lower limit
+    .byte 0x04, 0x04, 0x00, 0xff, 0x10      | along, upper limit
+    .align 2
+
+| How far the monster's body is from a column: Dodongo is two squares wide when it faces sideways. d5 = monster,
+| d0.w = the column. Returns d3.w = the distance to the nearer end. Keeps everything else.
+enemy_dx:
+    movem.l %d0-%d2/%a0, -(%sp)
+    move.w %d0, %d2
+    bsr enemy_behaviour
+    moveq #0, %d1
+    cmp.w #BEH_DODONGO, %d0
+    bne 1f
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
+    and.b #3, %d0
+    beq 1f
+    moveq #16, %d1
+1:  moveq #0, %d3
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d3
+    sub.w %d2, %d3
+    bpl 2f
+    neg.w %d3
+2:  tst.w %d1
+    beq 9f
+    moveq #0, %d0
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d0
+    add.w %d1, %d0
+    sub.w %d2, %d0
+    bpl 3f
+    neg.w %d0
+3:  cmp.w %d0, %d3
+    bls 9f
+    move.w %d0, %d3
+9:  movem.l (%sp)+, %d0-%d2/%a0
+    rts
+
+| ------------------------------------------------------------------ Moldorm
+| Two worms of four segments (the original has five each; this port has eight monster slots). Each segment is a
+| monster; the head (slots 3 and 7) steers like a flyer (Flyer_Chase, Flyer_Wander, Flyer_MoldormDecideState)
+| and every $10 frames each segment below it takes over the heading the one above had, so the body follows the
+| head's track. They all move at speed $80, half a pixel a frame. ENEMY_DIR 0 means the segment has not been
+| told where to go yet. ENEMY_STATE is the head's flying state (2 or 3: chase or wander), ENEMY_STEP its turns
+| left, ENEMY_TIMER the delay between them; ENEMY_OLDDIR is the heading a segment had before the last turn.
+    .equ MOLDORM_START_X, 0x80
+    .equ MOLDORM_START_Y, 0x70
+    .equ MOLDORM_SPEED, 0x80
+    .equ MOLDORM_SEGMENTS, 4
+    .equ MOLDORM_HP_REVIVED, 2          | a segment that "dies" comes back with $20 hit points
+
+moldorm_init:
+    movem.l %d0-%d1/%a0, -(%sp)
+    move.b #MOLDORM_START_X, OFF_ENEMY_X(%a5, %d5.w)
+    move.b #MOLDORM_START_Y, OFF_ENEMY_Y(%a5, %d5.w)
+    clr.b OFF_ENEMY_DIR(%a5, %d5.w)
+    clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    move.b #2, OFF_ENEMY_STATE(%a5, %d5.w)
+    lea OFF_ENEMY_OLDDIR(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_BOUNCE(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_SPEED(%a5), %a0
+    move.b #MOLDORM_SPEED, 0(%a0, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    move.w %d5, %d0
+    and.w #3, %d0
+    cmp.w #(MOLDORM_SEGMENTS - 1), %d0
+    bne 9f
+    bsr rand8                           | a head starts off in a random one of the eight directions
+    and.w #7, %d0
+    lea keese_dirs(%pc), %a0
+    move.b 0(%a0, %d0.w), %d0
+    move.b %d0, OFF_ENEMY_DIR(%a5, %d5.w)
+    lea OFF_ENEMY_OLDDIR(%a5), %a0
+    move.b %d0, 0(%a0, %d5.w)
+    move.b #1, OFF_ENEMY_STEP(%a5, %d5.w)
+9:  movem.l (%sp)+, %d0-%d1/%a0
+    rts
+
+| d5 = a segment. The head steers and hands its heading down; every segment moves.
+moldorm_ai:
+    movem.l %d0-%d4/%a0-%a1, -(%sp)
+    tst.b OFF_ENEMY_DIR(%a5, %d5.w)
+    beq 9f
+    move.w %d5, %d0
+    and.w #3, %d0
+    cmp.w #(MOLDORM_SEGMENTS - 1), %d0
+    bne 5f
+    bsr moldorm_steer
+5:  bsr moldorm_move
+9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
+    rts
+
+| ControlMoldormFlight for a head: turn (towards Link when chasing, at random when wandering) a number of times,
+| $10 frames apart, then choose again; each turn hands the headings down the body.
+moldorm_steer:
+    movem.l %d0-%d2/%a0, -(%sp)
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    beq 0f
+    subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
+0:  tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 5f                          | between turns
+    subq.b #1, OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 1f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 3f                          | out of turns: decide what to do next
+1:  move.b #0x10, OFF_ENEMY_TIMER(%a5, %d5.w)
+    cmpi.b #3, OFF_ENEMY_STATE(%a5, %d5.w)
+    beq 2f
+    bsr turn_towards8
+    bra 5f
+2:  bsr keese_turn_random
+    bra 5f
+3:  bsr rand8                       | Flyer_MoldormDecideState: chase (state 2) or wander (3), eight turns
+    moveq #2, %d1
+    cmp.b #0x40, %d0
+    bhs 4f
+    moveq #3, %d1
+4:  move.b %d1, OFF_ENEMY_STATE(%a5, %d5.w)
+    move.b #8, OFF_ENEMY_STEP(%a5, %d5.w)
+    move.b #0x10, OFF_ENEMY_TIMER(%a5, %d5.w)
+    lea OFF_ENEMY_DIR(%a5), %a0
+    tst.b -1(%a0, %d5.w)
+    beq 9f                          | the segment below has not been told to go yet
+5:  cmpi.b #0x10, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 9f                          | the delay was only just armed: hand the headings down
+    lea OFF_ENEMY_BOUNCE(%a5), %a0
+    move.b 0(%a0, %d5.w), %d0
+    beq 6f
+    move.b %d0, OFF_ENEMY_DIR(%a5, %d5.w)   | the bounce off a wall takes effect now
+    clr.b 0(%a0, %d5.w)
+6:  lea OFF_ENEMY_OLDDIR(%a5), %a0
+    lea OFF_ENEMY_DIR(%a5), %a1
+    move.w %d5, %d1
+    subq.w #(MOLDORM_SEGMENTS - 1), %d1     | the lowest segment of this worm
+    moveq #(MOLDORM_SEGMENTS - 2), %d2
+7:  move.b 1(%a0, %d1.w), %d0
+    move.b %d0, 0(%a0, %d1.w)
+    move.b %d0, 0(%a1, %d1.w)
+    addq.w #1, %d1
+    dbra %d2, 7b
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), 0(%a0, %d5.w)
+9:  movem.l (%sp)+, %d0-%d2/%a0
+    rts
+
+| Dodongo's images (five directions in a set, the fourth unused): walking, walking again, bloated; and whether
+| each is mirrored (DodongoFrameImages, DodongoFrameHFlips and the bloated pair).
+dodongo_images:
+    .byte 0, 1, 6, 0, 8,  2, 3, 6, 0, 8,  4, 5, 7, 0, 9
+dodongo_flips:
+    .byte 0, 1, 0, 0, 0,  0, 1, 1, 0, 1,  0, 1, 0, 0, 0
+
+| Dodongo_Draw. d3 = monster, d0.w = its monster index. A sideways Dodongo is two sprites: the left half at X and
+| the right half 16 along (its picture number's other half, which has the low bit flipped).
+draw_dodongo:
+    movem.l %d0-%d7/%a0-%a2, -(%sp)
+    move.w %d0, %d7
+    moveq #0, %d2
+    move.b OFF_ENEMY_DIR(%a5, %d3.w), %d2
+    lsr.w #1, %d2                           | five-way direction: 0 right, 1 left, 2 down, 4 up
+    cmp.w #4, %d2
+    bhi 99f
+    move.w OFF_FRAME_COUNTER(%a5), %d4
+    moveq #0, %d6                           | the set of five: 0 walking, 5 walking again, 10 bloated
+    moveq #0, %d0
+    move.b OFF_ENEMY_STATE(%a5, %d3.w), %d0
+    beq 1f
+    cmp.b #1, %d0
+    beq 2f
+    btst #5, %d4                            | stunned: the picture changes every $20 frames
+    beq 5f
+    moveq #5, %d6
+    bra 5f
+1:  btst #3, %d4                            | walking: every 8 frames
+    beq 5f
+    moveq #5, %d6
+    bra 5f
+2:  moveq #0, %d0
+    move.b OFF_ENEMY_STEP(%a5, %d3.w), %d0
+    beq 1b                                  | just swallowed: still walks as usual
+    cmp.b #2, %d0
+    beq 21f
+    cmp.b #3, %d0
+    beq 21f
+    moveq #10, %d6                          | bloated
+    bra 5f
+21: btst #1, %d4                            | fading out: two frames drawn, two not
+    beq 99f
+5:  add.w %d2, %d6
+    lea dodongo_images(%pc), %a0
+    moveq #0, %d1
+    move.b 0(%a0, %d6.w), %d1
+    lea dodongo_flips(%pc), %a0
+    moveq #0, %d5
+    move.b 0(%a0, %d6.w), %d5
+    move.w %d1, %d6                         | d6 = the picture number
+    bsr dodongo_frame                       | a0 = the sprite frame of picture d6, mirrored if d5
+    moveq #0, %d1
+    move.b OFF_ENEMY_X(%a5, %d3.w), %d1
+    moveq #0, %d2
+    move.b OFF_ENEMY_Y(%a5, %d3.w), %d2
+    sub.l %a2, %a2
+    bsr dodongo_put
+    tst.w %d0
+    beq 99f
+    move.b #1, OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+    move.b OFF_ENEMY_DIR(%a5, %d3.w), %d0
+    and.b #3, %d0
+    beq 99f                                 | facing up or down: one sprite
+    eor.w #1, %d6                           | the other half
+    bsr dodongo_frame
+    moveq #0, %d1
+    move.b OFF_ENEMY_X(%a5, %d3.w), %d1
+    add.w #16, %d1
+    moveq #0, %d2
+    move.b OFF_ENEMY_Y(%a5, %d3.w), %d2
+    lea 1(%a2), %a2                         | the second sprite
+    bsr dodongo_put
+    tst.w %d0
+    beq 99f
+    move.b #3, OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+99: movem.l (%sp)+, %d0-%d7/%a0-%a2
+    rts
+
+| d6.w = picture number, d5.w = 1 to mirror it, d7.w = monster index. Returns a0 = the frame in mon_sprites.
+dodongo_frame:
+    movem.l %d0-%d1/%a1, -(%sp)
+    move.w %d6, %d1
+    add.w %d1, %d1
+    add.w %d5, %d1
+    ltab mon_art, %a0
+    move.w %d7, %d0
+    add.w %d0, %d0
+    add.w 0(%a0, %d0.w), %d1
+    mulu.w #SPRITE_FRAME_BYTES, %d1
+    movea.l OFF_MON_SPR(%a5), %a0
+    adda.l %d1, %a0
+    movem.l (%sp)+, %d0-%d1/%a1
+    rts
+
+| a0 = frame, d1.w = X, d2.w = Y, d3 = monster, a2 = 0 for its first sprite, 1 for the second (it keeps its own
+| erase offset). Returns d0.w = 1 when it was drawn, 0 when it is off the playfield.
+dodongo_put:
+    movem.l %d1-%d2/%d4/%a0-%a2, -(%sp)
+    bsr sprite_offset
+    tst.w %d4
+    bmi 8f
+    move.w %d3, %d0
+    lsl.w #2, %d0
+    move.l %a2, %d2
+    lea OFF_ENEMY_ERASE_OFFSETS(%a5), %a2
+    tst.w %d2
+    beq 1f
+    lea OFF_ENEMY_ERASE2_OFFSETS(%a5), %a2
+1:  move.l %d1, 0(%a2, %d0.w)
+    movea.l OFF_SCREEN_PTR(%a5), %a1
+    adda.l %d1, %a1
+    move.w %d4, %d0
+    bsr draw_sprite
+    movem.l (%sp)+, %d1-%d2/%d4/%a0-%a2
+    moveq #1, %d0
+    rts
+8:  movem.l (%sp)+, %d1-%d2/%d4/%a0-%a2
+    moveq #0, %d0
+    rts
+
+| MoveFlyer for a segment: the speed's top three bits fill the position fraction, and a carry moves it a pixel
+| along its heading. A room bound that is in the way does not turn a segment: a head only keeps the opposite
+| heading for its next turn (DeferBounce), the rest carry on.
+moldorm_move:
+    movem.l %d0-%d4/%a0-%a1, -(%sp)
+    lea OFF_ENEMY_SPEED(%a5), %a0
+    lea OFF_ENEMY_FRAC(%a5), %a1
+    moveq #0, %d1
+    move.b 0(%a0, %d5.w), %d1
+    and.b #0xe0, %d1
+    moveq #0, %d2
+    move.b 0(%a1, %d5.w), %d2
+    add.w %d1, %d2
+    move.b %d2, 0(%a1, %d5.w)
+    cmp.w #0x100, %d2
+    blo 9f
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
+    btst #0, %d4
+    beq 1f
+    addq.b #1, OFF_ENEMY_X(%a5, %d5.w)
+1:  btst #1, %d4
+    beq 2f
+    subq.b #1, OFF_ENEMY_X(%a5, %d5.w)
+2:  btst #2, %d4
+    beq 3f
+    addq.b #1, OFF_ENEMY_Y(%a5, %d5.w)
+3:  btst #3, %d4
+    beq 4f
+    subq.b #1, OFF_ENEMY_Y(%a5, %d5.w)
+4:  move.l %d3, -(%sp)
+    moveq #0, %d3
+    bsr bound_by_room
+    move.l (%sp)+, %d3
+    tst.w %d0
+    bne 9f                          | free to go on
+    move.w %d5, %d0
+    and.w #3, %d0
+    cmp.w #(MOLDORM_SEGMENTS - 1), %d0
+    bne 9f                          | only a head remembers the bounce
+    bsr keese_ring_index
+    addq.w #4, %d0
+    and.w #7, %d0
+    lea keese_dirs(%pc), %a0
+    lea OFF_ENEMY_BOUNCE(%a5), %a1
+    move.b 0(%a0, %d0.w), 0(%a1, %d5.w)
+9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
     rts

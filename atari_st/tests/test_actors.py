@@ -25,7 +25,7 @@ class ActorTableTests(unittest.TestCase):
         source = (Path(__file__).resolve().parents[1] / "src" / "ai.s").read_text(encoding="utf-8")
         for name in ("WANDER", "ROPE", "GORIYA", "WALLMASTER", "BOSS", "KEESE", "TRAP", "GEL",
                      "OCTOROK", "MOBLIN", "LYNEL", "OCTOROK_BLUE", "TEKTITE", "LEEVER", "ZORA",
-                     "PEAHAT", "GHINI", "BOULDER", "BOULDER_SET"):
+                     "PEAHAT", "GHINI", "BOULDER", "BOULDER_SET", "DODONGO", "MOLDORM"):
             match = re.search(rf"\.equ BEH_{name}, (\d+)", source)
             self.assertIsNotNone(match, name)
             self.assertEqual(int(match.group(1)), getattr(actors, f"BEHAVIOUR_{name}"), name)
@@ -140,6 +140,32 @@ class ActorTableTests(unittest.TestCase):
         for attr_d, attr_f, want in ((0xDA, 0x00, 0x80), (0x62, 0x04, 0x84), (0x1F, 0x07, 0x07), (0x80, 0x00, 0x00)):
             record = actors._room_info(0, ([0], [attr_d], [0], [attr_f]), [3, 5, 6, 8], bytes(64))
             self.assertEqual(record[1], want, f"D {attr_d:#x} F {attr_f:#x}")
+
+    def test_a_lone_moldorm_becomes_two_worms_of_four_segments(self) -> None:
+        segment = actors.MONSTER_TYPES.index(0x41)
+        attrs = ([0x22], [0x80], [0], [0])      # list id $62, the first of the ObjLists: here a single Moldorm
+        record = actors._room_info(0, attrs, [1, 4, 5, 6], bytes(64), lists=[[0x41]])
+        self.assertEqual(list(record[6:6 + actors.MOLDORM_SEGMENTS]), [segment] * actors.MOLDORM_SEGMENTS)
+        self.assertEqual(record[0], actors.MOLDORM_SEGMENTS)
+
+    def test_the_new_monsters_have_their_tables(self) -> None:
+        for nes_type in (0x05, 0x31, 0x32, 0x41):
+            self.assertIn(nes_type, actors.MONSTER_TYPES)
+        self.assertEqual(actors.MONSTER_BEHAVIOUR[0x31], actors.BEHAVIOUR_DODONGO)
+        self.assertEqual(actors.MONSTER_BEHAVIOUR[0x41], actors.BEHAVIOUR_MOLDORM)
+
+    def test_the_makefile_and_the_asset_builder_build_the_same_levels(self) -> None:
+        make = (Path(__file__).resolve().parents[1] / "Makefile").read_text(encoding="utf-8")
+        levels = tuple(int(n) for n in re.search(r"^UW_LEVELS := ([\d ]+)$", make, re.M).group(1).split())
+        self.assertEqual(levels, tuple(B.UW_LEVELS))
+
+    def test_the_reach_check_reads_the_target_of_a_word_branch(self) -> None:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+        import check_reach
+        wrapped = "    2230:\t6100 8006      \tbsrw ffffa238 <x>"
+        near = "    2220:\t6100 012a      \tbsrw 234c <init_buffers>"
+        self.assertEqual(int(check_reach.BRANCH.match(wrapped).group(2), 16), 0xFFFFA238)
+        self.assertEqual(int(check_reach.BRANCH.match(near).group(2), 16), 0x234C)
 
 
 if __name__ == "__main__":

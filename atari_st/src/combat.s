@@ -588,12 +588,9 @@ sword_hits:
     bne 8f
     bsr enemy_untouchable
     bne 8f                      | burrowed, submerged or flying high: the blade passes through
-    moveq #0, %d3
-    move.b OFF_ENEMY_X(%a5, %d5.w), %d3
-    sub.w %d1, %d3
-    bpl 2f
-    neg.w %d3
-2:  cmp.w #SWORD_REACH, %d3
+    move.w %d1, %d0
+    bsr enemy_dx                | d3 = how far the blade is from the monster's body
+    cmp.w #SWORD_REACH, %d3
     bhs 8f
     moveq #0, %d3
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
@@ -607,7 +604,13 @@ sword_hits:
     tst.b OFF_ATTACK_ROD(%a5)
     beq 4f
     move.b #ROD_STAB_HITS, OFF_HIT_DAMAGE(%a5)
-4:  bsr hit_enemy
+4:  bsr enemy_behaviour
+    cmp.w #BEH_DODONGO, %d0
+    bne 41f
+    clr.b OFF_HIT_DAMAGE(%a5)
+    bsr dodongo_sword           | only a stunned Dodongo is hurt, and it dies
+    bra 8f
+41: bsr hit_enemy
 8:  addq.w #1, %d5
     bra 1b
 9:  movem.l (%sp)+, %d0-%d6/%a0
@@ -618,8 +621,15 @@ hit_enemy:
     movem.l %d0/%a0, -(%sp)
     bsr enemy_behaviour
     cmp.w #BEH_TRAP, %d0
-    movem.l (%sp)+, %d0/%a0
-    bne 1f
+    beq 5f
+    cmp.w #BEH_DODONGO, %d0
+    beq 5f                              | nor a Dodongo, except by the sword when a bomb has stunned it
+    cmp.w #BEH_MOLDORM, %d0
+    bne 6f
+    clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | a Moldorm segment is hurt but not knocked about
+6:  movem.l (%sp)+, %d0/%a0
+    bra 1f
+5:  movem.l (%sp)+, %d0/%a0
     clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | nothing hurts a blade trap
     rts
 1:  move.b #ENEMY_HURT_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
@@ -637,6 +647,9 @@ hit_enemy:
     move.l (%sp)+, %d1
     rts
 3:  move.l (%sp)+, %d1
+    bsr enemy_behaviour
+    cmp.w #BEH_MOLDORM, %d0
+    beq moldorm_died
     bra kill_enemy
 
 | The sword's weight in hits: SwordDamagePoints is $10, $20, $40 for the wooden, white and magic sword.
@@ -654,6 +667,31 @@ set_sword_damage:
 
 sword_hits_table:
     .byte 1, 2, 4, 4
+
+| A Moldorm segment has run out of hit points. It does not die: it comes back with fresh ones, and the worm's tail
+| segment is what is lost instead (UpdateMoldorm swaps them), so the worm shrinks from the tail until only the
+| head is left, and that one dies for good. d5 = the segment.
+moldorm_died:
+    movem.l %d0-%d2, -(%sp)
+    move.w %d5, %d1
+    and.w #0xfc, %d1                    | the worm's lowest slot
+    move.w %d1, %d2
+    addq.w #(MOLDORM_SEGMENTS - 1), %d2 | its head
+    move.w %d1, %d0
+1:  tst.b OFF_ENEMY_ACTIVE(%a5, %d0.w)
+    bne 2f
+    addq.w #1, %d0
+    cmp.w %d2, %d0
+    bls 1b
+2:  cmp.w %d2, %d0
+    beq 3f                              | only the head is left: that is the end of the worm
+    move.b #MOLDORM_HP_REVIVED, OFF_ENEMY_HP(%a5, %d5.w)
+    clr.b OFF_ENEMY_ACTIVE(%a5, %d0.w)  | the tail goes
+    sfx SFX_MONSTER_DIED
+    bra 9f
+3:  bsr kill_enemy
+9:  movem.l (%sp)+, %d0-%d2
+    rts
 
 | Remove enemy d5, count the kill and roll for a drop the way HandleMonsterDied
 | and SetUpDroppedItem do. Ten kills in a row without being hurt guarantee a
@@ -773,14 +811,10 @@ enemy_contact:
     lea OFF_ENEMY_GHOST(%a5), %a0
     btst #1, 0(%a0, %d5.w)
     bne 8f                      | nor does one under the ground or the water
-    moveq #0, %d3
-    move.b OFF_ENEMY_X(%a5, %d5.w), %d3
     moveq #0, %d0
     move.b OFF_LINK_X(%a5), %d0
-    sub.w %d0, %d3
-    bpl 2f
-    neg.w %d3
-2:  cmp.w #CONTACT_RANGE, %d3
+    bsr enemy_dx                | d3 = how far Link is from the monster's body
+    cmp.w #CONTACT_RANGE, %d3
     bhs 8f
     moveq #0, %d3
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
@@ -1088,6 +1122,7 @@ draw_bomb:
 | BOMB_BLAST_FRAMES it hurts every monster near it (and the screen flashes),
 | and when the second part starts it blows open a bombable wall.
 bomb_tick:
+    bsr dodongo_bomb_tick       | a Dodongo eats a bomb at its mouth, or is stunned by the cloud
     tst.b OFF_BOMB_TIMER(%a5)
     beq 1f
     subq.b #1, OFF_BOMB_TIMER(%a5)
@@ -1395,13 +1430,13 @@ bomb_open_wall:
 
 8:  moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
-    ltab uw_room_index, %a0
+    lvtab ROOM_INDEX, %a0
     moveq #0, %d3
     move.b 0(%a0, %d0.w), %d3
     cmpi.b #0xff, %d3
     beq 9f
     mulu.w #UW_DOOR_RECORD_BYTES, %d3
-    ltab uw_doors, %a1
+    lvtab DOORS, %a1
     adda.l %d3, %a1
     cmpi.b #BOMB_DOOR_TYPE, 0(%a1, %d6.w)
     bne 9f
@@ -1926,7 +1961,22 @@ uw_check_clear:
     lea OFF_UW_FLAGS(%a5), %a0
     btst #0, 0(%a0, %d0.w)
     bne 9f
-    moveq #0, %d1
+    cmpi.b #TRIGGER_RINGLEADER, OFF_ROOM_TRIGGER(%a5)
+    bne 0f
+    tst.b OFF_ENEMY_COUNT(%a5)
+    beq 0f
+    tst.b OFF_ENEMY_ACTIVE(%a5)
+    bne 0f
+    moveq #0, %d1                   | CheckSecretTriggerRingleader: the first monster is gone, so the rest die with it
+5:  cmp.b OFF_ENEMY_COUNT(%a5), %d1
+    bhs 0f
+    cmpi.b #1, OFF_ENEMY_ACTIVE(%a5, %d1.w)
+    bne 6f
+    clr.b OFF_ENEMY_ACTIVE(%a5, %d1.w)
+    sfx SFX_MONSTER_DIED
+6:  addq.w #1, %d1
+    bra 5b
+0:  moveq #0, %d1
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d1
     bhs 2f
     cmpi.b #1, OFF_ENEMY_ACTIVE(%a5, %d1.w)
@@ -1956,6 +2006,7 @@ uw_check_clear:
 | then slides 16 pixels (here it swaps places with the floor there) and the
 | room's shutters open for good. BLOCK_X/Y are the origin of its top-left tile.
     .equ TRIGGER_PUSH_BLOCK, 4
+    .equ TRIGGER_RINGLEADER, 2
     .equ BLOCK_TILE, 0xb0
     .equ BLOCK_ROW_Y, 0x40          | the top of the play area, where tile row 0 starts
     .equ BLOCK_PUSH_FRAMES, 16
@@ -2154,13 +2205,13 @@ block_slide:
 uw_open_shutters:
     movem.l %d0/%d2-%d3/%a0-%a2, -(%sp)
     moveq #0, %d3
-    ltab uw_room_index, %a0
+    lvtab ROOM_INDEX, %a0
     moveq #0, %d2
     move.b 0(%a0, %d0.w), %d2
     cmpi.b #0xff, %d2
     beq 8f
     mulu.w #UW_DOOR_RECORD_BYTES, %d2
-    ltab uw_doors, %a1
+    lvtab DOORS, %a1
     adda.l %d2, %a1
     lea OFF_UW_OPEN(%a5), %a2
     moveq #3, %d2

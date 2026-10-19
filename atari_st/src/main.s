@@ -26,6 +26,12 @@
     adda.l %a6, \reg
     .endm
 
+| lvtab name, reg: the address of the current dungeon's table (room_index, rooms, doors, tiles, tile_nes,
+| room_info, cellar_maps or cellar_info), which uw_select_level put in the variable block.
+    .macro lvtab name, reg
+    movea.l OFF_UWP_\name(%a5), \reg
+    .endm
+
 | Sound: sfx plays an effect over the music, jingle an event song that replaces it
 | (music.s). Neither disturbs any register.
     .macro sfx id
@@ -231,7 +237,8 @@ game_start:
     bsr music_init
     .if DEV_START_UW != 255
     | Development shortcut: start inside the level, with a sword and a key.
-    move.b #UW_LEVEL, OFF_LEVEL(%a5)
+    moveq #DEV_START_LEVEL, %d0
+    bsr uw_select_level
     move.b #UW_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
     move.b #UW_BOUND_RIGHT, OFF_BOUND_RIGHT(%a5)
     move.b #UW_BOUND_UP, OFF_BOUND_UP(%a5)
@@ -244,10 +251,10 @@ game_start:
     move.b #0x78, OFF_LINK_X(%a5)
     move.b #0x8d, OFF_LINK_Y(%a5)
     move.b #1, OFF_HAS_SWORD(%a5)
-    move.b #0x37, OFF_CAVE_SOURCE_ROOM(%a5)     | the level 1 entrance, where leaving comes out
+    move.b #DEV_START_ENTRANCE, OFF_CAVE_SOURCE_ROOM(%a5)   | the level's entrance, where leaving comes out
     .endif
     bsr enter_room
-    bsr draw_hud
+    bsr draw_hud_far
 
 main_loop:
     bsr wait_vbl
@@ -269,12 +276,12 @@ main_loop:
     beq 4f
     bsr update_cave
     bra 3f
-4:  bsr update_menu
+4:  bsr update_menu_far
     bra 3f
 1:  bsr update_play
     bra 3f
 2:  bsr update_scroll
-3:  bsr minimap_tick
+3:  bsr minimap_tick_far
     tst.b OFF_HUD_DIRTY(%a5)
     beq main_loop
     bsr draw_hud
@@ -696,6 +703,7 @@ swap_erase_state:
     movem.l %d0-%d1/%a0-%a1, -(%sp)
     xchg_state ENEMY_ERASE_VALID, OLD_ENEMY_ERASE_VALID, 8
     xchg_state ENEMY_ERASE_OFFSETS, OLD_ENEMY_ERASE_OFFSETS, 32
+    xchg_state ENEMY_ERASE2_OFFSETS, OLD_ENEMY_ERASE2_OFFSETS, 32
     xchg_state PROJ_ERASE_VALID, OLD_PROJ_ERASE_VALID, 8
     xchg_state PROJ_ERASE_OFFSETS, OLD_PROJ_ERASE_OFFSETS, 32
     xchg_state ITEM_ERASE_VALID, OLD_ITEM_ERASE_VALID, 3
@@ -811,6 +819,19 @@ init_pointers:
     move.l %a0, OFF_MON_SPR(%a5)
     rts
 
+    | The code has outgrown what one 16-bit branch spans, so the modules at the end reach main.s's frame routines
+    | through these stubs in the middle.
+clear_erase_state_far:
+    bra clear_erase_state
+show_background_far:
+    bra show_background
+draw_hud_far:
+    bra draw_hud
+update_menu_far:
+    bra update_menu
+minimap_tick_far:
+    bra minimap_tick
+
     .include "link.s"
     .include "uw.s"
     .include "hud.s"
@@ -820,21 +841,8 @@ init_pointers:
 
     .section .rodata
     .align 2
-uw_tiles:
-    .incbin "uw_tiles.bin"
-uw_tile_nes:
-    .incbin "uw_tile_nes.bin"
-uw_room_index:
-    .incbin "uw_room_index.bin"
-    .align 2
 uw_door_cells:
     .incbin "uw_door_cells.bin"
-    .align 2
-uw_doors:
-    .incbin "uw_doors.bin"
-    .align 2
-uw_rooms:
-    .incbin "uw_rooms.bin"
     .align 2
 item_sprites:
     .incbin "item_sprites.bin"
@@ -875,14 +883,6 @@ drop_table:
     .incbin "drop_table.bin"
 drop_rates:
     .incbin "drop_rates.bin"
-uw_room_info:
-    .incbin "uw_room_info.bin"
-uw_cellar_info:
-    .incbin "uw_cellar_info.bin"
-    .align 2
-uw_cellar_maps:
-    .incbin "uw_cellar_maps.bin"
-    .align 2
 cave_map:
     .incbin "cave_map.bin"
 cave_text:
@@ -907,6 +907,10 @@ music_bank:
     .align 2
 mon_sprites:
     .incbin "mon_sprites.bin"
+    | Each dungeon's tables and level_table (generated). They are reached through pointers that
+    | uw_select_level builds, so they may sit anywhere, however far from table_anchor.
+    .align 2
+    .include "levels.inc"
 
     .section .data
     .align 2

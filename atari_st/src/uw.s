@@ -39,14 +39,14 @@ debug_keys:
 | d0.w = room id, d1.b = doors to show open, a0 = destination map
 uw_build_map:
     movem.l %d0-%d7/%a0-%a4, -(%sp)
-    ltab uw_room_index, %a1
+    lvtab ROOM_INDEX, %a1
     moveq #0, %d2
     move.b 0(%a1, %d0.w), %d2
     cmpi.b #0xff, %d2
     beq 9f
     move.w %d2, %d3                 | stored room number
     mulu.w #UW_ROOM_BYTES, %d2
-    ltab uw_rooms, %a2
+    lvtab ROOMS, %a2
     adda.l %d2, %a2
     movea.l %a0, %a1
     move.w #(UW_ROOM_BYTES / 4 - 1), %d4
@@ -58,7 +58,7 @@ uw_build_map:
     move.b 0(%a1, %d0.w), %d7       | doors opened for good
     move.b %d1, %d5
     or.b %d7, %d5                   | d5 = doors standing open
-    ltab uw_doors, %a2
+    lvtab DOORS, %a2
     mulu.w #UW_DOOR_RECORD_BYTES, %d3
     adda.l %d3, %a2                 | four door types, then four open faces
     ltab uw_door_cells, %a3
@@ -98,13 +98,13 @@ uw_build_map:
 | d0.w = room id, a0 = map already rendered
 uw_open_false_walls:
     movem.l %d0-%d6/%a1-%a4, -(%sp)
-    ltab uw_room_index, %a1
+    lvtab ROOM_INDEX, %a1
     moveq #0, %d2
     move.b 0(%a1, %d0.w), %d2
     cmpi.b #0xff, %d2
     beq 9f
     mulu.w #UW_DOOR_RECORD_BYTES, %d2
-    ltab uw_doors, %a2
+    lvtab DOORS, %a2
     adda.l %d2, %a2
     ltab uw_door_cells, %a3
     moveq #0, %d6
@@ -153,7 +153,7 @@ uw_draw_tile:
 uw_render_map:
     movem.l %d0-%d7/%a0-%a4, -(%sp)
     adda.l #PLAYFIELD_ORIGIN, %a1
-    ltab uw_tiles, %a3
+    lvtab TILES, %a3
     moveq #(UW_ROWS - 1), %d7
 1:  movea.l %a1, %a2
     moveq #(UW_COLS / 2 - 1), %d6
@@ -304,13 +304,13 @@ uw_open_door_pair:
     bmi 9f
     cmp.w #0x7f, %d3
     bhi 9f
-    ltab uw_room_index, %a0
+    lvtab ROOM_INDEX, %a0
     moveq #0, %d1
     move.b 0(%a0, %d3.w), %d1
     cmpi.b #0xff, %d1
     beq 9f
     mulu.w #UW_DOOR_RECORD_BYTES, %d1
-    ltab uw_doors, %a1
+    lvtab DOORS, %a1
     adda.l %d1, %a1
     move.w %d2, %d1
     eori.w #1, %d1                  | the far side's door faces back
@@ -377,13 +377,13 @@ uw_try_door:
 
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
-    ltab uw_room_index, %a0
+    lvtab ROOM_INDEX, %a0
     moveq #0, %d5
     move.b 0(%a0, %d0.w), %d5
     cmpi.b #0xff, %d5
     beq 8f
     mulu.w #UW_DOOR_RECORD_BYTES, %d5
-    ltab uw_doors, %a1
+    lvtab DOORS, %a1
     adda.l %d5, %a1
     moveq #0, %d6
     move.b 0(%a1, %d2.w), %d6       | door type
@@ -424,15 +424,36 @@ uw_try_door:
 12: movem.l (%sp)+, %d1-%d6/%a0-%a2
     rts
 
-| Walk down the stairs of an overworld entrance into level UW_LEVEL.
+| Make dungeon d0.b (1 to LEVEL_COUNT) the current one: OFF_LEVEL, and the pointers to its tables and
+| its start room, start Y, triforce room, minimap column and cellar count from level_table (levels.inc).
+uw_select_level:
+    movem.l %d0-%d1/%a0-%a1, -(%sp)
+    move.b %d0, OFF_LEVEL(%a5)
+    and.w #0x00ff, %d0
+    subq.w #1, %d0
+    mulu.w #LEVEL_RECORD_BYTES, %d0
+    ltab level_table, %a0
+    adda.w %d0, %a0
+    lea OFF_UWP_ROOM_INDEX(%a5), %a1
+    moveq #7, %d1
+1:  move.l (%a0)+, %d0
+    add.l %a6, %d0                  | the record holds distances from table_anchor
+    move.l %d0, (%a1)+
+    dbra %d1, 1b
+    move.l (%a0)+, (%a1)+           | start room, start Y, triforce room, minimap column
+    move.l (%a0)+, (%a1)+           | cellar count, padding
+    movem.l (%sp)+, %d0-%d1/%a0-%a1
+    rts
+
+| Walk down the stairs of an overworld entrance into level d0.b.
 uw_enter_level:
     move.b OFF_ROOM_ID(%a5), OFF_CAVE_SOURCE_ROOM(%a5)
+    bsr uw_select_level
 
 | Link starts the level over: the first room, at the bottom, walking up. This
 | is also where a wallmaster takes him.
 uw_warp_to_start:
     move.b #1, OFF_WARPED(%a5)
-    move.b #UW_LEVEL, OFF_LEVEL(%a5)
     move.b #UW_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
     move.b #UW_BOUND_RIGHT, OFF_BOUND_RIGHT(%a5)
     move.b #UW_BOUND_UP, OFF_BOUND_UP(%a5)
@@ -441,7 +462,7 @@ uw_warp_to_start:
     move.b #UW_BOUND_RIGHT, OFF_OBJ_RIGHT(%a5)
     move.b #UW_BOUND_UP, OFF_OBJ_UP(%a5)
     move.b #UW_BOUND_DOWN, OFF_OBJ_DOWN(%a5)
-    move.b #UW_START_ROOM, OFF_ROOM_ID(%a5)
+    move.b OFF_UW_START_ROOM(%a5), OFF_ROOM_ID(%a5)
     move.b #START_X, OFF_LINK_X(%a5)
     | The game starts Link at $DD, below the doorway, and walks him up; here he
     | simply begins at the bottom of the room.
@@ -492,9 +513,9 @@ uw_enter_cellar:
     movem.l %d0-%d4/%a0-%a2, -(%sp)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
-    ltab uw_cellar_info, %a0
+    lvtab CELLAR_INFO, %a0
     moveq #0, %d4
-1:  cmp.w #CELLAR_COUNT, %d4
+1:  cmp.b OFF_UW_CELLARS(%a5), %d4
     bhs 9f                          | no cellar below this room
     move.w %d4, %d1
     lsl.w #3, %d1
@@ -529,7 +550,7 @@ uw_enter_cellar:
     | The cellar's picture and its collision map are one and the same.
     move.w %d4, %d1
     mulu.w #UW_ROOM_BYTES, %d1
-    ltab uw_cellar_maps, %a1
+    lvtab CELLAR_MAPS, %a1
     adda.l %d1, %a1
     lea OFF_UW_MAP(%a5), %a2
     move.w #(UW_ROOM_BYTES / 4 - 1), %d1
@@ -570,7 +591,7 @@ uw_enter_cellar:
     move.b #4, OFF_ENEMY_COUNT(%a5)
 
     | The treasure, unless it has been taken.
-    ltab uw_cellar_info, %a0
+    lvtab CELLAR_INFO, %a0
     move.w %d4, %d1
     lsl.w #3, %d1
     adda.w %d1, %a0
@@ -595,7 +616,7 @@ uw_leave_cellar:
     move.b OFF_IN_CELLAR(%a5), %d0
     subq.w #1, %d0
     lsl.w #3, %d0
-    ltab uw_cellar_info, %a0
+    lvtab CELLAR_INFO, %a0
     adda.w %d0, %a0
     moveq #0, %d1
     move.b OFF_LINK_X(%a5), %d1
@@ -687,8 +708,9 @@ check_warps:
     bsr start_cave_entry
     bra 9f
 5:  lsr.w #2, %d0                   | the level number
-    cmp.w #UW_LEVEL, %d0
-    bne 9f
+    beq 9f
+    cmp.w #LEVEL_COUNT, %d0
+    bhi 9f                          | the other dungeons are not built yet
     bsr uw_enter_level
     bra 9f
 8:  clr.b OFF_EXIT_GUARD(%a5)

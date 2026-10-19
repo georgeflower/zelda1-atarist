@@ -279,7 +279,7 @@ minimap_paint:
     move.b OFF_INV_MAP(%a5), %d0
     and.b %d5, %d0
     beq 5f
-    ltab uw_room_index, %a2
+    lvtab ROOM_INDEX, %a2
     moveq #0, %d3
 3:  cmpi.b #0xff, 0(%a2, %d3.w)
     beq 4f
@@ -295,7 +295,8 @@ minimap_paint:
 5:  move.b OFF_INV_COMPASS(%a5), %d0
     and.b %d5, %d0
     beq 7f
-    move.w #UW_TRIFORCE_ROOM, %d3
+    moveq #0, %d3
+    move.b OFF_UW_TRIFORCE_ROOM(%a5), %d3
     bsr mm_place
     tst.w %d0
     bmi 7f
@@ -324,7 +325,9 @@ minimap_paint:
 mm_place:
     move.w %d3, %d0
     and.w #15, %d0
-    sub.w #UW_MAP_COL0, %d0
+    moveq #0, %d1
+    move.b OFF_UW_MAP_COL0(%a5), %d1
+    sub.w %d1, %d0
     and.w #15, %d0
     cmp.w #MM_COLUMNS, %d0
     blo 1f

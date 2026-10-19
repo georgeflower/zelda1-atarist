@@ -11,7 +11,7 @@ FORCE_DEV_STAMP:
 
 $(DEV_STAMP): FORCE_DEV_STAMP
 	@mkdir -p $(BUILD_DIR)
-	@printf '%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' | cmp -s - $@ 2>/dev/null || printf '%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' > $@
+	@printf '%s|%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' '$(ZELDA_START_LEVEL)' | cmp -s - $@ 2>/dev/null || printf '%s|%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' '$(ZELDA_START_LEVEL)' > $@
 SRC_DIR := src
 TOOLS_DIR := tools
 ASSET_INPUTS := $(ROOT_DIR)/src/bins.xml $(ROOT_DIR)/src/Z_05.asm $(ROOT_DIR)/src/Z_06.asm \
@@ -31,22 +31,24 @@ ELF := $(BUILD_DIR)/zelda_st.elf
 BIN := $(BUILD_DIR)/zelda_st.bin
 PRG := $(BUILD_DIR)/ZELDAST.PRG
 OBJ := $(BUILD_DIR)/zelda_st.o
+# The dungeons the assets are built for (tools/build_assets.py UW_LEVELS says the same) and the tables each has.
+UW_LEVELS := 1 2
+UW_LEVEL_TABLES := room_index rooms doors tiles tile_nes room_info cellar_maps cellar_info
 MAIN_SRC := $(SRC_DIR)/main.s
 SOURCES := $(wildcard $(SRC_DIR)/*.s)
 # main.s .includes the other modules, so one assembler run covers them all.
 GENERATED := $(GENERATED_DIR)/assets.inc $(GENERATED_DIR)/metatiles.bin \
 	$(GENERATED_DIR)/metatile_tiles.bin $(GENERATED_DIR)/room_maps.bin \
 	$(GENERATED_DIR)/link_sprites.bin $(GENERATED_DIR)/hud_tiles.bin \
-	$(GENERATED_DIR)/uw_tiles.bin $(GENERATED_DIR)/uw_tile_nes.bin \
-	$(GENERATED_DIR)/uw_rooms.bin $(GENERATED_DIR)/uw_room_index.bin \
-	$(GENERATED_DIR)/uw_doors.bin $(GENERATED_DIR)/uw_door_cells.bin \
+	$(foreach l,$(UW_LEVELS),$(foreach t,$(UW_LEVEL_TABLES),$(GENERATED_DIR)/uw$(l)_$(t).bin)) \
+	$(GENERATED_DIR)/levels.inc $(GENERATED_DIR)/uw_door_cells.bin \
 	$(GENERATED_DIR)/mon_sprites.bin $(GENERATED_DIR)/mon_table.bin \
 	$(GENERATED_DIR)/mon_index.bin $(GENERATED_DIR)/item_sprites.bin \
 	$(GENERATED_DIR)/item_index.bin $(GENERATED_DIR)/drop_table.bin \
 	$(GENERATED_DIR)/drop_rates.bin $(GENERATED_DIR)/sword_sprites.bin \
 	$(GENERATED_DIR)/proj_sprites.bin $(GENERATED_DIR)/hud_items.bin \
 	$(GENERATED_DIR)/beam_sprites.bin $(GENERATED_DIR)/fx_sprites.bin \
-	$(GENERATED_DIR)/uw_room_info.bin $(GENERATED_DIR)/mon_art.bin \
+	$(GENERATED_DIR)/mon_art.bin \
 	$(GENERATED_DIR)/ow_room_info.bin \
 	$(GENERATED_DIR)/asset_manifest.txt
 MUSIC_SRC := music/zelda_intro_by_qum.h

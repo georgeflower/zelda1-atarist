@@ -306,5 +306,27 @@
     galign
     gvar EDGE_REC, 4           | the record of the screen whose monsters are coming in from the edge
     gvar MON_SPR, 4            | the monster pictures (mon_sprites), found at start-up: see init_pointers
+    | The tables of the dungeon Link is in, set by uw_select_level from level_table (levels.inc), in this order.
+    gvar UWP_ROOM_INDEX, 4
+    gvar UWP_ROOMS, 4
+    gvar UWP_DOORS, 4
+    gvar UWP_TILES, 4
+    gvar UWP_TILE_NES, 4
+    gvar UWP_ROOM_INFO, 4
+    gvar UWP_CELLAR_MAPS, 4
+    gvar UWP_CELLAR_INFO, 4
+    gvar UWL_BYTES, 8
+    .equ OFF_UW_START_ROOM, OFF_UWL_BYTES + 0
+    .equ OFF_UW_START_Y, OFF_UWL_BYTES + 1
+    .equ OFF_UW_TRIFORCE_ROOM, OFF_UWL_BYTES + 2
+    .equ OFF_UW_MAP_COL0, OFF_UWL_BYTES + 3
+    .equ OFF_UW_CELLARS, OFF_UWL_BYTES + 4
+
+    | A Dodongo is two sprites wide: the second one's erase offsets, and Moldorm's chain fields.
+    galign
+    gvar ENEMY_ERASE2_OFFSETS, 32
+    gvar OLD_ENEMY_ERASE2_OFFSETS, 32
+    gvar ENEMY_OLDDIR, 8       | a Moldorm segment's previous heading, which the segment below it takes up
+    gvar ENEMY_BOUNCE, 8       | a Moldorm head's heading after bouncing off a wall, kept for the next turn (Moldorm_ObjBounceDir)
 
     .equ GLOBALS_BYTES, gvar_offset

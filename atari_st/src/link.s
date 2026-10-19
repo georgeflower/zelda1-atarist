@@ -404,7 +404,7 @@ fetch_tile_uw:
     lea OFF_UW_MAP(%a5), %a0
     moveq #0, %d1
     move.b 0(%a0, %d0.w), %d1
-    ltab uw_tile_nes, %a0
+    lvtab TILE_NES, %a0
     moveq #0, %d0
     move.b 0(%a0, %d1.w), %d0
     movem.l (%sp)+, %d1/%a0
@@ -719,7 +719,7 @@ start_scroll:
 
 8:  tst.b OFF_LEVEL(%a5)
     beq 7f
-    ltab uw_room_index, %a0     | the neighbour has to be part of the level
+    lvtab ROOM_INDEX, %a0     | the neighbour has to be part of the level
     cmpi.b #0xff, 0(%a0, %d2.w)
     beq 9f
 7:  move.b %d2, OFF_NEXT_ROOM_ID(%a5)

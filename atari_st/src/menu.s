@@ -108,8 +108,8 @@ menu_move:
 
 menu_close:
     move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
-    bsr show_background                 | the room as it was, without sprites
-    bsr clear_erase_state
+    bsr show_background_far             | the room as it was, without sprites
+    bsr clear_erase_state_far
     move.b #1, OFF_HUD_DIRTY(%a5)
     rts
 

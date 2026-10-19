@@ -28,11 +28,36 @@ def symbol_addresses(nm: str, elf: Path) -> dict[str, int]:
     return table
 
 
+BRANCH = re.compile(r"^\s*([0-9a-f]+):\s+(?:[0-9a-f]{4} )+\s*(?:bsr|bra|b[a-z]{2})w\s+([0-9a-f]+)\b")
+
+
+def image_size(objdump: str, elf: Path) -> int:
+    """End of the last section: columns of `objdump -h` are Size then VMA."""
+    out = subprocess.run([objdump, "-h", str(elf)], check=True, capture_output=True, text=True).stdout
+    return max(int(m.group(1), 16) + int(m.group(2), 16)
+               for m in re.finditer(r"^\s*\d+\s+\S+\s+([0-9a-f]+)\s+([0-9a-f]+)\s", out, re.M))
+
+
+def check_branches(objdump: str, elf: Path, image_end: int, code_end: int) -> list[str]:
+    """A 16-bit branch reaches 32 KB either way; the assembler leaves it to the linker, which lets a longer one
+    wrap silently into the wrong address (it once sent the main loop's `bsr draw_hud` into low RAM). The
+    disassembly prints the wrapped target, so any word branch landing outside the image is one of those."""
+    out = subprocess.run([objdump, "-d", str(elf)], check=True, capture_output=True, text=True).stdout
+    bad = []
+    for line in out.splitlines():
+        match = BRANCH.match(line)
+        # past code_end is the rodata, whose bytes the disassembler also takes for instructions
+        if match and int(match.group(1), 16) < code_end and int(match.group(2), 16) >= image_end:
+            bad.append(line.strip())
+    return bad
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("elf", type=Path)
     parser.add_argument("sources", type=Path, nargs="+")
     parser.add_argument("--nm", default="m68k-linux-gnu-nm")
+    parser.add_argument("--objdump", default="m68k-linux-gnu-objdump")
     args = parser.parse_args()
     symbols = symbol_addresses(args.nm, args.elf)
     anchor = symbols["table_anchor"]
@@ -53,6 +78,9 @@ def main() -> None:
         far_ahead = max(far_ahead, distance)
     if bad:
         sys.exit("Tables the code names but the image lacks:\n  " + "\n  ".join(bad))
+    wrapped = check_branches(args.objdump, args.elf, image_size(args.objdump, args.elf), symbols.get("room_palette", 1 << 32))
+    if wrapped:
+        sys.exit("16-bit branches that overflowed (go through a *_far stub in main.s):\n  " + "\n  ".join(wrapped))
     print(f"Tables ok: {len(used)} tables, furthest back {-far_back}, furthest ahead {far_ahead} bytes from table_anchor")
 
 

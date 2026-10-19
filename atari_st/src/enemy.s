@@ -332,13 +332,13 @@ edge_next_cell:
 | d1.w = -1 when the room is not part of the level.
 uw_room_info_ptr:
     movem.l %d2/%a0, -(%sp)
-    ltab uw_room_index, %a0
+    lvtab ROOM_INDEX, %a0
     moveq #0, %d2
     move.b 0(%a0, %d0.w), %d2
     cmpi.b #0xff, %d2
     beq 1f
     mulu.w #UW_INFO_BYTES, %d2
-    ltab uw_room_info, %a1
+    lvtab ROOM_INFO, %a1
     adda.l %d2, %a1
     moveq #0, %d1
     bra 2f
@@ -410,7 +410,15 @@ erase_enemies:
     lsl.w #2, %d0
     move.l 0(%a0, %d0.w), %d0
     bsr erase_at
-    clr.b OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+    btst #1, OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+    beq 3f
+    move.w %d3, %d0                 | a second sprite (the Dodongo's other half)
+    lsl.w #2, %d0
+    lea OFF_ENEMY_ERASE2_OFFSETS(%a5), %a0
+    move.l 0(%a0, %d0.w), %d0
+    bsr erase_at
+    lea OFF_ENEMY_ERASE_OFFSETS(%a5), %a0
+3:  clr.b OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
 2:  addq.w #1, %d3
     cmp.w #MAX_ENEMIES, %d3
     blo 1b
@@ -434,6 +442,9 @@ update_enemies:
     subq.b #1, OFF_ENEMY_HURT(%a5, %d5.w)
     cmp.b #ENEMY_SHOVE_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
     blo 2f                      | the shove is over; it flashes on but carries on
+    bsr enemy_behaviour
+    cmp.w #BEH_MOLDORM, %d0
+    beq 2f                      | a Moldorm segment is not knocked about: it swims on while it flashes
     bsr enemy_shove
     bra 8f
 
@@ -468,9 +479,19 @@ update_enemies:
     bsr boss_ai
     bra 8f
 22: cmp.w #BEH_KEESE, %d7
-    bne 221f
+    bne 222f
     bsr keese_ai
     bra 8f
+222: cmp.w #BEH_MOLDORM, %d7
+    bne 223f
+    bsr moldorm_ai              | a segment of Moldorm steers (the head) and swims
+    bra 8f
+223: cmp.w #BEH_DODONGO, %d7
+    bne 221f
+    bsr dodongo_ai
+    tst.w %d0
+    bne 8f                      | bloated or stunned
+    bra 3f
 221: cmp.w #BEH_TEKTITE, %d7
     blo 24f
     bsr mover_update            | tektites, leevers, zoras, peahats, ghinis and the boulders
@@ -546,6 +567,15 @@ update_enemies:
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
     moveq #0, %d6
     move.b OFF_ENEMY_DIR(%a5, %d5.w), %d6
+    and.l #0xffff, %d1
+    cmp.w #BEH_DODONGO, %d1
+    bne 311f
+    move.b %d6, %d0             | a Dodongo going any way but left is steered by its leading end, 16 along
+    and.b #0x0d, %d0
+    beq 311f
+    add.w #16, %d2
+    or.l #0x00010000, %d1       | and remembers to give the 16 back
+311:
 
     | Monsters keep to the lanes of a 16-pixel grid. Only when a square has been
     | crossed may one turn, and it has to find the square ahead open.
@@ -584,7 +614,10 @@ update_enemies:
     addq.w #1, %d3
     bra 10f
 62: subq.w #1, %d3
-10: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+10: btst #16, %d1
+    beq 101f
+    sub.w #16, %d2
+101: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
     move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
     move.b %d6, OFF_ENEMY_DIR(%a5, %d5.w)
     subq.w #1, %d7
@@ -907,7 +940,13 @@ draw_enemies:
     beq 19f                     | the blade trap has one picture
     cmp.w #8, %d2
     beq 33f
-    cmp.w #MODE_TEKTITE, %d2
+    cmp.w #MODE_MOLDORM, %d2
+    beq 19f                     | a Moldorm segment has one picture
+    cmp.w #MODE_DODONGO, %d2
+    bne 36f
+    bsr draw_dodongo            | two sprites wide, drawn and remembered for erasing by its own routine
+    bra 8f
+36: cmp.w #MODE_TEKTITE, %d2
     blo 37f
     bsr mover_frame             | the movers pick their own pictures
     tst.w %d1
