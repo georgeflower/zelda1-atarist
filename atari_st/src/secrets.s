@@ -58,12 +58,14 @@ ow_set_square_for_now:
     bsr ow_set_square
     moveq #0, %d3
     move.b OFF_OWS_UNDO_N(%a5), %d3
+    cmp.b #16, %d3
+    bhs 1f                              | (the list is full: the change stays)
     add.w %d3, %d3
     lea OFF_OWS_UNDO(%a5), %a0
     move.b %d1, 0(%a0, %d3.w)
     move.b %d0, 1(%a0, %d3.w)
     addq.b #1, OFF_OWS_UNDO_N(%a5)
-    movem.l (%sp)+, %d0/%d3/%a0
+1:  movem.l (%sp)+, %d0/%d3/%a0
     rts
 
 | render_room calls this before it draws: a rock that was pushed in the screen he left goes back.

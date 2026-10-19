@@ -188,7 +188,7 @@ class RomOverworldTests(unittest.TestCase):
         records = {}
         data = self.bundle.room_secrets
         size = build_assets.OW_SECRET_BYTES
-        self.assertEqual(len(data), build_assets.OW_ROOM_COUNT * size)
+        self.assertEqual(len(data), build_assets.OW_ROOM_COUNT * size + build_assets.OW_EXTRA_BYTES)
         for room in range(build_assets.OW_ROOM_COUNT):
             record = data[room * size : (room + 1) * size]
             if record[0]:
@@ -234,6 +234,36 @@ class RomOverworldTests(unittest.TestCase):
                         self.assertLess(moved, count, hex(room))
             else:
                 self.assertEqual((stairs_at, stairs, above, below), (0, 0, 0, 0), hex(room))
+
+    def _extra(self):
+        data = self.bundle.room_secrets
+        return data[build_assets.OW_ROOM_COUNT * build_assets.OW_SECRET_BYTES:]
+
+    def test_the_extra_table_holds_the_pond_stairs_and_the_armos_squares(self) -> None:
+        extra = self._extra()
+        count = len(self.bundle.metatiles)
+        self.assertEqual(len(extra), build_assets.OW_EXTRA_BYTES)
+        self.assertEqual(extra[1], build_assets.POND_STAIRS_SQUARE)
+        self.assertLess(extra[0], count)
+        end = extra.index(0xFF, 2)
+        self.assertEqual((end - 2) % 3, 0)
+        self.assertGreaterEqual(end - 2, 3)             # at least one armos metatile (one per palette slot)
+        self.assertEqual(set(extra[end + 1:]), {0})     # padding
+        for i in range(2, end, 3):
+            armos, floor, stairs = extra[i : i + 3]
+            self.assertEqual(sorted(self.bundle.metatiles[armos][1]), list(build_assets.ARMOS_TILES))
+            self.assertNotEqual(sorted(self.bundle.metatiles[floor][1]), list(build_assets.ARMOS_TILES))
+            self.assertLess(stairs, count)
+
+    def test_the_armos_and_the_pond_screen_are_where_the_rom_has_them(self) -> None:
+        armos = {self._extra()[i] for i in range(2, self._extra().index(0xFF, 2), 3)}
+        screens = [room for room, grid in enumerate(self.bundle.rooms) if armos & set(grid)]
+        self.assertEqual(len(screens), 12)
+        for room in (0x24, 0x0B, 0x1C, 0x22, 0x34, 0x3D, 0x4E):      # SecretArmosRoomIds
+            self.assertIn(room, screens)
+        grid = self.bundle.rooms[build_assets.POND_ROOM]
+        pond = grid[build_assets.POND_STAIRS_SQUARE]
+        self.assertNotEqual(pond, self._extra()[0])     # the water is still water until the tune
 
     def test_the_rock_in_a_diamond_uncovers_its_middle(self) -> None:
         # Room 79: the pushable rock is the left corner of a ring of four, and the stairs lie in the middle.
@@ -508,7 +538,7 @@ class RomActorTests(unittest.TestCase):
             record = info[room * 16 : room * 16 + 16]
             self.assertLessEqual(record[0], self.actors.OW_MAX_MONSTERS)
             for monster in record[6 : 6 + record[0]]:
-                self.assertIn(self.actors.MONSTER_TYPES[monster], self.actors.OVERWORLD_MONSTERS)
+                self.assertIn(self.actors.MONSTER_TYPES[monster], self.actors.OVERWORLD_LISTED)
         self.assertEqual(info[0x78 * 16], 4)        # four red octoroks
         self.assertGreaterEqual(info[0x05 * 16], 1)
 

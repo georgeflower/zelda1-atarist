@@ -75,6 +75,12 @@ mover_update:
     beq boss_zelda_f
     cmp.w #BEH_FIRE, %d7
     beq boss_fire_f
+    cmp.w #BEH_ARMOS, %d7
+    beq owspec_armos_ai
+    cmp.w #BEH_WHIRLWIND, %d7
+    beq owspec_whirl_ai
+    cmp.w #BEH_FAIRY, %d7
+    beq owspec_fairy_ai
     move.l %d1, -(%sp)                  | a ghini turns toward Link whenever the dice allow
     move.w #0xff, %d1
     cmp.w #BEH_BUBBLE, %d7
@@ -1081,11 +1087,15 @@ mover_died:
     tst.b OFF_RED_LEEVERS(%a5)
     beq 1f
     subq.b #1, OFF_RED_LEEVERS(%a5)
-1:  cmp.b #0x11, %d0
+1:  cmp.b #0x1e, %d0
+    beq 2f                              | an armos is not one of the screen's monsters either
+    cmp.b #0x11, %d0
     seq %d0
     and.w #1, %d0
     eori.w #1, %d0
-    movem.l (%sp)+, %d1/%a0
+    bra 3f
+2:  moveq #0, %d0
+3:  movem.l (%sp)+, %d1/%a0
     rts
 
 | ------------------------------------------------------------------ drawing

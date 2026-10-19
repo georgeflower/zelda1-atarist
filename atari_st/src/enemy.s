@@ -992,7 +992,13 @@ draw_enemies:
     bne 36f
     bsr draw_dodongo            | two sprites wide, drawn and remembered for erasing by its own routine
     bra 8f
-36: cmp.w #MODE_DARKNUT, %d2
+36: cmp.w #MODE_ARMOS, %d2
+    blo 364f
+    bsr owspec_frame            | armos and the fairy
+    tst.w %d1
+    bmi 8f
+    bra 19f
+364: cmp.w #MODE_DARKNUT, %d2
     blo 361f
     bsr dmon_frame              | the dungeon monsters of dmon.s
     tst.w %d1

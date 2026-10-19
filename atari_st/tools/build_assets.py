@@ -42,6 +42,13 @@ LEVEL_INFO_OW_NAME = "dat/LevelInfoOW.dat"
 OW_ROOM_COLS = 16
 OW_ROOM_ROWS = 11
 OW_ROOM_COUNT = 128
+# PondCycleColors (Z_07.asm): the water of the Level 7 pond, one step each eighth frame while the recorder plays
+POND_CYCLE_COLORS = (0x12, 0x11, 0x22, 0x21, 0x31, 0x32, 0x33, 0x35, 0x34, 0x36, 0x37, 0x37)
+POND_PALETTE_ROW = 3                # the water's background palette row; its last colour is the one that cycles
+OW_EXTRA_BYTES = 16                 # after the 128 records of room_secrets: the pond's stairs, then the armos (see decode_overworld)
+POND_ROOM = 0x42                    # the Level 7 screen whose pond the recorder drains (FluteRoomSecretsOW)
+POND_STAIRS_SQUARE = 0x56           # row 5, column 6: RevealPondStairs puts them at ($60, $90)
+ARMOS_TILES = (0xC0, 0xC1, 0xC2, 0xC3)
 OW_SECRET_BYTES = 8                 # a record of room_secrets.bin (see "The overworld's hidden spots")
 OW_COLUMNS_PER_ROOM = 0x10
 LEVEL_BLOCK_TABLE_SIZE = 128
@@ -505,7 +512,7 @@ class AssetBundle:
     cave_table: bytes = bytes(CAVE_TYPES * CAVE_RECORD_BYTES)   # one record per cave type (build_caves)
     cave_shortcuts: bytes = bytes(4)    # the four screens of the take-any-road caves
     ow_room_info: bytes = bytes(128 * 16)   # overworld screens: monster count, flags, monster indices (actors.py)
-    room_secrets: bytes = bytes(128 * OW_SECRET_BYTES)   # overworld screens: the hidden spot, if any (OW_SECRET_BYTES)
+    room_secrets: bytes = bytes(128 * OW_SECRET_BYTES + OW_EXTRA_BYTES)   # overworld screens: the hidden spot, if any (OW_SECRET_BYTES)
     level_palettes: tuple = ()      # nine rows of 16 ST colours, one per dungeon (empty = reuse `palette`)
 
 
@@ -687,6 +694,8 @@ def decode_overworld(
                     record[6] = metatile_for(slot_at(col, row + 1), moved) if row < OW_ROOM_ROWS - 1 else 0xFF
                 secrets[room_id * OW_SECRET_BYTES : (room_id + 1) * OW_SECRET_BYTES] = record
 
+        if room_id == POND_ROOM:
+            pond_stairs = metatile_for(slot_at(POND_STAIRS_SQUARE & 15, POND_STAIRS_SQUARE >> 4), stairs_square)
         grid: list[int] = []
         for row in range(OW_ROOM_ROWS):
             for col in range(OW_ROOM_COLS):
@@ -700,6 +709,18 @@ def decode_overworld(
                     metatiles.append(key)
                 grid.append(index)
         rooms.append(grid)
+
+    # Armos squares: (the metatile, the floor under it when it wakes, the stairs of a secret one), in the palette slot it
+    # stands in, for the 6502's ChangeTileObjTiles. Then the 0xff that ends the list.
+    extra = bytearray([pond_stairs, POND_STAIRS_SQUARE])
+    for index, (slot, quad) in list(enumerate(metatiles)):
+        if sorted(quad) == list(ARMOS_TILES):
+            extra.extend((index, metatile_for(slot, OW_SQUARE_FLOOR), metatile_for(slot, stairs_square)))
+    extra.append(0xFF)
+    if len(extra) > OW_EXTRA_BYTES:
+        raise SystemExit("Too many armos squares for the extra table")
+    extra.extend(bytes(OW_EXTRA_BYTES - len(extra)))
+    secrets.extend(extra)
 
     if len(metatiles) > 256:
         raise SystemExit(f"Overworld needs {len(metatiles)} metatiles, which exceeds the 256 a byte index allows")
@@ -949,7 +970,7 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
         room_attrs_c=[0] * len(rooms),
         room_attrs_d=[0] * len(rooms),
         room_attrs_f=[0] * len(rooms),
-        room_secrets=bytes(len(rooms) * OW_SECRET_BYTES),
+        room_secrets=bytes(len(rooms) * OW_SECRET_BYTES + OW_EXTRA_BYTES),
         foe_counts=[1, 4, 5, 6],
         start_room=0,
         start_y=0x8D,
@@ -1299,6 +1320,9 @@ def underworld_equates(uw, level_count: int = 1) -> list[str]:
         f".equ MON_LANMOLA_RED, {uw.actors.mon_index[0x3B]}",
         f".equ MON_ZELDA, {uw.actors.mon_index[0x37]}",
         f".equ MON_ZELDA_FIRE, {uw.actors.mon_index[0x3F]}",
+        f".equ MON_ARMOS, {uw.actors.mon_index[0x1E]}",
+        f".equ MON_WHIRLWIND, {uw.actors.mon_index[0x2E]}",
+        f".equ MON_FAIRY, {uw.actors.mon_index[0x2F]}",
         f".equ MON_GANON, {uw.actors.mon_index[0x3E]}",
         f".equ MON_PATRA_EYE, {uw.actors.mon_index[0x47]}",
         f".equ MON_PATRA_EYE2, {uw.actors.mon_index[0x48]}",
@@ -1387,6 +1411,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
         f".equ DIR_UP, {DIR_UP}",
         f".equ DIR_HORIZONTAL, {DIR_RIGHT | DIR_LEFT}",
         f".equ DIR_VERTICAL, {DIR_DOWN | DIR_UP}",
+        f".equ POND_IDX, {bundle.palette.index(POND_PALETTE_ROW, 3)}",
         f".equ START_ROOM_ID, 0x{bundle.start_room:02x}",
         f".equ START_X, 0x{LINK_START_X:02x}",
         f".equ START_Y, 0x{bundle.start_y:02x}",
@@ -1412,6 +1437,8 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
             "    .section .rodata",
             "    .align 2",
             format_words("room_palette", bundle.palette.st_colors),
+            "",
+            format_words("pond_colors", [nes_color_to_st(color) for color in POND_CYCLE_COLORS]),
             "",
             "| Inside dungeon n (1..9) the ST shows level_palettes + (n-1)*32: the overworld's slots with the",
             "| few colours it lacks swapped in (underworld.palette_lookup).",
@@ -1504,7 +1531,7 @@ def verify_outputs(out_dir: Path) -> None:
         "hud_tiles.bin": int(manifest_values["hud_tile_count"]) * int(manifest_values["hud_tile_bytes"]),
         "metatile_tiles.bin": int(manifest_values["metatile_count"]) * 4,
         "room_maps.bin": int(manifest_values["room_count"]) * int(manifest_values["room_bytes"]),
-        "room_secrets.bin": int(manifest_values["room_count"]) * OW_SECRET_BYTES,
+        "room_secrets.bin": int(manifest_values["room_count"]) * OW_SECRET_BYTES + OW_EXTRA_BYTES,
         "cave_table.bin": CAVE_TYPES * CAVE_RECORD_BYTES,
         "cave_shortcuts.bin": 4,
         "uw_door_cells.bin": 4 * 12 * 2,

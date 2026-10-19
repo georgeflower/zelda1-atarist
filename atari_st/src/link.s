@@ -97,6 +97,7 @@ link_pixel:
     tst.b OFF_LEVEL(%a5)
     bne 4f
     bsr ow_push_secret          | blocked: a rock or gravestone may give way
+    bsr ow_armos_touch_far      | or an armos may wake
     bra 5f                      | and he keeps facing the wall
 4:  bsr block_push_tick         | a block may give way
     bsr uw_try_door             | a locked door may open
@@ -349,6 +350,8 @@ link_collide:
     rts
 80: bsr fetch_tile
     move.w %d0, %d5
+    move.b %d3, OFF_HOT_COL(%a5)        | where that tile is (an armos is woken by it)
+    move.b %d2, OFF_HOT_ROW(%a5)
 
     | Moving vertically also looks at the next column along and keeps the
     | higher tile, because blocking tiles sort after walkable ones.
@@ -362,6 +365,7 @@ link_collide:
     cmp.w %d5, %d0
     bls 9f
     move.w %d0, %d5
+    move.b %d3, OFF_HOT_COL(%a5)
 
 9:  move.w %d5, %d0
     move.b %d5, OFF_HOTSPOT_TILE(%a5)
@@ -442,7 +446,11 @@ tile_blocks:
     dbra %d2, 1b
     cmp.w #FIRST_UNWALKABLE_TILE, %d0
     blo 8f
-    moveq #1, %d0
+    tst.b OFF_POND_WALK(%a5)
+    beq 2f
+    cmp.w #0x99, %d0
+    blo 8f                      | the pond of Level 7, once the recorder has played to it
+2:  moveq #1, %d0
     bra 9f
 8:  moveq #0, %d0
 9:  movem.l (%sp)+, %d1-%d2/%a0

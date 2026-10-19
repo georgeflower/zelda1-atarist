@@ -447,6 +447,9 @@ use_recorder:
     move.b #FLUTE_FRAMES, OFF_FLUTE_TIMER(%a5)
     jingle SFX_RECORDER
     bsr boss_dig_flute_f                | a big Digdogger splits up
+    tst.b OFF_LEVEL(%a5)
+    bne 9f
+    bsr owspec_recorder_far             | the whirlwind, or the pond of Level 7
 9:  rts
 
 flute_update:

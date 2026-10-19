@@ -1338,6 +1338,7 @@ bp_add:
 | a segment is only its middle eight lines. A frame has no time for more.
     .equ BP_SEGMENT, 12
     .equ BP_GANON, 0x40                 | pool pictures from here are Ganon's (his art's frames)
+    .equ BP_ITEM, 0x80                  | and from here an item's: the number less BP_ITEM is the index in item_sprites
     .equ BP_HEAD, 13
     .equ BP_PRE_FRAME, 28               | the art's first pre-shifted frame (after 14 images of two frames)
 bp_paint:
@@ -1346,7 +1347,25 @@ bp_paint:
     move.w %d0, %d5
     move.w %d1, %d3
     move.w %d2, %d6
-    moveq #MON_GLEEOK2, %d0
+    cmp.w #BP_ITEM, %d5
+    blo 8f
+    sub.w #BP_ITEM, %d5                 | an item's picture: the pond fairy's hearts
+    moveq #0, %d1
+    move.w %d3, %d1
+    moveq #0, %d2
+    move.w %d6, %d2
+    bsr sprite_offset_bf
+    tst.w %d4
+    bmi 9f
+    movea.l %a3, %a1
+    adda.l %d1, %a1
+    mulu.w #SPRITE_FRAME_BYTES, %d5
+    ltab item_sprites, %a0
+    adda.l %d5, %a0
+    move.w %d4, %d0
+    bsr draw_sprite_bf
+    bra 9f
+8:  moveq #MON_GLEEOK2, %d0
     cmp.w #BP_GANON, %d5
     blo 0f
     moveq #MON_GANON, %d0               | pieces from BP_GANON up are Ganon's: the frame is the number less BP_GANON

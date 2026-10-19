@@ -746,7 +746,7 @@ update_play:
     rts                      | cave entry already redrew the new background
 4:  rts
 3:
-    bsr uw_person_update
+    bsr uw_person_update_far
     bsr items_update
     bsr boss_misc_f
     bsr chase_target_update
@@ -881,6 +881,16 @@ owspec_update_far:
     bra owspec_update
 ow_ladder_ok_far:
     bra ow_ladder_ok
+ow_armos_touch_far:
+    bra ow_armos_touch
+owspec_recorder_far:
+    bra owspec_recorder
+goriya_ai_far:
+    bra goriya_ai
+owspec_init_far:
+    bra owspec_init
+uw_person_update_far:
+    bra uw_person_update
 
     .include "link.s"
     .include "uw.s"
