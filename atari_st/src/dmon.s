@@ -46,6 +46,10 @@
     .equ MODE_DIGBIG, 28
     .equ MODE_GLEEOK, 29
     .equ MODE_GLEEOK_HEAD, 30
+    .equ MODE_LANMOLA, 31
+    .equ MODE_PATRA, 32
+    .equ MODE_PATRA_CHILD, 33
+    .equ MODE_GANON, 34
 
 | Called once a frame from update_enemies.
 dmon_tick:
@@ -71,7 +75,21 @@ dmon_hit_filter:
     tst.b OFF_ENEMY_STEP(%a5, %d5.w)
     bne 3f
     bra 72f                             | the body of a Manhandla takes no harm: only its hands die
-3:  cmp.b #MON_GOHMA_BLUE, %d0
+3:  cmp.b #MON_GANON, %d0
+    bne 34f
+    bsr boss_ganon_filter_f             | the sword when he is hidden, a silver arrow when he is brown
+    tst.w %d2
+    bne 7f
+    bra 8f
+34: cmp.b #MON_PATRA_EYE, %d0
+    beq 32f
+    cmp.b #MON_PATRA_EYE2, %d0
+    bne 33f
+32: bsr boss_patra_kids_f               | Patra's eye takes no harm while a child is left
+    tst.w %d2
+    bne 7f
+    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
+33: cmp.b #MON_GOHMA_BLUE, %d0
     beq 31f
     cmp.b #MON_GOHMA_RED, %d0
     bne 4f
@@ -123,7 +141,11 @@ dmon_hit_filter:
 dmon_survived:
     movem.l %d0-%d6/%a0, -(%sp)
     move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
-    cmp.b #MON_ZOL, %d0
+    cmp.b #MON_GANON, %d0
+    bne 5f
+    bsr boss_ganon_hit_f                | a blow he has felt: he shows himself for a while
+    bra 9f
+5:  cmp.b #MON_ZOL, %d0
     beq 1f
     cmp.b #MON_VIRE, %d0
     bne 9f
@@ -291,8 +313,32 @@ dmon_init:
     bsr boss_dig_init_f
     bra 9f
 13: cmp.w #BEH_GLEEOK, %d0
-    bne 2f
+    bne 14f
     bsr boss_gleeok_init_f
+    bra 9f
+14: cmp.w #BEH_LANMOLA, %d0
+    bne 15f
+    bsr boss_lanmola_init_f
+    bra 9f
+15: cmp.w #BEH_PATRA, %d0
+    bne 16f
+    bsr boss_patra_init_f
+    bra 9f
+16: cmp.w #BEH_PATRA_CHILD, %d0
+    bne 17f
+    bsr boss_pchild_init_f
+    bra 9f
+17: cmp.w #BEH_GANON, %d0
+    bne 18f
+    bsr boss_ganon_init_f
+    bra 9f
+18: cmp.w #BEH_ZELDA, %d0
+    bne 19f
+    bsr boss_zelda_init_f
+    bra 9f
+19: cmp.w #BEH_FIRE, %d0
+    bne 2f
+    bsr boss_fire_init_f
     bra 9f
 2:  cmp.w #BEH_POLS, %d0
     bne 9f
@@ -423,6 +469,14 @@ dmon_frame:
     beq 87f
     subq.w #1, %d2
     beq 88f
+    subq.w #1, %d2
+    beq 89f
+    subq.w #1, %d2
+    beq 90f
+    subq.w #1, %d2
+    beq 91f
+    subq.w #1, %d2
+    beq 92f
     bra 89f
 
 10: move.w %d4, %d6                     | a darknut: the step changes every eight frames
@@ -549,6 +603,26 @@ dmon_frame:
     bra 99f
 
 89: moveq #-1, %d1                      | a head on its neck is drawn from the boss sprite pool, with its neck
+    bra 99f
+
+90: moveq #1, %d1                        | Lanmola: a body segment, or the head (the top slot of its worm)
+    move.w %d3, %d6
+    and.w #3, %d6
+    cmp.w #3, %d6
+    bne 99f
+    moveq #0, %d1
+91: move.w %d4, %d1                     | Patra's eye: two pictures, swapped every four frames
+    lsr.w #2, %d1
+    and.w #1, %d1
+    bra 99f
+
+92: tst.b OFF_ENEMY_STATE(%a5, %d3.w)   | a child: not seen until it has come out
+    bne 921f
+    moveq #-1, %d1
+    bra 99f
+921:move.w %d4, %d1
+    lsr.w #2, %d1
+    and.w #1, %d1
 99: movem.l (%sp)+, %d0/%d2/%d4/%d6/%a0
     rts
 
@@ -570,6 +644,22 @@ vire_hops:
     farstub boss_gleeok_f, dmon_gleeok
     farstub boss_ghead_f, dmon_ghead
     farstub boss_gflyer_f, dmon_gflyer
+    farstub boss_lanmola_f, dmon_lanmola
+    farstub boss_lanmola_init_f, lanmola_init
+    farstub boss_patra_f, dmon_patra
+    farstub boss_patra_init_f, patra_init
+    farstub boss_pchild_f, dmon_pchild
+    farstub boss_pchild_init_f, pchild_init
+    farstub boss_patra_kids_f, patra_kids
+    farstub boss_ganon_f, dmon_ganon
+    farstub boss_ganon_init_f, ganon_init
+    farstub boss_ganon_filter_f, ganon_filter
+    farstub boss_ganon_hit_f, ganon_hit
+    farstub boss_ganon_died_f, ganon_died
+    farstub boss_zelda_f, dmon_zelda
+    farstub boss_zelda_init_f, zelda_init
+    farstub boss_fire_f, dmon_fire
+    farstub boss_fire_init_f, fire_init
     farstub boss_gleeok_init_f, gleeok_init
     farstub boss_gleeok_died_f, gleeok_died
     farstub boss_ghead_died_f, gleeok_head_died

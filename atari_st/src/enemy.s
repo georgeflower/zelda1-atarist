@@ -60,7 +60,13 @@ uw_spawn:
     tst.w %d1
     bmi 9b
     bsr boss_room_init_f            | the rupee stash, Grumble
-    cmpi.w #0xffff, 14(%a1)
+    btst #4, 1(%a1)
+    beq 3f
+    cmpi.b #0xff, OFF_TRIFORCE_PIECES(%a5)
+    bne 3f                          | the man at Level 9's door: with all eight pieces Link may pass (InitUnderworldPersonC)
+    bsr uw_open_shutters
+    bra 0f
+3:  cmpi.w #0xffff, 14(%a1)
     beq 0f
     btst #5, 1(%a1)
     beq 4f
@@ -462,6 +468,16 @@ update_enemies:
     beq 2f                      | a Moldorm segment is not knocked about: it swims on while it flashes
     cmp.w #BEH_GLEEOK_HEAD, %d0
     beq 2f                      | nor is a head of Gleeok
+    cmp.w #BEH_LANMOLA, %d0
+    beq 2f                      | nor a segment of Lanmola
+    cmp.w #BEH_PATRA, %d0
+    beq 2f                      | nor Patra or one of its children
+    cmp.w #BEH_PATRA_CHILD, %d0
+    beq 2f
+    cmp.w #BEH_GANON, %d0
+    beq 2f                      | nor Ganon
+    cmp.w #BEH_FIRE, %d0
+    beq 2f                      | nor a fire that guards Zelda
     bsr enemy_shove
     bra 8f
 

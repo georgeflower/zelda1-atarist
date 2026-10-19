@@ -263,7 +263,7 @@ class RomUnderworldTests(unittest.TestCase):
 @unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
 @unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
 class RomAllDungeonsTests(unittest.TestCase):
-    ROOMS = {1: 17, 2: 18, 3: 18, 4: 20, 5: 23, 6: 25, 7: 33, 8: 25}
+    ROOMS = {1: 17, 2: 18, 3: 18, 4: 20, 5: 23, 6: 25, 7: 33, 8: 25, 9: 57}
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -277,7 +277,7 @@ class RomAllDungeonsTests(unittest.TestCase):
             self.assertIn(uw.triforce_room, stored, level)
             self.assertIn(uw.start_room, stored, level)
 
-    def test_no_room_of_the_first_eight_dungeons_holds_an_unported_monster(self) -> None:
+    def test_no_room_of_any_dungeon_holds_an_unported_monster(self) -> None:
         for level in self.ROOMS:
             uw = self.bundle.levels[level - 1]
             for record in uw.actors.room_info:

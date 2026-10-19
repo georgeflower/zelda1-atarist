@@ -26,6 +26,17 @@
     farstub music_play_bf, music_play
     farstub uw_redraw_room_bf, uw_redraw_room
     farstub take_item_bf, take_item
+    farstub enemy_cell_blocked_bf, enemy_cell_blocked
+    farstub opposite_dir_bf, opposite_dir
+    farstub keese_turn_to_link_bf, keese_turn_to_link
+    farstub keese_turn_random_bf, keese_turn_random
+    farstub flyer_bound_bf, flyer_bound
+    farstub uw_light_room_bf, uw_light_room
+    farstub cave_talk_bf, cave_talk
+    farstub curtain_column_bf, curtain_column
+    farstub cur_palette_bf, cur_palette
+    farstub draw_hud_tile_bf, draw_hud_tile
+    farstub music_event_bf, music_event
 
 | ---------------------------------------------------------------- wizzrobes
 | Wizzrobes (UpdateBlueWizzrobe, UpdateRedWizzrobe). ENEMY_GHOST is set while one is not drawn: weapons pass through
@@ -1326,6 +1337,7 @@ bp_add:
 | pre-shifted, one table of 16 shifts after the body's pictures (the art's frame 28 and 60): no shifting at run time, and
 | a segment is only its middle eight lines. A frame has no time for more.
     .equ BP_SEGMENT, 12
+    .equ BP_GANON, 0x40                 | pool pictures from here are Ganon's (his art's frames)
     .equ BP_HEAD, 13
     .equ BP_PRE_FRAME, 28               | the art's first pre-shifted frame (after 14 images of two frames)
 bp_paint:
@@ -1335,10 +1347,19 @@ bp_paint:
     move.w %d1, %d3
     move.w %d2, %d6
     moveq #MON_GLEEOK2, %d0
-    add.w %d0, %d0
+    cmp.w #BP_GANON, %d5
+    blo 0f
+    moveq #MON_GANON, %d0               | pieces from BP_GANON up are Ganon's: the frame is the number less BP_GANON
+0:  add.w %d0, %d0
     bsr mon_art_ptr_bf
     moveq #0, %d7
     move.w 0(%a0, %d0.w), %d7           | the art's first frame
+    cmp.w #BP_GANON, %d5
+    blo 2f
+    sub.w #BP_GANON, %d5
+    add.w %d5, %d7
+    moveq #0, %d5                       | and from here on it is a plain piece
+2:
     moveq #0, %d1
     move.w %d3, %d1
     moveq #0, %d2
@@ -1774,6 +1795,1028 @@ dmon_gflyer:
     moveq #1, %d0
     rts
 
+| ------------------------------------------------------------------ Lanmola
+| UpdateLamnola. Two worms of four segments (the ROM has ten, in two worms of five). Every segment starts at
+| ($40, $8D); only the heads (slots 3 and 7 of the worm's four) have a heading, and the others get theirs as the
+| head's go down the body, one step each time it has gone eight pixels, so the worm uncoils. A segment moves
+| one pixel a frame (the blue Lanmola) or two (the red) along its heading, ENEMY_DIR, which is 0 until it is told.
+| At a square of the 16-pixel grid the head chooses: half the time it turns toward Link (sideways if Link
+| faces that way, else up or down), else it keeps on or turns to one side, 75% of the time to up or left;
+| a way that is shut turns it on to the next that is not back the way it came.
+    .equ LANMOLA_START_X, 0x40
+    .equ LANMOLA_START_Y, 0x8d
+
+lanmola_init:
+    movem.l %d0, -(%sp)
+    move.b #LANMOLA_START_X, OFF_ENEMY_X(%a5, %d5.w)
+    move.b #LANMOLA_START_Y, OFF_ENEMY_Y(%a5, %d5.w)
+    clr.b OFF_ENEMY_DIR(%a5, %d5.w)
+    move.w %d5, %d0
+    and.w #3, %d0
+    cmp.w #3, %d0
+    bne 9f
+    move.b #DIR_UP, OFF_ENEMY_DIR(%a5, %d5.w)
+9:  movem.l (%sp)+, %d0
+    rts
+
+| d5 = a segment. Returns d0.w = 1: the generic walking is not to run.
+dmon_lanmola:
+    movem.l %d1/%d4, -(%sp)
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
+    beq 90f                             | not told to go yet
+    moveq #1, %d1
+    cmpi.b #MON_LANMOLA_RED, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 1f
+    moveq #2, %d1
+1:  btst #0, %d4
+    beq 2f
+    add.b %d1, OFF_ENEMY_X(%a5, %d5.w)
+2:  btst #1, %d4
+    beq 3f
+    sub.b %d1, OFF_ENEMY_X(%a5, %d5.w)
+3:  btst #2, %d4
+    beq 4f
+    add.b %d1, OFF_ENEMY_Y(%a5, %d5.w)
+4:  btst #3, %d4
+    beq 5f
+    sub.b %d1, OFF_ENEMY_Y(%a5, %d5.w)
+5:  move.w %d5, %d1
+    and.w #3, %d1
+    cmp.w #3, %d1
+    bne 90f
+    bsr lanmola_head
+90: movem.l (%sp)+, %d1/%d4
+    moveq #1, %d0
+    rts
+
+| The head, d5, has moved: pass the headings down the body at every eight pixels, and choose a new one at a square.
+lanmola_head:
+    movem.l %d0-%d7/%a0, -(%sp)
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    move.w %d2, %d0
+    and.w #7, %d0
+    bne 99f
+    move.w %d3, %d0
+    addq.w #3, %d0
+    and.w #7, %d0
+    bne 99f
+    move.w %d5, %d1
+    and.w #0xfc, %d1                    | the worm's lowest slot
+    lea OFF_ENEMY_DIR(%a5), %a0
+    moveq #2, %d0
+1:  move.b 1(%a0, %d1.w), 0(%a0, %d1.w)
+    addq.w #1, %d1
+    dbra %d0, 1b
+    move.w %d2, %d0
+    and.w #15, %d0
+    bne 99f
+    move.w %d3, %d0
+    addq.w #3, %d0
+    and.w #15, %d0
+    bne 99f
+    moveq #0, %d1
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d1   | d1 = the heading it has
+    move.w %d1, %d6
+    bsr opposite_dir_bf
+    not.w %d6
+    and.w #15, %d6
+    move.w %d6, %d4                     | d4 = the headings it may take: not straight back
+    bsr rand8_bf
+    cmp.b #0x80, %d0
+    bhs 20f
+    moveq #1, %d6                       | toward Link: right or left ...
+    moveq #0, %d0
+    move.b OFF_LINK_X(%a5), %d0
+    cmp.w %d2, %d0
+    bhs 11f
+    moveq #2, %d6
+11: moveq #4, %d7                       | ... and down or up
+    moveq #0, %d0
+    move.b OFF_LINK_Y(%a5), %d0
+    cmp.w %d3, %d0
+    bhs 12f
+    moveq #8, %d7
+12: move.w %d6, %d0
+    and.w %d4, %d0
+    beq 13f                             | sideways is the way it came: go up or down
+    move.b OFF_LINK_DIR(%a5), %d0
+    and.b %d6, %d0
+    bne 40f                             | Link faces that way: sideways
+13: move.w %d7, %d6
+    bra 40f
+20: move.w %d1, %d6                     | a random turn: keep on, or one of the two sides
+    bsr rand8_bf
+    move.w %d0, %d7
+    cmp.b #0x80, %d7
+    bhs 40f
+21: lsr.b #1, %d6
+    bcc 22f
+    moveq #8, %d6
+22: move.w %d6, %d0
+    and.w %d4, %d0
+    beq 21b
+    cmp.b #0x40, %d7
+    bhs 40f
+    moveq #0x40, %d7
+    bra 21b
+40: moveq #3, %d7                       | the way chosen; while it is shut, the next one that is not back
+41: move.b %d6, OFF_ENEMY_DIR(%a5, %d5.w)
+    bsr enemy_cell_blocked_bf
+    tst.w %d0
+    beq 99f
+42: lsr.b #1, %d6
+    bcc 43f
+    moveq #8, %d6
+43: move.w %d6, %d0
+    and.w %d4, %d0
+    beq 42b
+    dbra %d7, 41b
+99: movem.l (%sp)+, %d0-%d7/%a0
+    rts
+
+| ------------------------------------------------------------------ Patra
+| UpdatePatra and its children. The eye starts at ($80, $70) facing up, speeds up from $1F to $40 (a quarter of a
+| pixel a frame), then chooses again and again (Flyer_PatraDecideState: chase Link, or wander, eight turns of $10
+| frames each; ENEMY_STATE is the flying state 0 speed up, 1 decide, 2 chase, 3 wander). Round it fly the children,
+| each at a whole angle of 32 to the circle (ENEMY_STEP) and a fraction (ENEMY_FRAC), going round at $70 / 256 of a
+| step a frame (the second kind $60). They come out at the top one at a time, each when the first has gone another
+| eighth of the way round. The ROM has eight; this port has seven (eight monster slots), so one place stays empty.
+| The orbit is the original's integrated circle written as a position: X = eye X + RX cos a, Y = eye Y + RY sin a.
+| The radii are $2C and $2C (or $2C and $16 in the second maneuver) for the first kind of child, $18 and $18 (or $30
+| and $30) for the second, and they glide to the new ones; the maneuver flips every $FF frames (the ROM's table has
+| $50 for the second one but always reads the first). The eye is proof against everything but the sword, and
+| against that while a child is left (dmon_hit_filter asks patra_kids).
+    .equ PATRA_X, 0x80
+    .equ PATRA_Y, 0x70
+    .equ PATRA_SPEED_START, 0x1f
+    .equ PATRA_SPEED_MAX, 0x40
+    .equ PATRA_START_ANGLE, 0x18
+    .equ PATRA_SPIN_1, 0x70
+    .equ PATRA_SPIN_2, 0x60
+
+patra_starts:
+    .byte 0x14, 0x10, 0x0c, 0x08, 0x04, 0x00, 0x1c
+patra_cos:
+    .byte 127, 125, 117, 106, 90, 71, 49, 25, 0, -25, -49, -71, -90, -106, -117, -125
+    .byte -127, -125, -117, -106, -90, -71, -49, -25, 0, 25, 49, 71, 90, 106, 117, 125
+    .align 2
+
+patra_init:
+    movem.l %d0/%a0, -(%sp)
+    move.b #PATRA_X, OFF_ENEMY_X(%a5, %d5.w)
+    move.b #PATRA_Y, OFF_ENEMY_Y(%a5, %d5.w)
+    move.b #DIR_UP, OFF_ENEMY_DIR(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    lea OFF_ENEMY_SPEED(%a5), %a0
+    move.b #PATRA_SPEED_START, 0(%a0, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    clr.b OFF_PATRA_MAN(%a5)
+    move.b #0xff, OFF_PATRA_MTIMER(%a5)
+    moveq #0x2c, %d0
+    cmpi.b #MON_PATRA_EYE, OFF_ENEMY_TYPE(%a5, %d5.w)
+    beq 1f
+    moveq #0x18, %d0
+1:  move.b %d0, OFF_PATRA_RX(%a5)
+    move.b %d0, OFF_PATRA_RY(%a5)
+    movem.l (%sp)+, %d0/%a0
+    rts
+
+pchild_init:
+    movem.l %a0, -(%sp)
+    move.b #PATRA_X, OFF_ENEMY_X(%a5, %d5.w)
+    move.b #PATRA_Y, OFF_ENEMY_Y(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)       | waiting to come out; it is neither seen nor felt until it has
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
+    movem.l (%sp)+, %a0
+    rts
+
+| Returns d2.w = how many children are left.
+patra_kids:
+    movem.l %d0-%d1, -(%sp)
+    moveq #0, %d2
+    moveq #1, %d0
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d0
+    bhs 9f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d0.w)
+    beq 2f
+    move.b OFF_ENEMY_TYPE(%a5, %d0.w), %d1
+    cmp.b #MON_PATRA_CHILD, %d1
+    beq 3f
+    cmp.b #MON_PATRA_CHILD2, %d1
+    bne 2f
+3:  addq.w #1, %d2
+2:  addq.w #1, %d0
+    bra 1b
+9:  movem.l (%sp)+, %d0-%d1
+    rts
+
+| d0.b = a radius, d2.b = the one it is going to: a step towards it.
+patra_glide:
+    cmp.b %d2, %d0
+    beq 9f
+    blo 1f
+    subq.b #1, %d0
+    rts
+1:  addq.b #1, %d0
+9:  rts
+
+| d5 = the eye. Returns d0.w = 1: it moves itself.
+dmon_patra:
+    movem.l %d1-%d4/%a0-%a1, -(%sp)
+    lea OFF_ENEMY_SPEED(%a5), %a0
+    lea OFF_ENEMY_FRAC(%a5), %a1
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    beq 0f
+    subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
+0:  moveq #0, %d0
+    move.b OFF_ENEMY_STATE(%a5, %d5.w), %d0
+    beq 10f
+    cmp.b #1, %d0
+    beq 20f
+    cmp.b #2, %d0
+    beq 30f
+    bra 40f
+10: addq.b #1, 0(%a0, %d5.w)                | Flyer_SpeedUp
+    cmpi.b #PATRA_SPEED_MAX, 0(%a0, %d5.w)
+    blo 60f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 60f
+20: bsr rand8_bf                            | Flyer_PatraDecideState
+    moveq #2, %d1
+    cmp.b #0x40, %d0
+    bhs 21f
+    moveq #3, %d1
+21: move.b %d1, OFF_ENEMY_STATE(%a5, %d5.w)
+    move.b #8, OFF_ENEMY_STEP(%a5, %d5.w)
+    bra 60f
+30: tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 60f
+    subq.b #1, OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 31f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 60f
+31: move.b #0x10, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bsr keese_turn_to_link_bf
+    bra 60f
+40: tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 60f
+    subq.b #1, OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 41f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 60f
+41: move.b #0x10, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bsr keese_turn_random_bf
+60: moveq #0, %d1                           | MoveFlyer: a pixel whenever the speed fills the fraction
+    move.b 0(%a0, %d5.w), %d1
+    and.b #0xe0, %d1
+    moveq #0, %d2
+    move.b 0(%a1, %d5.w), %d2
+    add.w %d1, %d2
+    move.b %d2, 0(%a1, %d5.w)
+    cmp.w #0x100, %d2
+    blo 70f
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
+    btst #0, %d4
+    beq 61f
+    addq.w #1, %d2
+61: btst #1, %d4
+    beq 62f
+    subq.w #1, %d2
+62: btst #2, %d4
+    beq 63f
+    addq.w #1, %d3
+63: btst #3, %d4
+    beq 64f
+    subq.w #1, %d3
+64: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+    bsr flyer_bound_bf
+70: tst.b OFF_PATRA_MTIMER(%a5)             | the maneuver
+    beq 71f
+    subq.b #1, OFF_PATRA_MTIMER(%a5)
+    bra 72f
+71: eori.b #1, OFF_PATRA_MAN(%a5)
+    move.b #0xff, OFF_PATRA_MTIMER(%a5)
+72: move.b OFF_PATRA_MAN(%a5), %d1
+    cmpi.b #MON_PATRA_EYE, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 74f
+    moveq #0x2c, %d2                        | the first kind of child: wide, and round or squashed
+    moveq #0x2c, %d3
+    tst.b %d1
+    beq 76f
+    moveq #0x16, %d3
+    bra 76f
+74: moveq #0x18, %d2                        | the second: a small circle or a large one
+    tst.b %d1
+    beq 75f
+    moveq #0x30, %d2
+75: move.w %d2, %d3
+76: move.w OFF_FRAME_COUNTER(%a5), %d0
+    and.w #3, %d0
+    bne 99f
+    move.b OFF_PATRA_RX(%a5), %d0
+    bsr patra_glide
+    move.b %d0, OFF_PATRA_RX(%a5)
+    move.b OFF_PATRA_RY(%a5), %d0
+    move.b %d3, %d2
+    bsr patra_glide
+    move.b %d0, OFF_PATRA_RY(%a5)
+99: movem.l (%sp)+, %d1-%d4/%a0-%a1
+    moveq #1, %d0
+    rts
+
+| d5 = a child. Returns d0.w = 1.
+dmon_pchild:
+    movem.l %d1-%d4/%a0, -(%sp)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 20f
+    cmp.w #1, %d5
+    beq 10f                                 | the first one comes out at once
+    tst.b OFF_ENEMY_ACTIVE+1(%a5)
+    beq 10f                                 | (the first is dead: nothing to wait for)
+    tst.b OFF_ENEMY_STATE+1(%a5)
+    beq 99f                                 | the first is not out yet
+    move.w %d5, %d1
+    subq.w #2, %d1
+    lea patra_starts(%pc), %a1
+    move.b OFF_ENEMY_STEP+1(%a5), %d0
+    cmp.b 0(%a1, %d1.w), %d0                | the first child is where this one is to appear after
+    bne 99f
+10: move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    move.b #PATRA_START_ANGLE, OFF_ENEMY_STEP(%a5, %d5.w)
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_GHOST(%a5), %a1
+    clr.b 0(%a1, %d5.w)
+20: moveq #0, %d0                           | the angle goes down by the child's rate, a whole 32 to the circle
+    move.b OFF_ENEMY_STEP(%a5, %d5.w), %d0
+    lsl.w #8, %d0
+    move.b 0(%a0, %d5.w), %d0
+    move.w #PATRA_SPIN_1, %d1
+    cmpi.b #MON_PATRA_CHILD, OFF_ENEMY_TYPE(%a5, %d5.w)
+    beq 21f
+    move.w #PATRA_SPIN_2, %d1
+21: sub.w %d1, %d0
+    and.w #0x1fff, %d0
+    move.b %d0, 0(%a0, %d5.w)
+    lsr.w #8, %d0
+    move.b %d0, OFF_ENEMY_STEP(%a5, %d5.w)
+    lea patra_cos(%pc), %a1
+    moveq #0, %d2
+    move.b OFF_PATRA_RX(%a5), %d2
+    move.b 0(%a1, %d0.w), %d3               | cos of the angle
+    ext.w %d3
+    muls.w %d2, %d3
+    asr.w #7, %d3
+    moveq #0, %d4
+    move.b OFF_ENEMY_X(%a5), %d4            | the eye is the first monster
+    add.w %d4, %d3
+    cmp.w #0x10, %d3
+    bge 22f
+    moveq #0x10, %d3
+22: cmp.w #0xe0, %d3
+    ble 23f
+    move.w #0xe0, %d3
+23: move.b %d3, OFF_ENEMY_X(%a5, %d5.w)
+    sub.w #8, %d0                           | the sine is the cosine a quarter turn back
+    and.w #31, %d0
+    moveq #0, %d2
+    move.b OFF_PATRA_RY(%a5), %d2
+    move.b 0(%a1, %d0.w), %d3
+    ext.w %d3
+    muls.w %d2, %d3
+    asr.w #7, %d3
+    moveq #0, %d4
+    move.b OFF_ENEMY_Y(%a5), %d4
+    add.w %d4, %d3
+    cmp.w #0x50, %d3
+    bge 24f
+    moveq #0x50, %d3
+24: cmp.w #0xc8, %d3
+    ble 25f
+    move.w #0xc8, %d3
+25: move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+99: movem.l (%sp)+, %d1-%d4/%a0
+    moveq #1, %d0
+    rts
+
+| ------------------------------------------------------------------ Ganon
+| UpdateGanon. Ganon is a 32x32 body of four pictures, drawn from the boss sprite pool; the monster itself is the 16x16
+| box in the middle of it (ENEMY_X/Y = the body's X and Y plus 8), the one Link's sword and Link himself meet.
+| The scene (GANON_SCENE): 1 the room is dark for $40 frames and Link waits, 2 the light comes on and he holds up the
+| Triforce of Courage for $C0 frames while Ganon stands there, 0 the fight. In the fight Ganon is invisible, walks
+| a pixel every other frame like a blue wizzrobe (turning toward Link every $40 frames) and throws a fireball every $40.
+| A sword blow that finds him shows him for $40 frames (ENEMY_TIMER), during which nothing hurts him, and then he
+| reappears at ($30 or $B0, $A0). When the sword has used up his hit points he turns brown for $FF steps of two frames
+| (ENEMY_STATE counts down), standing still, and only the silver arrow hurts him: it sets him burning (ENEMY_STEP counts
+| the phases up), at phase $50 he is a pile of ashes, at $A0 the Triforce of Power lies where they are. If the
+| brown runs out he is blue again. ENEMY_ANIMF is his picture (0 to 5), cycling every frame while he is hidden so that a
+| blow shows him in a random pose.
+    .equ GANON_X, 0x70
+    .equ GANON_Y, 0x5d
+    .equ GANON_SEEN_FRAMES, 0x40
+    .equ GANON_BROWN_TIME, 0xff
+    .equ GANON_HP_AGAIN, 15
+    .equ GANON_MIN_X, 0x28
+    .equ GANON_MAX_X, 0xc0
+    .equ GANON_MIN_Y, 0x60
+    .equ GANON_MAX_Y, 0xb0
+    .equ GANON_BROWN_IMAGES, 10
+    .equ GANON_ASHES_FRAME, 40
+
+ganon_images:                           | GanonFrameImages: four pictures for each of the six frames
+    .byte 6, 8, 7, 9,  0, 0, 1, 1,  2, 2, 3, 3,  4, 0, 5, 1,  4, 4, 5, 5,  0, 4, 1, 5
+ganon_part_dx:
+    .byte 0, 16, 0, 16
+ganon_part_dy:
+    .byte 0, 0, 16, 16
+ganon_start_x:
+    .byte 0x30, 0xb0
+
+ganon_init:
+    movem.l %d0/%a0, -(%sp)
+    move.b #(GANON_X + 8), OFF_ENEMY_X(%a5, %d5.w)
+    move.b #(GANON_Y + 8), OFF_ENEMY_Y(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    lea OFF_ENEMY_ANIMF(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    move.b #DIR_LEFT, OFF_ENEMY_DIR(%a5, %d5.w)
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
+    move.b #1, OFF_GANON_SCENE(%a5)
+    move.b #0x40, OFF_GANON_TIMER(%a5)
+    move.b #1, OFF_LINK_HELD(%a5)
+    movem.l (%sp)+, %d0/%a0
+    rts
+
+| d5 = Ganon, d1 = the weapon. Returns d2.w = 0 when the blow counts (a silver arrow also gets its killing weight).
+ganon_filter:
+    moveq #1, %d2
+    tst.b OFF_GANON_SCENE(%a5)
+    bne 9f
+    tst.b OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 9f
+    cmp.b #HIT_SWORD, %d1
+    bne 1f
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 9f                              | brown: the sword does nothing
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 9f                              | showing himself: nothing does
+    moveq #0, %d2
+    rts
+1:  cmp.b #HIT_ARROW, %d1
+    bne 9f
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    beq 9f
+    cmpi.b #2, OFF_INV_ARROW(%a5)
+    bne 9f                              | only the silver arrow
+    move.b #0xff, OFF_HIT_DAMAGE(%a5)
+    moveq #0, %d2
+9:  rts
+
+| A sword blow that left him alive: he is seen for a while.
+ganon_hit:
+    move.b #GANON_SEEN_FRAMES, OFF_ENEMY_TIMER(%a5, %d5.w)
+    rts
+
+| He has no hit points left. The sword makes him brown (and gives him new ones for the next time); the arrow
+| sets him burning.
+ganon_died:
+    movem.l %a0, -(%sp)
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 1f
+    move.b #GANON_HP_AGAIN, OFF_ENEMY_HP(%a5, %d5.w)
+    move.b #GANON_BROWN_TIME, OFF_ENEMY_STATE(%a5, %d5.w)
+    move.b #GANON_SEEN_FRAMES, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bra 9f
+1:  move.b #1, OFF_ENEMY_STEP(%a5, %d5.w)
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
+    sfx SFX_MONSTER_DIED
+9:  movem.l (%sp)+, %a0
+    rts
+
+| Ganon_RandomizeLocation.
+ganon_relocate:
+    movem.l %d0/%a0, -(%sp)
+    move.b #(0xa0 + 8), OFF_ENEMY_Y(%a5, %d5.w)
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    and.w #1, %d0
+    lea ganon_start_x(%pc), %a0
+    move.b 0(%a0, %d0.w), %d0
+    add.b #8, %d0
+    move.b %d0, OFF_ENEMY_X(%a5, %d5.w)
+    movem.l (%sp)+, %d0/%a0
+    rts
+
+| d5 = Ganon. The fight: hidden, he walks and shoots; brown, he waits. Returns d0.w = 1.
+dmon_ganon:
+    movem.l %d1-%d4/%a0, -(%sp)
+    tst.b OFF_GANON_SCENE(%a5)
+    bne 99f
+    tst.b OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 99f
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 50f
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    beq 10f
+    subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 99f
+    bsr ganon_relocate                  | the time he was shown is over: he is somewhere else
+    bra 99f
+10: lea OFF_ENEMY_ANIMF(%a5), %a0       | a new picture every frame, six in a cycle
+    move.b 0(%a0, %d5.w), %d0
+    addq.b #1, %d0
+    cmp.b #6, %d0
+    blo 11f
+    moveq #0, %d0
+11: move.b %d0, 0(%a0, %d5.w)
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    and.w #0x3f, %d0
+    bne 20f
+    bsr ganon_turn                      | every $40 frames: turn toward Link, and fire
+    bsr zora_fire_bf
+20: move.w OFF_FRAME_COUNTER(%a5), %d0
+    btst #0, %d0
+    bne 99f
+    moveq #0, %d2                       | a pixel every other frame
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
+    btst #0, %d4
+    beq 21f
+    addq.w #1, %d2
+21: btst #1, %d4
+    beq 22f
+    subq.w #1, %d2
+22: btst #2, %d4
+    beq 23f
+    addq.w #1, %d3
+23: btst #3, %d4
+    beq 24f
+    subq.w #1, %d3
+24: cmp.w #GANON_MIN_X, %d2             | the room's walls turn him round
+    bhs 25f
+    move.w #GANON_MIN_X, %d2
+    move.b #DIR_RIGHT, %d4
+25: cmp.w #GANON_MAX_X, %d2
+    bls 26f
+    move.w #GANON_MAX_X, %d2
+    move.b #DIR_LEFT, %d4
+26: cmp.w #GANON_MIN_Y, %d3
+    bhs 27f
+    move.w #GANON_MIN_Y, %d3
+    move.b #DIR_DOWN, %d4
+27: cmp.w #GANON_MAX_Y, %d3
+    bls 28f
+    move.w #GANON_MAX_Y, %d3
+    move.b #DIR_UP, %d4
+28: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+    move.b %d4, OFF_ENEMY_DIR(%a5, %d5.w)
+    bra 99f
+50: move.w OFF_FRAME_COUNTER(%a5), %d0  | brown: the count runs down every other frame
+    btst #0, %d0
+    beq 99f
+    subq.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 99f
+    bsr ganon_relocate                  | blue again, and hidden
+99: movem.l (%sp)+, %d1-%d4/%a0
+    moveq #1, %d0
+    rts
+
+| Face Link along the longer of the two ways.
+ganon_turn:
+    movem.l %d0-%d3, -(%sp)
+    moveq #0, %d0
+    move.b OFF_LINK_X(%a5), %d0
+    moveq #0, %d1
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d1
+    sub.w %d1, %d0                      | + : Link is to the right
+    moveq #0, %d2
+    move.b OFF_LINK_Y(%a5), %d2
+    moveq #0, %d1
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d1
+    sub.w %d1, %d2                      | + : below
+    move.w %d0, %d1
+    bpl 1f
+    neg.w %d1
+1:  move.w %d2, %d3
+    bpl 2f
+    neg.w %d3
+2:  cmp.w %d3, %d1
+    blo 4f
+    moveq #DIR_RIGHT, %d1
+    tst.w %d0
+    bpl 3f
+    moveq #DIR_LEFT, %d1
+3:  bra 5f
+4:  moveq #DIR_DOWN, %d1
+    tst.w %d2
+    bpl 5f
+    moveq #DIR_UP, %d1
+5:  move.b %d1, OFF_ENEMY_DIR(%a5, %d5.w)
+    movem.l (%sp)+, %d0-%d3
+    rts
+
+| Every frame, from boss_misc_update (the monsters are not updated while Link is held): the scene, the burning, and
+| Ganon's picture.
+ganon_tick:
+    movem.l %d0-%d7/%a0, -(%sp)
+    cmpi.b #9, OFF_LEVEL(%a5)
+    bne 99f
+    moveq #0, %d5
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
+    bhs 99f
+    cmpi.b #MON_GANON, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 2f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    bne 3f
+2:  addq.w #1, %d5
+    bra 1b
+3:  move.b OFF_GANON_SCENE(%a5), %d0
+    beq 20f
+    cmp.b #1, %d0
+    bne 10f
+    subq.b #1, OFF_GANON_TIMER(%a5)     | scene 1: dark and waiting
+    bne 99f
+    bsr uw_light_room_bf
+    move.b #2, OFF_GANON_SCENE(%a5)
+    move.b #0xc0, OFF_GANON_TIMER(%a5)
+    sfx SFX_ITEM_APPEARS
+    bra 99f
+10: move.b #ITEM_TRIFORCE, (OFF_ITEM_ID + 1)(%a5)   | scene 2: the Triforce of Courage over Link's head
+    move.b OFF_LINK_X(%a5), (OFF_ITEM_X + 1)(%a5)
+    move.b OFF_LINK_Y(%a5), %d0
+    sub.b #16, %d0
+    move.b %d0, (OFF_ITEM_Y + 1)(%a5)
+    move.b #ITEM_LIFTED, (OFF_ITEM_ACTIVE + 1)(%a5)
+    lea OFF_ENEMY_ANIMF(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    bsr ganon_draw
+    subq.b #1, OFF_GANON_TIMER(%a5)
+    bne 99f
+    clr.b OFF_GANON_SCENE(%a5)
+    clr.b (OFF_ITEM_ACTIVE + 1)(%a5)
+    clr.b OFF_LINK_HELD(%a5)
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    bra 99f
+20: moveq #0, %d0                       | the fight; a burning Ganon goes through his phases
+    move.b OFF_ENEMY_STEP(%a5, %d5.w), %d0
+    beq 30f
+    addq.b #1, %d0
+    bne 21f
+    move.b #0xff, %d0
+21: move.b %d0, OFF_ENEMY_STEP(%a5, %d5.w)
+    cmp.b #0xa0, %d0
+    blo 30f
+    bne 99f
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d0     | the Triforce of Power lies where the ashes are
+    subq.b #1, %d0
+    move.b %d0, OFF_ITEM_X(%a5)
+    move.b OFF_ENEMY_Y(%a5, %d5.w), OFF_ITEM_Y(%a5)
+    clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    bra 99f
+30: bsr ganon_draw
+99: movem.l (%sp)+, %d0-%d7/%a0
+    rts
+
+| d5 = Ganon: his four pictures, or his ashes, into the boss pool.
+ganon_draw:
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    moveq #0, %d6                       | 0: blue pictures, 10: brown
+    tst.b OFF_GANON_SCENE(%a5)
+    bne 5f
+    moveq #0, %d0
+    move.b OFF_ENEMY_STEP(%a5, %d5.w), %d0
+    beq 3f
+    cmp.b #0x50, %d0                    | burning: brown and flashing, then ashes
+    bhs 7f
+    moveq #GANON_BROWN_IMAGES, %d6
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    btst #0, %d0
+    beq 99f
+    bra 5f
+3:  tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    beq 4f
+    moveq #GANON_BROWN_IMAGES, %d6      | brown: whole above $30, flickering below
+    cmpi.b #0x30, OFF_ENEMY_STATE(%a5, %d5.w)
+    bhs 5f
+    move.w OFF_FRAME_COUNTER(%a5), %d0
+    btst #0, %d0
+    beq 99f
+    bra 5f
+4:  tst.b OFF_ENEMY_TIMER(%a5, %d5.w)   | blue: seen only while he has just been struck
+    beq 99f
+5:  moveq #0, %d4
+    lea OFF_ENEMY_ANIMF(%a5), %a0
+    move.b 0(%a0, %d5.w), %d4
+    lsl.w #2, %d4
+    moveq #3, %d3
+60: move.w %d3, %d7
+    add.w %d4, %d7
+    lea ganon_images(%pc), %a0
+    moveq #0, %d0
+    move.b 0(%a0, %d7.w), %d0
+    add.w %d6, %d0
+    add.w %d0, %d0                      | each picture is stored plain and then mirrored
+    btst #0, %d3
+    beq 61f
+    addq.w #1, %d0                      | the right-hand pictures are the mirrored ones
+61: add.w #BP_GANON, %d0
+    lea ganon_part_dx(%pc), %a0
+    moveq #0, %d1
+    move.b 0(%a0, %d3.w), %d1
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    add.w %d2, %d1
+    subq.w #8, %d1
+    lea ganon_part_dy(%pc), %a0
+    moveq #0, %d2
+    move.b 0(%a0, %d3.w), %d2
+    moveq #0, %d7
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d7
+    add.w %d7, %d2
+    subq.w #8, %d2
+    bsr bp_add
+    dbra %d3, 60b
+    bra 99f
+7:  moveq #0, %d1                       | the ashes, at (X + 7, Y + 8) of his body
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d1
+    subq.w #1, %d1
+    moveq #0, %d2
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
+    move.w #(BP_GANON + GANON_ASHES_FRAME), %d0
+    bsr bp_add
+99: movem.l (%sp)+, %d0-%d7/%a0-%a1
+    rts
+
+| ------------------------------------------------------------------------------ Zelda
+| The last room of Level 9 (InitZelda, UpdateZelda, and mode $13 of the original): Zelda stands at ($78,$88) with four
+| fires round her (killable, half a heart on contact) and does nothing until Link comes level with her: X $70..$80 and
+| Y $95. Then he is put at ($88,$88) facing her, the Zelda fanfare plays for $80 frames, the room is furled away by a
+| curtain, she thanks him in typed letters, and Link and she stand with a triforce piece over each head while the
+| backdrop flashes. The last screen of the credits has the final words. Link is held for all of it, so the scene is
+| run from zelda_tick, by boss_misc_update, and not from the monster. ZELDA_SCENE: 1 fanfare, 2 curtain, 3 thanks being
+| typed, 4 pause, 5 flash, 6 pause, 7 final words being typed, 8 the end. Not ported: the credits that follow.
+    .equ ZELDA_X, 0x78
+    .equ ZELDA_Y, 0x88
+    .equ ZELDA_LINK_X, 0x88
+    .equ ZELDA_LINK_Y, 0x88
+    .equ ZELDA_FANFARE_FRAMES, 0x80
+    .equ ZELDA_THANKS_WAIT, 0x50
+    .equ ZELDA_FLASH_FRAMES, 0xc0
+    .equ ZELDA_FLASH_FROM, 0x40
+    .equ ZELDA_PEACE_DELAY, 0x40
+    .equ ZELDA_TEXT_DELAY, 10
+
+zelda_fire_x:
+    .byte 0x60, 0x70, 0x80, 0x90
+zelda_fire_y:
+    .byte 0xb5, 0x9d, 0x9d, 0xb5
+zelda_flash_colours:                    | EndingFlashColors $0F $12 $16 $2A as the ST shows them
+    .word 0x0000, 0x0026, 0x0600, 0x00a3
+
+zelda_init:
+    movem.l %a0, -(%sp)
+    move.b #ZELDA_X, OFF_ENEMY_X(%a5, %d5.w)
+    move.b #ZELDA_Y, OFF_ENEMY_Y(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
+    move.b #2, OFF_ENEMY_ACTIVE(%a5, %d5.w)     | she is no monster to kill
+    movem.l (%sp)+, %a0
+    rts
+
+| The fires take the places of GuardFireXs/Ys, in the order they come after Zelda in the room's list.
+fire_init:
+    movem.l %d0/%a0, -(%sp)
+    move.w %d5, %d0
+    subq.w #1, %d0
+    and.w #3, %d0
+    lea zelda_fire_x(%pc), %a0
+    move.b 0(%a0, %d0.w), OFF_ENEMY_X(%a5, %d5.w)
+    lea zelda_fire_y(%pc), %a0
+    move.b 0(%a0, %d0.w), OFF_ENEMY_Y(%a5, %d5.w)
+    movem.l (%sp)+, %d0/%a0
+    rts
+
+dmon_fire:
+    moveq #1, %d0                       | a fire stands where it is
+    rts
+
+| d5 = Zelda. UpdateZelda state 0. Returns d0.w = 1.
+dmon_zelda:
+    movem.l %d1, -(%sp)
+    tst.b OFF_ZELDA_SCENE(%a5)
+    bne 8f
+    move.b OFF_LINK_X(%a5), %d1
+    cmp.b #0x70, %d1
+    blo 8f
+    cmp.b #0x81, %d1
+    bhs 8f
+    cmpi.b #0x95, OFF_LINK_Y(%a5)
+    bne 8f
+    move.b #1, OFF_ZELDA_SCENE(%a5)
+    move.b #ZELDA_FANFARE_FRAMES, OFF_ZELDA_TIMER(%a5)
+    move.b #1, OFF_LINK_HELD(%a5)
+    move.b #ZELDA_LINK_X, OFF_LINK_X(%a5)
+    move.b #ZELDA_LINK_Y, OFF_LINK_Y(%a5)
+    move.b #DIR_LEFT, OFF_LINK_DIR(%a5)
+    clr.b OFF_LINK_SHOVE(%a5)
+    move.l %d0, -(%sp)
+    moveq #MUS_ZELDA, %d0
+    bsr music_event_bf
+    move.l (%sp)+, %d0
+8:  movem.l (%sp)+, %d1
+    moveq #1, %d0
+    rts
+
+| d0.w = where the words are in cave_text. Starts them being typed by cave_talk.
+zelda_say:
+    move.w %d0, OFF_CAVE_TEXT_IDXW(%a5)
+    move.b #1, OFF_CAVE_TEXT_ON(%a5)
+    move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
+    move.b #CAVE_TEXT_ROW0, OFF_CAVE_TEXT_ROW(%a5)
+    move.b #ZELDA_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
+    rts
+
+| The fires are gone from the picture (and still count as the room's monsters: nothing here may clear the room).
+zelda_hide_fires:
+    movem.l %d5/%a0, -(%sp)
+    moveq #0, %d5
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
+    bhs 9f
+    cmpi.b #MON_ZELDA_FIRE, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 2f
+    clr.b OFF_ENEMY_Y(%a5, %d5.w)
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
+2:  addq.w #1, %d5
+    bra 1b
+9:  movem.l (%sp)+, %d5/%a0
+    rts
+
+| The thanks, wiped from the black room so the last words can take its place: blank glyphs over three lines.
+zelda_wipe_text:
+    movem.l %d0-%d2/%d6/%d7, -(%sp)
+    moveq #CAVE_TEXT_ROW0, %d6
+1:  moveq #CAVE_TEXT_COL0, %d7
+2:  moveq #0, %d0
+    move.w %d7, %d1
+    move.w %d6, %d2
+    bsr draw_hud_tile_bf
+    move.l OFF_SCREEN_PTR(%a5), -(%sp)  | and into the clean room, to survive Link's erasing
+    move.l OFF_BG_CUR(%a5), OFF_SCREEN_PTR(%a5)
+    moveq #0, %d0
+    move.w %d7, %d1
+    move.w %d6, %d2
+    bsr draw_hud_tile_bf
+    move.l (%sp)+, OFF_SCREEN_PTR(%a5)
+    tst.b OFF_DBL_ACTIVE(%a5)
+    beq 3f
+    move.l OFF_SCREEN_PTR(%a5), -(%sp)
+    move.l OFF_BG_NEXT(%a5), OFF_SCREEN_PTR(%a5)
+    moveq #0, %d0
+    move.w %d7, %d1
+    move.w %d6, %d2
+    bsr draw_hud_tile_bf
+    move.l (%sp)+, OFF_SCREEN_PTR(%a5)
+3:  addq.w #1, %d7
+    cmp.w #(CAVE_TEXT_COL0 + 24), %d7
+    blo 2b
+    addq.w #1, %d6
+    cmp.w #(CAVE_TEXT_ROW0 + 3), %d6
+    blo 1b
+    movem.l (%sp)+, %d0-%d2/%d6/%d7
+    rts
+
+| A triforce piece over Link's head and over Zelda's: item slots 0 and 1, held up.
+zelda_triforces:
+    move.l %d0, -(%sp)
+    move.b #ITEM_TRIFORCE, OFF_ITEM_ID(%a5)
+    move.b OFF_LINK_X(%a5), OFF_ITEM_X(%a5)
+    move.b OFF_LINK_Y(%a5), %d0
+    sub.b #16, %d0
+    move.b %d0, OFF_ITEM_Y(%a5)
+    move.b #ITEM_LIFTED, OFF_ITEM_ACTIVE(%a5)
+    move.b #ITEM_TRIFORCE, (OFF_ITEM_ID + 1)(%a5)
+    move.b #ZELDA_X, (OFF_ITEM_X + 1)(%a5)
+    move.b #(ZELDA_Y - 16), (OFF_ITEM_Y + 1)(%a5)
+    move.b #ITEM_LIFTED, (OFF_ITEM_ACTIVE + 1)(%a5)
+    move.l (%sp)+, %d0
+    rts
+
+| Once a frame, from boss_misc_update.
+zelda_tick:
+    movem.l %d0-%d2/%a0-%a1, -(%sp)
+    moveq #0, %d0
+    move.b OFF_ZELDA_SCENE(%a5), %d0
+    beq 99f
+    cmp.b #5, %d0
+    blo 1f
+    bsr zelda_triforces                 | from the flash on, both pieces are up
+1:  cmp.b #1, %d0
+    bne 10f
+    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 1: the fanfare
+    bne 99f
+    bsr zelda_hide_fires
+    move.b #2, OFF_ZELDA_SCENE(%a5)
+    clr.b OFF_ZELDA_STEP(%a5)
+    move.b #1, OFF_ZELDA_TIMER(%a5)
+    bra 99f
+10: cmp.b #2, %d0
+    bne 20f
+    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 2: the curtain, a column from each side every few frames
+    bne 99f
+    moveq #0, %d0
+    move.b OFF_ZELDA_STEP(%a5), %d0
+    bsr curtain_column_bf
+    moveq #31, %d1
+    sub.w %d0, %d1
+    move.w %d1, %d0
+    bsr curtain_column_bf
+    addq.b #1, OFF_ZELDA_STEP(%a5)
+    move.b #ENDING_CURTAIN_FRAMES, OFF_ZELDA_TIMER(%a5)
+    cmpi.b #ENDING_CURTAIN_STEPS, OFF_ZELDA_STEP(%a5)
+    blo 99f
+    move.b #3, OFF_ZELDA_SCENE(%a5)
+    move.w #ENDING_TEXT_THANKS, %d0
+    bsr zelda_say
+    bra 99f
+20: cmp.b #3, %d0
+    bne 30f
+    bsr cave_talk_bf                    | 3: "THANKS LINK, YOU'RE THE HERO OF HYRULE."
+    tst.b OFF_CAVE_TEXT_ON(%a5)
+    bne 99f
+    move.b #4, OFF_ZELDA_SCENE(%a5)
+    move.b #ZELDA_THANKS_WAIT, OFF_ZELDA_TIMER(%a5)
+    bra 99f
+30: cmp.b #4, %d0
+    bne 40f
+    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 4: a pause of $50 frames
+    bne 99f
+    bsr zelda_wipe_text
+    move.b #5, OFF_ZELDA_SCENE(%a5)
+    clr.b OFF_ZELDA_TIMER(%a5)
+    bra 99f
+40: cmp.b #5, %d0
+    bne 50f
+    addq.b #1, OFF_ZELDA_TIMER(%a5)     | 5: $C0 frames, the backdrop flashing from the $40th
+    moveq #0, %d1
+    move.b OFF_ZELDA_TIMER(%a5), %d1
+    cmp.w #ZELDA_FLASH_FROM, %d1
+    blo 99f
+    movea.l #PALETTE_BASE, %a1
+    bsr cur_palette_bf
+    cmp.w #ZELDA_FLASH_FRAMES, %d1
+    bhs 41f
+    and.w #3, %d1
+    add.w %d1, %d1
+    lea zelda_flash_colours(%pc), %a0
+    move.w 0(%a0, %d1.w), (%a1)
+    bra 99f
+41: move.w (%a0), (%a1)                 | the flash is over: the level's own backdrop again
+    move.b #6, OFF_ZELDA_SCENE(%a5)
+    move.b #ZELDA_PEACE_DELAY, OFF_ZELDA_TIMER(%a5)
+    moveq #MUS_ENDING, %d0
+    bsr music_event_bf
+    bra 99f
+50: cmp.b #6, %d0
+    bne 60f
+    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 6: the ending song, and a pause before the words
+    bne 99f
+    move.b #7, OFF_ZELDA_SCENE(%a5)
+    move.w #ENDING_TEXT_PEACE, %d0
+    bsr zelda_say
+    bra 99f
+60: cmp.b #7, %d0
+    bne 99f
+    bsr cave_talk_bf                    | 7: "PEACE RETURNS TO HYRULE. THIS ENDS THE STORY."
+    tst.b OFF_CAVE_TEXT_ON(%a5)
+    bne 99f
+    move.b #8, OFF_ZELDA_SCENE(%a5)
+99: movem.l (%sp)+, %d0-%d2/%a0-%a1
+    rts
+
 | ------------------------------------------------------- the rupee stash and Grumble
 | Things a dungeon room has that are not monsters. The ten rupees (InitRupeeStash: a pyramid, taken one at a time
 | by walking over them, and once one is taken the stash is gone for good) are painted into the room like Gleeok's
@@ -1900,6 +2943,8 @@ grumble_bake:
 
 | Once a frame: Link on a rupee takes it, the food beside Grumble is eaten.
 boss_misc_update:
+    bsr ganon_tick
+    bsr zelda_tick
     movem.l %d0-%d7/%a0-%a2, -(%sp)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
