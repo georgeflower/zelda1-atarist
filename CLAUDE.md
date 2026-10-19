@@ -28,6 +28,13 @@ The repository root also contains the original disassembly the port is built on
 **reference for every behaviour**: when you need a number (speed, timer,
 damage, tile id, table), read it from there rather than guessing.
 
+## 1.1 Versions
+
+The port has versions `0.NN` (current: **0.30**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
+the commit that finishes it. A big change (a dungeon, a mechanic family, a package of `atari_st/PLAN.md`) takes the next number; fixes
+and docs ride along. When you finish one: bump `VERSION`, the "Version" line of `README.md`, the status line of `atari_st/PLAN.md`
+and add the `CHANGELOG.md` entry, in the same PR; tag it after the merge. The next step is named in `atari_st/PLAN.md` section 2.1.
+
 ## 2. References and links (provided by the project owner - treat as truth)
 
 - **Code truth, raw**: <https://github.com/camthesaxman/zeldasource> (unlabelled
@@ -512,8 +519,15 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   and `boss_misc_update` collects them (`UW_FLAGS` bit 2). Grumble (`GRUMBLE_ON`): blocks the doorway tile until fed (food
   on his tile), then `UW_FLAGS` bit 1. Gleeok's body is baked into the room (`uw_bake_boss`, `GLEEOK_GONE` after death);
   necks and heads come from the boss pool, one segment per neck when there are four necks (`GLEEOK_SEGS`). The "more bombs" and "life or money" men are
-  ported (see Dungeon people below). Unverified by play: Digdogger's kill and heart container,
-  pols voice hops, vire hops, the stash on leave and return, dark-room scrolling.
+  ported (see Dungeon people below). Checked in Hatari with scripted input (`--keys`, monsters poked in front of Link's sword):
+  the second Digdogger (recorder, one little one, its death, the heart container and taking it), the stash gone for good after
+  leaving and coming back, Pols Voice and Vire moving. Not checked: the first Digdogger's three little ones, a Vire dying into keese,
+  scrolling between dark rooms (the maze-like rooms need the ladder or bombs to leave from the start spot).
+  **Keys and moats**: a locked door (types 5, 6) opens with a key, and the magic key (`INV_MAGIC_KEY`) opens it without using one up
+  (the HUD shows "XA" for it); Level 9 has 16 locked doors and 4 keys, it is the magic key's level (`test_every_room...` in
+  `test_build_assets.py` replays the doors of all levels). The moat (NES tile `$F4`) is crossed with the ladder: with it Link
+  walks over `UW_MOAT_TILE` (the ladder itself is not drawn). Moat rooms that cut doors off from each other: Level 4 `$01 $21 $30`,
+  5 `$46 $66`, 6 `$19 $1A`, 7 `$18 $49 $5A`, 9 `$23 $40 $56 $65`.
 - **Level 9** (`UW_LEVELS := 1 2 3 4 5 6 7 8 9`; the monsters live in `bosses.s`, the dungeon people and the door man in `uw.s`): 57 rooms,
   a ten-entry cellar array, the old men from person table C, and the man at the door (record trigger bit 4) who opens only
   with all eight triforce pieces. **Lanmola** (`$3A` blue, `$3B` red; `BEH_LANMOLA`): two worms of four segments that start at
@@ -534,8 +548,9 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `CreditsTextLines`, then "ATARI ST PORT / BY Q", "YOU ARE GREAT", "END OF / THE LEGEND OF ZELDA") are typed one after the other by
   `cave_talk` in the black room (`zelda_credit_pages`, `ENDING_CREDIT_n`), `ZELDA_CREDIT_WAIT` frames apart, the last stays (Esc quits; the
   original's scrolling wall, the ash pile and the Second Quest restart are not ported).
-  Silver Arrow and Red Ring are in cellars. `MUS_GANON` plays when Ganon appears and again when he burns. Not hooked: the boss roars. Unverified by play: everything but one
-  walk-through per boss in Hatari; the door man with and without all pieces.
+  Silver Arrow and Red Ring are in cellars. `MUS_GANON` plays when Ganon appears and again when he burns. Not hooked: the boss roars. Checked in Hatari: Lanmola (all eight segments, room clears, item appears),
+  Patra (the seven children, then the eye with one hit point left, room clears), the door man with all pieces (silent, shutters open)
+  and without (his words), Ganon's and Zelda's scenes. Not checked: a human-speed fight with any of them.
 - **Blue goriya** (`$05`): throws whenever its timer reaches 0, no `$23`/`$77` roll (`goriya_ai` reads the NES type from `mon_table`).
   **Ringleader** (`TRIGGER_RINGLEADER`, `uw_check_clear`): when slot 0 is dead, kill the others and open the shutters.
 - **Dodongo** (`$32`, `BEH_DODONGO`, `MODE_DODONGO`; ROM `UpdateDodongo`): a wanderer (turn rate `$20`) whose X is shifted by `$10` when it

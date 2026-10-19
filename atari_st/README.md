@@ -278,9 +278,12 @@ Known gaps
 Things that behave differently from the original, or are stand-ins:
 
 - fireball art is placeholder (Aquamentus himself is original)
-- Levels 3 to 9 were checked by loading every room in Hatari and by reading the ROM, not
-  played through (Digdogger's kill and heart container, pols voice and vire hops, a stash left
-  and re-entered, dark-room scrolling)
+- Levels 3 to 9 were checked by loading every room in Hatari, by scripted runs (the second
+  Digdogger and its heart container, Lanmola, Patra, a stash left and re-entered, the door
+  man, the magic key on a locked door, the ladder over a moat) and by a test that replays every
+  level's doors; nobody has played them through at human speed. Not checked: the first
+  Digdogger's three little ones, a Vire dying into keese, scrolling between dark rooms. The
+  ladder is not drawn: with it Link just walks over the moat
 - the Moldorm is two worms of four segments, not one of ten, because the engine
   has eight monster slots; the Dodongo and the Moldorm leave no death cloud
 - Level 2's Dodongo bomb and sword kill, the Moldorm's segment deaths and the

@@ -6,7 +6,7 @@ This repository's full feature list, known gaps, roadmap, build notes and testin
 
 ## Status
 
-A playable game with all nine dungeons, not yet a complete one: the whole overworld with its monsters, the first cave, and Levels 1 to 9 with their rooms, items, monsters and bosses, up to Ganon, Zelda's thanks and the credits (with a line for the port's author). Levels 1 and 2 have been played through to the triforce piece; Levels 3 to 9 are built from the ROM's tables and load and run in every room (Lanmola, Patra, Ganon and Zelda's scene were each tried in Hatari), but have not been played through yet. The shops and most caves, the title screen and saving are missing, so the game cannot be won from the first screen yet.
+**Version 0.30** ([changelog](CHANGELOG.md)). A playable game with all nine dungeons, not yet a complete one: the whole overworld with its monsters, the first cave, and Levels 1 to 9 with their rooms, items, monsters and bosses, up to Ganon, Zelda's thanks and the credits (with a line for the port's author). Levels 1 and 2 have been played through to the triforce piece; Levels 3 to 9 are built from the ROM's tables and load and run in every room (Lanmola, Patra, Ganon and Zelda's scene were each tried in Hatari), but have not been played through yet. The shops and most caves, the title screen and saving are missing, so the game cannot be won from the first screen yet.
 
 **You can already:**
 

@@ -443,10 +443,18 @@ tile_blocks:
 9:  movem.l (%sp)+, %d1-%d2/%a0
     rts
 
-| The underworld has no walkable-tile exceptions, only a threshold.
+    .equ UW_MOAT_TILE, 0xf4
+
+| The underworld has no walkable-tile exceptions, only a threshold, and the moat that the ladder crosses.
 7:  cmp.w #UW_FIRST_UNWALKABLE_TILE, %d0
     blo 6f
-    moveq #1, %d0
+    cmp.w #UW_MOAT_TILE, %d0
+    bne 5f
+    tst.b OFF_INV_LADDER(%a5)
+    beq 5f
+    moveq #0, %d0                       | the ladder takes Link across the moat (it is not drawn)
+    rts
+5:  moveq #1, %d0
     rts
 6:  moveq #0, %d0
     rts
