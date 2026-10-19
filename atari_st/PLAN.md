@@ -1,6 +1,6 @@
 # Zelda 1 for Atari ST - plan for all remaining work
 
-Status: **work in progress, version 0.33** (see `CHANGELOG.md`). Written as a plan after PR #2; PRs #4 to #36 have since implemented parts of it, listed in section 1.1, and ticked boxes (`[x]`) below show what is done. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged.
+Status: **work in progress, version 0.34** (see `CHANGELOG.md`). Written as a plan after PR #2; PRs #4 to #38 and the M10 title screen have since implemented parts of it, listed in section 1.1, and ticked boxes (`[x]`) below show what is done. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged.
 
 How to read this: section 2 is the order of work. Sections 3 to 12 are one work package each, with a checklist and an acceptance test. Section 13 records the decisions, the risks and the checks still open. The appendices hold the data tables, decoded from the PAL (Europe, Rev 1) ROM you supplied. That ROM has the same data layout as the disassembly in `src/` (start room `$77`, start Y `$8D`, same blob offsets), so the tables should apply to the NTSC ROM the build expects as well.
 
@@ -65,16 +65,16 @@ M0 is complete (table-dump tool, reach budget, golden frames). M1 is done except
 | M7 | Dungeon monsters (all underworld types) | M6 | XL | all types of Levels 1 to 8 (darknuts, vire, zol/gel, pols voice, like-like, wizzrobes, bubbles, gibdos, keese, ropes, stalfos, traps); Level 9's are open |
 | M8 | Bosses | M7 | XL | Aquamentus, Dodongo, Moldorm (two worms of four), Manhandla, Gohma, Digdogger, Gleeok; Lanmola, Patra, Ganon and Zelda's scene done (#29; Ganon's music #30; checked in Hatari with scripted input, not played by a person) |
 | M9 | Levels 2 to 9 content, triforce sequence, map/compass minimap | M6, M7, M8 | XL | Levels 1 to 9 built (rooms, layout, items, monsters, bosses); only partly play-tested, see 9.3; the credits are in (typed pages, not the scrolling wall) |
-| M10 | Title/story, file select, name entry, save, continue/death, ending | M5 | L | credits done (typed pages); the rest not started (death returns to the start) |
+| M10 | Title/story, file select, name entry, save, continue/death, ending | M5 | L | credits done (typed pages); **title, story and parade done (0.34, part a)**; file select, name entry, elimination (part b) and save, death, continue (part c) not started (death returns to the start) |
 | M11 | Sound effects and music (player, bank and the Level 1 events done; the rest are hooks, see 12) | any | M | mostly done (#4 to #9, #30) |
 | M12 | Polish: PAL 50 Hz, performance, memory, unit tests, docs | all | M | PAL checked (#18); docs refreshed after #25; the rest open |
 | M13 | Deferred (decided: not now): Second Quest | all | L | deferred |
 
 ### 2.1 Versions and the next step
 
-Versions are milestones, not PR numbers: `0.NN`, tagged on the commit that finishes the milestone, with a line in `CHANGELOG.md`. A big change (a new dungeon, a new mechanic family, a new milestone package) gets its own version; fixes and docs ride along with the version they belong to. The current version is **0.31**.
+Versions are milestones, not PR numbers: `0.NN`, tagged on the commit that finishes the milestone, with a line in `CHANGELOG.md`. A big change (a new dungeon, a new mechanic family, a new milestone package) gets its own version; fixes and docs ride along with the version they belong to. The current version is **0.34**.
 
-Next step: **M10** (title, name entry, save; M4 is done in 0.33, only the waterfall and sea sound are left). Then a person's play-through of all nine dungeons and the memory check for a 512 KB machine (M12).
+Next step: **M10 part b** (file select, name entry, elimination; the title and story are done in 0.34, then part c: save, death, continue; M4 is done in 0.33, only the waterfall and sea sound are left). Then a person's play-through of all nine dungeons and the memory check for a 512 KB machine (M12).
 
 Reasoning: M1 went first because it was the bug you could see and it fixed the data model (secret objects per room, patched into the room maps) that M3, M4 and M9 reuse; M3 follows because every hidden spot, stair and cave of the overworld now leads to it. M6 comes before the monsters because every dungeon monster needs the room, door and palette machinery to be tested in place. M10 comes late because save files store the inventory, so the inventory must be final first.
 
@@ -418,8 +418,9 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 
 - Phase 0: title picture, animated waterfall (`UpdateWaterfallAnimation`, wave and crest sprites), glowing triforce (`TriforceGlowingColors`), the title song. Press Start skips.
 - Phase 1: the story scroll: lines of text scroll up the screen (`DemoLineAttrs`, `DemoLineTextAddrs`), then a parade of the items on both sides (`DemoLeftItemIds`, `DemoRightItemIds`), Link and the stationary fairy, then back to the title. Start at any time goes on to the file menu (mode 1).
-- [ ] Palettes for title and story (`TitlePaletteTransferRecord`, `StoryPaletteTransferRecord`, risk R1); nametable data and tiles from the ROM; keep copyright text out of the repo (the pipeline reads it from the ROM at build).
-- [ ] Skip logic: `SkippedDemo`, the `TransferredDemoPatterns` flag.
+- [x] Palettes for title and story (`TitlePaletteTransferRecord`, `StoryPaletteTransferRecord`, risk R1); nametable data and tiles from the ROM; keep copyright text out of the repo (the pipeline reads it from the ROM at build). Done in 0.34: `tools/intro.py` replays the ROM's transfer streams, `intro.s` shows them; the title uses its own 16 colours (the merged palette of its eight NES rows), the fade steps keep each colour's slot, the story its own. Start (Return) runs `begin_game` for now; part b makes it go on to the file menu.
+- [x] Title: waterfall waves and crest, glowing Triforce, the 512 frames, the 14-step fade, the story (first page, 256 frames, 1408 parade steps with the items, 256, 56), back to the title; the title song.
+- [ ] Skip logic: `SkippedDemo`, the `TransferredDemoPatterns` flag (only needed once the file menu exists).
 
 ### 11.2 Player select, register, eliminate (modes 1, E, F)
 
@@ -444,7 +445,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 
 ## 12. M11 Sound, M12 polish, M13 Second Quest
 
-- [ ] M11 sound: list every `SongRequest`, `Tune0Request`, `Tune1Request`, `SampleRequest` value in the disassembly; write a YM2149 version for each: title, overworld (done), underworld, boss, death, ending, secret found, item get, level end, low health beep, sword, beam, bomb, hurt, rupee, key, door, boss roar, Zora and water sounds. Use the existing `ym_convert.py` and `music/` player; two AY channels may be needed for effects over music. `tools/nes_music_rip.py` already records all 9 songs, 8 jingles and 7 sound effects from the ROM as `.ym` (noise drums or digidrums, PAL pitch); `tools/music_pack.py` packs them (plus the shipped overworld song) into the bank that `music.s` plays: area music follows the state (overworld, dungeon, level 9, caves silent) and item, triforce, hurt, death, bomb, kill, rupee, key, heart and shutter events are hooked, and so are the Effect-channel sounds (sword, boomerang, flame, stairs, bomb blast, ripped as noise on voice C), the low-life beep, the menu click and the cave text blips. Still open: title and game-over songs (the ending, Zelda and Ganon songs are hooked), recorder, parry, magic, sea ambience, boss roars, DPCM samples (`SampleRequest`) and the sounds of enemies that do not exist yet.
+- [ ] M11 sound: list every `SongRequest`, `Tune0Request`, `Tune1Request`, `SampleRequest` value in the disassembly; write a YM2149 version for each: title, overworld (done), underworld, boss, death, ending, secret found, item get, level end, low health beep, sword, beam, bomb, hurt, rupee, key, door, boss roar, Zora and water sounds. Use the existing `ym_convert.py` and `music/` player; two AY channels may be needed for effects over music. `tools/nes_music_rip.py` already records all 9 songs, 8 jingles and 7 sound effects from the ROM as `.ym` (noise drums or digidrums, PAL pitch); `tools/music_pack.py` packs them (plus the shipped overworld song) into the bank that `music.s` plays: area music follows the state (overworld, dungeon, level 9, caves silent) and item, triforce, hurt, death, bomb, kill, rupee, key, heart and shutter events are hooked, and so are the Effect-channel sounds (sword, boomerang, flame, stairs, bomb blast, ripped as noise on voice C), the low-life beep, the menu click and the cave text blips. Still open: the game-over song (the title song is hooked since 0.34, and so are the ending, Zelda and Ganon songs), recorder, parry, magic, sea ambience, boss roars, DPCM samples (`SampleRequest`) and the sounds of enemies that do not exist yet.
 - [ ] M12 (PAL 50 Hz checked in #18; docs refreshed after #25; the rest open): PAL and speed (R2), performance of 8 enemies plus projectiles at 8 MHz, free memory on a 512 KB machine (R3), a docs refresh with each milestone (`README.md`s, `AGENTS.md`/`CLAUDE.md`, this file), a release build (stock TOS PRG).
 - [ ] M13 Second Quest (**deferred by your decision, not now**): the ROM contains `LevelBlockUW1Q2`/`UW2Q2` and the overworld patch (`PatchQ2Rooms` in `Z_06.asm`). Different dungeon layouts, item places, entrances and the Q2-tagged secrets in appendix A. Triggered by naming a profile ZELDA or by winning the game.
 

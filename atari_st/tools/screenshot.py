@@ -44,6 +44,7 @@ SCANCODES = {
     "b": 0x30,
     "space": 0x39,
     "tab": 0x0F,
+    "return": 0x1C,
     "ctrl": 0x1D,
     "alt": 0x38,
 }
@@ -221,8 +222,9 @@ def build_dev(project: Path, room: int | None, uw: int | None, level: int, cave:
     normal build is left alone."""
     out = project / "build" / "dev"
     env = dict(os.environ)
-    for name in ("ZELDA_START_ROOM", "ZELDA_START_UW", "ZELDA_START_LEVEL", "ZELDA_START_CAVE"):
+    for name in ("ZELDA_START_ROOM", "ZELDA_START_UW", "ZELDA_START_LEVEL", "ZELDA_START_CAVE", "ZELDA_SKIP_INTRO"):
         env.pop(name, None)
+    env["ZELDA_SKIP_INTRO"] = "1"           # a scene starts where it says, not at the title
     if room is not None:
         env["ZELDA_START_ROOM"] = f"{room:#x}"
     if cave:

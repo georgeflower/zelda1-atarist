@@ -414,6 +414,7 @@ class PlayerTests(unittest.TestCase):
 
         self.assertEqual(want(0, 0), 0)  # overworld
         self.assertEqual(want(0, 2), 255)  # cave: silent
+        self.assertEqual(want(0, 4), 255)  # the title screen: silent unless it asked for its own song
         self.assertEqual(want(0, 0), 0)
         self.assertEqual(want(1, 0), 1)  # dungeon
         self.assertEqual(want(8, 1), 1)

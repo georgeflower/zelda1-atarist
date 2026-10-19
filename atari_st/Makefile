@@ -11,11 +11,11 @@ FORCE_DEV_STAMP:
 
 $(DEV_STAMP): FORCE_DEV_STAMP
 	@mkdir -p $(BUILD_DIR)
-	@printf '%s|%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' '$(ZELDA_START_LEVEL)' | cmp -s - $@ 2>/dev/null || printf '%s|%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' '$(ZELDA_START_LEVEL)' > $@
+	@printf '%s|%s|%s|%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' '$(ZELDA_START_LEVEL)' '$(ZELDA_START_CAVE)' '$(ZELDA_SKIP_INTRO)' | cmp -s - $@ 2>/dev/null || printf '%s|%s|%s|%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' '$(ZELDA_START_LEVEL)' '$(ZELDA_START_CAVE)' '$(ZELDA_SKIP_INTRO)' > $@
 SRC_DIR := src
 TOOLS_DIR := tools
 ASSET_INPUTS := $(ROOT_DIR)/src/bins.xml $(ROOT_DIR)/src/Z_05.asm $(ROOT_DIR)/src/Z_06.asm \
-	$(TOOLS_DIR)/underworld.py $(TOOLS_DIR)/actors.py \
+	$(TOOLS_DIR)/underworld.py $(TOOLS_DIR)/actors.py $(TOOLS_DIR)/intro.py $(ROOT_DIR)/src/Z_01.asm $(ROOT_DIR)/src/Z_02.asm \
 	$(wildcard $(ROOT_DIR)/bin/dat/CommonBackgroundPatterns.dat $(ROOT_DIR)/ext/Original.nes)
 TOOLCHAIN_PREFIX ?= m68k-linux-gnu-
 AS := $(TOOLCHAIN_PREFIX)as
@@ -50,6 +50,7 @@ GENERATED := $(GENERATED_DIR)/assets.inc $(GENERATED_DIR)/metatiles.bin \
 	$(GENERATED_DIR)/proj_sprites.bin $(GENERATED_DIR)/hud_items.bin \
 	$(GENERATED_DIR)/beam_sprites.bin $(GENERATED_DIR)/fx_sprites.bin \
 	$(GENERATED_DIR)/mon_art.bin \
+	$(foreach f,title_tiles title_cells story_tiles story_rows story_map intro_sprites intro_spawns,$(GENERATED_DIR)/$(f).bin) \
 	$(GENERATED_DIR)/ow_room_info.bin $(GENERATED_DIR)/room_secrets.bin \
 	$(GENERATED_DIR)/cave_table.bin $(GENERATED_DIR)/cave_shortcuts.bin \
 	$(GENERATED_DIR)/asset_manifest.txt

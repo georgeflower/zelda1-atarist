@@ -2,7 +2,25 @@
 
 Versions are milestones of the Atari ST port (`0.NN`), tagged on the commit that finishes them. A big change (a dungeon,
 a new mechanic family, a milestone package of `atari_st/PLAN.md`) gets its own version; fixes and docs ride along with the
-version they belong to. The current version is **0.33**.
+version they belong to. The current version is **0.34**.
+
+## 0.34 (2026-10-19) - the title screen and the story (M10, part a)
+- The game starts at the ROM's title: the waterfall's waves and crest (`UpdateWaterfallAnimation`), the glowing Triforce (`TriforceGlowingColors`), 512
+  frames, then the 14-step fade (`DemoPhase0Subphase1Palettes` and `Delays`). The story follows: the first page scrolls in, rests 256 frames, the parade
+  of the treasures scrolls up with the items above their names (1408 steps, one every other frame), Link with the sign and the fairy, 256 frames and
+  56 more, then the title again, with its song (`MUS_TITLE`) playing throughout. Return (or the keypad Enter or the joystick button) starts the game at
+  any time; it goes straight into the game for now, the file menu is next (M10 part b).
+- Everything is read from the ROM at build time (`tools/intro.py`): the nametable transfer streams (the `bins.xml` offsets of two of them are 139 bytes
+  off for the Rev 1 ROM; `transfer_streams` checks them and otherwise searches the ROM), the pattern blocks, the palette records, the sprite tables and the
+  item-to-picture tables, replayed on a model of the PPU. Each screen gets its own 16 colours (the eight NES rows merged, the fade steps keep every
+  colour in its slot). 174 title tiles, 64 story tiles, 59 sprite frames, 45 parade records.
+- `intro.s` (`MODE_INTRO`): the picture lives in a ring of 200 lines in `BG_CUR`, a line per scroll step, copied into the hidden screen over two frames
+  and shown; still items are drawn into the ring as their lines come in, the flashing and fluttering ones and the waterfall are sprites. About
+  one frame in a hundred takes a VBL more while the parade's animated items are on screen (the scroll copy is 130,000 cycles).
+  `begin_game` is the old start-up code (the dev-start block, `enter_room`, the HUD), now also what Start runs. Development builds
+  (`ZELDA_START_ROOM`, `ZELDA_START_UW`, `ZELDA_START_CAVE` or `ZELDA_SKIP_INTRO`, the screenshot harness's scenes among them) skip the title (`DEV_SKIP_INTRO`).
+- `music_update` leaves the title alone (no area music in `MODE_INTRO`). `tests/test_intro.py` checks the generated tables; `screenshot.py` knows Return.
+  The golden scenes `title`, `title_fade`, `story_page` and `story_parade` were added; all scenes depending on the PRG's size were re-recorded.
 
 ## 0.33.2 (2026-10-19) - monsters come out of clouds, and walk in at a fair distance
 - Overworld monsters are put down in the ROM's spawn cloud: `InitObject` gives every object metastate 1, and the cloud (bomb item frames `$70`, `$72`, `$74`)
