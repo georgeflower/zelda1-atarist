@@ -99,8 +99,23 @@ Overworld monsters
   the original puts them. The shots (rock, arrow, sword shot) parry and bounce
   as in the original, screens with edge spawns bring the monsters in from the
   border, and killed monsters stay dead for a few screens (the room history)
-- not yet: armos, the gravestone ghinis (they need the room-tile patch
-  overlay that the hidden bomb, fire and push spots also need)
+- not yet: armos and the gravestone ghinis (the room-tile patch they need now exists, see
+  "Hidden spots" below)
+
+Hidden spots (overworld)
+
+- the 43 spots of the First Quest, from the ROM's marker squares: 22 rock walls that a
+  bomb opens (the cloud has to open within 16 pixels of the wall), 16 trees that a
+  candle's (or the book's) flame burns into stairs, 4 rocks that need the power bracelet
+  and 1 gravestone, which Link pushes straight up or down while standing level with
+  them; the stairs they uncover are where the ROM puts them (attribute F bits 4-5)
+- the secret tune plays, the spot becomes a cave entrance or stairs and works like any
+  other (`check_warps`); the screens are patched in place (`room_maps` is in RAM) and
+  `room_secrets` says what to patch. Found secrets stay open (room flag bit 7); a
+  pushed rock or gravestone is back when Link returns, as in the original (the stairs
+  under the rock stay, those under the gravestone do not)
+- not like the original: the stone jumps one square instead of sliding, and the second
+  quest's spots (attribute F bits 6-7) are plain scenery
 
 Level 1 (underworld)
 
@@ -296,8 +311,8 @@ Things that behave differently from the original, or are stand-ins:
   trigger-4 kind (open the shutters) exists
 - `K` is a debug key standing in for the shops and secrets that give keys,
   bombs and the candle
-- overworld armos and gravestone ghinis are not ported, and the hidden bomb,
-  fire and push spots still show their marker art (milestone M1 in `PLAN.md`)
+- overworld armos and gravestone ghinis are not ported (milestones M2 and M4 in `PLAN.md`); the hidden spots open, but
+  most of the caves and stairs behind them are empty until M3, and a pushed stone jumps one square instead of sliding
 - the old man's fireballs are not in; the overworld has no map on the ribbon
 - the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed
 - the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
@@ -312,8 +327,7 @@ The detailed plan, with the data tables behind it, is in [`PLAN.md`](PLAN.md).
 
 Next, in the order of `PLAN.md`
 
-1. the hidden bomb, fire and push spots on the overworld (M1) and the caves
-   behind them: shops, hints, money-making games, doors that charge, shortcut
+1. the caves behind the overworld's hidden spots (M1 is done): shops, hints, money-making games, doors that charge, shortcut
    stairs (M3), which is also where the items the engine already has come from
 2. armos, gravestones and the rest of the overworld specials (M4): the raft,
    the ladder, the recorder's whirlwind, the animated pond

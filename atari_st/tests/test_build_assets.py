@@ -184,6 +184,66 @@ class RomOverworldTests(unittest.TestCase):
         self.assertEqual(len(set(self.bundle.room_attrs_d[r] & 0x7F for r in range(len(rooms)))), 121)
         self.assertGreaterEqual(len({tuple(room) for room in rooms}), 100)
 
+    def _secrets(self):
+        records = {}
+        data = self.bundle.room_secrets
+        size = build_assets.OW_SECRET_BYTES
+        self.assertEqual(len(data), build_assets.OW_ROOM_COUNT * size)
+        for room in range(build_assets.OW_ROOM_COUNT):
+            record = data[room * size : (room + 1) * size]
+            if record[0]:
+                records[room] = record
+        return records
+
+    def test_secret_markers_are_drawn_as_the_squares_they_imitate(self) -> None:
+        # The markers' own tiles ($E5-$EE: squares 38-43) must not reach a screen; the ROM draws the plain square.
+        marker_tiles = set(range(0xE5, 0xEE))
+        for _, quad in self.bundle.metatiles:
+            self.assertFalse(marker_tiles & set(quad), quad)
+
+    def test_secret_records_match_the_first_quest_spots(self) -> None:
+        records = self._secrets()
+        kinds = [record[0] for record in records.values()]
+        self.assertEqual(kinds.count(build_assets.OW_SECRET_ROCK), 4)       # 1D, 23, 49 and 79
+        self.assertEqual(kinds.count(build_assets.OW_SECRET_GRAVE), 1)      # 21
+        self.assertEqual(sorted(room for room, r in records.items() if r[0] == build_assets.OW_SECRET_ROCK),
+                         [0x1D, 0x23, 0x49, 0x79])
+        self.assertEqual(sorted(room for room, r in records.items() if r[0] == build_assets.OW_SECRET_GRAVE), [0x21])
+        self.assertEqual(kinds.count(build_assets.OW_SECRET_BOMB), 22)
+        self.assertEqual(kinds.count(build_assets.OW_SECRET_TREE), 16)
+        # Spots of the second quest only (attribute F bits 6-7 = 2) are plain scenery here.
+        for room, record in records.items():
+            self.assertNotEqual(self.bundle.room_attrs_f[room] >> 6, build_assets.QUEST_SECOND_ONLY, hex(room))
+        self.assertNotIn(0x00, records)     # room 0's bomb wall belongs to the second quest
+
+    def test_secret_records_point_inside_the_screen_and_at_real_metatiles(self) -> None:
+        count = len(self.bundle.metatiles)
+        squares = build_assets.OW_ROOM_COLS * build_assets.OW_ROOM_ROWS
+        for room, record in self._secrets().items():
+            kind, spot, after, stairs_at, stairs, above, below, spare = record
+            self.assertLess(spot, squares, hex(room))
+            self.assertLess(after, count, hex(room))
+            self.assertEqual(spare, 0)
+            if kind in (build_assets.OW_SECRET_ROCK, build_assets.OW_SECRET_GRAVE):
+                self.assertLess(stairs_at, squares, hex(room))
+                self.assertLess(stairs, count, hex(room))
+                for moved, edge in ((above, spot < build_assets.OW_ROOM_COLS),
+                                    (below, spot >= squares - build_assets.OW_ROOM_COLS)):
+                    self.assertEqual(moved == 0xFF, edge, hex(room))
+                    if not edge:
+                        self.assertLess(moved, count, hex(room))
+            else:
+                self.assertEqual((stairs_at, stairs, above, below), (0, 0, 0, 0), hex(room))
+
+    def test_the_rock_in_a_diamond_uncovers_its_middle(self) -> None:
+        # Room 79: the pushable rock is the left corner of a ring of four, and the stairs lie in the middle.
+        record = self._secrets()[0x79]
+        self.assertEqual(record[1], 5 * 16 + 8)     # the rock
+        self.assertEqual(record[3], 5 * 16 + 9)     # the stairs
+        # The gravestone of room 21 stands on the stairs it uncovers.
+        grave = self._secrets()[0x21]
+        self.assertEqual(grave[1], grave[3])
+
     def test_start_position_comes_from_level_info(self) -> None:
         self.assertEqual(self.bundle.start_room, 0x77)
         self.assertEqual(self.bundle.start_y, 0x8D)

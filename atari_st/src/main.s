@@ -901,9 +901,18 @@ cave_check_taken_far:
     bra cave_check_taken
 draw_cave_fires_far:
     bra draw_cave_fires
+ow_bomb_secret_far:
+    bra ow_bomb_secret
+ow_fire_secret_far:
+    bra ow_fire_secret
+ow_secret_undo_far:
+    bra ow_secret_undo
+render_room_far:
+    bra render_room
 
     .include "link.s"
     .include "uw.s"
+    .include "secrets.s"
     .include "hud.s"
     .include "menu.s"
     .include "bosses.s"
@@ -950,6 +959,8 @@ mon_art:
     .incbin "mon_art.bin"
 ow_room_info:
     .incbin "ow_room_info.bin"
+room_secrets:
+    .incbin "room_secrets.bin"
 item_index:
     .incbin "item_index.bin"
 drop_table:

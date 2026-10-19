@@ -6,13 +6,14 @@ This repository's full feature list, known gaps, roadmap, build notes and testin
 
 ## Status
 
-**Version 0.30** ([changelog](CHANGELOG.md)). A playable game with all nine dungeons, not yet a complete one: the whole overworld with its monsters, the first cave, and Levels 1 to 9 with their rooms, items, monsters and bosses, up to Ganon, Zelda's thanks and the credits (with a line for the port's author). Levels 1 and 2 have been played through to the triforce piece; Levels 3 to 9 are built from the ROM's tables and load and run in every room (Lanmola, Patra, Ganon and Zelda's scene were each tried in Hatari), but have not been played through yet. The shops and most caves, the title screen and saving are missing, so the game cannot be won from the first screen yet.
+**Version 0.31** ([changelog](CHANGELOG.md)). A playable game with all nine dungeons, not yet a complete one: the whole overworld with its monsters, the first cave, and Levels 1 to 9 with their rooms, items, monsters and bosses, up to Ganon, Zelda's thanks and the credits (with a line for the port's author). Levels 1 and 2 have been played through to the triforce piece; Levels 3 to 9 are built from the ROM's tables and load and run in every room (Lanmola, Patra, Ganon and Zelda's scene were each tried in Hatari), but have not been played through yet. The shops and most caves, the title screen and saving are missing, so the game cannot be won from the first screen yet.
 
 **You can already:**
 
 - walk all 128 overworld screens with the original movement and collision, and scroll between them
 - fight the overworld's octoroks, moblins, lynels, tektites, leevers, zoras, peahats, ghinis and boulders, with their shots, edge spawns and kill history
 - go into the first cave, hear the old man's speech and take the wooden sword
+- bomb the overworld's rock walls, burn its trees (with the candle) and push its gravestones and bracelet rocks: the hidden stairs and caves open (what is inside most of them is not ported yet)
 - explore Levels 1 to 8 (entered from the overworld's dungeon stairs, for instance `$37` and `$3C`): locked doors, bombable and false walls, shutters, push blocks, stairs and cellars, the map, the compass and the minimap, and the old men's hints
 - fight stalfos, keese, gels, ropes, goriyas (red and blue), darknuts, vires, zols, pols voice, like-likes, wizzrobes, gibdos, bubbles, wallmasters, blade traps, Aquamentus, the Dodongo (feed it bombs), the Moldorm, Manhandla, Gohma, Digdogger and Gleeok with the sword and its beam, bombs, the boomerang (also the magic one), the candle, the bow and arrows and the magic rod, and pick up the drops (hearts, rupees, bombs, the clock, the fairy)
 - use everything the original's inventory holds in the code: white and magical swords, potions, food, the recorder, the rings and the magic shield; most of these can only be found once their caves and shops are ported
@@ -21,7 +22,7 @@ This repository's full feature list, known gaps, roadmap, build notes and testin
 - meet the old man in the first dungeon's room `$41` and read his hint
 - hear the music and sound effects, ripped from the ROM's own sound engine at build time: overworld, dungeon and Level 9 themes, the item and triforce fanfares, Link's death jingle, and effects for sword, boomerang, flame, bomb, stairs, pickups, hurt, the low-life beep, menu clicks and cave text
 
-**Not there yet:** the hidden bomb, fire and push spots on the overworld (they still show marker art), armos, shops and most caves, the title and game-over music, boss roars, the title screen and saving. The Second Quest is deferred. The plan for all of it is `atari_st/PLAN.md`.
+**Not there yet:** armos (and the stairs they hide), shops and most caves, the title and game-over music, boss roars, the title screen and saving. The Second Quest is deferred. The plan for all of it is `atari_st/PLAN.md`.
 
 ## Controls
 
