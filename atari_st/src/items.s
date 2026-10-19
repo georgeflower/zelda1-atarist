@@ -371,6 +371,11 @@ lshot_collide:
     bne 4f
     add.w %d1, %d1                  | silver arrows: $40
 4:  move.b %d1, OFF_HIT_DAMAGE(%a5)
+    move.b #HIT_MAGIC, OFF_HIT_TYPE(%a5)
+    cmpi.b #PK_LARROW, PJ_KIND(%a4, %d7.w)
+    bne 41f
+    move.b #HIT_ARROW, OFF_HIT_TYPE(%a5)
+41: move.b PJ_DIR(%a4, %d7.w), OFF_HIT_DIR(%a5)
     move.b PJ_DIR(%a4, %d7.w), OFF_ENEMY_SHOVE(%a5, %d5.w)
     movem.l %d2-%d3, -(%sp)
     bsr hit_enemy

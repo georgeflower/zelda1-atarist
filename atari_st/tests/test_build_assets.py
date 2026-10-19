@@ -400,7 +400,7 @@ class RomActorTests(unittest.TestCase):
         uw = bundle.uw
         letters = {0x0A + n: chr(ord("A") + n) for n in range(26)}
         letters.update({0x24: " ", 0x25: " ", 0x2C: "."})
-        offset = uw.actors.room_info[uw.room_index[0x41]][14]
+        offset = int.from_bytes(uw.actors.room_info[uw.room_index[0x41]][14:16], "big")
         self.assertGreaterEqual(offset, build_assets.PERSON_TEXT_BYTES)
         speech = bytearray()
         for code in bundle.cave_text[offset:]:
@@ -412,7 +412,7 @@ class RomActorTests(unittest.TestCase):
         others = [
             index
             for index, record in enumerate(uw.actors.room_info)
-            if index != uw.room_index[0x41] and record[14] != self.actors.NO_PERSON
+            if index != uw.room_index[0x41] and int.from_bytes(record[14:16], "big") != self.actors.NO_PERSON
         ]
         self.assertEqual(others, [])
 

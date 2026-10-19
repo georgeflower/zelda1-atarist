@@ -37,7 +37,7 @@
     .macro sfx id
     move.l %d0, -(%sp)
     moveq #\id, %d0
-    bsr music_play
+    bsr music_play_far
     move.l (%sp)+, %d0
     .endm
 
@@ -238,7 +238,7 @@ game_start:
     .if DEV_START_UW != 255
     | Development shortcut: start inside the level, with a sword and a key.
     moveq #DEV_START_LEVEL, %d0
-    bsr uw_select_level
+    bsr uw_select_level_far
     move.b #UW_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
     move.b #UW_BOUND_RIGHT, OFF_BOUND_RIGHT(%a5)
     move.b #UW_BOUND_UP, OFF_BOUND_UP(%a5)
@@ -284,11 +284,11 @@ main_loop:
 3:  bsr minimap_tick_far
     tst.b OFF_HUD_DIRTY(%a5)
     beq main_loop
-    bsr draw_hud
+    bsr draw_hud_far
     tst.b OFF_DBL_ACTIVE(%a5)
     beq main_loop
     bsr swap_screens            | the other buffer needs the new ribbon too
-    bsr draw_hud
+    bsr draw_hud_far
     bsr swap_screens
     bra main_loop
 
@@ -409,7 +409,7 @@ cave_setup:
     bne 9f
     move.b #1, OFF_CAVE_PERSON(%a5)
     move.b #1, OFF_CAVE_TEXT_ON(%a5)
-    clr.b OFF_CAVE_TEXT_IDX(%a5)
+    clr.w OFF_CAVE_TEXT_IDXW(%a5)
     move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
     move.b #CAVE_TEXT_ROW0, OFF_CAVE_TEXT_ROW(%a5)
     move.b #CAVE_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
@@ -516,10 +516,10 @@ cave_talk:
     ltab cave_text, %a0
     ltab text_glyphs, %a1
 1:  moveq #0, %d0
-    move.b OFF_CAVE_TEXT_IDX(%a5), %d0
+    move.w OFF_CAVE_TEXT_IDXW(%a5), %d0
     moveq #0, %d4
     move.b 0(%a0, %d0.w), %d4
-    addq.b #1, OFF_CAVE_TEXT_IDX(%a5)
+    addq.w #1, OFF_CAVE_TEXT_IDXW(%a5)
     move.w %d4, %d3
     and.w #0x3f, %d3
     cmp.w #0x25, %d3            | a space that takes no time
@@ -532,16 +532,16 @@ cave_talk:
     move.b OFF_CAVE_TEXT_COL(%a5), %d1
     moveq #0, %d2
     move.b OFF_CAVE_TEXT_ROW(%a5), %d2
-    bsr draw_hud_tile
+    bsr draw_hud_tile_far
     move.l OFF_SCREEN_PTR(%a5), -(%sp)  | and into the clean room, to survive Link's erasing
     move.l OFF_BG_CUR(%a5), OFF_SCREEN_PTR(%a5)
-    bsr draw_hud_tile
+    bsr draw_hud_tile_far
     move.l (%sp)+, OFF_SCREEN_PTR(%a5)
     tst.b OFF_DBL_ACTIVE(%a5)
     beq 21f
     move.l OFF_SCREEN_PTR(%a5), -(%sp)  | in a dungeon room the other buffer needs the letter too
     move.l OFF_BG_NEXT(%a5), OFF_SCREEN_PTR(%a5)
-    bsr draw_hud_tile
+    bsr draw_hud_tile_far
     move.l (%sp)+, OFF_SCREEN_PTR(%a5)
 21:
     sfx SFX_HEART                       | the text blip
@@ -757,7 +757,7 @@ update_play:
     bsr erase_enemies
     bsr erase_projectiles
     bsr erase_sprite
-    bsr menu_check_open
+    bsr menu_check_open_far
     tst.b OFF_GAME_MODE(%a5)
     bne 4f                   | the inventory screen is up
     bsr sword_input
@@ -800,6 +800,7 @@ update_play:
     .include "enemy.s"
     .include "combat.s"
     .include "items.s"
+    .include "dmon.s"
 
     | room_palette is the first read-only table and close enough for a PC-relative
     | lea from here; the anchor in the middle of the tables is then a link-time constant
@@ -831,6 +832,18 @@ update_menu_far:
     bra update_menu
 minimap_tick_far:
     bra minimap_tick
+music_play_far:
+    bra music_play
+enter_room_far:
+    bra enter_room
+dbl_end_far:
+    bra dbl_end
+draw_hud_tile_far:
+    bra draw_hud_tile
+menu_check_open_far:
+    bra menu_check_open
+uw_select_level_far:
+    bra uw_select_level
 
     .include "link.s"
     .include "uw.s"
@@ -872,6 +885,8 @@ hud_items:
     .incbin "hud_items.bin"
 mon_table:
     .incbin "mon_table.bin"
+mon_mask:
+    .incbin "mon_mask.bin"
     .align 2
 mon_art:
     .incbin "mon_art.bin"

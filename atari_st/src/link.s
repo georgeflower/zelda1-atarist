@@ -10,6 +10,8 @@ link_update:
     movem.l %d0-%d4, -(%sp)
     tst.b OFF_LINK_HELD(%a5)
     bne 9f                      | a wallmaster is carrying him
+    tst.b OFF_LINK_EATEN(%a5)
+    bne 9f                      | a like-like has him: he can only swing
     tst.b OFF_LINK_SHOVE(%a5)
     beq 0f
     tst.b OFF_COMMIT(%a5)

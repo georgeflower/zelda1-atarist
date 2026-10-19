@@ -47,8 +47,16 @@ mover_update:
     beq mv_peahat
     cmp.w #BEH_BOULDER_SET, %d7
     beq mv_boulder_set
+    cmp.w #BEH_POLS, %d7
+    beq dmon_pols
+    cmp.w #BEH_WIZZROBE, %d7
+    beq dmon_wizzrobe
     move.l %d1, -(%sp)                  | a ghini turns toward Link whenever the dice allow
     move.w #0xff, %d1
+    cmp.w #BEH_BUBBLE, %d7
+    bne 1f
+    moveq #0x40, %d1                    | a bubble at rate $40
+1:
     bsr wander_tick
     move.l (%sp)+, %d1
     moveq #0, %d0

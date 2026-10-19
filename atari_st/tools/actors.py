@@ -19,7 +19,12 @@ MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
                  0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A,
                  0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x1A, 0x1F, 0x20, 0x21,
                  # Level 2: the blue goriya, the two Dodongos and Moldorm
-                 0x05, 0x31, 0x32, 0x41)
+                 0x05, 0x31, 0x32, 0x41,
+                 # Levels 3 to 8, the ones that walk: red and blue darknuts, vire, zol, pols voice, like-like,
+                 # the wizzrobes, bubbles and gibdos
+                 0x0B, 0x0C, 0x12, 0x13, 0x16, 0x17, 0x23, 0x24, 0x2B, 0x30,
+                 # the red keese a vire leaves behind
+                 0x1C)
 # The ones of them that live on the overworld: lynels (blue, red), moblins (blue, red) and octoroks
 # (red slow, red fast, blue slow, blue fast). Their art comes from the overworld's sprite pattern table.
 OVERWORLD_MONSTERS = (0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A,
@@ -29,13 +34,21 @@ OVERWORLD_MONSTERS = (0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A,
 # a frame; keese are quicker and wallmasters slower. A gel walks a pixel a frame (quarter-speed
 # $40) but rests at the edge of every square. Aquamentus moves a
 # pixel every eighth frame.
+# A period of PERIOD_PATTERN + n steps on the frames set in STEP_PATTERNS[n] (a pixel on each bit set of eight frames).
+PERIOD_PATTERN = 0x80
 MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8, 0x49: 1,
                   # lynels and moblins walk at quarter-speed $20; octoroks too, the fast ones at $40
                   0x01: 2, 0x02: 2, 0x03: 2, 0x04: 2, 0x07: 2, 0x08: 1, 0x09: 2, 0x0A: 1,
                   # ghinis walk at $20; the others move by their own rules (the period is not used)
                   0x0D: 1, 0x0E: 1, 0x0F: 2, 0x10: 2, 0x11: 1, 0x1A: 1, 0x1F: 1, 0x20: 1, 0x21: 2,
                   # blue goriya like the red; Dodongo walks at the default quarter-speed; Moldorm moves itself
-                  0x05: 2, 0x31: 2, 0x32: 2, 0x41: 1}
+                  0x05: 2, 0x31: 2, 0x32: 2, 0x41: 1,
+                  # a red darknut walks at quarter-speed $20 (one pixel every other frame), a blue one at $28
+                  # (five pixels in eight frames), a zol at $18 (three in eight): STEP_PATTERNS in enemy.s;
+                  # a bubble at $40; the vire and gibdo at the default $20; pols voice, the like-like and
+                  # the wizzrobes move by their own rules
+                  0x0B: 2, 0x0C: PERIOD_PATTERN + 1, 0x12: 2, 0x13: PERIOD_PATTERN, 0x16: 2, 0x17: 2,
+                  0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
                   # ObjTypeToDamagePoints: blue lynel $02 (two hearts), red lynel $01, the rest $80
@@ -44,16 +57,30 @@ MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2,
                   # $80, boulders $80, a ghini one heart (ObjTypeToDamagePoints)
                   0x0D: 1, 0x0E: 1, 0x0F: 2, 0x10: 1, 0x11: 1, 0x1A: 1, 0x1F: 0, 0x20: 1, 0x21: 2,
                   # blue goriya $01 (a heart), Dodongo $01, Moldorm $80
-                  0x05: 2, 0x31: 2, 0x32: 2, 0x41: 1}
+                  0x05: 2, 0x31: 2, 0x32: 2, 0x41: 1,
+                  # ObjTypeToDamagePoints: darknuts $01 and $02, vire and zol $01, pols voice $02, like-like $01,
+                  # blue wizzrobe $02 and red $01, a bubble none, gibdo $02
+                  0x0B: 2, 0x0C: 4, 0x12: 2, 0x13: 2, 0x16: 4, 0x17: 2, 0x23: 4, 0x24: 2, 0x2B: 0, 0x30: 4, 0x1C: 1}
+# What hurts a monster: the bits of the original's damage types ($01 sword, $02 boomerang (it stuns), $04 arrow,
+# $08 bomb, $10 magic, $20 fire) that its ObjInvincibilityMask leaves, and bit 7 for the darknuts' shield, which
+# turns a sword aside when the two face each other. Anything not listed is hurt by all six.
+HURT_ALL = 0x3F
+HURT_SHIELD = 0x80
+MONSTER_HURT = {
+    0x0B: 0x09 | HURT_SHIELD, 0x0C: 0x09 | HURT_SHIELD,    # InitDarknut: $F6
+    0x16: 0x05,         # pols voice: $FE, but an arrow kills it
+    0x23: 0x09, 0x24: 0x09,                                 # wizzrobes: $F6
+    0x3D: 0x1D,         # Aquamentus: $E2, no boomerang or fire
+}
 # Keese ignore walls and blocks and are only held in by the room edges.
-MONSTER_FLYERS = (0x1B, 0x1A)
+MONSTER_FLYERS = (0x1B, 0x1A, 0x1C)
 
 # What the game does with a monster every frame, besides drawing it.
 (BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS,
  BEHAVIOUR_KEESE, BEHAVIOUR_TRAP, BEHAVIOUR_GEL, BEHAVIOUR_OCTOROK, BEHAVIOUR_MOBLIN,
  BEHAVIOUR_LYNEL, BEHAVIOUR_OCTOROK_BLUE, BEHAVIOUR_TEKTITE, BEHAVIOUR_LEEVER, BEHAVIOUR_ZORA,
  BEHAVIOUR_PEAHAT, BEHAVIOUR_GHINI, BEHAVIOUR_BOULDER, BEHAVIOUR_BOULDER_SET,
- BEHAVIOUR_DODONGO, BEHAVIOUR_MOLDORM) = range(21)
+ BEHAVIOUR_DODONGO, BEHAVIOUR_MOLDORM, BEHAVIOUR_POLS, BEHAVIOUR_WIZZROBE, BEHAVIOUR_BUBBLE) = range(24)
 MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIOUR_KEESE,
                       0x27: BEHAVIOUR_WALLMASTER, 0x3D: BEHAVIOUR_BOSS, 0x49: BEHAVIOUR_TRAP,
                       0x15: BEHAVIOUR_GEL, 0x01: BEHAVIOUR_LYNEL, 0x02: BEHAVIOUR_LYNEL,
@@ -63,7 +90,10 @@ MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIO
                       0x10: BEHAVIOUR_LEEVER, 0x11: BEHAVIOUR_ZORA, 0x1A: BEHAVIOUR_PEAHAT,
                       0x21: BEHAVIOUR_GHINI, 0x20: BEHAVIOUR_BOULDER, 0x1F: BEHAVIOUR_BOULDER_SET,
                       0x05: BEHAVIOUR_GORIYA, 0x31: BEHAVIOUR_DODONGO, 0x32: BEHAVIOUR_DODONGO,
-                      0x41: BEHAVIOUR_MOLDORM}
+                      0x41: BEHAVIOUR_MOLDORM, 0x16: BEHAVIOUR_POLS, 0x23: BEHAVIOUR_WIZZROBE,
+                      0x24: BEHAVIOUR_WIZZROBE, 0x2B: BEHAVIOUR_BUBBLE,
+                      # the darknuts, gibdo, vire, zol and like-like walk like a stalfos (turn rate $80) or a gel
+                      0x13: BEHAVIOUR_GEL, 0x1C: BEHAVIOUR_KEESE}
 
 # How each monster is drawn: (sprite layout, images, mode). The layout says how
 # the two 8x16 halves of an image are put together; the mode tells the game
@@ -89,7 +119,14 @@ MODE_BOULDER = 14
 MODE_NONE = 15      # the boulder set that makes the boulders is never seen
 MODE_DODONGO = 16   # ten images (two squares wide, or one when it faces up or down), picked by dodongo_frame in enemy.s
 MODE_MOLDORM = 17   # one picture, a fireball tile in the red row
-FRAME_MODES = (MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO)
+MODE_DARKNUT = 18   # six images: side, down, up, then the same for the second step (dmon.s dmon_frame)
+MODE_VIRE = 19      # four images: two steps, and two for facing up
+MODE_ZOL = 20       # two images, swapped every eight frames
+MODE_LIKELIKE = 21  # four images, one every eight frames
+MODE_WIZZROBE = 22  # side/down in two steps, then up in two
+MODE_BUBBLE = 23    # one picture in each of the four sprite palette rows, a new row every frame
+FRAME_MODES = (MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
+               MODE_DARKNUT, MODE_VIRE, MODE_ZOL, MODE_LIKELIKE, MODE_WIZZROBE, MODE_BUBBLE)
 MONSTER_DRAW = {
     0x06: ("wide", 4, MODE_WALKER),
     0x15: ("narrow", 2, MODE_GEL),
@@ -120,6 +157,17 @@ MONSTER_DRAW = {
     0x31: ("wide", 10, MODE_DODONGO),
     0x32: ("wide", 10, MODE_DODONGO),
     0x41: ("mirror", 1, MODE_MOLDORM),
+    0x0B: ("wide", 6, MODE_DARKNUT),
+    0x0C: ("wide", 6, MODE_DARKNUT),
+    0x12: ("mirror", 4, MODE_VIRE),
+    0x13: ("mirror", 2, MODE_ZOL),
+    0x16: ("mirror", 2, MODE_ZOL),
+    0x17: ("mirror", 4, MODE_LIKELIKE),
+    0x23: (("wide", "wide", "mirror", "mirror"), 4, MODE_WIZZROBE),
+    0x24: (("wide", "wide", "mirror", "mirror"), 4, MODE_WIZZROBE),
+    0x2B: ("wide", 4, MODE_BUBBLE),
+    0x30: ("wide", 1, MODE_STALFOS),
+    0x1C: ("mirror", 2, MODE_KEESE),
 }
 # UpdateMoldorm draws every segment as the fireball tile $44 in palette row 2, and Dodongo_Draw uses row 3.
 MONSTER_TILE_ROW = {0x31: (None, 3), 0x32: (None, 3), 0x41: (0x44, 2)}
@@ -134,10 +182,10 @@ OCTOROK_FRAME_ORDER = (0, 3, 2, 5, 1, 4)    # image 0 side A, 1 side B, 2 front 
 FRAME_BYTES = B.SPRITE_FRAME_BYTES
 NO_DROP_ROW = 0xFF
 ROOM_INFO_BYTES = 16
-NO_PERSON = 0xFF
+NO_PERSON = 0xFFFF            # a record's last word: where the room's old man starts speaking in the cave text
 PERSON_LIST_FIRST = 0x4B      # Person1..Person8 in the monster lists
 PERSON_LIST_LAST = 0x52
-PERSON_MORE_BOMBS = 0x4F      # these two do more than talk: not ported yet
+PERSON_MORE_BOMBS = 0x4F      # in the dungeons whose people are table A this one and the next do more than talk
 PERSON_LIFE_OR_MONEY = 0x51
 # CurLevel -> which of the two selector tables (InitUnderworldPerson_Full_JumpTable); 9 has a third
 PERSON_SELECTOR_LABELS = {1: "A", 2: "A", 3: "B", 4: "B", 5: "A", 6: "B", 7: "A", 8: "B"}
@@ -162,11 +210,19 @@ UW_SP_COMMON = "dat/CommonSpritePatterns.dat"
 UW_SP_DEMO = "dat/DemoSpritePatterns.dat"
 UW_SP_DEMO_FIRST = 0x70
 UW_SP_BLOCK = ("dat/PatternBlockUWSP.dat", 0x8E)
+# LevelPatternBlockSrcAddrs and BossPatternBlockSrcAddrs (Z_03): the sprite patterns each dungeon adds at tile $9E and $C0.
+# The names say which levels share a block: 127 is Levels 1, 2 and 7, 358 is 3, 5 and 8, 469 is 4, 6 and 9.
 UW_SP_LEVEL_BLOCKS = {1: "dat/PatternBlockUWSP127.dat", 2: "dat/PatternBlockUWSP127.dat",
-                      7: "dat/PatternBlockUWSP127.dat"}
+                      3: "dat/PatternBlockUWSP358.dat", 4: "dat/PatternBlockUWSP469.dat",
+                      5: "dat/PatternBlockUWSP358.dat", 6: "dat/PatternBlockUWSP469.dat",
+                      7: "dat/PatternBlockUWSP127.dat", 8: "dat/PatternBlockUWSP358.dat",
+                      9: "dat/PatternBlockUWSP469.dat"}
 UW_SP_LEVEL_FIRST = 0x9E
 UW_SP_BOSS_BLOCKS = {1: "dat/PatternBlockUWSPBoss1257.dat", 2: "dat/PatternBlockUWSPBoss1257.dat",
-                     5: "dat/PatternBlockUWSPBoss1257.dat", 7: "dat/PatternBlockUWSPBoss1257.dat"}
+                     3: "dat/PatternBlockUWSPBoss3468.dat", 4: "dat/PatternBlockUWSPBoss3468.dat",
+                     5: "dat/PatternBlockUWSPBoss1257.dat", 6: "dat/PatternBlockUWSPBoss3468.dat",
+                     7: "dat/PatternBlockUWSPBoss1257.dat", 8: "dat/PatternBlockUWSPBoss3468.dat",
+                     9: "dat/PatternBlockUWSPBoss9.dat"}
 UW_SP_BOSS_FIRST = 0xC0
 
 
@@ -190,6 +246,8 @@ class ActorData:
     item_slot: bytes = b""    # ItemIdToSlot: the Items byte an item id goes into
     item_desc: bytes = b""    # ItemIdToDescriptor: class in the high nibble (0 own, 1 amount, 2 grade), value in the low
     person_text: bytes = b""  # the speeches of the level's dungeon people, appended to the first cave's text
+    mon_mask: bytes = b""     # per monster, which weapons hurt it (MONSTER_HURT)
+    monster_arts: tuple = ()  # per monster index, the frames of its art (what mon_art points at in mon_sprites)
 
 
 def _pack_masked(rows: list[list[int]]) -> bytes:
@@ -418,7 +476,9 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
     sprites = bytearray()
     arts: dict[bytes, int] = {}         # identical art (the slow and fast octorok) is stored once
     mon_art = bytearray()
+    monster_arts: list[bytes] = []
     table = bytearray()
+    hurt = bytearray()
     mon_index = bytearray([0xFF]) * 256
     for index, nes_type in enumerate(MONSTER_TYPES):
         mon_index[nes_type] = index
@@ -435,13 +495,15 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             images = []
             for image in range(image_count if mode in FRAME_MODES else MONSTER_IMAGES):
                 frame = min(image, image_count - 1)
-                tile = heap[base + frame]
-                row = B.LINK_PALETTE_ROW + (attr_heap[base + frame] & 3)
+                tile = heap[base + (0 if mode == MODE_BUBBLE else frame)]
+                row = B.LINK_PALETTE_ROW + (image if mode == MODE_BUBBLE else attr_heap[base + frame] & 3)
                 if nes_type in MONSTER_TILE_ROW:
                     override_tile, override_row = MONSTER_TILE_ROW[nes_type]
                     tile = tile if override_tile is None else override_tile
                     row = B.LINK_PALETTE_ROW + override_row
-                image_layout = "mirror" if mode == MODE_DODONGO and image in DODONGO_MIRRORED_IMAGES else layout
+                image_layout = layout[frame] if isinstance(layout, tuple) else layout
+                if mode == MODE_DODONGO and image in DODONGO_MIRRORED_IMAGES:
+                    image_layout = "mirror"
                 if mode == MODE_BOSS:
                     images.append(_blank(16))
                 elif mode == MODE_WALLMASTER and frame == 1:
@@ -456,6 +518,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             art.extend(_pack_masked(rows))
             art.extend(_pack_masked([r[::-1] for r in rows]))
         key = bytes(art)
+        monster_arts.append(key)
         if key not in arts:
             arts[key] = len(sprites) // FRAME_BYTES
             sprites.extend(art)
@@ -472,6 +535,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         table.extend((nes_type, hp, MONSTER_PERIOD[nes_type], MONSTER_DAMAGE[nes_type],
                       drop_row, 1 if nes_type in MONSTER_FLYERS else 0, mode,
                       MONSTER_BEHAVIOUR.get(nes_type, BEHAVIOUR_WANDER)))
+        hurt.append(MONSTER_HURT.get(nes_type, HURT_ALL))
 
     item_index = bytearray([0xFF]) * 64
     items = bytearray()
@@ -487,6 +551,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
     return ActorData(
         mon_sprites=bytes(sprites),
         mon_table=bytes(table),
+        mon_mask=bytes(hurt),
         mon_art=bytes(mon_art),
         mon_index=bytes(mon_index),
         item_sprites=bytes(items),
@@ -500,6 +565,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         hud_items=_hud_items(code, sp_tiles, bg_tiles, palette),
         room_info=[_room_info(r, attrs, foe_counts, info, person_offsets.get(r, NO_PERSON), lists) for r in room_ids],
         person_text=person_blob,
+        monster_arts=tuple(monster_arts),
         keese_index=MONSTER_TYPES.index(0x1B),
         item_slot=bytes(code["slot"][:ITEM_COUNT]),
         item_desc=bytes(code["descriptor"][:ITEM_COUNT]),
@@ -615,8 +681,10 @@ def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_by
     placed: dict[int, int] = {}
     for room in room_ids:
         list_id = (attr_c[room] & 0x3F) | (0x40 if attr_d[room] & 0x80 else 0)
-        if not PERSON_LIST_FIRST <= list_id <= PERSON_LIST_LAST or list_id in (PERSON_MORE_BOMBS, PERSON_LIFE_OR_MONEY):
+        if not PERSON_LIST_FIRST <= list_id <= PERSON_LIST_LAST or list_id == PERSON_LIFE_OR_MONEY:
             continue
+        if list_id == PERSON_MORE_BOMBS and label == "A":
+            continue                    # the man who sells bomb capacity (InitUnderworldPersonA): not ported
         selector = selectors[list_id - PERSON_LIST_FIRST]
         if selector not in placed:
             entry = selector // 2
@@ -624,8 +692,8 @@ def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_by
             placed[selector] = first_text_bytes + len(blob)
             blob.extend(texts[starts[entry] : end])
         offsets[room] = placed[selector]
-    if first_text_bytes + len(blob) > 255:
-        raise SystemExit("The dungeon people's speeches no longer fit the one-byte text index")
+    if first_text_bytes + len(blob) > 0xFFFE:
+        raise SystemExit("The dungeon people's speeches no longer fit the text index")
     return bytes(blob), offsets
 
 
@@ -667,7 +735,7 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
     record = bytearray([len(monsters), trigger, item_id, pos & 0xF0, (pos & 0x0F) << 4, unsupported])
     record.extend(monsters)
     record.extend([0xFF] * (ROOM_INFO_BYTES - 2 - len(record)))
-    record.extend([person, 0xFF])
+    record.extend(person.to_bytes(2, "big"))
     return bytes(record)
 
 
@@ -723,7 +791,9 @@ def build_placeholder() -> ActorData:
     return ActorData(
         mon_sprites=frame * (MONSTER_IMAGES * 2),
         mon_table=bytes((0x2A, 2, 2, 1, 0, 0, 0, 0)),
+        mon_mask=bytes((HURT_ALL,)),
         mon_art=bytes(2),
+        monster_arts=(frame * (MONSTER_IMAGES * 2),),
         mon_index=bytes([0xFF]) * 256,
         item_sprites=frame,
         item_index=bytes([0xFF]) * 64,

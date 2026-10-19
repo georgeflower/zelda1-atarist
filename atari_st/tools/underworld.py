@@ -71,6 +71,38 @@ class UwData:
 
 
 MINIMAP_COLUMNS = 8
+UW_SQUARE_COLS, UW_SQUARE_ROWS = 16, 11
+UW_PACKED_BYTES = UW_SQUARE_COLS * UW_SQUARE_ROWS
+
+
+def pack_squares(grids) -> tuple[bytes, list[bytes]]:
+    """Rooms (and cellars) as squares: the quad table of 4 bank ids each distinct 2x2 block of cells is made of, and per room
+    one quad number for each of its 16x11 squares. Every room of the game is laid out in squares, so a level needs about a
+    hundred quads and a room shrinks from 704 bytes to 176. A quad is top-left, top-right, bottom-left, bottom-right."""
+    quads: dict[tuple[int, int, int, int], int] = {}
+    packed = []
+    for grid in grids:
+        out = bytearray()
+        for sy in range(UW_SQUARE_ROWS):
+            for sx in range(UW_SQUARE_COLS):
+                top = (2 * sy) * UW_COLS + 2 * sx
+                key = (grid[top], grid[top + 1], grid[top + UW_COLS], grid[top + UW_COLS + 1])
+                out.append(quads.setdefault(key, len(quads)))
+        packed.append(bytes(out))
+    if len(quads) > 256:
+        raise SystemExit(f"A level needs {len(quads)} square patterns; a byte index allows 256")
+    return b"".join(bytes(key) for key in quads), packed
+
+
+def unpack_squares(table: bytes, packed: bytes) -> bytes:
+    """What uw_unpack_room does: the 704 cells of a packed room."""
+    grid = bytearray(UW_COLS * UW_ROWS)
+    for index, quad in enumerate(packed):
+        sy, sx = divmod(index, UW_SQUARE_COLS)
+        top = (2 * sy) * UW_COLS + 2 * sx
+        a, b, c, d = table[quad * 4 : quad * 4 + 4]
+        grid[top], grid[top + 1], grid[top + UW_COLS], grid[top + UW_COLS + 1] = a, b, c, d
+    return bytes(grid)
 
 
 def minimap_first_column(rooms) -> int:
@@ -257,6 +289,35 @@ def reachable_rooms(start: int, attrs_a: bytes, attrs_b: bytes) -> list[int]:
     return sorted(seen)
 
 
+def cellar_rooms(info: bytes, attrs_d: bytes) -> list[int]:
+    """The ids LevelInfo_CellarRoomIdArray lists that really are cellars (tunnel $3E or treasure room $3F)."""
+    listed = info[CELLAR_ARRAY_OFFSET : CELLAR_ARRAY_OFFSET + CELLAR_ARRAY_LENGTH]
+    return [room for room in dict.fromkeys(listed) if room < 128 and (attrs_d[room] & 0x3F) in CELLAR_UNIQUE_IDS]
+
+
+def level_rooms(start: int, info: bytes, attrs_a: bytes, attrs_b: bytes, attrs_d: bytes) -> list[int]:
+    """Every room of a dungeon: those reachable through doors from the start room, and those that tunnels lead to.
+
+    A tunnel ($3E) is a cellar whose attributes A and B are the rooms its two stairs come out in; levels 4 to 9
+    have rooms that can only be reached that way (the triforce room of Levels 6 to 8 does). The cellar ids
+    themselves are not rooms of the grid, so they are left out.
+    """
+    cellars = cellar_rooms(info, attrs_d)
+    seen = set(reachable_rooms(start, attrs_a, attrs_b))
+    changed = True
+    while changed:
+        changed = False
+        for cellar in cellars:
+            ends = [room for room in (attrs_a[cellar], attrs_b[cellar]) if room < 128]
+            if not any(room in seen for room in ends):
+                continue                                    # nobody can get down these stairs yet
+            for room in ends:
+                if room not in seen:
+                    seen.update(reachable_rooms(room, attrs_a, attrs_b))
+                    changed = True
+    return sorted(seen - set(cellars))
+
+
 # Palette rows of the shared overworld table whose slots no level may repurpose: Link's own row
 # (his sprite is baked once, for every level) and the cave wall row the cellars use.
 PROTECTED_ROWS = (B.LINK_PALETTE_ROW, B.CAVE_WALL_ROW, B.HUD_TEXT_ROW, B.HUD_ACCENT_ROW)
@@ -380,7 +441,7 @@ def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes
     uw_palette = info[B.LEVEL_INFO_PALETTE_OFFSET : B.LEVEL_INFO_PALETTE_OFFSET + 32]
     pal_table, _ = palette_lookup(ow_palette_bytes, ow_map, uw_palette)
 
-    stored = reachable_rooms(start_room, attrs_a, attrs_b)
+    stored = level_rooms(start_room, info, attrs_a, attrs_b, attrs_d)
     room_index = [0xFF] * 128
     for index, room in enumerate(stored):
         room_index[room] = index

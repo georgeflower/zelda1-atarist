@@ -132,7 +132,6 @@
     gvar IKBD_PKT, 1            | which byte of a joystick or mouse packet comes next
     gvar CAVE_PERSON, 1         | the old man is still in the cave
     gvar CAVE_TEXT_ON, 1        | his speech is still being typed, and Link is halted
-    gvar CAVE_TEXT_IDX, 1
     gvar CAVE_TEXT_COL, 1
     gvar CAVE_TEXT_ROW, 1
     gvar CAVE_TEXT_TIMER, 1
@@ -315,6 +314,8 @@
     gvar UWP_ROOM_INFO, 4
     gvar UWP_CELLAR_MAPS, 4
     gvar UWP_CELLAR_INFO, 4
+    gvar UWP_MON_ART, 4
+    gvar UWP_QUADS, 4
     gvar UWL_BYTES, 8
     .equ OFF_UW_START_ROOM, OFF_UWL_BYTES + 0
     .equ OFF_UW_START_Y, OFF_UWL_BYTES + 1
@@ -329,4 +330,16 @@
     gvar ENEMY_OLDDIR, 8       | a Moldorm segment's previous heading, which the segment below it takes up
     gvar ENEMY_BOUNCE, 8       | a Moldorm head's heading after bouncing off a wall, kept for the next turn (Moldorm_ObjBounceDir)
 
+    galign
+    gvar CAVE_TEXT_IDXW, 2     | where the next letter is in cave_text (a word: the dungeons' speeches add up to more than 255)
+
+    | Weapons and the dungeon monsters (dmon.s).
+    gvar HIT_TYPE, 1           | the damage type of the blow hit_enemy is about to deal (HIT_*): which weapon it is
+    gvar HIT_DIR, 1            | and the way the weapon points, for the darknuts' shields
+    gvar DRAW_DY, 1            | pixels (signed) to draw the monster lower than it stands: the vire's hops
+    gvar SWORD_BLOCK, 1        | frames left that a bubble keeps Link from swinging his sword
+    gvar LINK_EATEN, 1         | a like-like has him: he cannot walk, but he can swing
+    gvar EATER, 1              | the like-like's slot
+    gvar EATEN_FRAMES, 1       | frames since it caught him, to the shield's loss
+    galign
     .equ GLOBALS_BYTES, gvar_offset

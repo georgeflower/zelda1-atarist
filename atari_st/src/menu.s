@@ -36,7 +36,7 @@ menu_check_open:
     tst.b OFF_GAME_MODE(%a5)
     bne 9f
     move.b #MODE_MENU, OFF_GAME_MODE(%a5)
-    bsr dbl_end
+    bsr dbl_end_far
     bsr menu_draw
     bra 9f
 8:  bclr #0, OFF_MENU_KEYS(%a5)

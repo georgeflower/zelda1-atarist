@@ -703,8 +703,8 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
         level_palettes = tuple(underworld.level_palettes(source_root, palette_bytes, palette_map))
         for built in levels:
             cave_text += built.actors.person_text   # the levels' old men speak from the same text, one after the other
-        if len(cave_text) > 255:
-            raise SystemExit("The cave and dungeon speeches no longer fit the one-byte text index")
+        if len(cave_text) > 0xFFFE:
+            raise SystemExit("The cave and dungeon speeches no longer fit the text index")
         return AssetBundle(
             source_note="ROM-derived overworld tiles, sprites, rooms and palette",
             uw=uw,
@@ -902,7 +902,7 @@ def link_tunic_indices(palette: PaletteMap) -> tuple[int | None, int | None, int
     return (None, blue, red)
 
 
-UW_LEVELS = (1, 2)      # the dungeons the game has so far (the Makefile's UW_LEVELS lists the same)
+UW_LEVELS = (1, 2, 3, 4, 5, 6, 7, 8)      # the dungeons the game has so far (the Makefile's UW_LEVELS lists the same)
 LINK_TUNIC_SETS = 3     # no ring, blue ring, red ring
 
 
@@ -952,10 +952,14 @@ UW_DOOR_RECORD_BYTES = 4 + 4 * 12
 
 def write_level(out_dir: Path, uw) -> None:
     """The tables of one dungeon, as uw<level>_*.bin (levels.inc links them into the image)."""
+    import underworld
+
     prefix = f"uw{uw.level}_"
     (out_dir / f"{prefix}tiles.bin").write_bytes(uw.tile_bank)
     (out_dir / f"{prefix}tile_nes.bin").write_bytes(uw.tile_nes)
-    (out_dir / f"{prefix}rooms.bin").write_bytes(b"".join(uw.rooms))
+    quads, packed = underworld.pack_squares(list(uw.rooms) + list(uw.cellar_maps))
+    (out_dir / f"{prefix}quads.bin").write_bytes(quads)
+    (out_dir / f"{prefix}rooms.bin").write_bytes(b"".join(packed[: len(uw.rooms)]))
     (out_dir / f"{prefix}room_index.bin").write_bytes(bytes(uw.room_index))
     records = bytearray()
     for types, faces in zip(uw.door_types, uw.open_faces):
@@ -964,11 +968,12 @@ def write_level(out_dir: Path, uw) -> None:
             records.extend(face)
     (out_dir / f"{prefix}doors.bin").write_bytes(bytes(records))
     (out_dir / f"{prefix}room_info.bin").write_bytes(b"".join(uw.actors.room_info))
-    (out_dir / f"{prefix}cellar_maps.bin").write_bytes(b"".join(uw.cellar_maps))
+    (out_dir / f"{prefix}cellar_maps.bin").write_bytes(b"".join(packed[len(uw.rooms) :]))
     (out_dir / f"{prefix}cellar_info.bin").write_bytes(b"".join(uw.cellar_info))
 
 
-LEVEL_TABLES = ("room_index", "rooms", "doors", "tiles", "tile_nes", "room_info", "cellar_maps", "cellar_info")
+LEVEL_TABLES = ("room_index", "rooms", "doors", "tiles", "tile_nes", "room_info", "cellar_maps", "cellar_info",
+                "mon_art", "quads")
 LEVEL_RECORD_BYTES = 4 * len(LEVEL_TABLES) + 8       # the table offsets, then start room, start Y, triforce room, ...
 
 
@@ -995,11 +1000,35 @@ def level_include(levels) -> str:
     return "\n".join(lines)
 
 
+def monster_pool(levels) -> tuple[bytes, list[bytes]]:
+    """One pool of monster frames for every dungeon, and for each dungeon the table of where its monsters' art starts.
+
+    A monster is drawn from the sprite patterns and the colours of the level it is met in, so the same monster can
+    have several pictures; identical art is stored once. The first dungeon's table also serves the overworld (its
+    monsters are drawn from the overworld's patterns, the same in every level).
+    """
+    pool = bytearray()
+    starts: dict[bytes, int] = {}
+    tables = []
+    for uw in levels:
+        table = bytearray()
+        for art in uw.actors.monster_arts:
+            if art not in starts:
+                starts[art] = len(pool) // SPRITE_FRAME_BYTES
+                pool.extend(art)
+            table.extend(starts[art].to_bytes(2, "big"))
+        tables.append(bytes(table))
+    return bytes(pool), tables
+
+
 def write_underworld(out_dir: Path, bundle_or_uw) -> None:
     levels = getattr(bundle_or_uw, "levels", None) or (getattr(bundle_or_uw, "uw", bundle_or_uw),)
     uw = levels[0]
     for level in levels:
         write_level(out_dir, level)
+    pool, art_tables = monster_pool(levels)
+    for level, table in zip(levels, art_tables):
+        (out_dir / f"uw{level.level}_mon_art.bin").write_bytes(table)
     (out_dir / "levels.inc").write_text(level_include(levels), encoding="utf-8")
     cells = bytearray()
     for direction in uw.door_cells:
@@ -1007,9 +1036,10 @@ def write_underworld(out_dir: Path, bundle_or_uw) -> None:
             cells.extend(cell.to_bytes(2, "big"))
     (out_dir / "uw_door_cells.bin").write_bytes(bytes(cells))
     actors = uw.actors
-    (out_dir / "mon_sprites.bin").write_bytes(actors.mon_sprites)
+    (out_dir / "mon_sprites.bin").write_bytes(pool)
     (out_dir / "mon_table.bin").write_bytes(actors.mon_table)
-    (out_dir / "mon_art.bin").write_bytes(actors.mon_art)
+    (out_dir / "mon_mask.bin").write_bytes(actors.mon_mask)
+    (out_dir / "mon_art.bin").write_bytes(art_tables[0])
     (out_dir / "mon_index.bin").write_bytes(actors.mon_index)
     (out_dir / "item_sprites.bin").write_bytes(actors.item_sprites)
     (out_dir / "item_index.bin").write_bytes(actors.item_index)
@@ -1031,6 +1061,9 @@ def underworld_equates(uw, level_count: int = 1) -> list[str]:
         f".equ UW_COLS, {underworld.UW_COLS}",
         f".equ UW_ROWS, {underworld.UW_ROWS}",
         f".equ UW_ROOM_BYTES, {underworld.UW_ROOM_BYTES}",
+        f".equ UW_PACKED_BYTES, {underworld.UW_PACKED_BYTES}",
+        f".equ UW_SQUARE_COLS, {underworld.UW_SQUARE_COLS}",
+        f".equ UW_SQUARE_ROWS, {underworld.UW_SQUARE_ROWS}",
         f".equ UW_DOOR_RECORD_BYTES, {UW_DOOR_RECORD_BYTES}",
         f".equ UW_FIRST_UNWALKABLE_TILE, 0x{underworld.UW_FIRST_UNWALKABLE_TILE:02x}",
         f".equ UW_BOUND_LEFT, 0x{left:02x}",
@@ -1047,6 +1080,13 @@ def underworld_equates(uw, level_count: int = 1) -> list[str]:
         f".equ MON_KEESE, {uw.actors.keese_index}",
         f".equ MON_BOULDER, {uw.actors.mon_index[0x20]}",
         f".equ MON_ZORA, {uw.actors.mon_index[0x11]}",
+        f".equ MON_GEL, {uw.actors.mon_index[0x15]}",
+        f".equ MON_RED_KEESE, {uw.actors.mon_index[0x1C]}",
+        f".equ MON_VIRE, {uw.actors.mon_index[0x12]}",
+        f".equ MON_ZOL, {uw.actors.mon_index[0x13]}",
+        f".equ MON_POLS, {uw.actors.mon_index[0x16]}",
+        f".equ MON_LIKELIKE, {uw.actors.mon_index[0x17]}",
+        f".equ MON_BUBBLE, {uw.actors.mon_index[0x2B]}",
         f".equ DEV_START_UW, {int(os.environ.get('ZELDA_START_UW', '0xFF'), 0)}",
         f".equ DEV_START_LEVEL, {int(os.environ.get('ZELDA_START_LEVEL', '1'), 0)}",
     ]
@@ -1246,7 +1286,7 @@ def verify_outputs(out_dir: Path) -> None:
                 raise SystemExit(f"asset_manifest.txt is missing {key}")
         rooms = int(manifest_values[f"uw{level}_room_count"])
         tiles = int(manifest_values[f"uw{level}_tile_count"])
-        expected_sizes[f"uw{level}_rooms.bin"] = rooms * 32 * 22
+        expected_sizes[f"uw{level}_rooms.bin"] = rooms * 16 * 11
         expected_sizes[f"uw{level}_doors.bin"] = rooms * UW_DOOR_RECORD_BYTES
         expected_sizes[f"uw{level}_tiles.bin"] = tiles * 32
         expected_sizes[f"uw{level}_tile_nes.bin"] = tiles

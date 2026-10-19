@@ -84,6 +84,8 @@ sword_input:
     move.b #1, OFF_SPACE_HELD(%a5)
     tst.b OFF_HAS_SWORD(%a5)
     beq 9f
+    tst.b OFF_SWORD_BLOCK(%a5)
+    bne 9f                      | a bubble has touched it
     tst.b OFF_ATTACK(%a5)
     bne 9f
     tst.b OFF_GAME_MODE(%a5)
@@ -316,6 +318,8 @@ beam_update:
     move.w %d6, %d5
     move.b OFF_BEAM_DIR(%a5), OFF_ENEMY_SHOVE(%a5, %d5.w)
     bsr set_sword_damage
+    move.b #HIT_SWORD, OFF_HIT_TYPE(%a5)
+    move.b OFF_BEAM_DIR(%a5), OFF_HIT_DIR(%a5)
     bsr hit_enemy
     bra 8f
 7:  addq.w #1, %d6
@@ -610,7 +614,9 @@ sword_hits:
     clr.b OFF_HIT_DAMAGE(%a5)
     bsr dodongo_sword           | only a stunned Dodongo is hurt, and it dies
     bra 8f
-41: bsr hit_enemy
+41: move.b #HIT_SWORD, OFF_HIT_TYPE(%a5)
+    move.b OFF_LINK_DIR(%a5), OFF_HIT_DIR(%a5)
+    bsr hit_enemy
 8:  addq.w #1, %d5
     bra 1b
 9:  movem.l (%sp)+, %d0-%d6/%a0
@@ -632,7 +638,10 @@ hit_enemy:
 5:  movem.l (%sp)+, %d0/%a0
     clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | nothing hurts a blade trap
     rts
-1:  move.b #ENEMY_HURT_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
+1:  bsr dmon_hit_filter                 | a darknut's shield, or a weapon the monster shrugs off
+    beq 11f
+    rts
+11: move.b #ENEMY_HURT_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
     move.l %d1, -(%sp)
     moveq #1, %d1                       | the hit's weight: set by the weapon, one by default
     tst.b OFF_HIT_DAMAGE(%a5)
@@ -645,7 +654,7 @@ hit_enemy:
     sub.b %d1, %d0
     move.b %d0, OFF_ENEMY_HP(%a5, %d5.w)
     move.l (%sp)+, %d1
-    rts
+    bra dmon_survived                   | a zol or vire falls apart
 3:  move.l (%sp)+, %d1
     bsr enemy_behaviour
     cmp.w #BEH_MOLDORM, %d0
@@ -700,6 +709,7 @@ moldorm_died:
 kill_enemy:
     sfx SFX_MONSTER_DIED
     clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+    bsr dmon_died                           | a like-like lets go of Link
     bsr mover_died                          | a red leever stops being counted; a zora's death is not the screen's
     tst.w %d0
     beq 0f
@@ -835,7 +845,12 @@ enemy_contact:
     lsl.w #3, %d0
     moveq #0, %d1
     move.b 3(%a0, %d0.w), %d1
-4:  bsr link_knockback
+4:  bsr dmon_contact                | bubbles harm nobody, a like-like swallows him instead of shoving
+    move.w %d0, %d4
+    bne 41f
+    bsr link_knockback
+41: cmp.w #1, %d4
+    beq 8f
     bsr hurt_link
     bra 9f
 8:  addq.w #1, %d5
@@ -1175,6 +1190,10 @@ bomb_hurt_enemies:
     neg.w %d3
 3:  cmp.w #BOMB_RANGE, %d3
     bhs 4f
+    move.b #HIT_BOMB, OFF_HIT_TYPE(%a5)
+    clr.b OFF_HIT_DIR(%a5)
+    bsr dmon_hit_filter                 | some monsters shrug a bomb off
+    bne 4f
     clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)
     moveq #0, %d0
     move.b OFF_ENEMY_HP(%a5, %d5.w), %d0
@@ -1184,6 +1203,8 @@ bomb_hurt_enemies:
     bra 32f
 31: sub.w #(BOMB_DAMAGE - 1), %d0
 32: move.b %d0, OFF_ENEMY_HP(%a5, %d5.w)
+    move.b #HIT_BOMB, OFF_HIT_TYPE(%a5)
+    clr.b OFF_HIT_DIR(%a5)
     bsr hit_enemy
 4:  addq.w #1, %d5
     bra 1b
@@ -1383,6 +1404,8 @@ fire_update:
 23: cmp.w #FIRE_RANGE, %d0
     bhs 29f
     move.b OFF_FIRE_DIR(%a5), OFF_ENEMY_SHOVE(%a5, %d5.w)
+    move.b #HIT_FIRE, OFF_HIT_TYPE(%a5)
+    move.b OFF_FIRE_DIR(%a5), OFF_HIT_DIR(%a5)
     bsr hit_enemy
 29: addq.w #1, %d5
     bra 21b

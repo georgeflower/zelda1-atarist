@@ -59,7 +59,7 @@ def dump_underworld(source_root: Path, level: int, lists: list[list[int]]) -> di
     start = info[B.LEVEL_INFO_START_ROOM_ID]
     foe = list(info[B.LEVEL_INFO_FOE_COUNTS:B.LEVEL_INFO_FOE_COUNTS + 4])
     rooms = []
-    for room in U.reachable_rooms(start, attrs[0], attrs[1]):
+    for room in U.level_rooms(start, info, attrs[0], attrs[1], attrs[3]):
         a, b, c, d, e, f = (table[room] for table in attrs)
         record = actors._room_info(room, (attrs[2], attrs[3], attrs[4], attrs[5]), foe, info, lists=lists)
         rooms.append({

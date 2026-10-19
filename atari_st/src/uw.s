@@ -34,6 +34,27 @@ debug_keys:
 9:  movem.l (%sp)+, %d0/%a0
     rts
 
+| A room is stored as 16x11 squares, each a number into the level's quad table (four bank ids: top-left,
+| top-right, bottom-left, bottom-right). a2 = the 176 square numbers, a1 = the 704-cell map to fill.
+uw_unpack_room:
+    movem.l %d0-%d3/%a0-%a3, -(%sp)
+    lvtab QUADS, %a3
+    moveq #(UW_SQUARE_ROWS - 1), %d3
+1:  movea.l %a1, %a0
+    moveq #(UW_SQUARE_COLS - 1), %d2
+2:  moveq #0, %d0
+    move.b (%a2)+, %d0
+    lsl.w #2, %d0
+    move.l 0(%a3, %d0.w), %d1
+    move.w %d1, UW_COLS(%a0)        | the low word is the bottom pair
+    swap %d1
+    move.w %d1, (%a0)+              | the high word the top pair
+    dbra %d2, 2b
+    lea (2 * UW_COLS)(%a1), %a1
+    dbra %d3, 1b
+    movem.l (%sp)+, %d0-%d3/%a0-%a3
+    rts
+
 | Copy a stored room into a map and patch in its open doors.
 |
 | d0.w = room id, d1.b = doors to show open, a0 = destination map
@@ -45,13 +66,11 @@ uw_build_map:
     cmpi.b #0xff, %d2
     beq 9f
     move.w %d2, %d3                 | stored room number
-    mulu.w #UW_ROOM_BYTES, %d2
+    mulu.w #UW_PACKED_BYTES, %d2
     lvtab ROOMS, %a2
     adda.l %d2, %a2
     movea.l %a0, %a1
-    move.w #(UW_ROOM_BYTES / 4 - 1), %d4
-1:  move.l (%a2)+, (%a1)+
-    dbra %d4, 1b
+    bsr uw_unpack_room
 
     lea OFF_UW_OPEN(%a5), %a1
     moveq #0, %d7
@@ -229,7 +248,7 @@ uw_commit_next:
 uw_person_begin:
     move.b #1, OFF_UW_PERSON(%a5)
     move.b #1, OFF_CAVE_TEXT_ON(%a5)
-    move.b 14(%a1), OFF_CAVE_TEXT_IDX(%a5)
+    move.w 14(%a1), OFF_CAVE_TEXT_IDXW(%a5)
     move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
     move.b #CAVE_TEXT_ROW0, OFF_CAVE_TEXT_ROW(%a5)
     move.b #UW_PERSON_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
@@ -254,7 +273,7 @@ uw_bake_person:
     bsr uw_room_info_ptr
     tst.w %d1
     bmi 9f
-    cmpi.b #0xff, 14(%a1)
+    cmpi.w #0xffff, 14(%a1)
     beq 9f
     ltab cave_sprites, %a0              | picture 0 is the old man
     moveq #0, %d1
@@ -435,7 +454,7 @@ uw_select_level:
     ltab level_table, %a0
     adda.w %d0, %a0
     lea OFF_UWP_ROOM_INDEX(%a5), %a1
-    moveq #7, %d1
+    moveq #9, %d1
 1:  move.l (%a0)+, %d0
     add.l %a6, %d0                  | the record holds distances from table_anchor
     move.l %d0, (%a1)+
@@ -470,7 +489,7 @@ uw_warp_to_start:
     move.b #DIR_UP, OFF_LINK_DIR(%a5)
     clr.b OFF_LINK_POS_FRAC(%a5)
     clr.b OFF_UW_ENTER_MASK(%a5)
-    bsr enter_room
+    bsr enter_room_far
     rts
 
 | Link walked off the edge of the level: back out to the overworld entrance.
@@ -496,7 +515,7 @@ uw_leave_level:
     move.b #DIR_DOWN, OFF_LINK_DIR(%a5)
     clr.b OFF_LINK_POS_FRAC(%a5)
     move.b #1, OFF_EXIT_GUARD(%a5)
-    bsr enter_room
+    bsr enter_room_far
     movem.l (%sp)+, %d0-%d2
     rts
 
@@ -549,17 +568,15 @@ uw_enter_cellar:
 
     | The cellar's picture and its collision map are one and the same.
     move.w %d4, %d1
-    mulu.w #UW_ROOM_BYTES, %d1
-    lvtab CELLAR_MAPS, %a1
-    adda.l %d1, %a1
-    lea OFF_UW_MAP(%a5), %a2
-    move.w #(UW_ROOM_BYTES / 4 - 1), %d1
-4:  move.l (%a1)+, (%a2)+
-    dbra %d1, 4b
+    mulu.w #UW_PACKED_BYTES, %d1
+    lvtab CELLAR_MAPS, %a2
+    adda.l %d1, %a2
+    lea OFF_UW_MAP(%a5), %a1
+    bsr uw_unpack_room
     lea OFF_UW_MAP(%a5), %a0
     movea.l OFF_BG_CUR(%a5), %a1
     bsr uw_render_map
-    bsr show_background
+    bsr show_background_far
     clr.b OFF_ERASE_VALID(%a5)
 
     | The cellar is full of keese, whatever else lies in it.
@@ -642,7 +659,7 @@ uw_leave_cellar:
     clr.b OFF_UW_ENTER_MASK(%a5)
     move.b #1, OFF_WARPED(%a5)
     move.b #1, OFF_EXIT_GUARD(%a5)
-    bsr enter_room
+    bsr enter_room_far
     movem.l (%sp)+, %d0-%d2/%a0
     rts
 

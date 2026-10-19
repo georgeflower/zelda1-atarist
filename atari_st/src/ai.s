@@ -26,6 +26,9 @@
     .equ BEH_BOULDER_SET, 18
     .equ BEH_DODONGO, 19            | Dodongo and Moldorm are handled before the movers' test
     .equ BEH_MOLDORM, 20
+    .equ BEH_POLS, 21               | the dungeon monsters of dmon.s (they pass through mover_update)
+    .equ BEH_WIZZROBE, 22
+    .equ BEH_BUBBLE, 23
     .equ MODE_DODONGO, 16           | draw modes (tools/actors.py MODE_*)
     .equ MODE_MOLDORM, 17
 
@@ -147,7 +150,10 @@ enemy_init_special:
     bne 6f
     lea OFF_ENEMY_SPEED(%a5), %a0   | a keese starts slow, at $1F, and picks up speed
     move.b #0x1f, 0(%a0, %d5.w)
-    lea OFF_ENEMY_FRAC(%a5), %a0
+    cmpi.b #MON_RED_KEESE, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 51f
+    move.b #0x7f, 0(%a0, %d5.w)     | a red one is quicker off the mark
+51: lea OFF_ENEMY_FRAC(%a5), %a0
     clr.b 0(%a0, %d5.w)
     clr.b OFF_ENEMY_STATE(%a5, %d5.w)
     clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
@@ -187,7 +193,11 @@ enemy_init_special:
     bra 9f
 72: cmp.w #BEH_TEKTITE, %d0
     blo 9f
-    bsr mover_init
+    cmp.w #BEH_POLS, %d0
+    blo 73f
+    bsr dmon_init
+    bra 9f
+73: bsr mover_init
 9:  movem.l (%sp)+, %d0-%d1/%a0
     rts
 
@@ -2028,6 +2038,9 @@ boom_collide:
 3:  cmp.w #BOOM_HIT_RANGE, %d0
     bhs 7f
     moveq #1, %d6
+    bsr dmon_boomerang_hurts            | a darknut or a gohma only turns it back
+    tst.w %d0
+    beq 7f
     tst.b OFF_ENEMY_HP(%a5, %d5.w)
     bne 4f
     move.b #1, OFF_ENEMY_HP(%a5, %d5.w) | no hit points to speak of: one touch kills it
@@ -2465,7 +2478,7 @@ dodongo_frame:
     move.w %d6, %d1
     add.w %d1, %d1
     add.w %d5, %d1
-    ltab mon_art, %a0
+    bsr mon_art_ptr
     move.w %d7, %d0
     add.w %d0, %d0
     add.w 0(%a0, %d0.w), %d1
