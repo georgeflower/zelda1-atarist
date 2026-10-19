@@ -69,7 +69,7 @@ build.ps1, util.ps1      PowerShell helpers from the original disassembly projec
 README.md                short project overview (+ controls)
 AGENTS.md / CLAUDE.md    this briefing
 src/                     ORIGINAL NES disassembly (Z_00..Z_07.asm, *.inc, bins.xml, dat/)
-ext/Original.nes         your ROM (gitignored). (U) PRG0 or PRG1, 131088 bytes
+ext/Original.nes         your ROM (gitignored), 131088 bytes; built and tested with The Legend of Zelda (Europe) (Rev 1)
 atari_st/                the port
   Makefile               build: assets -> as -> ld -> objcopy -> PRG
   link.ld                linker script: .text, .data, then .rodata, single flat section
@@ -77,7 +77,7 @@ atari_st/                the port
   src/*.s                68000 code (one assembly unit, main.s .includes the rest)
   tools/*.py             asset pipeline, PRG packer, Hatari screenshot harness
   tests/*.py             unittest suites (140 tests); tests/golden/frames.json = golden frame hashes
-  music/                 YM2149 song source (zelda_intro_by_qum.h) + player (ymplay.h)
+  music/                 the YM2149 digidrum player (ymplay.h); the songs are ripped from the ROM
   build/                 OUTPUT (gitignored): generated/, ZELDAST.PRG, scratch, shots/
 ```
 
@@ -109,7 +109,7 @@ atari_st/                the port
 
 | file | role |
 | --- | --- |
-| `build_assets.py` | ROM -> ST data: tiles, rooms, palette, HUD glyphs, caves, writes `build/generated/*.bin` and `assets.inc`; placeholder fallback; `--verify-only`, `--require-source` |
+| `build_assets.py` | ROM -> ST data: tiles, rooms, palette, HUD glyphs, caves, writes `build/generated/*.bin` and `assets.inc`; stops without the ROM (no stand-in art); `--verify-only` |
 | `underworld.py` | Level tile rooms (LayOutRoom port), doors, cellars, reachable rooms |
 | `actors.py` | monsters, items, drops, sprites (sword, beam, effects, boomerang, HUD icons), per-room records |
 | `make_prg.py` | wraps the flat binary into a TOS PRG header (`--check` validates) |
@@ -119,8 +119,8 @@ atari_st/                the port
 | `check_reach.py` | run after every link: fails the build if an `ltab` symbol is missing or a branch or PC-relative operand does not fit 16 bits (reads `build/zelda_st.lst`) |
 | `dev_run.sh` | build with a start room + capture (needs `$TOS`) |
 | `compare_render.py`, `render_map.py` | diff the renderer against a Python render; render maps |
-| `ym_convert.py` | converts the song + player header into `music_data.bin`, `music_engine.bin`, drums, `music.inc` |
-| `music_pack.py` | packs the shipped overworld song and every other track ripped from the ROM (via `nes_music_rip.py`) into `music_bank.bin`, one shared `music_drum_table.bin` and `music_ids.inc`. Without the ROM or `py65` the bank holds only the overworld song and the rest stays silent. The Makefile passes `--overworld $(MUSIC_OVERWORLD)`: `rip` (default) is the NES original, `make MUSIC_OVERWORLD=qum` the shipped arrangement (without the ROM the shipped song is always used) |
+| `ym_convert.py` | converts the player header into `music_engine.bin` (the digidrum engine) |
+| `music_pack.py` | packs every track ripped from the ROM (via `nes_music_rip.py`) into `music_bank.bin`, one shared `music_drum_table.bin` and `music_ids.inc`. Without the ROM or `py65` the bank is empty and the game silent |
 | `nes_music_rip.py` | runs the ROM's own sound engine (bank 0) in py65 and writes every song, jingle and sound effect as `.ym` (YM6, 50 Hz; noise drums or digidrums). Output is ROM-derived: `*.ym` is gitignored. `--list` shows the tracks |
 
 ## 4. The exact toolchain (this is how it is built and tested here)
@@ -147,7 +147,7 @@ everything that builds runs in WSL.
 - **Linux / cloud sessions** (Claude Code on the web) build and test the same way with plain `make` and `python3`:
   `binutils-m68k-linux-gnu` (binutils 2.42), Hatari 2.4.1 and `etos512us.img` (EmuTOS 1.4, 60 Hz) as `TOS`. With EmuTOS the
   game starts running at about VBL 170 (`FRAME_COUNTER` is about N-170); with TOS 1.04 it is about 700. `gh` talks REST only
-  (`gh api repos/.../pulls`): GraphQL is blocked there. The graphics need `ext/Original.nes`; without it builds use placeholder tiles
+  (`gh api repos/.../pulls`): GraphQL is blocked there. Everything needs `ext/Original.nes`; without it the build stops (there is no stand-in art)
   and the golden frames skip.
 
 ### Build commands
@@ -169,16 +169,16 @@ python -m unittest discover -s atari_st\tests          # unit tests, Windows pyt
 
 The music bank (`music_bank.bin`, `music_drum_table.bin`, `music_ids.inc`) is built by `music_pack.py` from
 `ext/Original.nes`; the Makefile also tracks whether `py65` is importable (`build/music_capability.stamp`), so
-installing or removing it rebuilds the bank. Without ROM or `py65` the bank holds only the overworld song.
+installing or removing it rebuilds the bank. Without ROM or `py65` the bank is empty and the game silent.
 
 Makefile variables: `TOOLCHAIN_PREFIX` (default `m68k-linux-gnu-`), `PYTHON`
 (`python3`). Environment for the tools: `TOS` (path to a TOS image, needed by the
 screenshot harness), `HATARI` (binary, default `hatari`), and the **dev-start
 variables** below.
 
-The *"placeholder tiles ... will NOT resemble the original game artwork"* warning is
-printed only when the assets are generated without a ROM (`build/generated/asset_manifest.txt`
-then says `source=generated placeholder CHR`). With the real ROM it should not appear.
+Nothing in the port is drawn, written or composed separately from the ROM (the credits page for the port is the one text
+of its own): a build without `ext/Original.nes` stops with a message, and `build/generated/asset_manifest.txt` says
+`source=ROM-derived ...`. Do not add stand-in art for anything that is not available: read it from the ROM.
 
 ### Dev start variables (BAKED INTO THE BUILD - important)
 
@@ -215,7 +215,9 @@ Moldorm, traps, goriyas, old man, and Levels 3-8: a crowded room, a dark room, a
 the `FRAMEHASH` (SHA-256 of pixel indices plus palette) is compared with the stored one. **Hashes, not images**: the frames are
 Nintendo's artwork, so the tests keep no images. (Screenshots are not kept in the repository; the owner has a zip of the early ones.) Runs are deterministic. After a change that moves pixels on purpose: look at
 `build/golden/<scene>.png`, then `make golden-update` and commit `frames.json`. `make check` runs it and skips quietly without
-Hatari, `TOS` or the ROM. A scene that needs different input uses `--keys` in its `SCENES` entry.
+Hatari, `TOS` or the ROM. A scene that needs different input uses `--keys` in its `SCENES` entry. **Scenes where monsters move at random
+(`uw2_goriyas`, `uw4_dark`) depend on how long the PRG takes to load**: the harness captures at an absolute VBL, so a PRG of another size
+shows another frame of the walk. After a change that only moves the code, expect those two to change and re-record them.
 
 ### The Hatari harness (`tools/screenshot.py`)
 Hatari is run **headless** (`SDL_VIDEODRIVER=dummy`, `--disable-video true`,
@@ -687,7 +689,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **New variable**: `gvar` at the **end** of `globals.s` (never insert in the middle of the
   front arrays); `OFF_NAME` is then available; add it to the harness report if useful.
 - **New asset table**: field in `ActorData`, writer in `build_assets.py`, entry in the Makefile
-  `GENERATED` list, `.incbin` in `main.s` after the anchor, placeholder in `build_placeholder`.
+  `GENERATED` list, `.incbin` in `main.s` after the anchor, nothing else (no placeholder).
 
 ## 13. Lessons learned / pitfalls
 
@@ -717,7 +719,7 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the old man's flames shooting when he is hit; the overworld map on the ribbon; fireball art (placeholder); the stairs-type push block
+Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the old man's flames shooting when he is hit; the overworld map on the ribbon; the stairs-type push block
 (trigger 5); visible block slide animation; the waterfall and the sea sound; the rest of the sound (title, ending, game-over and
 boss music, DPCM); title/game-over/save (M10). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
 cloud. Level 2's Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.

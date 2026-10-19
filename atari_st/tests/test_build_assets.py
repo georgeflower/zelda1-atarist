@@ -9,6 +9,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 import build_assets  # noqa: E402
 
 
+# A fixture for the palette and sprite helper tests (sixteen distinct colours); nothing of it is shipped.
+TEST_NES_PALETTE = bytes(
+    (
+        0x0F, 0x30, 0x00, 0x12,
+        0x0F, 0x16, 0x27, 0x36,
+        0x0F, 0x1A, 0x37, 0x17,
+        0x0F, 0x29, 0x02, 0x22,
+        0x0F, 0x0C, 0x1C, 0x2C,
+        0x0F, 0x30, 0x27, 0x17,
+        0x0F, 0x16, 0x27, 0x30,
+        0x0F, 0x0C, 0x1C, 0x2C,
+    )
+)
+
+
 def _write_fake_rom(root: Path, blobs: dict[str, bytes]) -> None:
     """Lay the named blobs into a synthetic iNES image at PRG-relative offsets."""
     (root / "src").mkdir(exist_ok=True)
@@ -101,14 +116,14 @@ class DisassemblyParsingTests(unittest.TestCase):
 
 class PaletteTests(unittest.TestCase):
     def test_all_eight_nes_rows_share_one_st_palette(self) -> None:
-        palette = build_assets.build_palette_map(build_assets.PLACEHOLDER_NES_PALETTE)
+        palette = build_assets.build_palette_map(TEST_NES_PALETTE)
         self.assertEqual(len(palette.st_colors), build_assets.ST_PALETTE_SIZE)
         for row in range(build_assets.PALETTE_ROWS):
             for pixel in range(build_assets.PALETTE_ROW_COLORS):
                 self.assertLess(palette.index(row, pixel), build_assets.ST_PALETTE_SIZE)
 
     def test_pixel_zero_is_the_shared_backdrop_in_every_row(self) -> None:
-        palette = build_assets.build_palette_map(build_assets.PLACEHOLDER_NES_PALETTE)
+        palette = build_assets.build_palette_map(TEST_NES_PALETTE)
         backdrop = palette.index(0, 0)
         for row in range(build_assets.PALETTE_ROWS):
             self.assertEqual(palette.index(row, 0), backdrop)
@@ -152,14 +167,14 @@ class SpriteTests(unittest.TestCase):
         return tiles
 
     def test_frame_is_masked_where_the_nes_pixel_is_transparent(self) -> None:
-        palette = build_assets.build_palette_map(build_assets.PLACEHOLDER_NES_PALETTE)
+        palette = build_assets.build_palette_map(TEST_NES_PALETTE)
         frame = build_assets.build_sprite_frame(self._solid_tiles(), palette, 4, 0, flip=False)
         self.assertEqual(len(frame), build_assets.SPRITE_FRAME_BYTES)
         mask = int.from_bytes(frame[8:10], "big")
         self.assertEqual(mask, 0x8000)
 
     def test_horizontal_flip_mirrors_the_row(self) -> None:
-        palette = build_assets.build_palette_map(build_assets.PLACEHOLDER_NES_PALETTE)
+        palette = build_assets.build_palette_map(TEST_NES_PALETTE)
         frame = build_assets.build_sprite_frame(self._solid_tiles(), palette, 4, 0, flip=True)
         mask = int.from_bytes(frame[8:10], "big")
         self.assertEqual(mask, 0x0001)
@@ -172,7 +187,7 @@ ROM_ROOT = Path(__file__).resolve().parents[2]
 class RomOverworldTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+        cls.bundle = build_assets.load_assets(ROM_ROOT)
 
     def test_whole_overworld_is_decoded(self) -> None:
         rooms = self.bundle.rooms
@@ -310,19 +325,12 @@ class UnderworldGeometryTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             underworld.minimap_first_column([0x00, 0x04, 0x08])    # needs ten columns
 
-    def test_placeholder_underworld_is_consistent(self) -> None:
-        import underworld
-
-        uw = underworld.build_placeholder()
-        self.assertEqual(len(uw.rooms[0]), underworld.UW_ROOM_BYTES)
-        self.assertEqual(len(uw.tile_bank), len(uw.tile_nes) * 32)
-
 
 @unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
 class RomUnderworldTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.uw = build_assets.load_assets(ROM_ROOT, require_source=True).uw
+        cls.uw = build_assets.load_assets(ROM_ROOT).uw
 
     def test_level_one_has_seventeen_rooms_from_the_start_room(self) -> None:
         stored = [room for room, index in enumerate(self.uw.room_index) if index != 0xFF]
@@ -357,7 +365,7 @@ class RomAllDungeonsTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+        cls.bundle = build_assets.load_assets(ROM_ROOT)
 
     def test_every_dungeon_has_its_rooms_and_a_triforce_room_among_them(self) -> None:
         for level, count in self.ROOMS.items():
@@ -454,7 +462,7 @@ class RomLevelPaletteTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+        cls.bundle = build_assets.load_assets(ROM_ROOT)
 
     def test_every_level_has_a_sixteen_colour_palette(self) -> None:
         self.assertEqual(len(self.bundle.level_palettes), 9)
@@ -512,7 +520,7 @@ class RomActorTests(unittest.TestCase):
         import actors
 
         cls.actors = actors
-        cls.data = build_assets.load_assets(ROM_ROOT, require_source=True).uw.actors
+        cls.data = build_assets.load_assets(ROM_ROOT).uw.actors
 
     def test_every_monster_has_eight_frames_and_a_table_row(self) -> None:
         count = len(self.actors.MONSTER_TYPES)
@@ -532,7 +540,7 @@ class RomActorTests(unittest.TestCase):
         self.assertEqual(start(0x07), start(0x08))
 
     def test_overworld_records_count_and_index_known_monsters(self) -> None:
-        info = build_assets.load_assets(ROM_ROOT, require_source=True).ow_room_info
+        info = build_assets.load_assets(ROM_ROOT).ow_room_info
         self.assertEqual(len(info), 128 * self.actors.OW_ROOM_INFO_BYTES)
         for room in range(128):
             record = info[room * 16 : room * 16 + 16]
@@ -555,7 +563,7 @@ class RomActorTests(unittest.TestCase):
     def test_stalfos_room_lists_five_stalfos(self) -> None:
         import underworld  # noqa: F401
 
-        uw = build_assets.load_assets(ROM_ROOT, require_source=True).uw
+        uw = build_assets.load_assets(ROM_ROOT).uw
         record = self.data.room_info[uw.room_index[0x74]]
         stalfos = self.actors.MONSTER_TYPES.index(0x2A)
         self.assertEqual(list(record[6:11]), [stalfos] * 5)
@@ -564,7 +572,7 @@ class RomActorTests(unittest.TestCase):
     def test_level_one_has_one_treasure_cellar_below_room_22(self) -> None:
         import underworld
 
-        uw = build_assets.load_assets(ROM_ROOT, require_source=True).uw
+        uw = build_assets.load_assets(ROM_ROOT).uw
         self.assertEqual(len(uw.cellar_maps), 1)
         self.assertEqual(len(uw.cellar_maps[0]), underworld.UW_ROOM_BYTES)
         dest_a, dest_b, _position, item, _x, _y, room, kind = uw.cellar_info[0]
@@ -574,7 +582,7 @@ class RomActorTests(unittest.TestCase):
         self.assertIn(0x0A, self.actors.ITEM_IDS)
 
     def test_old_man_says_the_famous_line(self) -> None:
-        bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+        bundle = build_assets.load_assets(ROM_ROOT)
         letters = {0x0A + n: chr(ord("A") + n) for n in range(26)}
         letters.update({0x24: " ", 0x25: " ", 0x29: "!", 0x2A: "'", 0x2C: "."})
         cave = bundle.cave_text[: build_assets.PERSON_TEXT_BYTES]   # the dungeon people's speeches follow it
@@ -597,7 +605,7 @@ class RomActorTests(unittest.TestCase):
         return " ".join("".join(letters.get(code, str(code)) if code >= 10 else str(code) for code in out).split())
 
     def test_cave_table_follows_the_rom(self) -> None:
-        bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+        bundle = build_assets.load_assets(ROM_ROOT)
         table = bundle.cave_table
         self.assertEqual(len(table), build_assets.CAVE_TYPES * build_assets.CAVE_RECORD_BYTES)
 
@@ -633,7 +641,7 @@ class RomActorTests(unittest.TestCase):
         self.assertEqual(bundle.cave_shortcuts, bytes((0x1D, 0x23, 0x49, 0x79)))
 
     def test_level_one_old_man_sits_in_room_41_with_his_own_speech(self) -> None:
-        bundle = build_assets.load_assets(ROM_ROOT, require_source=True)
+        bundle = build_assets.load_assets(ROM_ROOT)
         uw = bundle.uw
         letters = {0x0A + n: chr(ord("A") + n) for n in range(26)}
         letters.update({0x24: " ", 0x25: " ", 0x2C: "."})
@@ -688,17 +696,26 @@ class RomActorTests(unittest.TestCase):
         )
 
 
+@unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
 class OutputTests(unittest.TestCase):
-    def test_placeholder_generation_and_verification(self) -> None:
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.bundle = build_assets.load_assets(ROM_ROOT)
+
+    def test_a_build_without_a_rom_is_refused(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             source_root = Path(tmpdir) / "source"
             source_root.mkdir()
+            with self.assertRaises(SystemExit) as raised:
+                build_assets.load_assets(source_root)
+            self.assertIn("nothing is drawn separately", str(raised.exception))
+
+    def test_generation_and_verification(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
             out_dir = Path(tmpdir) / "out"
+            self.assertIn("ROM-derived", self.bundle.source_note)
 
-            bundle = build_assets.load_assets(source_root)
-            self.assertIn("placeholder", bundle.source_note)
-
-            build_assets.write_outputs(out_dir, bundle)
+            build_assets.write_outputs(out_dir, self.bundle)
             build_assets.verify_outputs(out_dir)
 
             include_text = (out_dir / "assets.inc").read_text(encoding="utf-8")
@@ -706,42 +723,32 @@ class OutputTests(unittest.TestCase):
             self.assertIn("room_palette:", include_text)
             self.assertIn("level_palettes:", include_text)
             self.assertIn("walkable_tiles:", include_text)
-            self.assertIn("source=generated placeholder CHR", manifest_text)
+            self.assertIn("source=ROM-derived", manifest_text)
+            self.assertFalse((out_dir / "enemy_sprites.bin").exists(), "no hand-drawn monster picture is emitted")
 
     def test_metatile_tiles_match_the_decoded_quads(self) -> None:
         # The runtime derives collision tiles from this table, so it has to hold the
         # raw NES tile indices in the same order the metatiles were built from.
         with tempfile.TemporaryDirectory() as tmpdir:
-            source_root = Path(tmpdir) / "source"
-            source_root.mkdir()
             out_dir = Path(tmpdir) / "out"
-
-            bundle = build_assets.load_assets(source_root)
-            build_assets.write_outputs(out_dir, bundle)
+            build_assets.write_outputs(out_dir, self.bundle)
 
             emitted = list((out_dir / "metatile_tiles.bin").read_bytes())
-            expected = [tile for _, quad in bundle.metatiles for tile in quad]
+            expected = [tile for _, quad in self.bundle.metatiles for tile in quad]
             self.assertEqual(emitted, expected)
 
     def test_room_maps_are_emitted_row_major(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            source_root = Path(tmpdir) / "source"
-            source_root.mkdir()
             out_dir = Path(tmpdir) / "out"
-
-            bundle = build_assets.load_assets(source_root)
-            build_assets.write_outputs(out_dir, bundle)
+            build_assets.write_outputs(out_dir, self.bundle)
 
             emitted = list((out_dir / "room_maps.bin").read_bytes())
-            self.assertEqual(emitted, [value for room in bundle.rooms for value in room])
+            self.assertEqual(emitted, [value for room in self.bundle.rooms for value in room])
 
     def test_missing_output_file_fails_verification(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            source_root = Path(tmpdir) / "source"
-            source_root.mkdir()
             out_dir = Path(tmpdir) / "out"
-
-            build_assets.write_outputs(out_dir, build_assets.load_assets(source_root))
+            build_assets.write_outputs(out_dir, self.bundle)
             (out_dir / "link_sprites.bin").unlink()
             with self.assertRaises(SystemExit):
                 build_assets.verify_outputs(out_dir)

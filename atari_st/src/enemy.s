@@ -1,8 +1,7 @@
 | Monsters: spawning, wandering and drawing.
 |
-| Overworld rooms of template $07 still get the simple procedural blobs (type
-| 255). Underworld rooms spawn the monsters listed for them, drawn with the
-| original sprite art. Hit points, damage and drops live in combat.s.
+| Every room spawns the monsters listed for it, drawn with the ROM's own sprite art. Hit points, damage and
+| drops live in combat.s.
 
 | d0.b = a pseudo-random byte
 rand8:
@@ -956,8 +955,6 @@ draw_enemies:
 
     moveq #0, %d0
     move.b OFF_ENEMY_TYPE(%a5, %d3.w), %d0
-    cmpi.b #0xff, %d0
-    beq 2f
 
     | Underworld monster. Its mode says which of its images to show and whether
     | to mirror it, the way the original's update routines choose.
@@ -1084,14 +1081,6 @@ draw_enemies:
     movea.l OFF_MON_SPR(%a5), %a0
     adda.l %d1, %a0
     bra 4f
-
-2:  move.w OFF_FRAME_COUNTER(%a5), %d1
-    lsr.w #4, %d1
-    add.w %d3, %d1
-    andi.w #1, %d1
-    mulu.w #SPRITE_FRAME_BYTES, %d1
-    ltab enemy_sprites, %a0
-    adda.l %d1, %a0
 
 4:  moveq #0, %d1
     moveq #0, %d2

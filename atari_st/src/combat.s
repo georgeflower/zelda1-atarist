@@ -1,8 +1,7 @@
 | Combat and pickups: the sword, damage in both directions, monster drops and
 | the items lying on the floor.
 |
-| Simplifications against the original, to be revisited: one sword damage and
-| a placeholder blade sprite.
+| Simplification against the original, to be revisited: one sword damage.
 
     .equ SCAN_SPACE, 0x39           | A: the sword, like the joystick's fire button
     .equ SCAN_CTRL, 0x1d            | B: the selected item, like Alternate
@@ -857,11 +856,8 @@ enemy_contact:
 3:  cmp.w #CONTACT_RANGE, %d3
     bhs 8f
 
-    moveq #1, %d1               | blobs bite for a half heart
     moveq #0, %d0
     move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
-    cmpi.b #0xff, %d0
-    beq 4f
     ltab mon_table, %a0
     lsl.w #3, %d0
     moveq #0, %d1

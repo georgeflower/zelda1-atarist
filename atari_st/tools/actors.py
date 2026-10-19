@@ -371,7 +371,7 @@ class ActorData:
     sword_sprites: bytes      # up, down, left, right for the wooden, white and magic sword, then the rod
     beam_sprites: bytes       # the sword's shot: up, down, left, right, each in four palette rows
     fx_sprites: bytes         # two bomb clouds, then four spark corners in four palette rows each
-    proj_sprites: bytes       # 4 boomerang turns, 2 fireball frames, then 4 pieces for each Aquamentus image
+    proj_sprites: bytes       # 8 boomerang turns and a spark, 4 fireball frames (the 4 sprite palettes), then 4 pieces for each Aquamentus image
     hud_items: bytes          # sword, bomb, boomerang, candle, compass, map, bow as two status bar tiles each, top then bottom
     room_info: list[bytes]    # ROOM_INFO_BYTES per stored room
     keese_index: int = 0      # monster index of the keese the cellars are full of
@@ -865,6 +865,8 @@ def _boss_pieces(sp_tiles, palette) -> list[bytes]:
 
 
 ROCK_TYPE = 0x53            # the octorok's flying rock
+FIREBALL_TYPE = 0x55        # Aquamentus' and the zora's fireball (type $56 is the unblockable one, drawn the same)
+FIREBALL_FRAMES = 4         # one per sprite palette
 ARROW_SLOT = 2              # the item slot of the arrow (Anim_ItemFrameOffsets)
 MONSTER_ARROW_ROW = 2       # a monster's arrow adds 2 to the base attribute: palette row 6
 
@@ -889,17 +891,13 @@ def _arrow_frames(code, sp_tiles, bg_tiles, palette) -> bytes:
 
 
 def _projectile_sprites(code, sp_tiles, bg_tiles, palette, ow_sp_tiles, heap, attr_heap, anim) -> bytes:
-    """Eight boomerang images and its spark, two fireball frames, the Aquamentus pieces, a rock, four arrows."""
-    fire = palette.index(B.LINK_PALETTE_ROW + 2, 3)
-    fire_dark = palette.index(B.LINK_PALETTE_ROW + 2, 2)
+    """Eight boomerang images and its spark, the fireball in the four sprite palettes, the Aquamentus pieces, a rock, four arrows."""
     frames = _boomerang_frames(code, sp_tiles, bg_tiles, palette)
-    for phase in range(2):
-        rows = _blank(16)
-        for y in range(8):
-            for x in range(8):
-                distance = (2 * x - 7) ** 2 + (2 * y - 7) ** 2
-                if distance <= 36:
-                    rows[4 + y][4 + x] = fire if (distance <= 16) == (phase == 0) else fire_dark
+    # L_DrawShot: the fireball (type $55, half-width: ObjectTypeToAttributes $E3) is image 0 of its animation, and its
+    # sprite attributes are FrameCounter & 3, so it flashes through the four sprite palettes, one a frame.
+    tile = heap[anim[FIREBALL_TYPE + 1]]
+    for phase in range(FIREBALL_FRAMES):
+        rows = _monster_image(sp_tiles, palette, B.LINK_PALETTE_ROW + phase, tile, "narrow")
         frames.append(_pack_masked(rows))
     return (b"".join(frames) + b"".join(_boss_pieces(sp_tiles, palette))
             + _rock_frame(heap, attr_heap, anim, ow_sp_tiles, palette)
@@ -1059,27 +1057,3 @@ def overworld_room_info(source_root: Path, attrs_a, attrs_c, attrs_d, attrs_f, f
         record.extend([0xFF] * (OW_ROOM_INFO_BYTES - len(record)))
         records.extend(record)
     return bytes(records)
-
-
-def build_placeholder() -> ActorData:
-    frame = _pack_masked([[1] * 16 for _ in range(16)])
-    return ActorData(
-        mon_sprites=frame * (MONSTER_IMAGES * 2),
-        mon_table=bytes((0x2A, 2, 2, 1, 0, 0, 0, 0)),
-        mon_mask=bytes((HURT_ALL,)),
-        mon_art=bytes(2),
-        monster_arts=(frame * (MONSTER_IMAGES * 2),),
-        mon_index=bytes([0xFF]) * 256,
-        item_sprites=frame,
-        item_index=bytes([0xFF]) * 64,
-        drop_table=bytes(40),
-        drop_rates=bytes(4),
-        sword_sprites=frame * (4 * SWORD_SETS),
-        beam_sprites=frame * 16,
-        fx_sprites=frame * 20,
-        proj_sprites=frame * 32,
-        hud_items=bytes(len(HUD_ITEM_IDS) * 2 * B.HUD_TILE_BYTES),
-        room_info=[bytes([0, 0, 0xFF, 0, 0, 0] + [0xFF] * 10)],
-        item_slot=bytes(ITEM_COUNT),
-        item_desc=bytes(ITEM_COUNT),
-    )

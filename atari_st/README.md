@@ -61,12 +61,11 @@ Platform and rendering
   straight to the visible screen
 - keyboard input through an IKBD interrupt that queues every byte, so no key
   release is ever missed
-- YM2149 music and sound effects from a VBL hook: the NES original overworld theme (your arrangement
-  `zelda_intro_by_qum` with `make MUSIC_OVERWORLD=qum`), the ROM's dungeon and Level 9 themes, event fanfares and effects laid over the
+- YM2149 music and sound effects from a VBL hook: the NES original overworld theme, the ROM's
+  dungeon and Level 9 themes, event fanfares and effects laid over the
   music (digidrums included): sword, boomerang, flame, bomb, stairs, pickups, hurt,
   the low-life beep and the menu and cave-text clicks. Everything is ripped from
-  `ext/Original.nes` at build time; without the ROM (or `py65`) only your
-  overworld arrangement plays
+  `ext/Original.nes` at build time with the ROM's own sound engine; without `py65` the game is silent
 - status ribbon: hearts (with halves), rupee, key and bomb counters, in the
   original glyphs, and the B and A item boxes
 - the IKBD joystick (either port) can walk Link and fire the sword
@@ -275,8 +274,8 @@ Combat and items
 
 Tooling
 
-- asset pipeline from the ROM to ST data (see below) with a placeholder
-  fallback so the target still builds without any ROM
+- asset pipeline from the ROM to ST data (see below); every picture, room, text and sound is read from
+  the ROM, nothing is drawn or recreated separately, and a build without the ROM stops with a message
 - `tools/dump_tables.py` writes the ROM tables the port is built from (all
   overworld screens, every room of the nine dungeons, the monster lists) as JSON
   and Markdown under `build/dump`
@@ -295,7 +294,6 @@ Known gaps
 
 Things that behave differently from the original, or are stand-ins:
 
-- fireball art is placeholder (Aquamentus himself is original)
 - Levels 3 to 9 were checked by loading every room in Hatari, by scripted runs (the second
   Digdogger and its heart container, Lanmola, Patra, a stash left and re-entered, the door
   man, the magic key on a locked door, the ladder over a moat) and by a test that replays every
@@ -377,14 +375,14 @@ Outputs:
 Supplying the game data
 -----------------------
 
-Put a `(U) (PRG0)` or `(PRG1)` ROM image at `ext/Original.nes`. The build reads
+Put a 131,088-byte iNES ROM image at `ext/Original.nes` (the port is built and tested with *The Legend of
+Zelda (Europe) (Rev 1)*, SHA-1 `4a29a5157f1948b2b8c25978ce6d9ff7a3c14708`; the disassembly in `src/` describes the
+(U) PRG0/PRG1 images). The build reads
 it through `src/bins.xml`, whose offsets are relative to the start of PRG ROM
 because Zelda uses CHR-RAM and stores its graphics inside PRG. `ext/` and
 `*.nes` are both gitignored, so the ROM never enters version control.
 
-Without it the build still succeeds, but prints a warning and emits
-procedurally generated placeholder art. Pass `--require-source` to
-`tools/build_assets.py` to make a missing ROM a hard error instead.
+Without it `tools/build_assets.py` (and so `make`) stops with an error: there is no stand-in art.
 
 The asset pipeline
 ------------------

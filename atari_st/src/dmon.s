@@ -68,8 +68,6 @@ dmon_hit_filter:
     beq 8f                              | no weapon named: it is not turned aside
     moveq #0, %d0
     move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
-    cmpi.b #0xff, %d0
-    beq 8f                              | the overworld's blobs
     cmp.b #MON_MANHANDLA, %d0
     bne 3f
     tst.b OFF_ENEMY_STEP(%a5, %d5.w)

@@ -85,24 +85,18 @@ class PackerTests(unittest.TestCase):
         self.assertEqual(len(table) % 2, 0)
         self.assertEqual(mp.parse_drum_table(table), drums)
 
-    def test_the_shipped_song_keeps_its_drum_table_layout(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            out = Path(tmp)
-            ym_convert.convert(ROOT / "music" / "zelda_intro_by_qum.h", ROOT / "music" / "ymplay.h", out)
-            drums = mp.parse_drum_table((out / "music_drums.bin").read_bytes())
-            self.assertEqual(mp.pack_drum_table(drums), (out / "music_drums.bin").read_bytes())
-            bank = mp.build_bank(out / "music_data.bin", out / "music_drums.bin", out / "music.inc", None)
-        song = bank.tracks[mp.OVERWORLD_ID]
-        self.assertEqual((song.frames, song.loop_frame, song.loop_offset, song.loops), (4174, 1392, 3628, True))
-        self.assertTrue(all(t.frames == 0 for t in bank.tracks[1:]))
+    def test_without_a_rom_the_bank_is_silent_and_has_every_track(self) -> None:
+        bank = mp.build_bank(None)
+        self.assertEqual(len(bank.tracks), len(mp.TRACK_LIST))
+        self.assertTrue(all(t.frames == 0 and not t.stream for t in bank.tracks))
+        self.assertEqual(bank.drums, [])
         data = bank.to_bytes()
         n, zero = struct.unpack(">HH", data[:4])
         self.assertEqual((n, zero), (len(mp.TRACK_LIST), 0))
-        offset, loop, frames, loop_frame, kind, loops, _ = struct.unpack(">IIHHBBH", data[4:20])
-        self.assertEqual((frames, loop_frame, kind, loops), (4174, 1392, mp.SONG, 1))
-        self.assertEqual(data[offset : offset + 8], song.stream[:8])
-        self.assertEqual(loop, 3628)
-        self.assertEqual(struct.unpack(">IIHHBBH", data[20:36])[0], 0)  # no data: offset 0
+        for i in range(n):
+            self.assertEqual(struct.unpack(">IIHHBBH", data[4 + 16 * i : 20 + 16 * i])[0], 0)  # no data: offset 0
+        self.assertEqual(len(data), 4 + 16 * n)
+        self.assertEqual(mp.pack_drum_table(bank.drums), struct.pack(">H", 0))
 
     def test_ids_include_names_every_track(self) -> None:
         bank = mp.Bank([mp.Track(name, kind) for name, kind, _ in mp.TRACK_LIST])
@@ -225,7 +219,7 @@ def toolchain_ok() -> bool:
 
 def engine_blob() -> bytes:
     with tempfile.TemporaryDirectory() as tmp:
-        ym_convert.convert(ROOT / "music" / "zelda_intro_by_qum.h", ROOT / "music" / "ymplay.h", Path(tmp))
+        ym_convert.convert(ROOT / "music" / "ymplay.h", Path(tmp))
         return (Path(tmp) / "music_engine.bin").read_bytes()
 
 
@@ -510,9 +504,7 @@ class BankBuildTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)
-            ym_convert.convert(ROOT / "music" / "zelda_intro_by_qum.h", ROOT / "music" / "ymplay.h", out)
-            bank = mp.build_bank(out / "music_data.bin", out / "music_drums.bin", out / "music.inc",
-                                 rip.load_prg(rom), log=lambda *_: None)
+            bank = mp.build_bank(rip.load_prg(rom), log=lambda *_: None)
         for t in bank.tracks:
             self.assertGreater(t.frames, 0, t.name)
             self.assertGreater(len(t.stream), 0, t.name)
@@ -521,7 +513,7 @@ class BankBuildTests(unittest.TestCase):
             for row in regs:
                 self.assertEqual(row[7] & 0xC0, 0xC0, t.name)
         ow = bank.tracks[mp.OVERWORLD_ID]
-        self.assertEqual(ow.frames, 4174)  # the shipped arrangement, untouched
+        self.assertTrue(ow.loops)
         self.assertLessEqual(len(bank.drums), mp.MAX_DRUMS)
         beep = next(t for t in bank.tracks if t.name == "SFX_HEART_WARNING")
         self.assertEqual(beep.frames, 19, "the beep keeps its pause")
@@ -563,9 +555,8 @@ class RealBankTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)
-            ym_convert.convert(ROOT / "music" / "zelda_intro_by_qum.h", ROOT / "music" / "ymplay.h", out)
-            bank = mp.build_bank(out / "music_data.bin", out / "music_drums.bin", out / "music.inc",
-                                 rip.load_prg(rom), overworld="rip", log=lambda *_: None)
+            ym_convert.convert(ROOT / "music" / "ymplay.h", out)
+            bank = mp.build_bank(rip.load_prg(rom), log=lambda *_: None)
             engine = (out / "music_engine.bin").read_bytes()
         c = Cpu68k(bank, bank.drums, engine)
         self.addCleanup(c.close)

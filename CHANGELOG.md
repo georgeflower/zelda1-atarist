@@ -4,6 +4,19 @@ Versions are milestones of the Atari ST port (`0.NN`), tagged on the commit that
 a new mechanic family, a milestone package of `atari_st/PLAN.md`) gets its own version; fixes and docs ride along with the
 version they belong to. The current version is **0.33**.
 
+## 0.33.1 (2026-10-19) - nothing but the ROM's own art and music
+- The song `zelda_intro_by_qum` is gone from the repository (header, notes, `MUSIC_OVERWORLD`, `--overworld`, `--song-dir`, the shipped-song
+  tests). The overworld plays the ROM's theme like every other track; `ym_convert.py` only converts the digidrum engine of `ymplay.h`.
+  Without the ROM (or `py65`) the music bank is empty and the game silent.
+- The placeholder fallback of the asset pipeline is gone (procedural tiles, rooms, the one-room dungeon, the stand-in palette, `--require-source`):
+  a build without `ext/Original.nes` stops with a message. The overworld blob monster (type 255 and `enemy_sprites.bin`) is gone too; it had
+  not been spawned for a long time.
+- The fireball (Aquamentus and the zora) was a circle drawn by `actors.py`. It is now the ROM's: tile `$44`, half width (`ObjectTypeToAttributes` `$E3`),
+  with the attributes `FrameCounter & 3`, so it flashes through the four sprite palettes one a frame (`PF_FIREBALL` has four frames).
+- Unit tests that needed the stand-ins now use the ROM and skip without it. `uw1_aquamentus` (the fireballs), `uw2_goriyas` and `uw4_dark`
+  (random walks that move with the PRG's size, see `AGENTS.md`) were re-recorded.
+- README names the ROM the port is built and tested with (*The Legend of Zelda (Europe) (Rev 1)*).
+
 ## 0.33 (2026-10-19) - overworld specials (M4)
 - New module `owspec.s` (monsters `$1E` armos, `$2E` whirlwind, `$2F` fairy are made by code; `actors.py` has their rows, art and draw
   modes `MODE_ARMOS`, `MODE_FAIRY`; the behaviours `BEH_ARMOS`, `BEH_WHIRLWIND`, `BEH_FAIRY` run through `mover_update`).

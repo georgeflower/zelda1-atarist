@@ -215,22 +215,6 @@ NES_RGB = (
     (0x9C, 0xFC, 0xF0), (0xC4, 0xC4, 0xC4), (0x00, 0x00, 0x00), (0x00, 0x00, 0x00),
 )
 
-# Stand-in NES palette used when no ROM is available. Sixteen distinct colours so
-# the placeholder build exercises exactly the same merged-palette path.
-PLACEHOLDER_NES_PALETTE = bytes(
-    (
-        0x0F, 0x30, 0x00, 0x12,
-        0x0F, 0x16, 0x27, 0x36,
-        0x0F, 0x1A, 0x37, 0x17,
-        0x0F, 0x29, 0x02, 0x22,
-        0x0F, 0x0C, 0x1C, 0x2C,
-        0x0F, 0x30, 0x27, 0x17,
-        0x0F, 0x16, 0x27, 0x30,
-        0x0F, 0x0C, 0x1C, 0x2C,
-    )
-)
-
-
 def nes_color_to_st(color_index: int) -> int:
     red, green, blue = NES_RGB[color_index & 0x3F]
     return ((red >> 5) << 8) | ((green >> 5) << 4) | (blue >> 5)
@@ -440,52 +424,6 @@ def assemble_pattern_table(blocks: Iterable[tuple[int, bytes]]) -> list[list[lis
             if index < len(tiles):
                 tiles[index] = tile
     return tiles
-
-
-def build_placeholder_tiles() -> list[list[list[int]]]:
-    """Procedural stand-in art so the target still builds without any ROM."""
-    tiles: list[list[list[int]]] = []
-    for tile_index in range(256):
-        rows: list[list[int]] = []
-        for y in range(8):
-            row = []
-            for x in range(8):
-                selector = tile_index % 6
-                if selector == 0:
-                    pixel = 1 + ((x + y + tile_index) % 3)
-                elif selector == 1:
-                    pixel = 1 + ((x // 2 + tile_index) % 3)
-                elif selector == 2:
-                    pixel = 1 + ((y // 2 + tile_index) % 3)
-                elif selector == 3:
-                    pixel = 1 + (((x ^ y) + tile_index) % 3)
-                elif selector == 4:
-                    pixel = 3 if x in (0, 7) or y in (0, 7) else 1
-                else:
-                    pixel = 2 if (x - 3) * (x - 3) + (y - 3) * (y - 3) <= 8 else 0
-                row.append(pixel)
-            rows.append(row)
-        tiles.append(rows)
-    return tiles
-
-
-def build_placeholder_rooms() -> tuple[list[list[int]], list[tuple[int, tuple[int, int, int, int]]]]:
-    """A handful of synthetic rooms with the same shape as the decoded overworld."""
-    metatiles = [
-        (0, (0x10, 0x11, 0x12, 0x13)),
-        (1, (0x20, 0x21, 0x22, 0x23)),
-        (2, (0x30, 0x31, 0x32, 0x33)),
-        (3, (0x90, 0x91, 0x92, 0x93)),
-    ]
-    rooms: list[list[int]] = []
-    for room_id in range(4):
-        grid: list[int] = []
-        for row in range(OW_ROOM_ROWS):
-            for col in range(OW_ROOM_COLS):
-                edge = row in (0, OW_ROOM_ROWS - 1) or col in (0, OW_ROOM_COLS - 1)
-                grid.append(3 if edge else (room_id + col + row) % 3)
-        rooms.append(grid)
-    return rooms, metatiles
 
 
 @dataclass(frozen=True)
@@ -877,7 +815,7 @@ def text_glyph_map() -> bytes:
     return bytes(by_tile.get(code, 0) for code in range(64))
 
 
-def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
+def load_assets(source_root: Path) -> AssetBundle:
     bg_tiles = load_ow_background_tiles(source_root)
     sprite_tiles = load_ow_sprite_tiles(source_root)
     if bg_tiles is not None and sprite_tiles is not None:
@@ -942,67 +880,11 @@ def load_assets(source_root: Path, require_source: bool = False) -> AssetBundle:
             start_y=start_y,
         )
 
-    if require_source:
-        raise SystemExit(
-            f"No pattern source found. Provide {source_root / 'bin'} "
-            f"or {source_root / 'ext' / 'Original.nes'}, or drop --require-source to build with placeholders."
-        )
-
-    print(
-        "WARNING: the ROM pattern blocks and ext/Original.nes are both missing.\n"
-        "         Building with procedurally generated placeholder tiles -- the\n"
-        "         result will NOT resemble the original game artwork.",
+    raise SystemExit(
+        f"No ROM found. Put the NES ROM at {source_root / 'ext' / 'Original.nes'} (or extract its blocks into "
+        f"{source_root / 'bin'}): every picture, room, text and sound of the port is read from it, nothing is "
+        "drawn separately."
     )
-    import underworld
-
-    placeholder_tiles = build_placeholder_tiles()
-    rooms, metatiles = build_placeholder_rooms()
-    return AssetBundle(
-        source_note="generated placeholder CHR (Original.nes not available)",
-        uw=underworld.build_placeholder(),
-        palette=build_palette_map(PLACEHOLDER_NES_PALETTE),
-        bg_tiles=placeholder_tiles,
-        sprite_tiles=placeholder_tiles,
-        rooms=rooms,
-        metatiles=metatiles,
-        room_attrs_a=[0] * len(rooms),
-        room_attrs_b=[0] * len(rooms),
-        room_attrs_c=[0] * len(rooms),
-        room_attrs_d=[0] * len(rooms),
-        room_attrs_f=[0] * len(rooms),
-        room_secrets=bytes(len(rooms) * OW_SECRET_BYTES + OW_EXTRA_BYTES),
-        foe_counts=[1, 4, 5, 6],
-        start_room=0,
-        start_y=0x8D,
-    )
-
-
-def build_enemy_frame(eye_y: int) -> bytes:
-    """Build a simple 16x16 masked blob sprite for the first enemy slice."""
-    packed = bytearray()
-    for y in range(16):
-        pixels: list[int] = []
-        for x in range(16):
-            dx = x - 7.5
-            dy = y - 7.5
-            inside = (dx * dx) / 36 + (dy * dy) / 25 <= 1.0
-            color = 0
-            if inside:
-                color = 6
-                if y >= 10:
-                    color = 10
-                if eye_y <= y <= eye_y + 1 and x in (5, 10):
-                    color = 15
-                if y == 12 and 5 <= x <= 10:
-                    color = 2
-            pixels.append(color)
-        packed.extend(pack_st_row(pixels))
-        mask = 0
-        for x, pixel in enumerate(pixels):
-            if pixel:
-                mask |= 1 << (15 - x)
-        packed.extend(mask.to_bytes(2, "big"))
-    return bytes(packed)
 
 
 def pack_st_row(pixels: Iterable[int]) -> bytes:
@@ -1137,10 +1019,6 @@ def render_hud_tiles(bundle: AssetBundle) -> bytes:
                 pack_hud_row([bundle.palette.index(palette_row, value) for value in tile[row]])
             )
     return bytes(packed)
-
-
-def render_enemy_sprites() -> bytes:
-    return build_enemy_frame(5) + build_enemy_frame(6)
 
 
 def format_words(label: str, values: Iterable[int]) -> str:
@@ -1356,7 +1234,6 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
     (out_dir / "link_sprites.bin").write_bytes(render_sprites(bundle))
     (out_dir / "ow_room_info.bin").write_bytes(bundle.ow_room_info)
     (out_dir / "room_secrets.bin").write_bytes(bundle.room_secrets)
-    (out_dir / "enemy_sprites.bin").write_bytes(render_enemy_sprites())
     (out_dir / "hud_tiles.bin").write_bytes(render_hud_tiles(bundle))
     # The big tables ship as binaries rather than .byte directives: 22KB of
     # assembler text is slow to assemble, and keeping .rodata compact matters
@@ -1586,22 +1463,17 @@ def verify_outputs(out_dir: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build Atari ST assets from Zelda source data or placeholders")
+    parser = argparse.ArgumentParser(description="Build Atari ST assets from the Zelda ROM")
     parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--verify-only", action="store_true")
-    parser.add_argument(
-        "--require-source",
-        action="store_true",
-        help="fail instead of falling back to placeholder tiles",
-    )
     args = parser.parse_args()
 
     if args.verify_only:
         verify_outputs(args.out_dir)
         return
 
-    bundle = load_assets(args.source_root, require_source=args.require_source)
+    bundle = load_assets(args.source_root)
     write_outputs(args.out_dir, bundle)
     verify_outputs(args.out_dir)
 

@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Pack every track the game can play into one bank the 68000 music player reads.
 
-Inputs
-  * the shipped overworld song, already converted by ym_convert.py (music_data.bin, music_drums.bin,
-    music.inc), kept byte for byte;
-  * the other songs, jingles and effects, ripped from the ROM with nes_music_rip.py.
+Input
+  * every song, jingle and effect, ripped from the ROM with nes_music_rip.py.
 
 The register stream is the MOD/XM -> YM tool's game-kit format, see music/ymplay.h and
 music.s (`music_step`):  per frame  A = bit7 "B follows" | mask R0-R6,  B = bit7 "trigger follows" |
@@ -15,13 +13,11 @@ Outputs (in --out-dir)
   music_drum_table.bin  one digidrum table for all tracks (the engine is initialised with it once)
   music_ids.inc         .equ for every track id, MUS_TRACKS, MUS_NONE
 
-Without a ROM (or without py65) only the shipped overworld song is in the bank and the other tracks
-are empty: the game still builds and runs, silently.
+Without a ROM (or without py65) every track is empty: the game still builds and runs, silently.
 """
 from __future__ import annotations
 
 import argparse
-import re
 import struct
 import sys
 from dataclasses import dataclass, field
@@ -224,38 +220,15 @@ def _trim_tail(regs: list[list[int]], trig: list[int], voices: tuple[int, ...], 
     return n
 
 
-def _read_inc(path: Path, name: str) -> int:
-    m = re.search(rf"\.equ\s+{name}\s*,\s*(\d+)", path.read_text(encoding="utf-8"))
-    if m is None:
-        raise SystemExit(f"{path}: no .equ {name}")
-    return int(m.group(1))
-
-
 def build_bank(
-    qum_data: Path,
-    qum_drums: Path,
-    qum_inc: Path,
     prg: bytes | None,
-    overworld: str = "qum",
     clock: str = "pal",
     tri_volume: int = 13,
     log=print,
 ) -> Bank:
-    """`prg` is the ROM's PRG (None: only the shipped overworld song)."""
+    """`prg` is the ROM's PRG (None: every track stays empty)."""
     tracks = [Track(name, kind) for name, kind, _ in TRACK_LIST]
-    drums = parse_drum_table(qum_drums.read_bytes())
-    if len(drums) > MAX_DRUMS:
-        raise SystemExit("the shipped song already has too many drums")
-
-    ow = tracks[OVERWORLD_ID]
-    if overworld == "qum" or prg is None:
-        ow.stream = qum_data.read_bytes()
-        ow.frames = _read_inc(qum_inc, "MUSIC_FRAMES")
-        ow.loop_frame = _read_inc(qum_inc, "MUSIC_LOOP_FRAME")
-        ow.loop_offset = _read_inc(qum_inc, "MUSIC_LOOP_OFFSET")
-        ow.loops = True
-        ow.note = "the shipped arrangement (zelda_intro_by_qum)"
-
+    drums: list[Drum] = []
     if prg is None:
         return Bank(tracks, drums)
 
@@ -265,8 +238,6 @@ def build_bank(
     clk = rip.CPU_CLOCK[clock]
     drum_index: dict[Drum, int] = {d: i for i, d in enumerate(drums)}
     for track, (name, kind, stem) in zip(tracks, TRACK_LIST):
-        if track.frames:  # the shipped overworld song
-            continue
         if kind == OVERLAY_C:
             game = rip.to_effect_stream(ripped[stem], clk, clock)
         else:
@@ -312,12 +283,8 @@ def write_outputs(bank: Bank, out_dir: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--rom", type=Path, help="Zelda 1 .nes ROM; without it only the shipped overworld song is packed")
-    parser.add_argument("--song-dir", type=Path, required=True,
-                        help="where ym_convert.py wrote music_data.bin, music_drums.bin and music.inc")
+    parser.add_argument("--rom", type=Path, help="Zelda 1 .nes ROM; without it the bank is empty")
     parser.add_argument("--out-dir", type=Path, required=True)
-    parser.add_argument("--overworld", choices=("qum", "rip"), default="qum",
-                        help="qum: the shipped arrangement (default); rip: the NES original")
     parser.add_argument("--clock", choices=("pal", "ntsc"), default="pal")
     parser.add_argument("--require-rom", action="store_true", help="fail instead of building a silent bank")
     args = parser.parse_args()
@@ -330,8 +297,7 @@ def main() -> None:
         except ImportError:
             if args.require_rom:
                 raise SystemExit("py65 is required to rip the music: pip install py65")
-            print("music_pack: py65 is not installed; only the shipped overworld song is in the bank "
-                  "(pip install py65 for the rest)")
+            print("music_pack: py65 is not installed; the bank is empty (pip install py65)")
         else:
             import nes_music_rip as rip
 
@@ -339,17 +305,10 @@ def main() -> None:
     elif args.require_rom:
         raise SystemExit("music_pack: no ROM")
     else:
-        print("music_pack: no ROM; only the shipped overworld song is in the bank")
+        print("music_pack: no ROM; the bank is empty")
 
-    print(f"music_pack: {'ripping the ROM music' if prg else 'overworld only'}")
-    bank = build_bank(
-        args.song_dir / "music_data.bin",
-        args.song_dir / "music_drums.bin",
-        args.song_dir / "music.inc",
-        prg,
-        args.overworld,
-        args.clock,
-    )
+    print(f"music_pack: {'ripping the ROM music' if prg else 'silent bank'}")
+    bank = build_bank(prg, args.clock)
     write_outputs(bank, args.out_dir)
     total = len(bank.to_bytes()) + len(pack_drum_table(bank.drums))
     print(f"music_pack: {sum(1 for t in bank.tracks if t.frames)}/{len(bank.tracks)} tracks, "
