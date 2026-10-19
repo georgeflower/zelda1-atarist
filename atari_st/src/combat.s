@@ -638,6 +638,10 @@ hit_enemy:
     beq 61f
     cmp.w #BEH_LANMOLA, %d0
     beq 61f
+    cmp.w #BEH_PATRA, %d0
+    beq 61f
+    cmp.w #BEH_PATRA_CHILD, %d0
+    beq 61f
     cmp.w #BEH_MANHANDLA, %d0
     bne 6f
 61: clr.b OFF_ENEMY_SHOVE(%a5, %d5.w)   | a Moldorm segment or a Manhandla hand is hurt but not knocked about

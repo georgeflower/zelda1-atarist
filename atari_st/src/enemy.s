@@ -470,6 +470,10 @@ update_enemies:
     beq 2f                      | nor is a head of Gleeok
     cmp.w #BEH_LANMOLA, %d0
     beq 2f                      | nor a segment of Lanmola
+    cmp.w #BEH_PATRA, %d0
+    beq 2f                      | nor Patra or one of its children
+    cmp.w #BEH_PATRA_CHILD, %d0
+    beq 2f
     bsr enemy_shove
     bra 8f
 

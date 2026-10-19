@@ -28,6 +28,9 @@
     farstub take_item_bf, take_item
     farstub enemy_cell_blocked_bf, enemy_cell_blocked
     farstub opposite_dir_bf, opposite_dir
+    farstub keese_turn_to_link_bf, keese_turn_to_link
+    farstub keese_turn_random_bf, keese_turn_random
+    farstub flyer_bound_bf, flyer_bound
 
 | ---------------------------------------------------------------- wizzrobes
 | Wizzrobes (UpdateBlueWizzrobe, UpdateRedWizzrobe). ENEMY_GHOST is set while one is not drawn: weapons pass through
@@ -1916,6 +1919,283 @@ lanmola_head:
     beq 42b
     dbra %d7, 41b
 99: movem.l (%sp)+, %d0-%d7/%a0
+    rts
+
+| ------------------------------------------------------------------ Patra
+| UpdatePatra and its children. The eye starts at ($80, $70) facing up, speeds up from $1F to $40 (a quarter of a
+| pixel a frame), then chooses again and again (Flyer_PatraDecideState: chase Link, or wander, eight turns of $10
+| frames each; ENEMY_STATE is the flying state 0 speed up, 1 decide, 2 chase, 3 wander). Round it fly the children,
+| each at a whole angle of 32 to the circle (ENEMY_STEP) and a fraction (ENEMY_FRAC), going round at $70 / 256 of a
+| step a frame (the second kind $60). They come out at the top one at a time, each when the first has gone another
+| eighth of the way round. The ROM has eight; this port has seven (eight monster slots), so one place stays empty.
+| The orbit is the original's integrated circle written as a position: X = eye X + RX cos a, Y = eye Y + RY sin a.
+| The radii are $2C and $2C (or $2C and $16 in the second maneuver) for the first kind of child, $18 and $18 (or $30
+| and $30) for the second, and they glide to the new ones; the maneuver flips every $FF frames (the ROM's table has
+| $50 for the second one but always reads the first). The eye is proof against everything but the sword, and
+| against that while a child is left (dmon_hit_filter asks patra_kids).
+    .equ PATRA_X, 0x80
+    .equ PATRA_Y, 0x70
+    .equ PATRA_SPEED_START, 0x1f
+    .equ PATRA_SPEED_MAX, 0x40
+    .equ PATRA_START_ANGLE, 0x18
+    .equ PATRA_SPIN_1, 0x70
+    .equ PATRA_SPIN_2, 0x60
+
+patra_starts:
+    .byte 0x14, 0x10, 0x0c, 0x08, 0x04, 0x00, 0x1c
+patra_cos:
+    .byte 127, 125, 117, 106, 90, 71, 49, 25, 0, -25, -49, -71, -90, -106, -117, -125
+    .byte -127, -125, -117, -106, -90, -71, -49, -25, 0, 25, 49, 71, 90, 106, 117, 125
+    .align 2
+
+patra_init:
+    movem.l %d0/%a0, -(%sp)
+    move.b #PATRA_X, OFF_ENEMY_X(%a5, %d5.w)
+    move.b #PATRA_Y, OFF_ENEMY_Y(%a5, %d5.w)
+    move.b #DIR_UP, OFF_ENEMY_DIR(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    lea OFF_ENEMY_SPEED(%a5), %a0
+    move.b #PATRA_SPEED_START, 0(%a0, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    clr.b OFF_PATRA_MAN(%a5)
+    move.b #0xff, OFF_PATRA_MTIMER(%a5)
+    moveq #0x2c, %d0
+    cmpi.b #MON_PATRA_EYE, OFF_ENEMY_TYPE(%a5, %d5.w)
+    beq 1f
+    moveq #0x18, %d0
+1:  move.b %d0, OFF_PATRA_RX(%a5)
+    move.b %d0, OFF_PATRA_RY(%a5)
+    movem.l (%sp)+, %d0/%a0
+    rts
+
+pchild_init:
+    movem.l %a0, -(%sp)
+    move.b #PATRA_X, OFF_ENEMY_X(%a5, %d5.w)
+    move.b #PATRA_Y, OFF_ENEMY_Y(%a5, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)       | waiting to come out; it is neither seen nor felt until it has
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_GHOST(%a5), %a0
+    move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
+    movem.l (%sp)+, %a0
+    rts
+
+| Returns d2.w = how many children are left.
+patra_kids:
+    movem.l %d0-%d1, -(%sp)
+    moveq #0, %d2
+    moveq #1, %d0
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d0
+    bhs 9f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d0.w)
+    beq 2f
+    move.b OFF_ENEMY_TYPE(%a5, %d0.w), %d1
+    cmp.b #MON_PATRA_CHILD, %d1
+    beq 3f
+    cmp.b #MON_PATRA_CHILD2, %d1
+    bne 2f
+3:  addq.w #1, %d2
+2:  addq.w #1, %d0
+    bra 1b
+9:  movem.l (%sp)+, %d0-%d1
+    rts
+
+| d0.b = a radius, d2.b = the one it is going to: a step towards it.
+patra_glide:
+    cmp.b %d2, %d0
+    beq 9f
+    blo 1f
+    subq.b #1, %d0
+    rts
+1:  addq.b #1, %d0
+9:  rts
+
+| d5 = the eye. Returns d0.w = 1: it moves itself.
+dmon_patra:
+    movem.l %d1-%d4/%a0-%a1, -(%sp)
+    lea OFF_ENEMY_SPEED(%a5), %a0
+    lea OFF_ENEMY_FRAC(%a5), %a1
+    tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    beq 0f
+    subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)
+0:  moveq #0, %d0
+    move.b OFF_ENEMY_STATE(%a5, %d5.w), %d0
+    beq 10f
+    cmp.b #1, %d0
+    beq 20f
+    cmp.b #2, %d0
+    beq 30f
+    bra 40f
+10: addq.b #1, 0(%a0, %d5.w)                | Flyer_SpeedUp
+    cmpi.b #PATRA_SPEED_MAX, 0(%a0, %d5.w)
+    blo 60f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 60f
+20: bsr rand8_bf                            | Flyer_PatraDecideState
+    moveq #2, %d1
+    cmp.b #0x40, %d0
+    bhs 21f
+    moveq #3, %d1
+21: move.b %d1, OFF_ENEMY_STATE(%a5, %d5.w)
+    move.b #8, OFF_ENEMY_STEP(%a5, %d5.w)
+    bra 60f
+30: tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 60f
+    subq.b #1, OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 31f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 60f
+31: move.b #0x10, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bsr keese_turn_to_link_bf
+    bra 60f
+40: tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    bne 60f
+    subq.b #1, OFF_ENEMY_STEP(%a5, %d5.w)
+    bne 41f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    bra 60f
+41: move.b #0x10, OFF_ENEMY_TIMER(%a5, %d5.w)
+    bsr keese_turn_random_bf
+60: moveq #0, %d1                           | MoveFlyer: a pixel whenever the speed fills the fraction
+    move.b 0(%a0, %d5.w), %d1
+    and.b #0xe0, %d1
+    moveq #0, %d2
+    move.b 0(%a1, %d5.w), %d2
+    add.w %d1, %d2
+    move.b %d2, 0(%a1, %d5.w)
+    cmp.w #0x100, %d2
+    blo 70f
+    moveq #0, %d2
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    moveq #0, %d3
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d4
+    btst #0, %d4
+    beq 61f
+    addq.w #1, %d2
+61: btst #1, %d4
+    beq 62f
+    subq.w #1, %d2
+62: btst #2, %d4
+    beq 63f
+    addq.w #1, %d3
+63: btst #3, %d4
+    beq 64f
+    subq.w #1, %d3
+64: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+    bsr flyer_bound_bf
+70: tst.b OFF_PATRA_MTIMER(%a5)             | the maneuver
+    beq 71f
+    subq.b #1, OFF_PATRA_MTIMER(%a5)
+    bra 72f
+71: eori.b #1, OFF_PATRA_MAN(%a5)
+    move.b #0xff, OFF_PATRA_MTIMER(%a5)
+72: move.b OFF_PATRA_MAN(%a5), %d1
+    cmpi.b #MON_PATRA_EYE, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 74f
+    moveq #0x2c, %d2                        | the first kind of child: wide, and round or squashed
+    moveq #0x2c, %d3
+    tst.b %d1
+    beq 76f
+    moveq #0x16, %d3
+    bra 76f
+74: moveq #0x18, %d2                        | the second: a small circle or a large one
+    tst.b %d1
+    beq 75f
+    moveq #0x30, %d2
+75: move.w %d2, %d3
+76: move.w OFF_FRAME_COUNTER(%a5), %d0
+    and.w #3, %d0
+    bne 99f
+    move.b OFF_PATRA_RX(%a5), %d0
+    bsr patra_glide
+    move.b %d0, OFF_PATRA_RX(%a5)
+    move.b OFF_PATRA_RY(%a5), %d0
+    move.b %d3, %d2
+    bsr patra_glide
+    move.b %d0, OFF_PATRA_RY(%a5)
+99: movem.l (%sp)+, %d1-%d4/%a0-%a1
+    moveq #1, %d0
+    rts
+
+| d5 = a child. Returns d0.w = 1.
+dmon_pchild:
+    movem.l %d1-%d4/%a0, -(%sp)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 20f
+    cmp.w #1, %d5
+    beq 10f                                 | the first one comes out at once
+    tst.b OFF_ENEMY_ACTIVE+1(%a5)
+    beq 10f                                 | (the first is dead: nothing to wait for)
+    tst.b OFF_ENEMY_STATE+1(%a5)
+    beq 99f                                 | the first is not out yet
+    move.w %d5, %d1
+    subq.w #2, %d1
+    lea patra_starts(%pc), %a1
+    move.b OFF_ENEMY_STEP+1(%a5), %d0
+    cmp.b 0(%a1, %d1.w), %d0                | the first child is where this one is to appear after
+    bne 99f
+10: move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    move.b #PATRA_START_ANGLE, OFF_ENEMY_STEP(%a5, %d5.w)
+    clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_GHOST(%a5), %a1
+    clr.b 0(%a1, %d5.w)
+20: moveq #0, %d0                           | the angle goes down by the child's rate, a whole 32 to the circle
+    move.b OFF_ENEMY_STEP(%a5, %d5.w), %d0
+    lsl.w #8, %d0
+    move.b 0(%a0, %d5.w), %d0
+    move.w #PATRA_SPIN_1, %d1
+    cmpi.b #MON_PATRA_CHILD, OFF_ENEMY_TYPE(%a5, %d5.w)
+    beq 21f
+    move.w #PATRA_SPIN_2, %d1
+21: sub.w %d1, %d0
+    and.w #0x1fff, %d0
+    move.b %d0, 0(%a0, %d5.w)
+    lsr.w #8, %d0
+    move.b %d0, OFF_ENEMY_STEP(%a5, %d5.w)
+    lea patra_cos(%pc), %a1
+    moveq #0, %d2
+    move.b OFF_PATRA_RX(%a5), %d2
+    move.b 0(%a1, %d0.w), %d3               | cos of the angle
+    ext.w %d3
+    muls.w %d2, %d3
+    asr.w #7, %d3
+    moveq #0, %d4
+    move.b OFF_ENEMY_X(%a5), %d4            | the eye is the first monster
+    add.w %d4, %d3
+    cmp.w #0x10, %d3
+    bge 22f
+    moveq #0x10, %d3
+22: cmp.w #0xe0, %d3
+    ble 23f
+    move.w #0xe0, %d3
+23: move.b %d3, OFF_ENEMY_X(%a5, %d5.w)
+    sub.w #8, %d0                           | the sine is the cosine a quarter turn back
+    and.w #31, %d0
+    moveq #0, %d2
+    move.b OFF_PATRA_RY(%a5), %d2
+    move.b 0(%a1, %d0.w), %d3
+    ext.w %d3
+    muls.w %d2, %d3
+    asr.w #7, %d3
+    moveq #0, %d4
+    move.b OFF_ENEMY_Y(%a5), %d4
+    add.w %d4, %d3
+    cmp.w #0x50, %d3
+    bge 24f
+    moveq #0x50, %d3
+24: cmp.w #0xc8, %d3
+    ble 25f
+    move.w #0xc8, %d3
+25: move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
+99: movem.l (%sp)+, %d1-%d4/%a0
+    moveq #1, %d0
     rts
 
 | ------------------------------------------------------- the rupee stash and Grumble
