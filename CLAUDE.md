@@ -76,7 +76,7 @@ atari_st/                the port
   README.md              user-facing docs: features, known gaps, roadmap, notes
   src/*.s                68000 code (one assembly unit, main.s .includes the rest)
   tools/*.py             asset pipeline, PRG packer, Hatari screenshot harness
-  tests/*.py             unittest suites (140 tests); tests/golden/frames.json = golden frame hashes
+  tests/*.py             unittest suites (142 tests); tests/golden/frames.json = golden frame hashes
   music/                 the YM2149 digidrum player (ymplay.h); the songs are ripped from the ROM
   build/                 OUTPUT (gitignored): generated/, ZELDAST.PRG, scratch, shots/
 ```
@@ -90,7 +90,7 @@ atari_st/                the port
 | `video.s` | init/restore video + IKBD vector, room rendering, scroll composition, `wait_vbl`, HUD palette |
 | `sprite.s` | masked 16x16 blitter (`draw_sprite`), `erase_at`, Link drawing |
 | `link.s` | input -> direction, grid-step movement, collision, room transitions, caves, scroll |
-| `enemy.s` | monster spawn, walker AI (16-px lanes), shove, draw, `sprite_offset`, `rand8` |
+| `enemy.s` | monster spawn (overworld monsters come out of a spawn cloud: `cloud_begin`/`cloud_tick`; screens with edge spawns use `edge_spawn_tick`), walker AI (16-px lanes), shove, draw, `sprite_offset`, `rand8` |
 | `dmon.s` | the dungeon monsters of Levels 3-8 (darknuts, gibdo, zol, vire, pols voice, like-like, bubbles, wizzrobes), `mon_mask` (which weapons hurt what), `STEP_PATTERNS`, and the `farstub` trampoline macro + list |
 | `bosses.s` | Manhandla, Gohma, Digdogger, Gleeok, Lanmola, Patra, Ganon, Zelda and her fires (included last; its `*_bf` stubs reach back into main.s), the boss sprite pool (`bp_add`, `boss_pool_draw`), pre-shifted narrow art (`draw_pre`), the baked Gleeok body, rupee stashes and Grumble (`boss_room_init`, `stash_bake`, `grumble_bake`, `boss_misc_update`) |
 | `ai.s` | per-monster behaviours (rope, goriya incl. the blue one, wallmaster, Aquamentus, keese, blade trap, **Dodongo, Moldorm**), projectile system, **Link's boomerang** |
@@ -204,7 +204,7 @@ of its own): a build without `ext/Original.nes` stops with a message, and `build
 `test_nes_music_rip.py` (needs `py65` for the ROM part, `ZELDA_ROM` or `ext/Original.nes`),
 `test_dump_tables.py` (the table dump, and that every golden scene has a stored hash),
 `test_music_player.py` (the packer, and `music.s` run on `machine68k` through `tests/music_harness.s`; needs the m68k binutils and `pip install machine68k`, the real-bank part also the ROM and `py65`),
-...). Run `python -m unittest discover -s atari_st\tests` (140 tests at the time of
+...). Run `python -m unittest discover -s atari_st\tests` (142 tests at the time of
 writing). They cover the asset pipeline and tables; the 68000 music player is the one piece of
 68000 code with unit tests. `test_actors.py` also holds the Makefile-vs-`build_assets.UW_LEVELS` check and the
 reach-check listing parser.
@@ -438,6 +438,14 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 
 - **Movement**: Link moves in 8-px grid steps, decisions only on boundaries; collision
   per `GetCollidableTile` (hotspot `$B` below the top); UW first unwalkable tile `$78`.
+- **Spawning (overworld)**: a screen places its monsters on `SpawnPosList` squares for Link's direction (not within `$22` of him) when the scroll
+  ends, each in the ROM's spawn cloud (`InitObject` metastate 1): the cloud lasts the slot number in frames (an octorok `(slot + 1) * $10`) and then
+  six frames for each of its second and third pictures (bomb item frames `$70`, `$72`, `$74`; `fx_sprites` 0, 1 and 20). Meanwhile the monster has
+  `ENEMY_ACTIVE` 0 and its `ENEMY_CLOUD` is 1-3, so nothing moves, hits or draws it. `mon_cloud.bin` (per monster: 0 none, 1 short, 2 long) is
+  derived from the ROM by `actors.rom_spawn_clouds` (initialisers that end in `ResetObjMetastate` have none). Screens whose attribute F has bit 3
+  set (20 of them around the start) place nothing: monsters come in one by one at a square of a counter-clockwise ring, with no cloud, and not
+  closer to Link than `EDGE_SAFE_DIST`. The ROM waits 0 / 20-50 frames and keeps only `$22` away; the `EDGE_*` equates in `main.s` are a gentler
+  version the owner asked for. The dungeons' monsters still appear at once.
 - **Walking monsters**: 16-px lanes; turn/choose only when X&15==0 and Y&15==13; blocked
   -> random perpendicular, other perpendicular, reverse, stop. The turns themselves follow the ROM
   (`ai.s`): stalfos/gels `Wanderer_TargetPlayer` (`wander_tick`; rate `$80` / `$20`, turn timer in `ENEMY_TURN`:

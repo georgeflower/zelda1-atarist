@@ -89,8 +89,9 @@ Overworld
   returns Link there
 - octoroks, moblins and lynels walk on the screens where the original puts them
   and shoot as in the original (rocks, arrows, the lynel's sword shot; the
-  sword parries rocks and arrows); screens with edge spawns bring the monsters
-  in from the border, and monsters you kill stay dead for a few screens (the
+  sword parries rocks and arrows); the monsters of a screen stand in a spawn
+  cloud for a moment before they move (octoroks longer), screens with edge
+  spawns bring them in from the border one at a time instead, and monsters you kill stay dead for a few screens (the
   original's room history); the other overworld monsters are still missing
 
 Overworld monsters

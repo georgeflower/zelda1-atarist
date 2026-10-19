@@ -1131,6 +1131,7 @@ def write_underworld(out_dir: Path, bundle_or_uw) -> None:
     (out_dir / "mon_sprites.bin").write_bytes(pool)
     (out_dir / "mon_table.bin").write_bytes(actors.mon_table)
     (out_dir / "mon_mask.bin").write_bytes(actors.mon_mask)
+    (out_dir / "mon_cloud.bin").write_bytes(actors.mon_cloud)
     (out_dir / "mon_art.bin").write_bytes(art_tables[0])
     (out_dir / "mon_index.bin").write_bytes(actors.mon_index)
     (out_dir / "item_sprites.bin").write_bytes(actors.item_sprites)
