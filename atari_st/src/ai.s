@@ -102,7 +102,6 @@
     .equ BOOM_SPARK_FRAMES, 3
     .equ BOOM_SLOW_FRAMES, 16
     .equ BOOM_BACK_SPEED, 2
-    .equ BOOM_HIT_RANGE, 11
     .equ STUN_FRAMES, 160           | ObjStunTimer $10, counted every tenth frame
 
     .equ BOOMERANG_QSPEED, 0xa0     | 2.5 pixels a frame
@@ -1862,12 +1861,12 @@ trap_dirs:
 
 | -------------------------------------------------------------- Link's boomerang
 | Thrown the way Link faces from 16 pixels in front of him, it flies three
-| pixels a frame for about 49 pixels, or until a wall stops it, sparks for
+| pixels a frame for about 49 pixels, or until the room's edge stops it (walls and water do not), held diagonally when Link is, sparks for
 | three frames, hangs about at a pixel a frame, and then comes back to him.
 | A monster it touches is stunned (or killed, if it has no hit points to speak
 | of) and it turns back at once. Items it touches are picked up.
 throw_boomerang:
-    movem.l %d0-%d3/%a4, -(%sp)
+    movem.l %d0-%d4/%a4, -(%sp)
     lea OFF_PROJ_KIND(%a5), %a4
     moveq #(MAX_PROJ - 1), %d0
 1:  move.b 0(%a4, %d0.w), %d1
@@ -1885,6 +1884,7 @@ throw_boomerang:
     moveq #0, %d2
     move.b OFF_LINK_Y(%a5), %d2
     move.b OFF_LINK_DIR(%a5), %d0
+    move.b %d0, %d4                 | the direction it flies: the keys held (maybe a diagonal), else Link's facing
     btst #0, %d0
     beq 2f
     add.w #16, %d1
@@ -1901,14 +1901,28 @@ throw_boomerang:
 5:  move.b #PK_LBOOM, PJ_KIND(%a4, %d3.w)
     move.b %d1, PJ_X(%a4, %d3.w)
     move.b %d2, PJ_Y(%a4, %d3.w)
-    move.b %d0, PJ_DIR(%a4, %d3.w)
+    move.b OFF_HELD_DIRS(%a5), %d0
+    move.b %d0, %d1
+    and.b #0x0c, %d1
+    cmp.b #0x0c, %d1
+    bne 7f
+    and.b #0x03, %d0                | up and down together cancel
+7:  move.b %d0, %d1
+    and.b #0x03, %d1
+    cmp.b #0x03, %d1
+    bne 8f
+    and.b #0x0c, %d0                | so do left and right
+8:  tst.b %d0
+    bne 10f
+    move.b %d4, %d0
+10: move.b %d0, PJ_DIR(%a4, %d3.w)
     moveq #BOOM_OUT_FRAMES, %d0
     tst.b OFF_INV_MAGIC_BOOMERANG(%a5)
     beq 6f
     moveq #BOOM_MAGIC_FRAMES, %d0       | BoomerangLimits: $31 for the wooden one, $FF for the magic one
 6:  move.b %d0, PJ_TIMER(%a4, %d3.w)
     sfx SFX_ARROW
-9:  movem.l (%sp)+, %d0-%d3/%a4
+9:  movem.l (%sp)+, %d0-%d4/%a4
     rts
 
 | Projectile d7 (kind d0) of the boomerang, a4 = PROJ_KIND.
@@ -1926,41 +1940,40 @@ link_boom_update:
     cmp.w #PK_LBOOM_SPARK, %d5
     beq 40f
 
-    moveq #BOOM_SPEED, %d4          | flying out, or hanging about
+    moveq #BOOM_SPEED, %d4          | flying out, or hanging about; a diagonal moves on both axes
     cmp.w #PK_LBOOM_SLOW, %d5
     bne 11f
     moveq #1, %d4
 11: btst #0, %d6
     beq 12f
     add.w %d4, %d2
-    bra 15f
 12: btst #1, %d6
     beq 13f
     sub.w %d4, %d2
-    bra 15f
 13: btst #2, %d6
     beq 14f
     add.w %d4, %d3
-    bra 15f
-14: sub.w %d4, %d3
-15: move.w %d2, -(%sp)
-    move.w %d3, -(%sp)
-    btst #0, %d6                    | a wall is met by the leading edge
-    beq 16f
-    addq.w #8, %d2
-16: btst #2, %d6
-    beq 17f
-    addq.w #8, %d3
-17: bsr enemy_blocked_at
-    move.w (%sp)+, %d3
-    move.w (%sp)+, %d2
-    tst.w %d0
-    beq 19f
-    cmp.w #PK_LBOOM_SLOW, %d5
-    bne 30f                         | a wall stops it flying out; hanging about it just stays put
-    bra 20f
-19: move.b %d2, PJ_X(%a4, %d7.w)
+14: btst #3, %d6
+    beq 15f
+    sub.w %d4, %d3
+15: moveq #0, %d0                   | MoveShot: only the room's edge stops it, never a wall or water
+    move.b OFF_OBJ_LEFT(%a5), %d0
+    cmp.w %d0, %d2
+    blt 17f
+    move.b OFF_OBJ_RIGHT(%a5), %d0
+    cmp.w %d0, %d2
+    bgt 17f
+    move.b OFF_OBJ_UP(%a5), %d0
+    cmp.w %d0, %d3
+    blt 17f
+    move.b OFF_OBJ_DOWN(%a5), %d0
+    cmp.w %d0, %d3
+    bgt 17f
+    move.b %d2, PJ_X(%a4, %d7.w)
     move.b %d3, PJ_Y(%a4, %d7.w)
+    bra 20f
+17: cmp.w #PK_LBOOM_SLOW, %d5
+    bne 30f                         | the edge stops it flying out; hanging about it just stays put
 20: subq.b #1, PJ_TIMER(%a4, %d7.w)
     bne 60f
     cmp.w #PK_LBOOM_SLOW, %d5
@@ -2057,17 +2070,15 @@ boom_collide:
     moveq #0, %d0
     move.b OFF_ENEMY_X(%a5, %d5.w), %d0
     sub.w %d2, %d0
-    bpl 2f
-    neg.w %d0
-2:  cmp.w #BOOM_HIT_RANGE, %d0
-    bhs 7f
+    add.w #13, %d0                      | CheckMonsterBoomerangOrFoodCollision: the monster's middle (+8, +8) within
+    cmp.w #19, %d0                      | $A of the boomerang's (+4, +8): X from -13 to +5 off, Y within 9
+    bhi 7f
     moveq #0, %d0
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d0
     sub.w %d3, %d0
-    bpl 3f
-    neg.w %d0
-3:  cmp.w #BOOM_HIT_RANGE, %d0
-    bhs 7f
+    add.w #9, %d0
+    cmp.w #18, %d0
+    bhi 7f
     moveq #1, %d6
     bsr dmon_boomerang_hurts            | a darknut or a gohma only turns it back
     tst.w %d0

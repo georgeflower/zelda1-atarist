@@ -161,8 +161,13 @@ dmon_survived:
     bra 9f
 1:  moveq #0, %d2                       | a zol: two gels, one going each way across its heading
     move.b OFF_ENEMY_X(%a5, %d5.w), %d2
+    add.w #8, %d2                       | the gels stand on the 16-pixel grid the walkers keep to (Gel_Move: ((X + 8) AND $F0)
+    and.w #0xf0, %d2                    | and (((Y + 8) AND $F0) OR $0D)); the blow had shoved the zol off it
     moveq #0, %d3
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
+    add.w #8, %d3
+    and.w #0xf0, %d3
+    or.w #0x0d, %d3
     moveq #DIR_LEFT, %d4
     cmpi.b #DIR_DOWN, OFF_ENEMY_DIR(%a5, %d5.w)
     bhs 3f

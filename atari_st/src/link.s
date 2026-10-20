@@ -257,7 +257,7 @@ read_input_dir:
 83: btst #3, %d1
     beq 84f
     ori.b #DIR_RIGHT, %d0
-84:
+84: move.b %d0, OFF_HELD_DIRS(%a5)
     | A direction pressed this frame wins, so turning is immediate. Otherwise
     | keep the current one while it is still held.
     move.b OFF_PREV_INPUT_DIR(%a5), %d1
@@ -850,6 +850,7 @@ finish_scroll:
     move.b OFF_SCROLL_TO_X(%a5), OFF_LINK_X(%a5)
     move.b OFF_SCROLL_TO_Y(%a5), OFF_LINK_Y(%a5)
     clr.b OFF_LINK_POS_FRAC(%a5)
+    clr.b OFF_INV_CLOCK(%a5)            | the clock lasts until he leaves the screen (ResetPlayerState)
     tst.b OFF_LEVEL(%a5)
     beq 1f
     bsr uw_commit_next

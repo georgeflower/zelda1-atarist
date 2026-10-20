@@ -465,4 +465,12 @@
     gvar DEATH_W, 64           | for each colour slot, the two pixel masks that say where it goes (W0 then W1)
     gvar PATCHES, 192          | room, square, the metatile that was there and the one that is: 48 of them
     gvar SAVE_FILE, 1928       | ZELDA.SAV as it is on the disk: 8 bytes of header, three records of 640
+    gvar FAIRY_STATE, 3        | a dropped fairy's flight (ControlFairyFlight), one per item slot: 0 speeding up, 1 deciding, 3 wandering
+    gvar FAIRY_SPEED, 3
+    gvar FAIRY_FRAC, 3
+    gvar FAIRY_TURNS, 3
+    gvar FAIRY_TIMER, 3
+    gvar FAIRY_DIR, 3
+    gvar HELD_DIRS, 1            | every direction held this frame (a diagonal has two bits)
+    galign
     .equ GLOBALS_BYTES, gvar_offset

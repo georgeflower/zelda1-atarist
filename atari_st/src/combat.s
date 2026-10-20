@@ -198,8 +198,8 @@ sword_offsets:
     .align 2
 
 | ------------------------------------------------------------- sword beam
-| With all hearts full (or short by half a heart) a swing also sends the sword
-| flying, at three pixels a frame, until it hits a wall or a monster.
+| With all hearts full a swing also sends the sword flying (MakeSwordShot wants the last heart's partial at
+| $80 or more, and the lightest blow takes it to $7F, so half a heart short is already too little), at three pixels a frame, until it hits a wall or a monster.
     .equ BEAM_SPEED, 3
     .equ BEAM_LEAD, 16
 
@@ -212,7 +212,6 @@ beam_launch:
     moveq #0, %d0
     move.b OFF_HEART_CONTAINERS(%a5), %d0
     add.w %d0, %d0
-    subq.w #1, %d0
     moveq #0, %d1
     move.b OFF_HP_HALVES(%a5), %d1
     cmp.w %d0, %d1
@@ -563,6 +562,7 @@ update_combat:
 2:  bsr enemy_contact
     bsr item_pickup
     bsr items_age
+    bsr fairy_fly
     bsr beam_update
     bsr fire_update
     bsr block_update
@@ -818,6 +818,20 @@ spawn_drop:
     move.b #1, OFF_ITEM_ACTIVE(%a5, %d1.w)
     lea OFF_ITEM_LIFE(%a5), %a0
     move.b #0xff, 0(%a0, %d1.w)
+    cmp.b #ITEM_FAIRY, %d0
+    bne 9f
+    lea OFF_FAIRY_STATE(%a5), %a0       | SetUpFairyObject: facing up, speed $7F
+    clr.b 0(%a0, %d1.w)
+    lea OFF_FAIRY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d1.w)
+    lea OFF_FAIRY_TURNS(%a5), %a0
+    clr.b 0(%a0, %d1.w)
+    lea OFF_FAIRY_TIMER(%a5), %a0
+    clr.b 0(%a0, %d1.w)
+    lea OFF_FAIRY_SPEED(%a5), %a0
+    move.b #0x7f, 0(%a0, %d1.w)
+    lea OFF_FAIRY_DIR(%a5), %a0
+    move.b #8, 0(%a0, %d1.w)
 9:  movem.l (%sp)+, %d1-%d2/%a0
     rts
 
@@ -1479,6 +1493,131 @@ items_age:
     blo 1b
 9:  movem.l (%sp)+, %d0-%d1/%a0
     rts
+
+| The fairy a monster dropped does not stand still: it flies like the ROM's (UpdateFairyObject: ControlFairyFlight and
+| MoveFlyer). It speeds up from $7F to $A0, then wanders: six turns, one every $10 frames (left, right or straight on by
+| 45 degrees, by the odds $50 / $50 / $60 in 256), and again. A step of the speed's top three bits is added to a fraction
+| each frame and a carry moves it one pixel along its heading (right 1, left 2, down 4, up 8). The room's bounds turn it round.
+fairy_fly:
+    movem.l %d1, -(%sp)
+    moveq #1, %d1
+1:  cmpi.b #1, OFF_ITEM_ACTIVE(%a5, %d1.w)
+    bne 2f
+    cmpi.b #ITEM_FAIRY, OFF_ITEM_ID(%a5, %d1.w)
+    bne 2f
+    bsr fairy_step
+2:  addq.w #1, %d1
+    cmp.w #ITEM_SLOTS, %d1
+    blo 1b
+    movem.l (%sp)+, %d1
+    rts
+
+| d1.w = the item slot.
+fairy_step:
+    movem.l %d0/%d2-%d3/%a0-%a1, -(%sp)
+    lea OFF_FAIRY_TIMER(%a5), %a0
+    tst.b 0(%a0, %d1.w)
+    beq 1f
+    subq.b #1, 0(%a0, %d1.w)
+1:  lea OFF_FAIRY_STATE(%a5), %a1
+    move.b 0(%a1, %d1.w), %d0
+    bne 2f
+    lea OFF_FAIRY_SPEED(%a5), %a0       | state 0: faster each frame, up to $A0
+    addq.b #1, 0(%a0, %d1.w)
+    move.b 0(%a0, %d1.w), %d2
+    andi.b #0xe0, %d2
+    cmpi.b #0xa0, %d2
+    blo 8f
+    move.b #1, 0(%a1, %d1.w)
+    bra 8f
+2:  cmp.b #1, %d0
+    bne 3f
+    move.b #3, 0(%a1, %d1.w)            | state 1: six turns of wandering
+    lea OFF_FAIRY_TURNS(%a5), %a0
+    move.b #6, 0(%a0, %d1.w)
+    bra 8f
+3:  tst.b 0(%a0, %d1.w)                 | state 3: a turn when the timer has run out
+    bne 8f
+    lea OFF_FAIRY_TURNS(%a5), %a0
+    subq.b #1, 0(%a0, %d1.w)
+    bne 4f
+    move.b #1, 0(%a1, %d1.w)
+    bra 8f
+4:  lea OFF_FAIRY_TIMER(%a5), %a0
+    move.b #0x10, 0(%a0, %d1.w)
+    bsr rand8
+    moveq #0, %d2
+    lea OFF_FAIRY_DIR(%a5), %a0
+    move.b 0(%a0, %d1.w), %d3
+5:  cmp.b fairy_dirs(%pc, %d2.w), %d3
+    beq 6f
+    addq.w #1, %d2
+    cmp.w #8, %d2
+    blo 5b
+    moveq #0, %d2
+6:  cmp.b #0xa0, %d0
+    bhs 7f
+    addq.w #1, %d2
+    cmp.b #0x50, %d0
+    bhs 7f
+    subq.w #2, %d2
+7:  and.w #7, %d2
+    move.b fairy_dirs(%pc, %d2.w), 0(%a0, %d1.w)
+8:  bsr fairy_move
+    movem.l (%sp)+, %d0/%d2-%d3/%a0-%a1
+    rts
+
+fairy_dirs:
+    .byte 0x08, 0x09, 0x01, 0x05, 0x04, 0x06, 0x02, 0x0a      | Directions8
+    .align 2
+
+fairy_move:
+    movem.l %d0/%d2-%d3/%a0-%a1, -(%sp)
+    lea OFF_FAIRY_SPEED(%a5), %a0
+    move.b 0(%a0, %d1.w), %d2
+    andi.b #0xe0, %d2
+    lea OFF_FAIRY_FRAC(%a5), %a0
+    add.b %d2, 0(%a0, %d1.w)
+    bcc 9f
+    lea OFF_FAIRY_DIR(%a5), %a0
+    move.b 0(%a0, %d1.w), %d2
+    btst #0, %d2
+    beq 1f
+    addq.b #1, OFF_ITEM_X(%a5, %d1.w)
+1:  btst #1, %d2
+    beq 2f
+    subq.b #1, OFF_ITEM_X(%a5, %d1.w)
+2:  btst #2, %d2
+    beq 3f
+    addq.b #1, OFF_ITEM_Y(%a5, %d1.w)
+3:  btst #3, %d2
+    beq 4f
+    subq.b #1, OFF_ITEM_Y(%a5, %d1.w)
+4:  move.b OFF_ITEM_X(%a5, %d1.w), %d0      | BoundFlyer: out of the room's bounds turns it round
+    cmp.b OFF_OBJ_LEFT(%a5), %d0
+    bls 5f
+    cmp.b OFF_OBJ_RIGHT(%a5), %d0
+    bhs 5f
+    move.b OFF_ITEM_Y(%a5, %d1.w), %d0
+    cmp.b OFF_OBJ_UP(%a5), %d0
+    bls 5f
+    cmp.b OFF_OBJ_DOWN(%a5), %d0
+    blo 9f
+5:  moveq #0, %d0
+6:  cmp.b fairy_dirs_m(%pc, %d0.w), %d2
+    beq 7f
+    addq.w #1, %d0
+    cmp.w #8, %d0
+    blo 6b
+    moveq #0, %d0
+7:  addq.w #4, %d0
+    and.w #7, %d0
+    move.b fairy_dirs_m(%pc, %d0.w), 0(%a0, %d1.w)
+9:  movem.l (%sp)+, %d0/%d2-%d3/%a0-%a1
+    rts
+fairy_dirs_m:
+    .byte 0x08, 0x09, 0x01, 0x05, 0x04, 0x06, 0x02, 0x0a
+
 
 clear_items:
     movem.l %d0/%a0, -(%sp)

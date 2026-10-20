@@ -184,6 +184,13 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(actors.MONSTER_DAMAGE[0x21], 2)
         self.assertIn(0x1A, actors.MONSTER_FLYERS)
 
+    def test_the_recurring_monsters_enemy_s_names_by_index_are_the_right_ones(self) -> None:
+        # enemy.s keeps the blade trap and the blue lanmola coming back in a cleared room by their mon_table index
+        source = (Path(__file__).resolve().parents[1] / "src" / "enemy.s").read_text(encoding="utf-8")
+        for name, nes_type in (("MON_TRAP_INDEX", 0x49), ("MON_LANMOLA_INDEX", 0x3A)):
+            index = int(re.search(rf"\.equ {name},\s*(\d+)", source).group(1))
+            self.assertEqual(actors.MONSTER_TYPES.index(nes_type), index, name)
+
     def test_armos_whirlwind_and_fairy_are_listed_but_only_the_armos_has_art_on_the_screens(self) -> None:
         for nes_type, behaviour, mode in ((0x1E, actors.BEHAVIOUR_ARMOS, actors.MODE_ARMOS),
                                           (0x2E, actors.BEHAVIOUR_WHIRLWIND, None),

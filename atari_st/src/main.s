@@ -146,14 +146,9 @@
     .equ CAVE_TEXT_ROW0, 8
     .equ CAVE_TEXT_DELAY, 6
 
-| The game opens in front of the first cave, not at the start the data names.
-    .if START_ROOM_ID == 0x77
-    .equ HOME_X, 0x40
-    .equ HOME_Y, 0x5d
-    .else
+| Where Link starts: the ROM's, X $78 (InitMode3_Sub8) and the level's StartY ($8D on the overworld), facing up.
     .equ HOME_X, START_X
     .equ HOME_Y, START_Y
-    .endif
 
 | ------------------------------------------------------------------ HUD slots
     .equ HUD_COUNTER_COL, 4
@@ -836,6 +831,8 @@ init_pointers:
     | through these stubs in the middle.
 clear_erase_state_far:
     bra clear_erase_state
+enemy_init_special_far:
+    bra enemy_init_special
 show_background_far:
     bra show_background
 draw_hud_far:
