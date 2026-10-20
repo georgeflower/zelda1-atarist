@@ -23,6 +23,39 @@ def rom_actors():
     return _ROM_ACTORS
 
 
+class SpawnCloudTests(unittest.TestCase):
+    """Which monsters come out of a spawn cloud is read from the ROM's initialisers, not listed by hand."""
+
+    @unittest.skipUnless(HAS_ROM, "needs the ROM")
+    def test_the_clouds_follow_the_roms_initialisers(self) -> None:
+        clouds = actors.rom_spawn_clouds(ROM_ROOT)
+        for octorok in (0x07, 0x08, 0x09, 0x0A):
+            self.assertEqual(clouds[octorok], actors.SPAWN_CLOUD_LONG, hex(octorok))
+        for walker in (0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x0D, 0x0E, 0x15, 0x1B, 0x28, 0x2A):
+            self.assertEqual(clouds[walker], actors.SPAWN_CLOUD_SHORT, hex(walker))
+        # leevers, zoras, peahats, boulders, ghinis, Gohma and Ganon are put down without one
+        for at_once in (0x0F, 0x10, 0x11, 0x1A, 0x1F, 0x20, 0x22, 0x33, 0x34, 0x3E):
+            self.assertEqual(clouds[at_once], actors.SPAWN_CLOUD_NONE, hex(at_once))
+
+    @unittest.skipUnless(HAS_ROM, "needs the ROM")
+    def test_only_overworld_monsters_use_the_cloud_for_now(self) -> None:
+        table = actors.monster_cloud_table(ROM_ROOT)
+        self.assertEqual(len(table), len(actors.MONSTER_TYPES))
+        for nes_type, cloud in zip(actors.MONSTER_TYPES, table):
+            if nes_type not in actors.OVERWORLD_MONSTERS:
+                self.assertEqual(cloud, actors.SPAWN_CLOUD_NONE, hex(nes_type))
+        self.assertEqual(table[actors.MONSTER_TYPES.index(0x07)], actors.SPAWN_CLOUD_LONG)
+        self.assertEqual(table[actors.MONSTER_TYPES.index(0x03)], actors.SPAWN_CLOUD_SHORT)
+        self.assertEqual(table[actors.MONSTER_TYPES.index(0x0F)], actors.SPAWN_CLOUD_NONE)
+
+    def test_the_edge_walk_in_keeps_a_wider_berth_than_the_rom(self) -> None:
+        text = (Path(__file__).resolve().parents[1] / "src" / "main.s").read_text(encoding="utf-8")
+        safe = int(re.search(r"\.equ EDGE_SAFE_DIST, (0x[0-9a-fA-F]+|\d+)", text).group(1), 0)
+        self.assertGreaterEqual(safe, 0x22)            # IsDistanceSafeToSpawn's $22 is the least it may be
+        gap = int(re.search(r"\.equ EDGE_GAP_TICKS, (\d+)", text).group(1))
+        self.assertGreaterEqual(gap, 2)                # the ROM waits 2 to 5 tenths of a second between monsters
+
+
 class ActorTableTests(unittest.TestCase):
     def test_every_monster_has_the_data_the_tables_need(self) -> None:
         for nes_type in actors.MONSTER_TYPES:
@@ -211,7 +244,7 @@ class ActorTableTests(unittest.TestCase):
         data = rom_actors()
         self.assertEqual(len(data.sword_sprites), 16 * B.SPRITE_FRAME_BYTES)  # four directions x (three swords + the rod)
         self.assertEqual(len(data.beam_sprites), 16 * B.SPRITE_FRAME_BYTES)   # direction x palette row
-        self.assertEqual(len(data.fx_sprites), 20 * B.SPRITE_FRAME_BYTES)     # 2 clouds, 4 corners x 4 rows, 2 fires
+        self.assertEqual(len(data.fx_sprites), 21 * B.SPRITE_FRAME_BYTES)     # 2 clouds, 4 corners x 4 rows, 2 fires, the third cloud
 
     def test_trap_rooms_hold_four_or_six_traps(self) -> None:
         trap = actors.MONSTER_TYPES.index(0x49)

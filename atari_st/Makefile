@@ -43,7 +43,7 @@ GENERATED := $(GENERATED_DIR)/assets.inc $(GENERATED_DIR)/metatiles.bin \
 	$(GENERATED_DIR)/link_sprites.bin $(GENERATED_DIR)/hud_tiles.bin \
 	$(foreach l,$(UW_LEVELS),$(foreach t,$(UW_LEVEL_TABLES),$(GENERATED_DIR)/uw$(l)_$(t).bin)) \
 	$(GENERATED_DIR)/levels.inc $(GENERATED_DIR)/uw_door_cells.bin \
-	$(GENERATED_DIR)/mon_sprites.bin $(GENERATED_DIR)/mon_table.bin $(GENERATED_DIR)/mon_mask.bin \
+	$(GENERATED_DIR)/mon_sprites.bin $(GENERATED_DIR)/mon_table.bin $(GENERATED_DIR)/mon_mask.bin $(GENERATED_DIR)/mon_cloud.bin \
 	$(GENERATED_DIR)/mon_index.bin $(GENERATED_DIR)/item_sprites.bin \
 	$(GENERATED_DIR)/item_index.bin $(GENERATED_DIR)/drop_table.bin \
 	$(GENERATED_DIR)/drop_rates.bin $(GENERATED_DIR)/sword_sprites.bin \

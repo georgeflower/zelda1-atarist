@@ -3,6 +3,8 @@
 | Every room spawns the monsters listed for it, drawn with the ROM's own sprite art. Hit points, damage and
 | drops live in combat.s.
 
+    .equ FX_SPAWN_CLOUD_LAST, 20    | the third picture of the spawn cloud, the last frame of fx_sprites
+
 | d0.b = a pseudo-random byte
 rand8:
     move.w OFF_RNG(%a5), %d0
@@ -45,7 +47,7 @@ spawn_room_enemies:
     move.b %d1, OFF_ENEMY_COUNT(%a5)
     move.b %d1, OFF_EDGE_PENDING(%a5)
     clr.b OFF_EDGE_NEXT(%a5)
-    clr.b OFF_EDGE_TIMER(%a5)
+    move.b #EDGE_FIRST_TICKS, OFF_EDGE_TIMER(%a5)   | and the first of them waits a little
     move.l %a1, OFF_EDGE_REC(%a5)
     bra 9f
 9:  movem.l (%sp)+, %d0-%d7/%a0-%a2
@@ -168,7 +170,10 @@ spawn_counted:                  | d1 = how many
     addq.b #1, %d0
     move.b %d0, OFF_ENEMY_COUNT(%a5)    | a boss that puts down more pieces needs this one counted
     bsr enemy_init_special
-    addq.w #1, %d5
+    tst.b OFF_LEVEL(%a5)
+    bne 5f
+    bsr cloud_begin                 | an overworld monster is put down in a spawn cloud
+5:  addq.w #1, %d5
     bra 1b
 8:  cmp.b OFF_ENEMY_COUNT(%a5), %d5     | (the pieces a boss made are counted already)
     bls 9b
@@ -275,7 +280,23 @@ edge_spawn_tick:
     sub.w #3, %d7                   | Y
     moveq #0, %d5
     move.b OFF_EDGE_NEXT(%a5), %d5
-    movea.l OFF_EDGE_REC(%a5), %a1
+    moveq #0, %d0                   | IsDistanceSafeToSpawn: not within EDGE_SAFE_DIST ($22 in the ROM) of Link both ways.
+    move.b OFF_LINK_X(%a5), %d0     | Too close, and this one tries the next square a moment later
+    sub.w %d6, %d0
+    bpl 3f
+    neg.w %d0
+3:  cmp.w #EDGE_SAFE_DIST, %d0
+    bhs 5f
+    moveq #0, %d0
+    move.b OFF_LINK_Y(%a5), %d0
+    sub.w %d7, %d0
+    bpl 6f
+    neg.w %d0
+6:  cmp.w #EDGE_SAFE_DIST, %d0
+    bhs 5f
+    move.b #EDGE_RETRY_TICKS, OFF_EDGE_TIMER(%a5)
+    bra 8f
+5:  movea.l OFF_EDGE_REC(%a5), %a1
     moveq #0, %d0
     move.b 6(%a1, %d5.w), %d0       | monster index from the screen's record
     move.b %d6, OFF_ENEMY_X(%a5, %d5.w)
@@ -295,10 +316,62 @@ edge_spawn_tick:
     subq.b #1, OFF_EDGE_PENDING(%a5)
     bsr rand8
     and.b #3, %d0
-    addq.b #2, %d0
-    move.b %d0, OFF_EDGE_TIMER(%a5) | the next one comes 20 to 50 frames later
+    addq.b #EDGE_GAP_TICKS, %d0
+    move.b %d0, OFF_EDGE_TIMER(%a5) | the next one comes 40 to 70 frames later (the ROM: 20 to 50)
 8:  movem.l (%sp)+, %d0-%d7/%a0-%a2
 9:  rts
+
+| d5 = a monster just put down: it comes out of a spawn cloud if the ROM's initialiser for its type leaves it in
+| metastate 1 (mon_cloud). It stays where it is and does nothing until the cloud has gone, the way InitObject does it:
+| ObjTimer is its slot (1 up), an octorok's (slot + 1) * 16.
+cloud_begin:
+    movem.l %d0/%d2/%a2, -(%sp)
+    moveq #0, %d0
+    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
+    ltab mon_cloud, %a2
+    move.b 0(%a2, %d0.w), %d0
+    beq 9f
+    moveq #0, %d2
+    move.b %d5, %d2
+    addq.b #1, %d2                  | the slot, counted from 1
+    cmp.b #2, %d0
+    bne 1f
+    addq.b #1, %d2
+    lsl.b #4, %d2
+1:  lea OFF_ENEMY_CLOUD_T(%a5), %a2
+    move.b %d2, 0(%a2, %d5.w)
+    lea OFF_ENEMY_CLOUD(%a5), %a2
+    move.b #1, 0(%a2, %d5.w)
+    clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
+9:  movem.l (%sp)+, %d0/%d2/%a2
+    rts
+
+| Once a frame: AnimateAndDrawMetaObject. A picture of the cloud stays for the timer (the first) or six frames (the
+| next two); then the monster is out of it and lives.
+cloud_tick:
+    movem.l %d3/%a0-%a1, -(%sp)
+    lea OFF_ENEMY_CLOUD(%a5), %a0
+    lea OFF_ENEMY_CLOUD_T(%a5), %a1
+    moveq #0, %d3
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d3
+    bhs 9f
+    tst.b 0(%a0, %d3.w)
+    beq 8f
+    tst.b 0(%a1, %d3.w)
+    bne 2f
+    addq.b #1, 0(%a0, %d3.w)        | the next picture
+    move.b #6, 0(%a1, %d3.w)
+    cmpi.b #4, 0(%a0, %d3.w)
+    bne 2f
+    clr.b 0(%a0, %d3.w)             | out of the cloud
+    clr.b 0(%a1, %d3.w)
+    move.b #1, OFF_ENEMY_ACTIVE(%a5, %d3.w)
+    bra 8f
+2:  subq.b #1, 0(%a1, %d3.w)
+8:  addq.w #1, %d3
+    bra 1b
+9:  movem.l (%sp)+, %d3/%a0-%a1
+    rts
 
 | FindNextEdgeSpawnCell. Returns d0.w = the next square of the screen's border (row in the high
 | nibble, column in the low) whose tile can be walked on (below $84, which leaves out sand).
@@ -413,6 +486,10 @@ clear_enemies:
 7:  clr.b (%a0)+
     dbra %d0, 7b
     clr.b OFF_WALL_TIMER(%a5)
+    lea OFF_ENEMY_CLOUD(%a5), %a0               | no monster is in a spawn cloud
+    moveq #(MAX_ENEMIES * 2 - 1), %d0
+9:  clr.b (%a0)+
+    dbra %d0, 9b
     lea OFF_ENEMY_GHOST(%a5), %a0               | the movers' fields: eight rows and four counters
     moveq #(MAX_ENEMIES * 8 + 4 - 1), %d0
 8:  clr.b (%a0)+
@@ -451,6 +528,7 @@ update_enemies:
     bne 9f                      | Link is holding something up: everything waits
     bsr dmon_tick               | a bubble's hold on Link's sword runs out
     bsr edge_spawn_tick         | a monster walks in from the edge, if one is due
+    bsr cloud_tick              | the monsters in their spawn clouds
     bsr zora_check              | and a zora rises in the water of a screen that has some
     bsr long_timers             | the leevers' timer runs in tenths of a second
     moveq #0, %d5
@@ -949,7 +1027,7 @@ draw_enemies:
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d3
     bhs 9f
     tst.b OFF_ENEMY_ACTIVE(%a5, %d3.w)
-    beq 8f
+    beq 7f                      | not a monster yet, perhaps a spawn cloud
     btst #1, OFF_ENEMY_HURT(%a5, %d3.w)
     bne 8f                      | blink while hurt
 
@@ -1106,6 +1184,19 @@ draw_enemies:
     bra 1b
 9:  movem.l (%sp)+, %d0-%d6/%a0-%a2
     rts
+
+7:  lea OFF_ENEMY_CLOUD(%a5), %a0   | the spawn cloud of monster d3: bomb cloud $70, $72, then $74 (fx frames 0, 1 and 20)
+    moveq #0, %d0
+    move.b 0(%a0, %d3.w), %d0
+    beq 8b
+    subq.w #1, %d0
+    cmp.w #2, %d0
+    bne 71f
+    moveq #FX_SPAWN_CLOUD_LAST, %d0
+71: mulu.w #SPRITE_FRAME_BYTES, %d0
+    ltab fx_sprites, %a0
+    adda.l %d0, %a0
+    bra 4b
 
 | NES coordinates to a screen offset. d1.w = X, d2.w = Y.
 | Returns d1.l = byte offset of the sprite's top-left group and d4.w = shift
