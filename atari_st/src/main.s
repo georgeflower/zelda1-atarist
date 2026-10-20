@@ -108,6 +108,7 @@
     .equ MODE_CAVE, 2
     .equ MODE_MENU, 3
     .equ MODE_INTRO, 4              | the title, the story and the parade of the treasures (intro.s)
+    .equ MODE_DEATH, 5              | Link's death, from the red world to GAME OVER (death.s)
 
 | PlayerScreenEdgeBounds (Z_07.asm): Link leaves the overworld screen when he
 | reaches these coordinates. ObjectRoomBoundsOW is for other objects, not Link.
@@ -300,11 +301,15 @@ main_loop:
     beq 4f
     cmp.b #MODE_INTRO, %d0
     beq 5f
+    cmp.b #MODE_DEATH, %d0
+    beq 6f
     bsr update_cave_far
     bra 3f
 4:  bsr update_menu_far
     bra 3f
 5:  bsr update_intro_far
+    bra main_loop
+6:  bsr update_death_far
     bra main_loop
 1:  bsr update_play
     bra 3f
@@ -312,13 +317,16 @@ main_loop:
 3:  bsr rupee_drip_far
     bsr minimap_tick_far
     tst.b OFF_HUD_DIRTY(%a5)
-    beq main_loop
+    beq 8f
     bsr draw_hud_far
     tst.b OFF_DBL_ACTIVE(%a5)
-    beq main_loop
+    beq 8f
     bsr swap_screens            | the other buffer needs the new ribbon too
     bsr draw_hud_far
     bsr swap_screens
+8:  tst.b OFF_DYING(%a5)
+    beq main_loop
+    bsr death_begin_far         | the frame in which Link died is on the screen; now it is his death's
     bra main_loop
 
 | A frame that took two VBLs (a room full of monsters costs more than one) would run the game at half speed. The
@@ -865,6 +873,8 @@ dbl_end_far:
     bra dbl_end
 draw_hud_tile_far:
     bra draw_hud_tile
+draw_hud_tile_ptr_far:
+    bra draw_hud_tile_ptr
 menu_check_open_far:
     bra menu_check_open
 uw_select_level_far:
@@ -933,6 +943,16 @@ owspec_init_far:
     bra owspec_init
 uw_person_update_far:
     bra uw_person_update
+update_death_far:
+    bra update_death
+death_begin_far:
+    bra death_begin
+draw_link_far:
+    bra draw_link
+erase_sprite_far:
+    bra erase_sprite
+blit_rect_far:
+    bra blit_rect
 
     .include "link.s"
     .include "uw.s"
@@ -943,6 +963,9 @@ uw_person_update_far:
     .include "menu.s"
     .include "bosses.s"
     .include "intro.s"
+    .include "filesel.s"
+    .include "death.s"
+    .include "save.s"
 
 | ---------------------------------------------------------------------------
 
@@ -1041,6 +1064,23 @@ intro_sprites:
     .incbin "intro_sprites.bin"
 intro_spawns:
     .incbin "intro_spawns.bin"
+    | The file menu (tools/filesel.py).
+    .align 2
+file_tiles:
+    .incbin "file_tiles.bin"
+file_cells:
+    .incbin "file_cells.bin"
+file_glyphs:
+    .incbin "file_glyphs.bin"
+    .align 2
+file_sprites:
+    .incbin "file_sprites.bin"
+    | Link's death (tools/gameover.py).
+    .align 2
+death_sprites:
+    .incbin "death_sprites.bin"
+death_maps:
+    .incbin "death_maps.bin"
     | Each dungeon's tables and level_table (generated). They are reached through pointers that
     | uw_select_level builds, so they may sit anywhere, however far from table_anchor.
     .align 2

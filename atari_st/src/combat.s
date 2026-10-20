@@ -1002,43 +1002,9 @@ heal_link:
 link_ring_colour:
     rts
 
-| Out of hearts: full health and back to the start of the overworld.
+| Out of hearts: he is dead. The frame is finished, then death.s takes the screen (the main loop calls death_begin).
 link_dies:
-    movem.l %d0-%d1/%a0, -(%sp)
-    lea OFF_ROOM_HIST(%a5), %a0         | ClearRoomHistory: every screen starts afresh
-    moveq #5, %d0
-0:  clr.b (%a0)+
-    dbra %d0, 0b
-    clr.b OFF_ROOM_HIST_I(%a5)
-    jingle MUS_DEATH
-    moveq #0, %d0
-    move.b OFF_HEART_CONTAINERS(%a5), %d0
-    add.w %d0, %d0
-    move.b %d0, OFF_HP_HALVES(%a5)
-    clr.b OFF_LEVEL(%a5)
-    clr.b OFF_IN_CELLAR(%a5)
-    clr.b OFF_ATTACK(%a5)
-    clr.b OFF_LINK_HURT(%a5)
-    clr.b OFF_LINK_SHOVE(%a5)
-    clr.b OFF_LINK_HELD(%a5)
-    clr.b OFF_COMMIT(%a5)
-    clr.b OFF_LINK_POS_FRAC(%a5)
-    move.b #1, OFF_WARPED(%a5)
-    move.b #LINK_EDGE_LEFT, OFF_BOUND_LEFT(%a5)
-    move.b #LINK_EDGE_RIGHT, OFF_BOUND_RIGHT(%a5)
-    move.b #LINK_EDGE_UP, OFF_BOUND_UP(%a5)
-    move.b #LINK_EDGE_DOWN, OFF_BOUND_DOWN(%a5)
-    move.b #ROOM_BOUND_LEFT, OFF_OBJ_LEFT(%a5)
-    move.b #ROOM_BOUND_RIGHT, OFF_OBJ_RIGHT(%a5)
-    move.b #ROOM_BOUND_UP, OFF_OBJ_UP(%a5)
-    move.b #ROOM_BOUND_DOWN, OFF_OBJ_DOWN(%a5)
-    move.b #START_ROOM_ID, OFF_ROOM_ID(%a5)
-    move.b #HOME_X, OFF_LINK_X(%a5)
-    move.b #HOME_Y, OFF_LINK_Y(%a5)
-    move.b #START_DIR, OFF_LINK_DIR(%a5)
-    bsr enter_room
-    move.b #1, OFF_HUD_DIRTY(%a5)
-    movem.l (%sp)+, %d0-%d1/%a0
+    move.b #1, OFF_DYING(%a5)
     rts
 
 | ---------------------------------------------------------------------- bombs

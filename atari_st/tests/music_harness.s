@@ -6,6 +6,7 @@
     .equ MODE_CAVE, 2
     .equ MODE_MENU, 3
     .equ MODE_INTRO, 4
+    .equ MODE_DEATH, 5
     .include "globals.s"
 
     .text

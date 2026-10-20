@@ -41,6 +41,7 @@
 | ------------------------------------------------------------------------------------------------ entering and leaving
 | Called once, with the machine as init has left it: show the title and start its music.
 intro_start:
+    bsr save_init                       | the slots as ZELDA.SAV has them
     move.b #MODE_INTRO, OFF_GAME_MODE(%a5)
     move.b #1, OFF_INTRO_KEYS(%a5)      | a Start that is still down from before does not count
     bsr swap_screens_far                    | SCREEN_PTR is the hidden screen from here on
@@ -624,13 +625,18 @@ intro_draw_items:
 | Once a frame in game mode MODE_INTRO.
 update_intro:
     addq.w #1, OFF_INTRO_FRAME(%a5)
+    cmpi.b #INTRO_PHASE_MENU, OFF_INTRO_PHASE(%a5)
+    bhs filesel_update                  | the file menu (filesel.s)
     bsr intro_check_start
     tst.b %d0
-    bne intro_begin_game
+    bne intro_to_menu
     tst.b OFF_INTRO_PHASE(%a5)
     bne intro_story_update
     bra intro_title_update
 
-intro_begin_game:
-    bsr intro_leave
-    bra begin_game_far
+| Start: the title song stops and the file menu comes up.
+intro_to_menu:
+    bsr music_stop_far
+    clr.b OFF_MUS_FORCED(%a5)
+    moveq #FILE_SELECT, %d0
+    bra filesel_begin

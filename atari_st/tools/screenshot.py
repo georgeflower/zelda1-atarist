@@ -71,6 +71,10 @@ def parse_globals_layout(globals_source: Path) -> dict[str, int]:
     return offsets
 
 
+# Files put on the emulated hard drive next to the PRG (--hd-file NAME=PATH), e.g. a ZELDA.SAV to load.
+HD_FILES: list[tuple[str, Path]] = []
+
+
 def run_hatari(
     hatari: str,
     tos: Path,
@@ -85,6 +89,8 @@ def run_hatari(
         shutil.rmtree(hd)
     hd.mkdir(parents=True)
     shutil.copy(prg, hd / "ZELDAST.PRG")
+    for name, source in HD_FILES:
+        shutil.copy(source, hd / name)
 
     script_path = work / "dbg.ini"
     script_path.write_text(debug_script, encoding="utf-8")
@@ -268,6 +274,8 @@ def main() -> None:
         help="shorthand for holding keys from --press-at onwards",
     )
     parser.add_argument("--press-at", type=int, default=620)
+    parser.add_argument("--hd-file", action="append", default=[], metavar="NAME=PATH",
+                        help="copy PATH to the emulated hard drive as NAME before the run (a saved game, say)")
     parser.add_argument("--work", type=Path, default=project / "build" / "shots")
     parser.add_argument("--room", type=lambda v: int(v, 0), help="start on this overworld screen (a dev build in build/dev)")
     parser.add_argument("--uw", type=lambda v: int(v, 0), help="start in this dungeon room, with a sword (a dev build)")
@@ -279,6 +287,11 @@ def main() -> None:
         help="Hatari trace flags for the capture run, e.g. os_base,cpu_exception",
     )
     args = parser.parse_args()
+    for item in args.hd_file:
+        name, _, source = item.partition("=")
+        if not source:
+            raise SystemExit("--hd-file wants NAME=PATH")
+        HD_FILES.append((name, Path(source)))
 
     if not str(args.tos) or not args.tos.is_file():
         raise SystemExit("Pass --tos <tos.img> or set the TOS environment variable")
