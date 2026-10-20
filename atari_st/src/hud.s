@@ -53,8 +53,45 @@ draw_hud:
     bsr draw_hud_hearts
     bsr draw_hud_boxes
     bsr draw_minimap
+    bsr draw_hud_level
     movem.l (%sp)+, %d0-%d4
     rts
+
+| "LEVEL-n" in a dungeon (the ROM writes it over the map; the minimap has that corner here), blank on the overworld:
+| the free columns between the A box and LIFE, on the row where only a ninth heart would ever be.
+    .equ HUD_LEVEL_COL, 19
+    .equ HUD_LEVEL_ROW, 1
+draw_hud_level:
+    movem.l %d0-%d4/%a0-%a1, -(%sp)
+    ltab text_glyphs, %a1
+    lea level_text(%pc), %a0
+    moveq #0, %d4
+1:  moveq #0, %d0
+    move.b 0(%a0, %d4.w), %d0           | the NES code of the letter
+    cmp.w #6, %d4
+    blo 2f
+    move.b OFF_LEVEL(%a5), %d0          | the digit
+    bne 2f
+    moveq #0x24, %d0                    | no level: a space
+    bra 3f
+2:  tst.b OFF_LEVEL(%a5)
+    bne 3f
+    moveq #0x24, %d0
+3:  and.w #0x3f, %d0
+    move.b 0(%a1, %d0.w), %d0
+    move.w %d4, %d1
+    add.w #HUD_LEVEL_COL, %d1
+    moveq #HUD_LEVEL_ROW, %d2
+    bsr draw_hud_tile
+    addq.w #1, %d4
+    cmp.w #7, %d4
+    blo 1b
+    movem.l (%sp)+, %d0-%d4/%a0-%a1
+    rts
+
+level_text:
+    .byte 0x15, 0x0E, 0x1F, 0x0E, 0x15, 0x2F, 0x00     | L E V E L - and the digit's place
+    .align 2
 
 | The two item boxes, B and A, between the counters and the hearts. A holds the
 | sword once Link has it; B holds the bombs, which Space drops.

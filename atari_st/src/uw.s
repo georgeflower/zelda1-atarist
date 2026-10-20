@@ -920,7 +920,7 @@ uw_enter_cellar:
     move.b %d0, OFF_ENEMY_DIR(%a5, %d3.w)
     move.l %d5, -(%sp)
     move.w %d3, %d5
-    bsr enemy_init_special
+    bsr enemy_init_special_far
     move.l (%sp)+, %d5
     dbra %d3, 5b
     move.b #4, OFF_ENEMY_COUNT(%a5)

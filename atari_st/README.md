@@ -85,7 +85,7 @@ Overworld
   hints, the money making game, the door repair charge, the shops with their
   prices and the moblins' free rupees. What was given stays gone; rupees
   are paid out and taken one at a time with the little blip
-- the game starts just below the first cave; dying refills the hearts and
+- the game starts where the original puts Link (X $78, Y $8D, facing up); dying refills the hearts and
   returns Link there
 - octoroks, moblins and lynels walk on the screens where the original puts them
   and shoot as in the original (rocks, arrows, the lynel's sword shot; the
@@ -223,7 +223,7 @@ Combat and items
   ten kills without being hurt guarantee a drop, a bomb if the tenth was a
   bomb kill, five rupees otherwise. Drops flicker, wait about half a second
   before they can be taken, and vanish after about eight
-- sword beam: with full hearts, or half a heart short, the third phase of a
+- sword beam: with full hearts only, the third phase of a
   swing fires a beam that flashes through the four sprite palettes until it
   hits a wall or a monster, and then spreads out as the original's spark
 - bombs: 48 frames of fuse, then a 36-frame cloud (four sprites, three puffs
@@ -278,8 +278,8 @@ Combat and items
   fades to black through the ROM's four steps, a grey Link is left and goes in a spark, and GAME OVER shows with its song.
   Then comes the question of the original: CONTINUE (Up, Down or Tab move the heart, Return or Space takes it; the word
   flashes first) starts again at the overworld's start, or at the first room of the dungeon, with three hearts and what
-  Link carries; SAVE stores the game in the profile and goes to the file menu; RETRY goes to the file menu with the
-  profile as it was last stored. Each death adds one to the profile's count
+  Link carries; SAVE stores the game in the profile and goes to the file menu; RETRY reloads the profile as it was last stored and starts at
+  the overworld's start or the dungeon's entrance, without the file menu. Each death adds one to the profile's count
 - saved games (`save.s`): `ZELDA.SAV`, three profiles of 640 bytes with a checksum, is read through GEMDOS from the
   current directory when the program starts and written (as `ZELDA.TMP`, then renamed over the old file) when a name is
   registered or deleted and when SAVE is chosen. It holds the name, hearts, deaths, items, counters, the rooms visited and

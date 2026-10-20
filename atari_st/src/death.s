@@ -480,6 +480,7 @@ death_continue:
     clr.b OFF_HP_FRAC(%a5)
     bsr game_reset_position
     move.b (%sp)+, %d0                  | the level he died in
+death_restart:
     move.b %d0, OFF_LEVEL(%a5)
     move.b %d0, OFF_PAL_LEVEL(%a5)
     bsr intro_leave
@@ -498,8 +499,16 @@ death_save:
     moveq #FILE_SELECT, %d0
     bra filesel_begin
 
-| RETRY: the profile as the disk has it (the death count of this life is not counted), and the file menu.
+| RETRY: the game as the profile has it (what was saved, the secrets found since forgotten), and Link starts again: at the
+| overworld's start, or in the first room of the dungeon he died in. No menu. A development build has no profile and
+| does what CONTINUE does.
 death_retry:
-    bsr save_recs_to_views
-    moveq #FILE_SELECT, %d0
-    bra filesel_begin
+    moveq #0, %d0
+    move.b OFF_PROFILE(%a5), %d0
+    lea OFF_SLOT_ACTIVE(%a5), %a0
+    tst.b 0(%a0, %d0.w)
+    beq death_continue
+    move.b OFF_LEVEL(%a5), -(%sp)
+    bsr save_load_game
+    move.b (%sp)+, %d0
+    bra death_restart

@@ -518,6 +518,9 @@ file_heart_show:
     bsr file_restore
     addq.w #8, %d2
     bsr file_restore
+    cmpi.b #FILE_CONTINUE, OFF_FILE_SCREEN(%a5)
+    beq 3f
+    bsr file_links                      | the restore took the left half of a Link with it: the Links come back
 3:  move.b %d5, OFF_FILE_HEART_Y(%a5)
     moveq #FILE_FRAME_HEART, %d1
     cmpi.b #FILE_ELIMINATE, OFF_FILE_SCREEN(%a5)

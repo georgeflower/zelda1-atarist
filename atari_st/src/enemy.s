@@ -19,6 +19,9 @@ rand8:
     and.w #0xff, %d0
     rts
 
+    .equ MON_TRAP_INDEX, 7              | mon_table's blade trap (actors.MONSTER_TYPES: NES type $49)
+    .equ MON_LANMOLA_INDEX, 53          | the blue lanmola (NES type $3A)
+
 spawn_room_enemies:
     movem.l %d0-%d7/%a0-%a2, -(%sp)
     bsr clear_enemies
@@ -91,8 +94,24 @@ uw_spawn:
     bsr block_setup
     lea OFF_UW_FLAGS(%a5), %a2
     btst #0, 0(%a2, %d0.w)
-    bne 9b                      | already cleared: they stay dead
-    bra spawn_from_record
+    beq spawn_from_record
+    moveq #0, %d2                   | cleared: only the recurring ones come back, the blade traps and the lanmolas
+    move.b (%a1), %d2               | (ModifyObjCountByHistoryUW: object lists $3A, $3B and from $49 on); the rest stay dead.
+    moveq #0, %d1                   | They head the record's list, so it is the first d1 that are placed.
+7:  cmp.w %d2, %d1
+    bhs 8f
+    move.b 6(%a1, %d1.w), %d3
+    cmp.b #MON_TRAP_INDEX, %d3
+    beq 6f
+    cmp.b #MON_LANMOLA_INDEX, %d3
+    beq 6f
+    cmp.b #MON_LANMOLA_RED, %d3
+    bne 8f
+6:  addq.w #1, %d1
+    bra 7b
+8:  tst.w %d1
+    beq 9b                      | already cleared: they stay dead
+    bra spawn_counted
 
 | a1 = a room record (monster count at 0, monster indices from 6): place them
 | on the first safe spawn spots. Used by both worlds.

@@ -56,8 +56,7 @@ and add the `CHANGELOG.md` entry, in the same PR; tag it after the merge. The ne
 - Hatari emulator: <https://hatari-emu.org> (version used: **2.6.1**).
 - The owner tests `ZELDAST.PRG` (sometimes renamed) in Hatari, and sends
   screenshots/videos with red marks. Overworld start = room `$77`, X `$78`, Y `$8D`
-  (ROM LevelInfo); the port opens in front of the first cave (HOME_X `$40`,
-  HOME_Y `$5D`).
+  (ROM LevelInfo); the port starts there too (`HOME_X`/`HOME_Y` = `START_X`/`START_Y`, facing up).
 - The owner wants **fidelity to the original source** for behaviour, and
   Atari-appropriate controls. They iterate by playing, reporting gaps.
 
@@ -471,7 +470,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   Damage table `ObjTypeToDamagePoints` (`$80` = half heart, `$01` = one heart).
 - **Sword**: phases 1,8,1,1,1 frames; only cuts in state 2; tile `$20` (vertical,
   narrow) / `$82` (horizontal); offsets `PlayerToWeaponOffsetsX/Y` (Z_07). **Beam** (full
-  hearts or one half short): launched at phase 3, 3 px/frame, palette cycles with
+  hearts only: `MakeSwordShot` wants the last heart's partial >= `$80` and any blow takes it to `$7F`): launched at phase 3, 3 px/frame, palette cycles with
   `FrameCounter & 3`, spark tile `$30` in 4 corners spreading k=2..23.
 - **Bombs**: fuse 48 frames; cloud 36 frames: first 24 damage (radius `$18`, `$40`
   damage = 4 sword hits) + two grey screen flashes (timer 22-19 and 17-14), last 12 open
@@ -484,9 +483,10 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   counters. Drops live `$FF` counts every 2nd frame, flicker and can't be taken for 30
   frames. Bomb pickup +4 (cap 8).
 - **Boomerang** (`UpdateArrowOrBoomerang`, `WieldBoomerang`): placed 16 px ahead, 3 px/frame
-  for 49 px (limit `$31`) or until blocked, 3-frame spark, slow phase (1 px/frame, `$10`
-  frames), then returns to Link (a wall only stops it while flying out: in the slow phase it stays put and the phase still runs out); one at a time; stun `ObjStunTimer` `$10` = 160 frames;
-  kills monsters with HP 0 (gel, keese); picks up items; traps/boss ignore it. Art:
+  (8-way: the held keys, a diagonal moves both axes; else Link's facing; `OFF_HELD_DIRS`)
+  for 49 px (limit `$31`) or until the room's edge stops it (`MoveShot` -> `BoundByRoom`: walls and water never do; in caves the cave bounds), 3-frame spark, slow phase (1 px/frame, `$10`
+  frames), then returns to Link (the edge only stops it while flying out: in the slow phase it stays put and the phase still runs out); one at a time; stun `ObjStunTimer` `$10` = 160 frames;
+  kills monsters with HP 0 (gel, keese; hit box `CheckMonsterBoomerangOrFoodCollision`: the monster's middle +8,+8 within $A of the boomerang's +4,+8); picks up items; traps/boss ignore it. Art:
   item slot `$1D` tiles `$36,$38,$3A` + spark `$3C`, spin cycle `{0,1,2,1,0,1,2,1}` with
   flips. Stunned monsters do nothing and do no contact damage (`ENEMY_STUN`).
 - **Holding an item up** (`TakeItem` with `ItemLiftTimer`, `lift_begin` / `lift_update` in combat.s, `LIFT_TIMER`): the wooden sword, the
@@ -645,7 +645,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   checked pixel for pixel against `death_maps` in Hatari. Slots 13-15 are in no level used by the HUD, Link or items. Afterwards the death count of
   `OFF_PROFILE` goes up (cap $FF), the three screen buffers are put in the menu arrangement and `filesel_begin(FILE_CONTINUE)` asks: CONTINUE
   (`death_continue`: three hearts, `game_reset_position`, overworld start via `enter_room`, a dungeon via `uw_warp_to_start`, items kept), SAVE
-  (`save_store_game`: full hearts, the record is written) or RETRY (`save_recs_to_views`, back to the select screen). The chosen word flashes
+  (`save_store_game`: full hearts, the record is written) or RETRY (`death_retry`: `save_load_game` of the stored profile, then `death_restart` at the overworld start or the level's entrance; no file menu). The chosen word flashes
   `FILE_FLASH_FRAMES` (64). `ZELDA.SAV` (`SAVE_FILE` in the variable block, 1928 bytes = 8 of header: `ZSAV`, version word, checksum word, then three
   records of 640): a record is the menu's data (active, deaths, quest, ring, hearts, 8 name tiles) and, from offset 16, the fields of the `save_fields`
   table (the Items block, rupees, keys, containers, HP, bombs, B item, triforce, map, compass, whirlwind index, the secrets patch log, `OW_KILLS`,
