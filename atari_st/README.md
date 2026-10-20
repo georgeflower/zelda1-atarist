@@ -13,7 +13,7 @@ container and the triforce piece) as in the original; Levels 3 to 9 are built
 with their rooms, items, monsters and bosses (up to Ganon and Zelda) but not yet played through. Every item the game has
 is in the code, but most can only be found in the dungeons and caves that are
 not ported yet. It is not yet a complete game: the shops and
-most caves, the title screen and saving are missing.
+most caves and saving are missing.
 
 How to play
 -----------
@@ -335,7 +335,7 @@ Next, in the order of `PLAN.md`
    the ladder, the recorder's whirlwind, the animated pond
 3. the other seven dungeons, now that a level is data (M6 to M9): per level the
    monsters, the boss and the palette rows of its sprites
-4. title screen, game-over and continue, saving, the ending; the missing
+4. game-over and continue, saving (the title and file menu are done), the ending; the missing
    songs (title, ending, game over, boss roars) (M10, M11)
 5. a check on real STFM timing and memory, a release build (M12)
 

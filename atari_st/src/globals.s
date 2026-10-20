@@ -426,4 +426,28 @@
     gvar INTRO_GLOW_I, 1       | TriforceGlowCycle
     gvar INTRO_WAVES, 3        | TitleWaveYs
     gvar INTRO_KEYS, 1         | Start was down last frame
+    | The file menu (filesel.s): the three slots the player can choose from, and the screen's state.
+    gvar FILE_SCREEN, 1        | 0 player select (mode 1), 1 register your name (mode E), 2 elimination (mode F)
+    gvar FILE_SEL, 1           | CurSaveSlot: 0-2 a slot, 3 REGISTER (select) or END, 4 ELIMINATION
+    gvar FILE_DOWN, 1          | ButtonsDown, laid out like the NES's: A B Select Start Up Down Left Right
+    gvar FILE_PRESSED, 1       | ButtonsPressed
+    gvar FILE_COL, 1           | the character of the name the next letter goes to (NameCharOffset)
+    gvar FILE_BOARD, 1         | CharBoardIndex
+    gvar FILE_BOARD_X, 1       | ObjX+1, ObjY+1: the character board's cursor
+    gvar FILE_BOARD_Y, 1
+    gvar FILE_HOLDING, 1       | StillHoldingButton
+    gvar FILE_HELD, 1          | HeldButton
+    gvar FILE_REPEAT_SUB, 1    | SubsequentButtonRepeat
+    gvar FILE_REPEAT_T, 1      | ButtonRepeatTimer
+    gvar FILE_HEART_Y, 1       | the NES y of the heart on show, 0 for none
+    gvar PROFILE, 1            | the slot being played
+    gvar SLOT_ACTIVE, 5        | IsSaveSlotActive: the slots, then the two options (always on)
+    gvar SLOT_NAMES, 24        | Names: eight tiles each, $24 is a space
+    galign
+    gvar SLOT_HEARTS, 6        | SaveSlotHearts: the hearts value and the partial heart of each
+    gvar SLOT_DEATHS, 3        | DeathCounts
+    gvar SLOT_QUEST, 3         | QuestNumbers
+    gvar SLOT_RING, 3          | the ring Link wears (0 none, 1 blue, 2 red)
+    galign
+    gvar FILE_BLK, 8           | the two block cursors on show: x and screen line of each, -1 for none
     .equ GLOBALS_BYTES, gvar_offset

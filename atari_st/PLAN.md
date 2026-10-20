@@ -1,6 +1,6 @@
 # Zelda 1 for Atari ST - plan for all remaining work
 
-Status: **work in progress, version 0.34** (see `CHANGELOG.md`). Written as a plan after PR #2; PRs #4 to #38 and the M10 title screen have since implemented parts of it, listed in section 1.1, and ticked boxes (`[x]`) below show what is done. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged.
+Status: **work in progress, version 0.35** (see `CHANGELOG.md`). Written as a plan after PR #2; PRs #4 to #38 and the M10 title screen and file menu have since implemented parts of it, listed in section 1.1, and ticked boxes (`[x]`) below show what is done. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged.
 
 How to read this: section 2 is the order of work. Sections 3 to 12 are one work package each, with a checklist and an acceptance test. Section 13 records the decisions, the risks and the checks still open. The appendices hold the data tables, decoded from the PAL (Europe, Rev 1) ROM you supplied. That ROM has the same data layout as the disassembly in `src/` (start room `$77`, start Y `$8D`, same blob offsets), so the tables should apply to the NTSC ROM the build expects as well.
 
@@ -65,16 +65,16 @@ M0 is complete (table-dump tool, reach budget, golden frames). M1 is done except
 | M7 | Dungeon monsters (all underworld types) | M6 | XL | all types of Levels 1 to 8 (darknuts, vire, zol/gel, pols voice, like-like, wizzrobes, bubbles, gibdos, keese, ropes, stalfos, traps); Level 9's are open |
 | M8 | Bosses | M7 | XL | Aquamentus, Dodongo, Moldorm (two worms of four), Manhandla, Gohma, Digdogger, Gleeok; Lanmola, Patra, Ganon and Zelda's scene done (#29; Ganon's music #30; checked in Hatari with scripted input, not played by a person) |
 | M9 | Levels 2 to 9 content, triforce sequence, map/compass minimap | M6, M7, M8 | XL | Levels 1 to 9 built (rooms, layout, items, monsters, bosses); only partly play-tested, see 9.3; the credits are in (typed pages, not the scrolling wall) |
-| M10 | Title/story, file select, name entry, save, continue/death, ending | M5 | L | credits done (typed pages); **title, story and parade done (0.34, part a)**; file select, name entry, elimination (part b) and save, death, continue (part c) not started (death returns to the start) |
+| M10 | Title/story, file select, name entry, save, continue/death, ending | M5 | L | credits done (typed pages); **title, story and parade done (0.34, part a)**; **file select, name entry, elimination done (0.35, part b; slots in memory)**; save, death, continue (part c) not started (death returns to the start) |
 | M11 | Sound effects and music (player, bank and the Level 1 events done; the rest are hooks, see 12) | any | M | mostly done (#4 to #9, #30) |
 | M12 | Polish: PAL 50 Hz, performance, memory, unit tests, docs | all | M | PAL checked (#18); docs refreshed after #25; the rest open |
 | M13 | Deferred (decided: not now): Second Quest | all | L | deferred |
 
 ### 2.1 Versions and the next step
 
-Versions are milestones, not PR numbers: `0.NN`, tagged on the commit that finishes the milestone, with a line in `CHANGELOG.md`. A big change (a new dungeon, a new mechanic family, a new milestone package) gets its own version; fixes and docs ride along with the version they belong to. The current version is **0.34**.
+Versions are milestones, not PR numbers: `0.NN`, tagged on the commit that finishes the milestone, with a line in `CHANGELOG.md`. A big change (a new dungeon, a new mechanic family, a new milestone package) gets its own version; fixes and docs ride along with the version they belong to. The current version is **0.35**.
 
-Next step: **M10 part b** (file select, name entry, elimination; the title and story are done in 0.34, then part c: save, death, continue; M4 is done in 0.33, only the waterfall and sea sound are left). Then a person's play-through of all nine dungeons and the memory check for a 512 KB machine (M12).
+Next step: **M10 part c** (ZELDA.SAV through GEMDOS, death, continue/save/retry, game over; the title, story and file menu are done in 0.34/0.35; M4 is done in 0.33, only the waterfall and sea sound are left). Then a person's play-through of all nine dungeons and the memory check for a 512 KB machine (M12).
 
 Reasoning: M1 went first because it was the bug you could see and it fixed the data model (secret objects per room, patched into the room maps) that M3, M4 and M9 reuse; M3 follows because every hidden spot, stair and cave of the overworld now leads to it. M6 comes before the monsters because every dungeon monster needs the room, door and palette machinery to be tested in place. M10 comes late because save files store the inventory, so the inventory must be final first.
 
@@ -427,8 +427,8 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 - Mode 1 file menu: three slots, each showing the name (8 chars), hearts, death count and a Link sprite. Cursor sprite, up/down to choose, Start to enter. Fourth and fifth rows: REGISTER YOUR NAME and ELIMINATION MODE.
 - Mode E register: a character board (the characters in `ModeE_CharMap`) with a cursor, 8 name characters, an END choice. A new slot starts with 3 heart containers and 2 hearts, max bombs 8. The name `ZELDA` sets the quest number to 1 (Second Quest).
 - Mode F elimination: choose a slot to delete (`DeleteSlot` blanks the name and clears the file), END returns to mode E.
-- [ ] Controls: Atari equivalents of Start/Select/A/B (the port uses Space for A, Ctrl/Alt for B, Tab for inventory; choose Return for Start and Tab for Select **(Q3)**).
-- [ ] Button repeat timing for the character board (`ModeE_HandleDirectionButton`, `ResetButtonRepeatState`).
+- [x] Controls (0.35): Return = Start, Tab = Select, Space = A, Ctrl/Alt = B (**Q3** decided); the inventory screen keeps its own keys.
+- [x] Button repeat timing for the character board (`ModeE_HandleDirectionButton`: 16 frames, then 8). The three screens are done in 0.35 (`filesel.s`, `tools/filesel.py`); slots are in memory only until part c.
 
 ### 11.3 Save, continue, death
 
