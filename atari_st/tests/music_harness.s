@@ -5,6 +5,7 @@
     .include "music_ids.inc"
     .equ MODE_CAVE, 2
     .equ MODE_MENU, 3
+    .equ MODE_INTRO, 4
     .include "globals.s"
 
     .text

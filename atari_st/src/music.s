@@ -123,6 +123,8 @@ music_update:
 1:  move.b #MUS_NONE, %d0
     cmp.b #MODE_CAVE, OFF_GAME_MODE(%a5)
     beq 3f
+    cmp.b #MODE_INTRO, OFF_GAME_MODE(%a5)
+    beq 3f                      | the title plays its own song (intro.s), and without one the screen is silent
     moveq #MUS_OVERWORLD, %d0
     move.b OFF_LEVEL(%a5), %d1
     beq 3f

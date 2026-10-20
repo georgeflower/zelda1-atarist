@@ -30,7 +30,7 @@ damage, tile id, table), read it from there rather than guessing.
 
 ## 1.1 Versions
 
-The port has versions `0.NN` (current: **0.33**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
+The port has versions `0.NN` (current: **0.34**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
 the commit that finishes it. A big change (a dungeon, a mechanic family, a package of `atari_st/PLAN.md`) takes the next number; fixes
 and docs ride along. When you finish one: bump `VERSION`, the "Version" line of `README.md`, the status line of `atari_st/PLAN.md`
 and add the `CHANGELOG.md` entry, in the same PR; tag it after the merge. The next step is named in `atari_st/PLAN.md` section 2.1.
@@ -101,6 +101,7 @@ atari_st/                the port
 | `combat.s` | sword, beam, bombs, candle, drops/kill counters, `take_item`, HP/knock-back, rings, shield, clock, effects (spark/cloud), push block, shutters, triforce ending, the ringleader trigger |
 | `hud.s` | status ribbon, hearts, counters, A/B boxes (`hud_items`) |
 | `menu.s` | Tab inventory screen (MODE_MENU): 2x4 grid of B items plus a row of carried items |
+| `intro.s` | the title, the story and the parade of the treasures (MODE_INTRO, game mode 0 of the ROM, M10): ring of 200 lines filled from tile tables, the waterfall's sprites, the glowing Triforce, the fade, `intro_leave`; included after `bosses.s`, reaches main.s through `*_far` stubs |
 | `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level`, `debug_keys` (K) |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
 | `music.s` | music and sound effects replayed from the VBL hook: four register-stream contexts (song, effect over voice A, effect over voice B, noise effect over voice C) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`) |
@@ -112,9 +113,10 @@ atari_st/                the port
 | `build_assets.py` | ROM -> ST data: tiles, rooms, palette, HUD glyphs, caves, writes `build/generated/*.bin` and `assets.inc`; stops without the ROM (no stand-in art); `--verify-only` |
 | `underworld.py` | Level tile rooms (LayOutRoom port), doors, cellars, reachable rooms |
 | `actors.py` | monsters, items, drops, sprites (sword, beam, effects, boomerang, HUD icons), per-room records |
+| `intro.py` | the title screen, the story and the parade (`Z_02.asm` mode 0): replays the ROM's nametable transfer streams and palettes, writes `title_*`, `story_*`, `intro_sprites` and `intro_spawns` `.bin` files and the fade palettes |
 | `make_prg.py` | wraps the flat binary into a TOS PRG header (`--check` validates) |
 | `screenshot.py` | **headless Hatari harness**: runs the PRG, injects keys, pokes variables, dumps RAM, decodes framebuffer to PNG, prints a state report and a `FRAMEHASH`; `--room`, `--uw`/`--level` build a dev PRG into `build/dev` |
-| `golden.py` | golden frames: runs twenty fixed scenes through `screenshot.py` and compares `FRAMEHASH` with `tests/golden/frames.json` (`--update`, `--only`, `--png-dir`); skipped without Hatari, `TOS` and the ROM; `make golden-update` |
+| `golden.py` | golden frames: runs the fixed scenes through `screenshot.py` and compares `FRAMEHASH` with `tests/golden/frames.json` (`--update`, `--only`, `--png-dir`); skipped without Hatari, `TOS` and the ROM; `make golden-update` |
 | `dump_tables.py` | dumps the ROM tables the port is built from (overworld screens, all nine dungeons' rooms, monster lists) as `build/dump/tables.json` and `tables.md`; checks the ROM |
 | `check_reach.py` | run after every link: fails the build if an `ltab` symbol is missing or a branch or PC-relative operand does not fit 16 bits (reads `build/zelda_st.lst`) |
 | `dev_run.sh` | build with a start room + capture (needs `$TOS`) |
@@ -203,6 +205,7 @@ of its own): a build without `ext/Original.nes` stops with a message, and `build
 `atari_st/tests/` (`test_build_assets.py`, `test_actors.py`, `test_ym_convert.py`,
 `test_nes_music_rip.py` (needs `py65` for the ROM part, `ZELDA_ROM` or `ext/Original.nes`),
 `test_dump_tables.py` (the table dump, and that every golden scene has a stored hash),
+`test_intro.py` (the title and story tables, from the ROM),
 `test_music_player.py` (the packer, and `music.s` run on `machine68k` through `tests/music_harness.s`; needs the m68k binutils and `pip install machine68k`, the real-bank part also the ROM and `py65`),
 ...). Run `python -m unittest discover -s atari_st\tests` (142 tests at the time of
 writing). They cover the asset pipeline and tables; the 68000 music player is the one piece of
@@ -620,6 +623,21 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   The **Tab screen** (`menu.s`) shows a 2x4 grid of the B items plus a row of what is carried, table driven (Left/Right).
   Nothing in the game hands out most of these yet: the shops and caves are not ported (`debug_keys` K gives keys, bombs, the
   candle; the harness can poke any `INV_*`).
+- **Title and story** (`intro.s`, `tools/intro.py`, game mode `MODE_INTRO`): the game starts here unless it is a development build
+  (`ZELDA_START_ROOM/UW/CAVE` or `ZELDA_SKIP_INTRO` set, `DEV_SKIP_INTRO`), and `begin_game` (main.s) is what Start runs. Everything is read from the
+  ROM at build time: the pictures are the nametable transfer streams `GameTitleTransferBuf` and `StoryTileAttrTransferBuf` replayed on a model of the
+  PPU (the `bins.xml` offsets of both are wrong for the Rev 1 ROM, so `intro.transfer_streams` falls back to searching for them), the tiles are the
+  common and demo pattern blocks, the colours the title's, the story's and the fade's palette records. A picture is a table of 8x8 tiles plus a map of
+  cells; `intro.s` draws one line of it at a time into a **ring of 200 lines** in `BG_CUR` (the NES lines 24 to 223, 128 bytes a line), copies the ring
+  into the hidden screen, and shows it. The story is a strip of 231 tile rows (49 distinct) that scrolls one line every other frame, a line of ring
+  per step. The treasures of the parade that do not change are drawn into the ring a line at a time as their lines come in (`intro_overlay_line`,
+  `intro_spawns`: strip line, x, first picture, kind); the flashing and fluttering ones (kind 1 and 2) are sprites over the screen each frame, as are
+  the waterfall's waves and crest on the title. The timeline is the ROM's (512 frames of title with the Triforce glow `TriforceGlowingColors`, 14 fade
+  palettes with `DemoPhase0Subphase1Delays`, the first page scrolling in, 256 frames of rest, 1408 steps of parade, 256, 56). The scroll copy is the
+  most expensive thing the game does (about 130,000 cycles a picture, split over two frames); the music's drums take enough of the rest that a few
+  frames in a hundred run a VBL long while the animated items are on screen. Return (or the keypad Enter or the joystick button) is Start; leaving
+  restores the three buffers, the palette and the game's mode (`intro_leave`). `music_update` leaves the song alone in this mode (the title song is an
+  event song, `MUS_TITLE`).
 - **Music and sound**: YM2149 register streams (the MOD/XM->YM tool's game-kit format) replayed
   from a VBL hook (`music_vbl`, chains to TOS's handler). `music_update` (every frame) picks the
   area song from the state: overworld theme, dungeon theme (level 1-8), level 9 theme, silence in
@@ -729,7 +747,7 @@ M0 tooling (table dump, 16-bit reach check, golden frames).
 
 Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the old man's flames shooting when he is hit; the overworld map on the ribbon; the stairs-type push block
 (trigger 5); visible block slide animation; the waterfall and the sea sound; the rest of the sound (title, ending, game-over and
-boss music, DPCM); title/game-over/save (M10). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+boss music, DPCM); game-over, file select, name entry and save (M10, parts b and c). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
 cloud. Level 2's Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
 Unmeasured: free memory on a 512 KB machine.
 

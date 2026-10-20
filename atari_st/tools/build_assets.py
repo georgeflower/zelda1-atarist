@@ -452,6 +452,7 @@ class AssetBundle:
     ow_room_info: bytes = bytes(128 * 16)   # overworld screens: monster count, flags, monster indices (actors.py)
     room_secrets: bytes = bytes(128 * OW_SECRET_BYTES + OW_EXTRA_BYTES)   # overworld screens: the hidden spot, if any (OW_SECRET_BYTES)
     level_palettes: tuple = ()      # nine rows of 16 ST colours, one per dungeon (empty = reuse `palette`)
+    intro: object | None = None     # the title, the story and the parade (tools/intro.py IntroData)
 
 
 def load_uw_background_tiles(source_root: Path) -> list[list[list[int]]] | None:
@@ -821,6 +822,7 @@ def load_assets(source_root: Path) -> AssetBundle:
     if bg_tiles is not None and sprite_tiles is not None:
         rooms, metatiles, room_attrs_a, room_attrs_b, room_attrs_c, room_attrs_d, room_attrs_f, foe_counts, palette_bytes, start_room, start_y, room_secrets = decode_overworld(source_root, bg_tiles)
         import underworld
+        import intro as intro_module
 
         # Development aid: ZELDA_START_ROOM=0x37 starts the game in another room.
         override = os.environ.get("ZELDA_START_ROOM")
@@ -866,6 +868,7 @@ def load_assets(source_root: Path) -> AssetBundle:
             level_palettes=level_palettes,
             ow_room_info=ow_room_info,
             room_secrets=room_secrets,
+            intro=intro_module.build(source_root),
             bg_tiles=bg_tiles,
             sprite_tiles=sprite_tiles,
             rooms=rooms,
@@ -1210,7 +1213,12 @@ def underworld_equates(uw, level_count: int = 1) -> list[str]:
         f".equ DEV_START_UW, {int(os.environ.get('ZELDA_START_UW', '0xFF'), 0)}",
         f".equ DEV_START_LEVEL, {int(os.environ.get('ZELDA_START_LEVEL', '1'), 0)}",
         f".equ DEV_START_CAVE, {int(os.environ.get('ZELDA_START_CAVE', '0'), 0)}",
+        # The title and the story are for a game that is played: a build that starts somewhere on purpose skips them.
+        f".equ DEV_SKIP_INTRO, {1 if any(os.environ.get(n) for n in DEV_START_VARS) else 0}",
     ]
+
+
+DEV_START_VARS = ("ZELDA_START_ROOM", "ZELDA_START_UW", "ZELDA_START_CAVE", "ZELDA_SKIP_INTRO")
 
 
 def dungeon_entrance(bundle: AssetBundle) -> int:
@@ -1247,6 +1255,9 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
         bytes(value for room in bundle.rooms for value in room)
     )
     write_underworld(out_dir, bundle)
+    import intro as intro_module
+
+    intro_lines = intro_module.write(out_dir, bundle.intro)
     (out_dir / "cave_map.bin").write_bytes(bundle.cave_map)
     (out_dir / "cave_sprites.bin").write_bytes(bundle.cave_sprites)
     (out_dir / "cave_text.bin").write_bytes(bundle.cave_text)
@@ -1302,6 +1313,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
         *(f".equ ENDING_CREDIT_{n}, {len(bundle.cave_text) - sum(len(t) for t in CREDIT_TEXTS[n:])}"
           for n in range(len(CREDIT_PAGES))),
         f".equ DEV_START_ENTRANCE, 0x{dungeon_entrance(bundle):02x}",
+        *intro_lines,
         "",
     ]
     for index, (name, _, _) in enumerate(HUD_GLYPHS):
@@ -1324,6 +1336,9 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
                 "level_palettes",
                 [color for row in (bundle.level_palettes or (bundle.palette.st_colors,) * 9) for color in row],
             ),
+            "",
+            *intro_module.intro_tables(bundle.intro),
+            "    .align 2",
             "",
             format_bytes("walkable_tiles", OW_WALKABLE_TILES),
             "",
@@ -1413,6 +1428,7 @@ def verify_outputs(out_dir: Path) -> None:
         "cave_table.bin": CAVE_TYPES * CAVE_RECORD_BYTES,
         "cave_shortcuts.bin": 4,
         "uw_door_cells.bin": 4 * 12 * 2,
+        "title_cells.bin": 25 * 32 * 2,
     }
     for level in manifest_values["uw_levels"].split(","):
         for key in (f"uw{level}_room_count", f"uw{level}_tile_count"):

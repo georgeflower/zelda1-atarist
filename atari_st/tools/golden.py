@@ -34,6 +34,12 @@ GANON_ARROW = ("500:=GANON_SCENE=0,500:=LINK_HELD=0,500:=HP_HALVES=40,500:=ENEMY
                "500:=INV_ARROW=2,500:=INV_BOW=1,500:=INV_RUPEES=50,500:=B_ITEM=4,505:+up,507:-up,512:+ctrl,514:-ctrl")
 
 SCENES: dict[str, list[str]] = {
+    # The title and the story (intro.s) run in the normal build, which `make` has built (the others are dev builds).
+    "title": ["--vbls", "400"],
+    "title_fade": ["--vbls", "760"],
+    "story_page": ["--vbls", "1600"],
+    "story_parade": ["--vbls", "2600"],
+    "title_start": ["--vbls", "700", "--keys", "400:+return,420:-return"],
     "ow_start": ["--room", "0x77", "--vbls", "420"],
     "ow_entrance_l2": ["--room", "0x3c", "--vbls", "420"],
     "uw1_start": ["--uw", "0x73", "--level", "1", "--vbls", "420"],

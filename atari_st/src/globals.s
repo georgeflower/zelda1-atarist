@@ -413,4 +413,17 @@
     gvar ENEMY_CLOUD_T, 8      | frames left of that picture (ObjTimer)
     galign
     gvar FAIRY_ANG, 16         | each heart's angle: whole in the high byte, fraction in the low
+    gvar INTRO_TOP, 2          | the title and the story (intro.s): the scroll, CurVScroll counted on from the first page
+    gvar INTRO_STEP, 2         | lines the parade has scrolled (ScrolledLineCount)
+    gvar INTRO_TIMER, 2        | DemoTimer, counted in frames
+    gvar INTRO_FRAME, 2        | FrameCounter
+    gvar INTRO_RING, 2         | the ring slot of the window's top line
+    gvar INTRO_PHASE, 1        | DemoPhase: 0 the title, 1 the story
+    gvar INTRO_SUB, 1          | DemoSubphase
+    gvar INTRO_FADE, 1         | DemoPhase0Subphase1Cycle
+    gvar INTRO_FADE_T, 1       | DemoPhase0Subphase1Timer
+    gvar INTRO_GLOW_T, 1       | TriforceGlowTimer
+    gvar INTRO_GLOW_I, 1       | TriforceGlowCycle
+    gvar INTRO_WAVES, 3        | TitleWaveYs
+    gvar INTRO_KEYS, 1         | Start was down last frame
     .equ GLOBALS_BYTES, gvar_offset

@@ -107,6 +107,7 @@
     .equ MODE_SCROLL, 1
     .equ MODE_CAVE, 2
     .equ MODE_MENU, 3
+    .equ MODE_INTRO, 4              | the title, the story and the parade of the treasures (intro.s)
 
 | PlayerScreenEdgeBounds (Z_07.asm): Link leaves the overworld screen when he
 | reaches these coordinates. ObjectRoomBoundsOW is for other objects, not Link.
@@ -244,6 +245,15 @@ game_start:
     bsr init_buffers
     bsr init_video
     bsr music_init
+    .if DEV_SKIP_INTRO
+    bsr begin_game
+    .else
+    bsr intro_start_far
+    .endif
+    bra main_loop
+
+| Everything that sets the game up once the title is over (or at once, in a development build).
+begin_game:
     .if DEV_START_UW != 255
     | Development shortcut: start inside the level, with a sword and a key.
     moveq #DEV_START_LEVEL, %d0
@@ -267,6 +277,7 @@ game_start:
     bsr start_cave_entry_far            | development shortcut: start inside the cave behind the start screen
     .endif
     bsr draw_hud_far
+    rts
 
 main_loop:
     bsr wait_vbl
@@ -287,10 +298,14 @@ main_loop:
     beq 2f
     cmp.b #MODE_MENU, %d0
     beq 4f
+    cmp.b #MODE_INTRO, %d0
+    beq 5f
     bsr update_cave_far
     bra 3f
 4:  bsr update_menu_far
     bra 3f
+5:  bsr update_intro_far
+    bra main_loop
 1:  bsr update_play
     bra 3f
 2:  bsr update_scroll_far
@@ -828,6 +843,24 @@ uw_light_room_far:
 
 enter_room_far:
     bra enter_room
+intro_start_far:
+    bra intro_start
+swap_screens_far:
+    bra swap_screens
+present_frame_far:
+    bra present_frame
+set_video_base_far:
+    bra set_video_base
+begin_game_far:
+    bra begin_game
+music_event_far:
+    bra music_event
+music_stop_far:
+    bra music_stop
+cur_palette_far:
+    bra cur_palette
+update_intro_far:
+    bra update_intro
 dbl_end_far:
     bra dbl_end
 draw_hud_tile_far:
@@ -909,6 +942,7 @@ uw_person_update_far:
     .include "hud.s"
     .include "menu.s"
     .include "bosses.s"
+    .include "intro.s"
 
 | ---------------------------------------------------------------------------
 
@@ -990,6 +1024,23 @@ music_bank:
     .align 2
 mon_sprites:
     .incbin "mon_sprites.bin"
+    | The title and the story (tools/intro.py); like the monster pictures they are reached through ltab, from anywhere.
+    .align 2
+title_tiles:
+    .incbin "title_tiles.bin"
+title_cells:
+    .incbin "title_cells.bin"
+story_tiles:
+    .incbin "story_tiles.bin"
+story_rows:
+    .incbin "story_rows.bin"
+story_map:
+    .incbin "story_map.bin"
+    .align 2
+intro_sprites:
+    .incbin "intro_sprites.bin"
+intro_spawns:
+    .incbin "intro_spawns.bin"
     | Each dungeon's tables and level_table (generated). They are reached through pointers that
     | uw_select_level builds, so they may sit anywhere, however far from table_anchor.
     .align 2
