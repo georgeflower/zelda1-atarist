@@ -23,10 +23,10 @@ def rom_menus():
 
 @unittest.skipUnless(HAS_ROM, "needs the ROM")
 class PictureTests(unittest.TestCase):
-    def test_three_pictures_of_whole_tiles(self) -> None:
+    def test_four_pictures_of_whole_tiles(self) -> None:
         data = rom_menus()
         picture = filesel.CELL_ROWS * filesel.CELL_COLS * 2
-        self.assertEqual(len(data.cells), 3 * picture)
+        self.assertEqual(len(data.cells), 4 * picture)
         offsets = struct.unpack(f">{len(data.cells) // 2}H", data.cells)
         tile_bytes = filesel.I.TILE_BYTES
         self.assertTrue(all(o % tile_bytes == 0 and o < len(data.tiles) for o in offsets))
@@ -34,8 +34,8 @@ class PictureTests(unittest.TestCase):
     def test_the_pictures_differ(self) -> None:
         data = rom_menus()
         picture = filesel.CELL_ROWS * filesel.CELL_COLS * 2
-        parts = [data.cells[i * picture:(i + 1) * picture] for i in range(3)]
-        self.assertEqual(len(set(parts)), 3)
+        parts = [data.cells[i * picture:(i + 1) * picture] for i in range(4)]
+        self.assertEqual(len(set(parts)), 4)
 
     def test_the_palette_has_room_for_every_colour(self) -> None:
         data = rom_menus()

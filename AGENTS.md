@@ -19,9 +19,8 @@ the first cave and the wooden sword, **Level 1 (the Eagle)** is playable to the
 boss Aquamentus and the triforce piece, and **Level 2 (the Moon)** to the Dodongo,
 its heart container and the triforce piece. **Levels 3 to 9** are built too (rooms,
 layouts, items, every monster and boss of those levels, up to Ganon and Zelda's thanks) but only partly play-tested.
-Every item of the original's inventory is in the code. Everything else (
-save and continue) is future work, see section 14 and
-`atari_st/PLAN.md`.
+Every item of the original's inventory is in the code. The title, the file menu, death, the continue question and saving to
+`ZELDA.SAV` are in; the rest is future work, see section 14 and `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
 (`src/Z_00.asm` .. `Z_07.asm`, aldonunez's labelled NES disassembly). It is the
@@ -102,7 +101,9 @@ atari_st/                the port
 | `hud.s` | status ribbon, hearts, counters, A/B boxes (`hud_items`) |
 | `menu.s` | Tab inventory screen (MODE_MENU): 2x4 grid of B items plus a row of carried items |
 | `intro.s` | the title, the story and the parade of the treasures (MODE_INTRO, game mode 0 of the ROM, M10): ring of 200 lines filled from tile tables, the waterfall's sprites, the glowing Triforce, the fade, `intro_leave`; included after `bosses.s`, reaches main.s through `*_far` stubs |
-| `filesel.s` | the file menu (mode 1, E, F inside `MODE_INTRO` phase 2): player select, name board, elimination; the slots (`SLOT_*`) are in memory (M10 b) |
+| `filesel.s` | the file menu (mode 1, E, F inside `MODE_INTRO` phase 2): player select, name board, elimination, and the continue question after a death (`FILE_CONTINUE`); the slots (`SLOT_*`) |
+| `death.s` | Link's death (`MODE_DEATH`, game mode $11): blink, the red-world remap, spin, fade, grey Link and spark, GAME OVER, then the continue question; also `game_reset_position`, `death_continue/save/retry` (M10 c) |
+| `save.s` | `ZELDA.SAV` through GEMDOS (Fopen/Fread/Fcreate/Fwrite/Frename...): records of 640 bytes, the `save_fields` table, the secrets patch log replay, checksum (M10 c) |
 | `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level`, `debug_keys` (K) |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
 | `music.s` | music and sound effects replayed from the VBL hook: four register-stream contexts (song, effect over voice A, effect over voice B, noise effect over voice C) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`) |
@@ -115,9 +116,11 @@ atari_st/                the port
 | `underworld.py` | Level tile rooms (LayOutRoom port), doors, cellars, reachable rooms |
 | `actors.py` | monsters, items, drops, sprites (sword, beam, effects, boomerang, HUD icons), per-room records |
 | `intro.py` | the title screen, the story and the parade (`Z_02.asm` mode 0): replays the ROM's nametable transfer streams and palettes, writes `title_*`, `story_*`, `intro_sprites` and `intro_spawns` `.bin` files and the fade palettes |
-| `filesel.py` | the file menu's pictures, glyphs and sprites from `Mode1TileTransferBuf`, `ModeFTitleTransferBuf`, `ModeFCharsTransferBuf` and the menu palettes |
+| `filesel.py` | the file menu's pictures (four: select, register, eliminate, continue), glyphs and sprites from `Mode1TileTransferBuf`, `ModeFTitleTransferBuf`, `ModeFCharsTransferBuf` and the menu palettes |
+| `gameover.py` | the death sequence's data: `death_maps` (per palette, which of three spare slots 13-15 each colour goes to, by lightness), `death_colours` (red world, the four fade steps, dead Link, spark), the grey Link and spark sprites, the GAME OVER tiles |
+| `savefile.py` | a Python model of `ZELDA.SAV` (build, parse, checksum) and a check that it agrees with `save.s`/`globals.s`; also a CLI that writes a file for `screenshot.py --hd-file` |
 | `make_prg.py` | wraps the flat binary into a TOS PRG header (`--check` validates) |
-| `screenshot.py` | **headless Hatari harness**: runs the PRG, injects keys, pokes variables, dumps RAM, decodes framebuffer to PNG, prints a state report and a `FRAMEHASH`; `--room`, `--uw`/`--level` build a dev PRG into `build/dev` |
+| `screenshot.py` | **headless Hatari harness** (`--hd-file NAME=PATH` copies a file to the emulated drive first): runs the PRG, injects keys, pokes variables, dumps RAM, decodes framebuffer to PNG, prints a state report and a `FRAMEHASH`; `--room`, `--uw`/`--level` build a dev PRG into `build/dev` |
 | `golden.py` | golden frames: runs the fixed scenes through `screenshot.py` and compares `FRAMEHASH` with `tests/golden/frames.json` (`--update`, `--only`, `--png-dir`); skipped without Hatari, `TOS` and the ROM; `make golden-update` |
 | `dump_tables.py` | dumps the ROM tables the port is built from (overworld screens, all nine dungeons' rooms, monster lists) as `build/dump/tables.json` and `tables.md`; checks the ROM |
 | `check_reach.py` | run after every link: fails the build if an `ltab` symbol is missing or a branch or PC-relative operand does not fit 16 bits (reads `build/zelda_st.lst`) |
@@ -360,6 +363,8 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
 | `MODE_SCROLL` | 1 | `update_scroll` (room transition, draws to visible screen) |
 | `MODE_CAVE` | 2 | `update_cave` (caves, visible screen) |
 | `MODE_MENU` | 3 | `update_menu` (Tab inventory screen, visible screen) |
+| `MODE_INTRO` | 4 | `update_intro` (title, story, parade and the file menu incl. the continue question) |
+| `MODE_DEATH` | 5 | `update_death` (`death.s`, phases `DPH_*` in `DEATH_PHASE`) |
 
 **Double buffering**: play frames draw into a hidden buffer (`SCREEN_PTR` = buffer
 being drawn into, `BG_NEXT` = the other) shown the next frame (`present_frame`
@@ -631,7 +636,24 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   SCREEN_PTR holds the clean picture (never swapped), BG_NEXT is the shown screen (sprites and cursors are drawn on it and restored from the clean copy).
   Keys: Return = Start, Tab = Select, Space = A, Ctrl/Alt = B (`file_buttons`, NES button layout). The NES picture sits at cell column +4, row -3
   (`PLAYFIELD_COLS`). Slots (`SLOT_ACTIVE/NAMES/HEARTS/DEATHS/QUEST/RING`) and `OFF_PROFILE` are in `globals.s`; a slot starts the game with `begin_game`.
-  `|` is the comment character of the assembler: never use it as OR in expressions (`+`). Saving to `ZELDA.SAV` is M10 part c.
+  `|` is the comment character of the assembler: never use it as OR in expressions (`+`). The slots are saved by `save.s` (next bullet).
+- **Death, continue and saving** (`death.s`, `save.s`, `tools/gameover.py`; M10 part c): `link_dies` only sets `OFF_DYING`; the main loop (label `8:` after the
+  HUD draw) calls `death_begin` and switches to `MODE_DEATH`. Phases (`DEATH_PHASE`, equates `DPH_*`): blink (33 frames), remap, spin, fade, grey Link
+  and spark, wait, GAME OVER (text from `death_text`). The remap is the ROM's red world done on the ST's single palette: every pixel of the playfield
+  goes to slot 13, 14 or 15 (`death_maps`, one row per palette: black stays, the other colours by lightness) four lines a frame
+  (`DEATH_LINES`, boolean evaluation of the planes per 16 pixels, `death_remap_lines`), then those three slots get the ROM's colours (`death_colours`) and fade;
+  checked pixel for pixel against `death_maps` in Hatari. Slots 13-15 are in no level used by the HUD, Link or items. Afterwards the death count of
+  `OFF_PROFILE` goes up (cap $FF), the three screen buffers are put in the menu arrangement and `filesel_begin(FILE_CONTINUE)` asks: CONTINUE
+  (`death_continue`: three hearts, `game_reset_position`, overworld start via `enter_room`, a dungeon via `uw_warp_to_start`, items kept), SAVE
+  (`save_store_game`: full hearts, the record is written) or RETRY (`save_recs_to_views`, back to the select screen). The chosen word flashes
+  `FILE_FLASH_FRAMES` (64). `ZELDA.SAV` (`SAVE_FILE` in the variable block, 1928 bytes = 8 of header: `ZSAV`, version word, checksum word, then three
+  records of 640): a record is the menu's data (active, deaths, quest, ring, hearts, 8 name tiles) and, from offset 16, the fields of the `save_fields`
+  table (the Items block, rupees, keys, containers, HP, bombs, B item, triforce, map, compass, whirlwind index, the secrets patch log, `OW_KILLS`,
+  `UW_OPEN`, `UW_FLAGS`; 620 bytes). The overworld's permanent hidden-spot changes are logged by `ow_set_square` (`PATCHES`, 48 entries: room, square,
+  old, new) and undone/replayed by `save_world_reset`/`save_world_replay` on a load; `ow_set_square_raw` is the unlogged one. GEMDOS is called with `trap #1`
+  (keep values across traps in d3-d5); a write goes to `ZELDA.TMP` and is renamed over the old file. `save_init` (from `intro_start`) reads it; a file of the wrong
+  size, letters, version or checksum counts as none. The file is in the current directory, so the harness needs `--hd-file ZELDA.SAV=path` to start from one
+  (it wipes `build/shots/hd` every run). `tools/savefile.py` is the Python model; `tests/test_savefile.py` keeps it equal to `save.s`.
 - **Title and story** (`intro.s`, `tools/intro.py`, game mode `MODE_INTRO`): the game starts here unless it is a development build
   (`ZELDA_START_ROOM/UW/CAVE` or `ZELDA_SKIP_INTRO` set, `DEV_SKIP_INTRO`), and `begin_game` (main.s) is what Start runs. Everything is read from the
   ROM at build time: the pictures are the nametable transfer streams `GameTitleTransferBuf` and `StoryTileAttrTransferBuf` replayed on a model of the
@@ -657,7 +679,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   stairs, bomb blast, ripped from the Effect channel `$603`) voice C for its length and hands the voice
   back. `music_update` also repeats the low-life beep (`SFX_HEART_WARNING`, 6 frames of beep + the
   original's pause) while `HP_HALVES` is 1-2. Track ids are in the generated `music_ids.inc`. Not hooked
-  yet: title/Ganon/game-over songs (the Zelda and ending songs play in Zelda's room), parry and magic,
+  yet: the boss roars, parry and magic (the title, game-over, Ganon, Zelda and ending songs are in),
   the sea ambience, and the DPCM samples (never ripped). The streams are for 50 Hz; at
   60 Hz (`$FF820A` bit 1 clear) every 6th VBL holds them (`MUS_SKIP`).
 - **B item** (`B_ITEM`, codes in the **Items** bullet above): `b_item_fix` keeps it on something owned. The **inventory screen**
@@ -755,8 +777,7 @@ kill counters, knock-back and invincibility; the HUD with the A/B boxes and the 
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
 Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the old man's flames shooting when he is hit; the overworld map on the ribbon; the stairs-type push block
-(trigger 5); visible block slide animation; the waterfall and the sea sound; the rest of the sound (title, ending, game-over and
-boss music, DPCM); game-over, file select, name entry and save (M10, parts b and c). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+(trigger 5); visible block slide animation; the waterfall and the sea sound; the rest of the sound (boss music, DPCM); the Second Quest restart of the ending (M10). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
 cloud. Level 2's Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
 Unmeasured: free memory on a 512 KB machine.
 

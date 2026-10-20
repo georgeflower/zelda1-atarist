@@ -41,7 +41,7 @@
 | ------------------------------------------------------------------------------------------------ entering and leaving
 | Called once, with the machine as init has left it: show the title and start its music.
 intro_start:
-    bsr filesel_reset_slots
+    bsr save_init                       | the slots as ZELDA.SAV has them
     move.b #MODE_INTRO, OFF_GAME_MODE(%a5)
     move.b #1, OFF_INTRO_KEYS(%a5)      | a Start that is still down from before does not count
     bsr swap_screens_far                    | SCREEN_PTR is the hidden screen from here on

@@ -15,13 +15,18 @@
 | tools/filesel.py makes the pictures (tile cells of the ROM's nametables), the glyphs the menu writes into them and the
 | sprites. The picture is drawn into the hidden screen (SCREEN_PTR), which stays as it is: the clean copy; the same picture
 | is on show (BG_NEXT), with the text, the heart and the block cursors on it. Whatever moves is put back from the clean
-| copy first. The slots live in the variable block (SLOT_*); nothing is written to a disk yet.
+| copy first. The slots live in the variable block (SLOT_*); save.s keeps them in ZELDA.SAV.
+|
+| continue       the question after a death (game mode 8, FILE_CONTINUE): CONTINUE, SAVE and RETRY with a heart beside the
+|                 choice (Select, Down and Up move it); Start or A makes the word flash for FILE_FLASH_FRAMES, then death.s
+|                 carries it out.
 
     .equ INTRO_PHASE_MENU, 2              | INTRO_PHASE for the file menu: update_intro hands the frame to filesel_update
 
     .equ FILE_SELECT, 0
     .equ FILE_REGISTER, 1
     .equ FILE_ELIMINATE, 2
+    .equ FILE_CONTINUE, 3                 | the question after a death (game mode 8): CONTINUE, SAVE or RETRY
     .equ FILE_END, 3                      | the fourth choice: REGISTER YOUR NAME on the select screen, END on the others
 
     .equ BTN_RIGHT, 0x01                  | the buttons as the NES reads them: ButtonsDown
@@ -42,6 +47,8 @@
     .equ FILE_BOARD_COLS, 11
     .equ FILE_FIRST_REPEAT, 0x10          | frames before a held direction repeats, then 8
     .equ FILE_REPEAT, 8
+    .equ FILE_FLASH_FRAMES, 64            | the word chosen on the continue question flashes for $40 frames
+    .equ FILE_CONT_WORD_BYTES, 11         | column, row, length and eight tiles
     .equ FILE_NEW_HEARTS, 0x22            | a new profile: 3 heart containers, all of them full (RegisterEnd: STA ($C0), Y)
     .equ FILE_NEW_PARTIAL, 0xff
 
@@ -490,7 +497,12 @@ file_heart_show:
     move.w #FILE_SEL_HEART_X, %d4
     ltab file_select_ys, %a0
     bra 2f
-1:  move.w #FILE_REG_HEART_X, %d4
+1:  cmpi.b #FILE_CONTINUE, OFF_FILE_SCREEN(%a5)
+    bne 11f
+    move.w #FILE_CONT_HEART_X, %d4
+    ltab file_continue_ys, %a0
+    bra 2f
+11: move.w #FILE_REG_HEART_X, %d4
     ltab file_register_ys, %a0
 2:  moveq #0, %d0
     move.b OFF_FILE_SEL(%a5), %d0
@@ -615,7 +627,9 @@ filesel_begin:
     bra 9f
 
     | register: the first slot that is free, or END
-4:  cmp.b #FILE_REGISTER, %d0
+4:  cmp.b #FILE_CONTINUE, %d0
+    beq file_continue_begin
+    cmp.b #FILE_REGISTER, %d0
     bne 8f
 5:  cmp.w #FILE_END, %d1
     beq 8f
@@ -640,6 +654,8 @@ filesel_update:
     beq file_select_update
     cmp.b #FILE_REGISTER, %d0
     beq file_register_update
+    cmp.b #FILE_CONTINUE, %d0
+    beq file_continue_update
     bra file_eliminate_update
 
 | Player select (UpdateMode1Menu).
@@ -686,6 +702,7 @@ file_select_update:
 | The slot d0 was chosen: the game starts with it.
 filesel_play:
     move.b %d0, OFF_PROFILE(%a5)
+    bsr save_load_game                  | the profile's game, Link at the start
     bsr intro_leave
     bra begin_game_far
 
@@ -940,12 +957,15 @@ file_register_end:
     ltab file_zelda, %a2
     moveq #4, %d1
 4:  cmpm.b (%a2)+, (%a1)+
-    bne 6f
+    bne 5f
     dbra %d1, 4b
     move.b #1, 0(%a0, %d7.w)            | ZELDA: the Second Quest
+5:  move.w %d7, %d0
+    bsr save_new_game                   | its game, and the disk has the profile at once
 6:  addq.w #1, %d7
     cmp.w #3, %d7
     blo 1b
+    bsr save_write
     moveq #FILE_SELECT, %d0
     bra filesel_begin
 
@@ -980,4 +1000,84 @@ file_delete_slot:
     bsr file_glyph
     addq.w #1, %d1
     dbra %d6, 1b
+    move.w %d7, %d0
+    bsr save_delete                     | the file on the disk is as the ROM leaves it, at once
+    bra save_write
+
+| ---------------------------------------------------------------------------------- the question after a death
+| Three words, CONTINUE, SAVE and RETRY, and the heart (UpdateMode8ContinueQuestion_Full). Select (or the arrows) moves
+| the heart on, Start (or A) takes the choice: the word flashes for $40 frames, between its own colour and the hearts',
+| and then death.s does what it says. FILE_SEL is the choice (the submode of the ROM).
+file_continue_begin:
+    clr.b OFF_FILE_SEL(%a5)
+    clr.b OFF_FILE_FLASH(%a5)
+    bsr file_heart_show
+    ltab file_palette, %a0
+    bra intro_set_palette
+
+file_continue_update:
+    tst.b OFF_FILE_FLASH(%a5)
+    bne file_continue_flash
+    move.b OFF_FILE_PRESSED(%a5), %d0
+    btst #4, %d0                        | Start
+    bne 5f
+    btst #7, %d0                        | the joystick's button
+    bne 5f
+    moveq #1, %d2
+    btst #5, %d0                        | Select
+    bne 1f
+    btst #2, %d0
+    bne 1f
+    moveq #-1, %d2
+    btst #3, %d0
+    bne 1f
     rts
+1:  bsr file_click
+    moveq #0, %d1
+    move.b OFF_FILE_SEL(%a5), %d1
+    add.w %d2, %d1
+    bge 2f
+    moveq #2, %d1
+2:  cmp.w #3, %d1
+    blo 3f
+    moveq #0, %d1
+3:  move.b %d1, OFF_FILE_SEL(%a5)
+    bra file_heart_show
+5:  move.b #FILE_FLASH_FRAMES, OFF_FILE_FLASH(%a5)
+    rts
+
+file_continue_flash:
+    subq.b #1, OFF_FILE_FLASH(%a5)
+    beq file_continue_go
+    moveq #0, %d3
+    move.b OFF_FILE_FLASH(%a5), %d3
+    lsr.b #2, %d3
+    andi.w #1, %d3                      | every four frames the other colour
+    moveq #0, %d0
+    move.b OFF_FILE_SEL(%a5), %d0
+    mulu.w #FILE_CONT_WORD_BYTES, %d0
+    ltab file_continue_words, %a0
+    adda.w %d0, %a0
+    moveq #0, %d1
+    move.b (%a0)+, %d1
+    moveq #0, %d2
+    move.b (%a0)+, %d2
+    moveq #0, %d4
+    move.b (%a0)+, %d4
+    subq.w #1, %d4
+1:  moveq #0, %d0
+    move.b (%a0)+, %d0
+    bsr file_glyph
+    addq.w #1, %d1
+    dbra %d4, 1b
+    rts
+
+file_continue_go:
+    bsr music_stop_far                  | SilenceAllSound
+    clr.b OFF_MUS_FORCED(%a5)
+    moveq #0, %d0
+    move.b OFF_FILE_SEL(%a5), %d0
+    beq death_continue
+    subq.b #1, %d0
+    beq death_save
+    bra death_retry

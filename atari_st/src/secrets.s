@@ -15,6 +15,7 @@
 | he comes in, so it is back where it was, and render_room puts it there: ow_secret_undo takes the squares of
 | the push back. The stairs under a rock stay for good (CheckShortcut), those under a gravestone do not.
 
+    .equ PATCH_MAX, 48                 | the changes secrets.s keeps for a saved game (PATCHES holds 48 of four bytes)
     .equ SECRET_NONE, 0
     .equ SECRET_BOMB, 1
     .equ SECRET_TREE, 2
@@ -37,8 +38,29 @@ ow_secret_record:
     move.b (%a0), %d0
     rts
 
-| Puts metatile d2.b on square d1.w of screen d0.b. Returns the metatile that was there in d0.w.
+| Puts metatile d2.b on square d1.w of screen d0.b for good, and keeps count of it (PATCHES: the screen, the square,
+| the metatile that was there and the one that is) so that a saved game can have it again (save.s). Returns the
+| metatile that was there in d0.w. Changes no other register.
 ow_set_square:
+    movem.l %d3-%d4/%a0, -(%sp)
+    move.w %d0, %d3
+    bsr ow_set_square_raw
+    moveq #0, %d4
+    move.b OFF_PATCH_N(%a5), %d4
+    cmp.b #PATCH_MAX, %d4
+    bhs 1f                              | (the list is full: the change is not kept)
+    lsl.w #2, %d4
+    lea OFF_PATCHES(%a5), %a0
+    move.b %d3, 0(%a0, %d4.w)
+    move.b %d1, 1(%a0, %d4.w)
+    move.b %d0, 2(%a0, %d4.w)
+    move.b %d2, 3(%a0, %d4.w)
+    addq.b #1, OFF_PATCH_N(%a5)
+1:  movem.l (%sp)+, %d3-%d4/%a0
+    rts
+
+| The same, without the count.
+ow_set_square_raw:
     move.l %a0, -(%sp)
     and.l #0xff, %d0
     mulu.w #ROOM_BYTES, %d0
@@ -55,7 +77,7 @@ ow_set_square:
 ow_set_square_for_now:
     movem.l %d0/%d3/%a0, -(%sp)
     move.b %d0, OFF_OWS_UNDO_ROOM(%a5)
-    bsr ow_set_square
+    bsr ow_set_square_raw
     moveq #0, %d3
     move.b OFF_OWS_UNDO_N(%a5), %d3
     cmp.b #16, %d3
@@ -90,7 +112,7 @@ ow_secret_undo:
     moveq #0, %d2
     move.b 1(%a0, %d4.w), %d2
     move.b OFF_OWS_UNDO_ROOM(%a5), %d0
-    bsr ow_set_square
+    bsr ow_set_square_raw
     bra 2b
 3:  movem.l (%sp)+, %d0-%d4/%a0
 9:  rts

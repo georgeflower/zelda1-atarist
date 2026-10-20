@@ -20,7 +20,7 @@ import actors as A
 import build_assets as B
 import intro as I
 
-SCREENS = ("select", "register", "eliminate")
+SCREENS = ("select", "register", "eliminate", "continue")
 CELL_ROWS = I.WINDOW_ROWS            # 25
 CELL_COLS = I.CELLS                  # 32
 PLAYFIELD_COLS = 4                   # the 256-pixel picture is 16 bytes (4 columns of 8x8 cells) in on the 320-pixel screen
@@ -130,6 +130,13 @@ def build(source_root: Path) -> MenuData:
     cells.append(register_cells)
     eliminate_cells, _ = _picture(_records(title, template, board), bg_tiles, sp_tiles, palette, bank)
     cells.append(eliminate_cells)
+    # mode 8, the question after a death: three words on the black screen (InitMode8 clears it, then the buffer)
+    asm5 = I._asm(source_root, "Z_05.asm")
+    mode8 = I.table(asm6, "Mode8TextTileBuffer")
+    if mode8[:4] != [0x23, 0xC0, 0x7F, 0x00] or mode8[-1] != 0xFF:
+        raise SystemExit("Mode8TextTileBuffer is not what filesel.s draws any more")
+    continue_cells, continue_ppu = _picture(_records(mode8), bg_tiles, sp_tiles, palette, bank)
+    cells.append(continue_cells)
 
     # ----- the glyphs, in the style of the place they are written to: the slot line's name and death count are in
     # palette row 0 of the select picture, its hearts in row 1, and the name fields of modes E and F in row 0
@@ -173,7 +180,20 @@ def build(source_root: Path) -> MenuData:
         raise SystemExit("The cursor sprites are not the heart any more")
     if ef_sprites[3] != 0xF8 or ef_sprites[4] != 0x25:
         raise SystemExit("The name cursor is not the block sprite menu filesel.s draws")
+    base = I.table(asm5, "Mode8BaseSpriteValues")
+    if base[0] != SPRITE_HEART_TILE:
+        raise SystemExit("The cursor of the continue question is not the heart any more")
+    # its three words: column, row, length and up to eight tiles each, in the ST screen's grid
+    words = []
+    for record in _records(mode8)[1:]:
+        address, values, _ = record
+        col, row = (address & 0x1F) + PLAYFIELD_COLS, ((address & 0x3FF) >> 5) - I.WINDOW_FIRST_ROW
+        if len(values) > 8 or continue_ppu.palette_row(0, row + I.WINDOW_FIRST_ROW, col - PLAYFIELD_COLS) != 0:
+            raise SystemExit("A word of the continue question is not in palette row 0 any more")
+        words += [col, row, len(values)] + list(values) + [BLANK] * (8 - len(values))
     out.tables = {
+        "file_continue_ys": I.table(asm5, "Mode8SpriteYs"),
+        "file_continue_words": words,
         "file_char_map": char_map,
         "file_zelda": I.table(asm2, "ZeldaString"),
         "file_select_ys": I.table(asm2, "Mode1CursorSpriteYs"),
@@ -201,6 +221,7 @@ def build(source_root: Path) -> MenuData:
     out.constants.update({
         "SEL_NAME_COL": name_col, "SEL_NAME_ROW": name_row, "SEL_HEART_COL": heart_col,
         "REG_NAME_COL": field_col, "REG_NAME_ROW": field_row,
+        "CONT_HEART_X": base[2],
         "SEL_LINK_X": SELECT_LINK_X, "SEL_LINK_Y": SELECT_LINK_Y,
         "REG_LINK_X": REGISTER_LINK_X, "REG_LINK_Y": REGISTER_LINK_Y,
         "SEL_HEART_X": trip[2], "REG_HEART_X": cursor_x,

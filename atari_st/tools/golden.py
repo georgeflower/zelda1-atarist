@@ -52,6 +52,8 @@ MENU_ZELDA = _taps(500, ["down", "down", "right", "right", "right", "space", "up
 MENU_REGISTERED = f"{MENU_TO_REGISTER},{MENU_ZELDA},{_taps(610, ['tab', 'tab', 'tab'])},630:+return,632:-return"
 MENU_TO_ELIMINATION = f"{MENU_REGISTERED},{_taps(710, ['tab', 'tab'], 4)},720:+return,722:-return"
 
+DEATH = "260:=DYING=1"
+
 SCENES: dict[str, list[str]] = {
     # The title and the story (intro.s) run in the normal build, which `make` has built (the others are dev builds).
     "title": ["--vbls", "400"],
@@ -132,6 +134,18 @@ SCENES: dict[str, list[str]] = {
                        "400:=INV_RECORDER=1,400:=B_ITEM=5,400:=ENEMY_ACTIVE.0=0,420:+ctrl,422:-ctrl"],
     "ow_whirlwind_carries": ["--room", "0x77", "--vbls", "450", "--keys",
                              "400:=TRIFORCE_PIECES=1,400:=INV_RECORDER=1,400:=B_ITEM=5,420:+ctrl,422:-ctrl"],
+    # Link's death (death.s): poking DYING at frame 260 is what link_dies does. The blink, the world going red a few
+    # lines a frame, the fade, the grey Link and the spark, GAME OVER, then the continue question (filesel.s).
+    "death_remap": ["--room", "0x77", "--vbls", "300", "--keys", DEATH],
+    "death_red": ["--room", "0x77", "--vbls", "400", "--keys", DEATH],
+    "death_fade": ["--room", "0x77", "--vbls", "445", "--keys", DEATH],
+    "death_link": ["--room", "0x77", "--vbls", "470", "--keys", DEATH],
+    "death_spark": ["--room", "0x77", "--vbls", "495", "--keys", DEATH],
+    "death_gameover": ["--room", "0x77", "--vbls", "600", "--keys", DEATH],
+    "death_continue": ["--room", "0x77", "--vbls", "670", "--keys", DEATH],
+    "death_continue_save": ["--room", "0x77", "--vbls", "710", "--keys", f"{DEATH},{_taps(690, ['tab'])}"],
+    "death_continue_flash": ["--room", "0x77", "--vbls", "726", "--keys", f"{DEATH},{_taps(690, ['return'])}"],
+    "death_continued": ["--room", "0x77", "--vbls", "800", "--keys", f"{DEATH},{_taps(690, ['return'])}"],
 }
 
 

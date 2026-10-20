@@ -454,6 +454,7 @@ class AssetBundle:
     level_palettes: tuple = ()      # nine rows of 16 ST colours, one per dungeon (empty = reuse `palette`)
     intro: object | None = None     # the title, the story and the parade (tools/intro.py IntroData)
     menus: object | None = None     # the file menu: player select, register, elimination (tools/filesel.py MenuData)
+    gameover: object | None = None  # Link's death: the colours, the grey Link and the spark (tools/gameover.py)
 
 
 def load_uw_background_tiles(source_root: Path) -> list[list[list[int]]] | None:
@@ -825,6 +826,7 @@ def load_assets(source_root: Path) -> AssetBundle:
         import underworld
         import intro as intro_module
         import filesel as filesel_module
+        import gameover as gameover_module
 
         # Development aid: ZELDA_START_ROOM=0x37 starts the game in another room.
         override = os.environ.get("ZELDA_START_ROOM")
@@ -872,6 +874,7 @@ def load_assets(source_root: Path) -> AssetBundle:
             room_secrets=room_secrets,
             intro=intro_module.build(source_root),
             menus=filesel_module.build(source_root),
+            gameover=gameover_module.build(source_root, palette_map, level_palettes, sprite_tiles),
             bg_tiles=bg_tiles,
             sprite_tiles=sprite_tiles,
             rooms=rooms,
@@ -1264,6 +1267,9 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
     import filesel as filesel_module
 
     intro_lines += filesel_module.write(out_dir, bundle.menus)
+    import gameover as gameover_module
+
+    intro_lines += gameover_module.write(out_dir, bundle.gameover)
     (out_dir / "cave_map.bin").write_bytes(bundle.cave_map)
     (out_dir / "cave_sprites.bin").write_bytes(bundle.cave_sprites)
     (out_dir / "cave_text.bin").write_bytes(bundle.cave_text)
@@ -1346,6 +1352,8 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
             *intro_module.intro_tables(bundle.intro),
             "",
             *filesel_module.tables(bundle.menus),
+            "",
+            *gameover_module.tables(bundle.gameover),
             "    .align 2",
             "",
             format_bytes("walkable_tiles", OW_WALKABLE_TILES),

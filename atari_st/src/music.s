@@ -125,6 +125,8 @@ music_update:
     beq 3f
     cmp.b #MODE_INTRO, OFF_GAME_MODE(%a5)
     beq 3f                      | the title plays its own song (intro.s), and without one the screen is silent
+    cmp.b #MODE_DEATH, OFF_GAME_MODE(%a5)
+    beq 3f                      | so does Link's death (death.s); its tune is an event song
     moveq #MUS_OVERWORLD, %d0
     move.b OFF_LEVEL(%a5), %d1
     beq 3f

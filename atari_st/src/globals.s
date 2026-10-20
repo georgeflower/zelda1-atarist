@@ -450,4 +450,19 @@
     gvar SLOT_RING, 3          | the ring Link wears (0 none, 1 blue, 2 red)
     galign
     gvar FILE_BLK, 8           | the two block cursors on show: x and screen line of each, -1 for none
+    | Link's death (death.s) and the saved games (save.s).
+    gvar DYING, 1              | link_dies was called: the frame ends, then death_begin takes over
+    gvar DEATH_PHASE, 1        | see death.s
+    gvar DEATH_TURNS, 1        | DeathModeCounter: the turns Link still has to make
+    gvar DEATH_STEP, 1         | the fade's step
+    gvar DEATH_SPARK, 1        | DeathModeCounter again: how long the spark lasts
+    gvar DEATH_VIS, 1          | Link is drawn this frame (he flashes)
+    gvar FILE_FLASH, 1         | the frames the chosen word of the continue question still flashes (ObjTimer+1), 0 for none
+    gvar PATCH_N, 1            | the secrets the overworld screens have been changed by (secrets.s)
+    galign
+    gvar DEATH_T, 2            | ObjTimer+11: the frames to wait
+    gvar DEATH_LINE, 2         | the lines of the playfield that are red
+    gvar DEATH_W, 64           | for each colour slot, the two pixel masks that say where it goes (W0 then W1)
+    gvar PATCHES, 192          | room, square, the metatile that was there and the one that is: 48 of them
+    gvar SAVE_FILE, 1928       | ZELDA.SAV as it is on the disk: 8 bytes of header, three records of 640
     .equ GLOBALS_BYTES, gvar_offset

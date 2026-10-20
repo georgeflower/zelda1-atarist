@@ -273,6 +273,19 @@ Combat and items
   and are invincible for about half a second. Aquamentus and the keese are
   never knocked back
 
+- death and what follows (`death.s`): when the hearts run out the monsters and the music stop, Link blinks, the picture turns
+  red a few lines at a time (the ROM's red world, done by moving the pixels to three spare colours), Link spins, the world
+  fades to black through the ROM's four steps, a grey Link is left and goes in a spark, and GAME OVER shows with its song.
+  Then comes the question of the original: CONTINUE (Up, Down or Tab move the heart, Return or Space takes it; the word
+  flashes first) starts again at the overworld's start, or at the first room of the dungeon, with three hearts and what
+  Link carries; SAVE stores the game in the profile and goes to the file menu; RETRY goes to the file menu with the
+  profile as it was last stored. Each death adds one to the profile's count
+- saved games (`save.s`): `ZELDA.SAV`, three profiles of 640 bytes with a checksum, is read through GEMDOS from the
+  current directory when the program starts and written (as `ZELDA.TMP`, then renamed over the old file) when a name is
+  registered or deleted and when SAVE is chosen. It holds the name, hearts, deaths, items, counters, the rooms visited and
+  the hidden spots found, so a loaded game finds its opened walls and burnt trees open. A file that is missing, of
+  the wrong size or that does not add up is ignored and the three profiles are free
+
 Tooling
 
 - asset pipeline from the ROM to ST data (see below); every picture, room, text and sound is read from
@@ -288,7 +301,8 @@ Tooling
 - unit tests for the asset pipeline, and for the music packer and the 68000 music
   player (run on `machine68k`, every track checked frame by frame)
 - headless Hatari harness that captures the framebuffer to a PNG, drives
-  scripted key input, and can poke variables
+  scripted key input, and can poke variables; `--hd-file ZELDA.SAV=file` puts a file on the emulated drive first
+  (`tools/savefile.py` makes or reads one)
 
 Known gaps
 ----------
@@ -319,6 +333,8 @@ Things that behave differently from the original, or are stand-ins:
 - the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed
 - the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
   it back so the tempo stays right
+- the death sequence, the continue question and `ZELDA.SAV` were run in Hatari with scripted input (also with a file made
+  outside the game); nobody has played them on a real machine, where the disk write is the part to watch
 - all runs so far were in Hatari with 1 MB; the memory left on a 512 KB machine
   is not measured
 
@@ -335,8 +351,8 @@ Next, in the order of `PLAN.md`
    the ladder, the recorder's whirlwind, the animated pond
 3. the other seven dungeons, now that a level is data (M6 to M9): per level the
    monsters, the boss and the palette rows of its sprites
-4. game-over and continue, saving (the title and file menu are done), the ending; the missing
-   songs (title, ending, game over, boss roars) (M10, M11)
+4. the rest of the ending and the sound (M10, M11): the Second Quest restart, the boss roars, the sea and DPCM samples
+   (the title, file menu, death, continue and saving are done)
 5. a check on real STFM timing and memory, a release build (M12)
 
 The Second Quest is deferred.
