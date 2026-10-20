@@ -6,7 +6,7 @@ This repository's full feature list, known gaps, roadmap, build notes and testin
 
 ## Status
 
-**Version 0.35** ([changelog](CHANGELOG.md)). A playable game with all nine dungeons, not yet a complete one: the whole overworld with its monsters, all twenty kinds of cave (shops, hints, the money game, door repair, take-any-road, the medicine woman) and Levels 1 to 9 with their rooms, items, monsters and bosses, up to Ganon, Zelda's thanks and the credits (with a line for the port's author). Levels 1 and 2 have been played through to the triforce piece; Levels 3 to 9 are built from the ROM's tables and load and run in every room (Lanmola, Patra, Ganon and Zelda's scene were each tried in Hatari), but have not been played through yet. The overworld's armos, raft, ladder, recorder (whirlwind and the Level 7 pond), Lost Woods and Lost Hills and the fairy ponds work. The game starts at the title: the waterfall and the glowing Triforce, then the story and the parade of the treasures (Return starts the game at any time). File select, entering a name and saving are still missing, so the game cannot be kept like the original yet.
+Done: the whole overworld with its monsters, caves, secrets and specials; all nine dungeons with their monsters and bosses, up to Ganon, Zelda's thanks and the credits; every item; the Tab inventory screen as in the original; the title, story, file select, death, continue and saving; the ROM's music and effects, at 50 and 60 Hz. Levels 1 and 2 have been played through; Levels 3 to 9 run in every room but have not been played through yet. What is left is in [`atari_st/PLAN.md`](atari_st/PLAN.md).
 
 **You can already:**
 
