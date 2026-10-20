@@ -98,7 +98,7 @@ atari_st/                the port
 | `owspec.s` | the overworld's special objects (M4): Lost Woods/Hills mazes, ladder, raft and docks, armos, the recorder's whirlwind and pond, fairy ponds; its `owspec_*_far` stubs sit in `main.s` |
 | `combat.s` | sword, beam, bombs, candle, drops/kill counters, `take_item`, HP/knock-back, rings, shield, clock, effects (spark/cloud), push block, shutters, triforce ending, the ringleader trigger |
 | `hud.s` | status ribbon, hearts, counters, A/B boxes (`hud_items`) |
-| `menu.s` | Tab inventory screen (MODE_MENU): 2x4 grid of B items plus a row of carried items |
+| `menu.s` | Tab inventory screen (MODE_MENU), laid out as the ROM's submenu: B-item box, items box with the cursor, passive row, triforce or map sheet; the HUD ribbon sits below it |
 | `intro.s` | the title, the story and the parade of the treasures (MODE_INTRO, game mode 0 of the ROM, M10): ring of 200 lines filled from tile tables, the waterfall's sprites, the glowing Triforce, the fade, `intro_leave`; included after `bosses.s`, reaches main.s through `*_far` stubs |
 | `filesel.s` | the file menu (mode 1, E, F inside `MODE_INTRO` phase 2): player select, name board, elimination, and the continue question after a death (`FILE_CONTINUE`); the slots (`SLOT_*`) |
 | `death.s` | Link's death (`MODE_DEATH`, game mode $11): blink, the red-world remap, spin, fade, grey Link and spark, GAME OVER, then the continue question; also `game_reset_position`, `death_continue/save/retry` (M10 c) |
@@ -115,6 +115,7 @@ atari_st/                the port
 | `underworld.py` | Level tile rooms (LayOutRoom port), doors, cellars, reachable rooms |
 | `actors.py` | monsters, items, drops, sprites (sword, beam, effects, boomerang, HUD icons), per-room records |
 | `intro.py` | the title screen, the story and the parade (`Z_02.asm` mode 0): replays the ROM's nametable transfer streams and palettes, writes `title_*`, `story_*`, `intro_sprites` and `intro_spawns` `.bin` files and the fade palettes |
+| `submenu.py` | the Tab inventory screen from the ROM: the submenu's nametable transfer buffers replayed on a PPU model (`menu_tiles`, `menu_cells` for the overworld and the dungeons, `menu_glyphs`), the 23 item sprites and the cursor/dot (`menu_sprites`), the empty-triforce memory and its rows |
 | `filesel.py` | the file menu's pictures (four: select, register, eliminate, continue), glyphs and sprites from `Mode1TileTransferBuf`, `ModeFTitleTransferBuf`, `ModeFCharsTransferBuf` and the menu palettes |
 | `gameover.py` | the death sequence's data: `death_maps` (per palette, which of three spare slots 13-15 each colour goes to, by lightness), `death_colours` (red world, the four fade steps, dead Link, spark), the grey Link and spark sprites, the GAME OVER tiles |
 | `savefile.py` | a Python model of `ZELDA.SAV` (build, parse, checksum) and a check that it agrees with `save.s`/`globals.s`; also a CLI that writes a file for `screenshot.py --hd-file` |
@@ -519,7 +520,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   dungeon minimap lives in `hud.s` (`draw_minimap`, called by `draw_hud`): the free 32x24 pixel corner left of the counters, each room
   of the level a 4x3 cell with a 3x2 grey box (the NES uses 8x4 cells; this ribbon is 24 lines tall). Boxes show only with the map, Link's
   room is always a green box, and with the compass the triforce room is a box that flashes red/white every 16 frames until the piece
-  is taken, then stays dull. The Tab screen shows the same map bigger (`mm_box_big`, 8x3 cells, rows 3-5) between the compass and map icons he owns (`menu_dungeon`). Rooms come from `uw_room_index`; `UW_MAP_COL0` (circular window of 8 columns, centred, from
+  is taken, then stays dull. The Tab screen shows the ROM's big sheet map instead (`menu_sheet_map`: only rooms Link has visited, `UW_FLAGS` bit 5 = `UW_FLAG_VISITED`, set by `uw_mark_visited` on entering a room, each with its door openings; the sheet is turned by the level's `MapSheet` rotation like the ROM; the green dot is Link; the compass adds the triforce room). Rooms come from `uw_room_index`; `UW_MAP_COL0` (circular window of 8 columns, centred, from
   `underworld.minimap_first_column`) and `UW_TRIFORCE_ROOM` (LevelInfo) are build equates. `minimap_tick` (main loop) raises
   `HUD_DIRTY` when the room, the items or the flash phase change (`MINIMAP_SIG`). The overworld shows nothing there yet.
 - **Overworld hidden spots** (`secrets.s`, ROM `UpdateRockWall`/`UpdateTree`/`UpdateRockOrGravestone`, `CheckTileObject`): the layouts hide
@@ -628,7 +629,12 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   that chase Link at it for `$FF` frames. Recorder: the tune and `FLUTE_TIMER`, then `owspec_recorder` (pond in `$42`, whirlwind elsewhere). **Rings** halve / quarter the
   damage (`HP_FRAC`, 128ths of a half heart) and recolour Link; the **magic shield** parries fireballs and sword shots; the
   **clock** (`INV_CLOCK`) freezes the monsters and makes Link untouchable until he leaves the screen; the fairy gives three hearts.
-  The **Tab screen** (`menu.s`) shows a 2x4 grid of the B items plus a row of what is carried, table driven (Left/Right).
+  The **Tab screen** (`menu.s`, `tools/submenu.py`) is the ROM's submenu: the pictures are the ROM's transfer buffers replayed at build time
+  (`menu_cells` 22x32 per world, drawn by `menu_picture`), the items, the two cursor brackets (tile `$1E`, flashing palette rows 5/6 every 8
+  frames) and the map dot are sprites placed like `DrawSubmenuItems`/`SubmenuItemXs` (port sprite = ROM X + 32, Y + 2), the triforce pieces
+  are redrawn from the empty-triforce memory (`menu_triforce`). The picture fills y 0..175 and the HUD ribbon is drawn below it
+  (`HUD_MENU_ROW`, `draw_hud_tile_ptr` moves its rows in `MODE_MENU`); in dungeons the compass and map icons sit on the left and the
+  sheet map on the right. Left/Right walk the owned B items in the ROM's slot order (`menu_code_slot`/`menu_slot_code`), Tab closes.
   Nothing in the game hands out most of these yet: the shops and caves are not ported (`debug_keys` K gives keys, bombs, the
   candle; the harness can poke any `INV_*`).
 - **File menu** (`filesel.s`, `tools/filesel.py`): Return on the title calls `intro_to_menu` -> `filesel_begin`; the menu runs inside `MODE_INTRO` with
@@ -683,7 +689,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   the sea ambience, and the DPCM samples (never ripped). The streams are for 50 Hz; at
   60 Hz (`$FF820A` bit 1 clear) every 6th VBL holds them (`MUS_SKIP`).
 - **B item** (`B_ITEM`, codes in the **Items** bullet above): `b_item_fix` keeps it on something owned. The **inventory screen**
-  lists the owned B items; Left/Right moves the "B" label. Opening it freezes everything.
+  is the ROM's: Left/Right moves the cursor over the owned B items and the B box shows the choice. Opening it freezes everything.
 - **Debug key K**: +1 key, +4 bombs (cap 8), candle. The owner wants it kept for now.
 
 ## 11. Asset pipeline facts

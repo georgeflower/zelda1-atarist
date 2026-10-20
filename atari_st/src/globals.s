@@ -472,5 +472,6 @@
     gvar FAIRY_TIMER, 3
     gvar FAIRY_DIR, 3
     gvar HELD_DIRS, 1            | every direction held this frame (a diagonal has two bits)
+    gvar MENU_PHASE, 1           | which of the cursor's two colours the inventory screen shows
     galign
     .equ GLOBALS_BYTES, gvar_offset

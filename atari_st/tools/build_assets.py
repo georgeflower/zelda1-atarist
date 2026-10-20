@@ -455,6 +455,7 @@ class AssetBundle:
     intro: object | None = None     # the title, the story and the parade (tools/intro.py IntroData)
     menus: object | None = None     # the file menu: player select, register, elimination (tools/filesel.py MenuData)
     gameover: object | None = None  # Link's death: the colours, the grey Link and the spark (tools/gameover.py)
+    submenu: object | None = None   # the inventory screen: pictures, glyphs, item sprites (tools/submenu.py)
 
 
 def load_uw_background_tiles(source_root: Path) -> list[list[list[int]]] | None:
@@ -827,6 +828,8 @@ def load_assets(source_root: Path) -> AssetBundle:
         import intro as intro_module
         import filesel as filesel_module
         import gameover as gameover_module
+        import actors
+        import submenu as submenu_module
 
         # Development aid: ZELDA_START_ROOM=0x37 starts the game in another room.
         override = os.environ.get("ZELDA_START_ROOM")
@@ -875,6 +878,8 @@ def load_assets(source_root: Path) -> AssetBundle:
             intro=intro_module.build(source_root),
             menus=filesel_module.build(source_root),
             gameover=gameover_module.build(source_root, palette_map, level_palettes, sprite_tiles),
+            submenu=submenu_module.build(source_root, palette_map, bg_tiles, load_uw_background_tiles(source_root),
+                                         actors._sprite_table(source_root, 0)),
             bg_tiles=bg_tiles,
             sprite_tiles=sprite_tiles,
             rooms=rooms,
@@ -1270,6 +1275,9 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
     import gameover as gameover_module
 
     intro_lines += gameover_module.write(out_dir, bundle.gameover)
+    import submenu as submenu_module
+
+    intro_lines += submenu_module.write(out_dir, bundle.submenu)
     (out_dir / "cave_map.bin").write_bytes(bundle.cave_map)
     (out_dir / "cave_sprites.bin").write_bytes(bundle.cave_sprites)
     (out_dir / "cave_text.bin").write_bytes(bundle.cave_text)
@@ -1354,6 +1362,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
             *filesel_module.tables(bundle.menus),
             "",
             *gameover_module.tables(bundle.gameover),
+            *submenu_module.tables(bundle.submenu),
             "    .align 2",
             "",
             format_bytes("walkable_tiles", OW_WALKABLE_TILES),

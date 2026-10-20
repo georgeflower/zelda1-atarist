@@ -305,12 +305,12 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 ### 8.2 Work items
 
 - [x] Done (#23): `take_item` is table driven from the ROM's `ItemIdToSlot`/`ItemIdToDescriptor` and covers every id (bombs, three swords, candles, arrows, bow, recorder, food, potions, rings, magic shield, boomerangs, rupees, key, heart container, triforce, compass, map, heart, clock, fairy); the bracelet, raft, ladder, magic key, book and letter are taken but have no effect yet. Originally: still to do for the rest: `take_item` in `combat.s` for each id; `ITEM_IDS` in `actors.py`; icons for the inventory and for floor items (the NES draws narrow, slim and wide items differently; see `AGENTS.md` section 11).
-- [x] Done (#23): bombs, boomerang(s), candle(s), bow with arrows, recorder (tune only), food, potion and rod are B items (`items.s`); the Tab screen is a 2x4 grid plus a row of carried items. Not in: the letter as a B item, the recorder's whirlwind. The Tab screen needs the real layout (eight B slots, passive items on the right, triforce frame, map and compass when owned). `DrawSubmenuItems`, `SubmenuItemXs` in `Z_05.asm` give positions.
+- [x] Done (#23): bombs, boomerang(s), candle(s), bow with arrows, recorder (tune only), food, potion and rod are B items (`items.s`); the Tab screen is a 2x4 grid plus a row of carried items. Not in: the letter as a B item, the recorder's whirlwind. **Done (Tab screen rebuilt):** the Tab screen is the ROM's submenu layout (`tools/submenu.py` replays the transfer buffers; items, cursor and map dot are sprites placed as `DrawSubmenuItems`/`SubmenuItemXs` do; eight B slots, passive items, triforce frame in the overworld, compass, map and the sheet map of visited rooms in dungeons; the HUD ribbon is drawn below the picture).
 - [ ] Passive effects: done (#23): magic shield (parries fireballs and sword shots), rings (damage division, recolour), white/magic sword damage, the clock; still open: Power Bracelet, Raft, Ladder, Magical Key, Book of Magic beyond the rod's flame, beam range per sword.
 - [ ] Done: heart containers from the dungeon, the half-heart damage unit, the low-hearts beep, refill at the triforce. Still to do: container count up to 16, partial heart, low-hearts beep, the half-heart damage unit `$80`, refill by fairy or pond.
 - [ ] Bomb capacity upgrade and `MaxBombs` handling.
 - [x] HUD: the minimap on the ribbon in dungeons (map/compass, #12), the level label, the B/A boxes, key count, bomb count, rupee count. (The overworld has no map on the ribbon yet.)
-- [ ] Acceptance: a debug key that gives every item; one golden screenshot of a full inventory screen; unit test that every id has a descriptor row.
+- [ ] Acceptance: a debug key that gives every item; golden scenes `inv_overworld`, `inv_overworld_right`, `inv_closed` and `inv_dungeon` are in; unit test that every id has a descriptor row.
 
 ## 9. M6 Dungeon engine and levels 2 to 9
 

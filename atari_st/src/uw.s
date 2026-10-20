@@ -189,6 +189,7 @@ uw_render_map:
 | Build and draw the current room. d0.w = room id, a1 = destination buffer
 uw_render_current:
     movem.l %d1/%a0, -(%sp)
+    bsr uw_mark_visited
     lea OFF_UW_MAP(%a5), %a0
     move.b OFF_UW_ENTER_MASK(%a5), %d1
     bsr uw_build_map
@@ -200,6 +201,17 @@ uw_render_current:
     bsr uw_bake_person
     bsr uw_bake_boss
     movem.l (%sp)+, %d1/%a0
+    rts
+
+| The room d0.w has been entered: the sheet map of the inventory screen shows it from now on
+| (bit 5 of the room's flags, the ROM's "visited").
+    .equ UW_FLAG_VISITED, 5
+uw_mark_visited:
+    movem.l %d0/%a0, -(%sp)
+    andi.w #0x7f, %d0
+    lea OFF_UW_FLAGS(%a5), %a0
+    bset #UW_FLAG_VISITED, 0(%a0, %d0.w)
+    movem.l (%sp)+, %d0/%a0
     rts
 
 | Build and draw the room Link is about to scroll into.

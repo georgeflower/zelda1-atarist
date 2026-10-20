@@ -54,6 +54,9 @@ MENU_TO_ELIMINATION = f"{MENU_REGISTERED},{_taps(710, ['tab', 'tab'], 4)},720:+r
 
 DEATH = "260:=DYING=1"
 
+INV_OW = "300:=INV_BOMBS=4,300:=B_ITEM=1,300:=INV_BOOMERANG=1,300:=INV_CANDLE=1,300:=INV_RAFT=1,300:=INV_RING=1,300:=TRIFORCE_PIECES=5"
+INV_UW = "300:=INV_MAP=1,300:=INV_COMPASS=1,300:=INV_BOMBS=3,300:=B_ITEM=1,300:=UW_FLAGS.115=32,300:=UW_FLAGS.114=32,300:=UW_FLAGS.116=32,300:=UW_FLAGS.99=32,300:=UW_FLAGS.98=32,300:=UW_FLAGS.100=32,300:=UW_FLAGS.83=32,300:=UW_FLAGS.82=32,300:=UW_FLAGS.84=32,300:=UW_FLAGS.67=32,300:=UW_FLAGS.68=32,300:=UW_FLAGS.66=32,300:=UW_FLAGS.51=32,300:=UW_FLAGS.52=32,300:=UW_FLAGS.53=32,300:=UW_FLAGS.35=32,300:=UW_FLAGS.36=32"
+
 SCENES: dict[str, list[str]] = {
     # The title and the story (intro.s) run in the normal build, which `make` has built (the others are dev builds).
     "title": ["--vbls", "400"],
@@ -67,6 +70,11 @@ SCENES: dict[str, list[str]] = {
     "file_play": ["--vbls", "800", "--keys", f"{MENU_REGISTERED},710:+return,712:-return"],
     "file_eliminate": ["--vbls", "745", "--keys", MENU_TO_ELIMINATION],
     "file_eliminated": ["--vbls", "780", "--keys", f"{MENU_TO_ELIMINATION},750:+return,752:-return"],
+    # The Tab inventory screen (menu.s, tools/submenu.py): the ROM's layout, then closing it again.
+    "inv_overworld": ["--room", "0x77", "--vbls", "400", "--keys", f"{INV_OW},380:+tab,385:-tab"],
+    "inv_overworld_right": ["--room", "0x77", "--vbls", "440", "--keys", f"{INV_OW},380:+tab,385:-tab,420:+right,423:-right"],
+    "inv_closed": ["--room", "0x77", "--vbls", "460", "--keys", f"{INV_OW},380:+tab,385:-tab,420:+right,423:-right,440:+tab,443:-tab"],
+    "inv_dungeon": ["--uw", "0x73", "--level", "1", "--vbls", "400", "--keys", f"{INV_UW},380:+tab,385:-tab"],
     "ow_start": ["--room", "0x77", "--vbls", "420"],
     "ow_entrance_l2": ["--room", "0x3c", "--vbls", "420"],
     "uw1_start": ["--uw", "0x73", "--level", "1", "--vbls", "420"],
