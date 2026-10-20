@@ -14,17 +14,16 @@ Nothing in the First Quest is missing as a *feature* any more; what is left is c
 
 | # | What | Why it is open | Where |
 |---|---|---|---|
-| 1 | **A person's play-through of Levels 3 to 9**, and of the Level 2 Dodongo kill, the Moldorm segment deaths and the ringleader room | Built and checked with scripted Hatari input, never played at human speed; bugs are expected | M6 to M9, section 9.4 |
-| 2 | **Play-through of death, continue, save and retry** in a real Hatari session, and of `ZELDA.SAV` on a floppy or hard-drive image | Done by script and unit tests only | M10 c, section 11.3 |
-| 3 | **Memory on a 512 KB machine and speed on real hardware** (8 enemies plus shots at 8 MHz; a real PAL STFM at 50 Hz) | Unmeasured; Hatari only | M12, risks R2 to R4 |
-| 4 | **Overworld minimap on the status bar** (grey box with the red dot) | The ribbon has the dungeon minimap only; the overworld corner is empty | M5 HUD, section 8.2 |
-| 5 | **Item effects still missing:** the Book of Magic beyond the rod's flame, the beam range per sword, the letter as a B item (it is used by pressing B in the medicine woman's cave), container count up to 16 and the partial heart checked against the ROM | Items are taken and shown, but a few have no effect | M5, section 8.2 |
-| 6 | **The old man's flames shooting when he is hit**, the stairs-type push block (trigger 5), the visible block slide, Level 2 and 5 odd rooms | Small mechanics skipped | M3 and M6, sections 6.3 and 9.1 |
-| 7 | **Sound that is not hooked:** boss roars, parry and magic effects, the sea ambience, the waterfall, the DPCM samples (never ripped) | The ROM streams exist only for the YM-able parts | M11, section 12 |
-| 8 | **Ending extras:** the scrolling credits wall, the burst rays of Ganon's death, the Second Quest restart at the end | The typed credits stand in | M10 d, section 11.4 |
-| 9 | **Fidelity gaps by design:** the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once, not out of a cloud | Eight monster slots (`MAX_ENEMIES`); a refactor to raise it | risk R6 |
-| 10 | **Intro odds and ends:** skip logic (`SkippedDemo`), and "save and exit without dying" from the Tab menu (not in the original) | Optional | M10, sections 11.1 and 11.3 |
-| 11 | **Checks marked (verify)** against the ROM and the walkthroughs | Listed in section 13.3 | section 13.3 |
+| 1 | **A thorough play-through of the full game**, especially of Levels 3 to 9, and of the Level 2 Dodongo kill, the Moldorm segment deaths and the ringleader room | Built and checked with scripted Hatari input and limited human testing; bugs are expected | M6 to M9, section 9.4 |
+| 2 | **Memory on a 512 KB machine and speed on real hardware** (8 enemies plus shots at 8 MHz; a real PAL STFM at 50 Hz) | Unmeasured; Hatari only | M12, risks R2 to R4 |
+| 3 | **Overworld minimap on the status bar** (grey box with the red dot) | The ribbon has the dungeon minimap only; the overworld corner is empty | M5 HUD, section 8.2 |
+| 4 | **Item effects still missing:** the Book of Magic beyond the rod's flame, the beam range per sword, the letter as a B item (it is used by pressing B in the medicine woman's cave), container count up to 16 and the partial heart checked against the ROM | Items are taken and shown, but a few have no effect | M5, section 8.2 |
+| 5 | **The old man's flames shooting when he is hit**, the stairs-type push block (trigger 5), the visible block slide, Level 2 and 5 odd rooms | Small mechanics skipped | M3 and M6, sections 6.3 and 9.1 |
+| 6 | **Sound that is not hooked:** boss roars, parry and magic effects, the sea ambience, the waterfall, the DPCM samples (never ripped) | The ROM streams exist only for the YM-able parts | M11, section 12 |
+| 7 | **Ending extras:** the scrolling credits wall, the burst rays of Ganon's death, the Second Quest restart at the end | The typed credits stand in | M10 d, section 11.4 |
+| 8 | **Fidelity gaps by design:** the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once, not out of a cloud | Eight monster slots (`MAX_ENEMIES`); a refactor to raise it | risk R6 |
+| 9 | **Intro odds and ends:** skip logic (`SkippedDemo`), and "save and exit without dying" from the Tab menu (not in the original) | Optional | M10, sections 11.1 and 11.3 |
+| 10 | **Checks marked (verify)** against the ROM and the walkthroughs | Listed in section 13.3 | section 13.3 |
 
 ### 1.2 Deliberately deferred
 
@@ -54,7 +53,7 @@ Nothing in the First Quest is missing as a *feature* any more; what is left is c
 
 ### 2.1 Next step
 
-Next step: the items at the top of section 1.1 in that order. First a person's play-through of the dungeons (Levels 3 to 9 above all) and of the death, continue and save flow in a real Hatari session; then the memory check for a 512 KB machine (M12); then the overworld minimap on the status bar, which closes M5's HUD part.
+Next step: the items at the top of section 1.1 in that order. First a thorough play-through of the full game (Levels 3 to 9 above all); then the memory check for a 512 KB machine (M12); then the overworld minimap on the status bar, which closes M5's HUD part.
 
 Reasoning: M1 went first because it was the bug you could see and it fixed the data model (secret objects per room, patched into the room maps) that M3, M4 and M9 reuse; M3 follows because every hidden spot, stair and cave of the overworld now leads to it. M6 comes before the monsters because every dungeon monster needs the room, door and palette machinery to be tested in place. M10 comes late because save files store the inventory, so the inventory must be final first.
 
@@ -522,8 +521,8 @@ The five original requests are all met in the code: (1) the hidden bomb and fire
 | M2 Overworld enemies | complete: walkers, shots, edge spawns, kill history, the special movers; armos came with M4 |
 | M3 Caves, shops, people | complete: all 20 cave types |
 | M4 Overworld specials | complete except the waterfall and the sea sound |
-| M5 Items, inventory, HUD | mostly complete (see section 1.1, items 4 and 5) |
-| M6, M7, M8, M9 Dungeons, monsters, bosses, content | complete for all nine levels, checked by script and not yet by a person's play-through |
+| M5 Items, inventory, HUD | mostly complete (see section 1.1, items 3 and 4) |
+| M6, M7, M8, M9 Dungeons, monsters, bosses, content | complete for all nine levels, checked by script and by limited play; a thorough play-through is open |
 | M10 Title, file select, save, ending | complete except the Second Quest restart and the scrolling credits wall |
 | M11 Sound | mostly complete: ROM music and effects; boss roars, parry, magic, the sea and the DPCM samples are not hooked |
 | M12 Polish | PAL 50 Hz checked; docs kept current; memory and real-hardware checks open |

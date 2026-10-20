@@ -6,7 +6,7 @@ This repository's full feature list, known gaps, roadmap, build notes and testin
 
 ## Status
 
-Done: the whole overworld with its monsters, caves, secrets and specials; all nine dungeons with their monsters and bosses, up to Ganon, Zelda's thanks and the credits; every item; the Tab inventory screen as in the original; the title, story, file select, death, continue and saving; the ROM's music and effects, at 50 and 60 Hz. Levels 1 and 2 have been played through; Levels 3 to 9 run in every room but have not been played through yet. What is left is in [`atari_st/PLAN.md`](atari_st/PLAN.md).
+Done: the whole overworld with its monsters, caves, secrets and specials; all nine dungeons with their monsters and bosses, up to Ganon, Zelda's thanks and the credits; every item; the Tab inventory screen as in the original; the title, story, file select, death, continue and saving; the ROM's music and effects, at 50 and 60 Hz. Levels 1 and 2 have been played through; Levels 3 to 9 run in every room and have had limited testing by hand. What is left is in [`atari_st/PLAN.md`](atari_st/PLAN.md).
 
 **You can already:**
 
