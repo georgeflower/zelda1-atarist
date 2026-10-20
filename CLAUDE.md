@@ -20,7 +20,7 @@ boss Aquamentus and the triforce piece, and **Level 2 (the Moon)** to the Dodong
 its heart container and the triforce piece. **Levels 3 to 9** are built too (rooms,
 layouts, items, every monster and boss of those levels, up to Ganon and Zelda's thanks) but only partly play-tested.
 Every item of the original's inventory is in the code. Everything else (
-the title and save) is future work, see section 14 and
+save and continue) is future work, see section 14 and
 `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
@@ -30,7 +30,7 @@ damage, tile id, table), read it from there rather than guessing.
 
 ## 1.1 Versions
 
-The port has versions `0.NN` (current: **0.34**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
+The port has versions `0.NN` (current: **0.35**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
 the commit that finishes it. A big change (a dungeon, a mechanic family, a package of `atari_st/PLAN.md`) takes the next number; fixes
 and docs ride along. When you finish one: bump `VERSION`, the "Version" line of `README.md`, the status line of `atari_st/PLAN.md`
 and add the `CHANGELOG.md` entry, in the same PR; tag it after the merge. The next step is named in `atari_st/PLAN.md` section 2.1.
@@ -76,7 +76,7 @@ atari_st/                the port
   README.md              user-facing docs: features, known gaps, roadmap, notes
   src/*.s                68000 code (one assembly unit, main.s .includes the rest)
   tools/*.py             asset pipeline, PRG packer, Hatari screenshot harness
-  tests/*.py             unittest suites (142 tests); tests/golden/frames.json = golden frame hashes
+  tests/*.py             unittest suites (162 tests); tests/golden/frames.json = golden frame hashes
   music/                 the YM2149 digidrum player (ymplay.h); the songs are ripped from the ROM
   build/                 OUTPUT (gitignored): generated/, ZELDAST.PRG, scratch, shots/
 ```
@@ -102,6 +102,7 @@ atari_st/                the port
 | `hud.s` | status ribbon, hearts, counters, A/B boxes (`hud_items`) |
 | `menu.s` | Tab inventory screen (MODE_MENU): 2x4 grid of B items plus a row of carried items |
 | `intro.s` | the title, the story and the parade of the treasures (MODE_INTRO, game mode 0 of the ROM, M10): ring of 200 lines filled from tile tables, the waterfall's sprites, the glowing Triforce, the fade, `intro_leave`; included after `bosses.s`, reaches main.s through `*_far` stubs |
+| `filesel.s` | the file menu (mode 1, E, F inside `MODE_INTRO` phase 2): player select, name board, elimination; the slots (`SLOT_*`) are in memory (M10 b) |
 | `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level`, `debug_keys` (K) |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
 | `music.s` | music and sound effects replayed from the VBL hook: four register-stream contexts (song, effect over voice A, effect over voice B, noise effect over voice C) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`) |
@@ -114,6 +115,7 @@ atari_st/                the port
 | `underworld.py` | Level tile rooms (LayOutRoom port), doors, cellars, reachable rooms |
 | `actors.py` | monsters, items, drops, sprites (sword, beam, effects, boomerang, HUD icons), per-room records |
 | `intro.py` | the title screen, the story and the parade (`Z_02.asm` mode 0): replays the ROM's nametable transfer streams and palettes, writes `title_*`, `story_*`, `intro_sprites` and `intro_spawns` `.bin` files and the fade palettes |
+| `filesel.py` | the file menu's pictures, glyphs and sprites from `Mode1TileTransferBuf`, `ModeFTitleTransferBuf`, `ModeFCharsTransferBuf` and the menu palettes |
 | `make_prg.py` | wraps the flat binary into a TOS PRG header (`--check` validates) |
 | `screenshot.py` | **headless Hatari harness**: runs the PRG, injects keys, pokes variables, dumps RAM, decodes framebuffer to PNG, prints a state report and a `FRAMEHASH`; `--room`, `--uw`/`--level` build a dev PRG into `build/dev` |
 | `golden.py` | golden frames: runs the fixed scenes through `screenshot.py` and compares `FRAMEHASH` with `tests/golden/frames.json` (`--update`, `--only`, `--png-dir`); skipped without Hatari, `TOS` and the ROM; `make golden-update` |
@@ -206,6 +208,7 @@ of its own): a build without `ext/Original.nes` stops with a message, and `build
 `test_nes_music_rip.py` (needs `py65` for the ROM part, `ZELDA_ROM` or `ext/Original.nes`),
 `test_dump_tables.py` (the table dump, and that every golden scene has a stored hash),
 `test_intro.py` (the title and story tables, from the ROM),
+`test_filesel.py` (the file menu's pictures, palette, glyphs, board),
 `test_music_player.py` (the packer, and `music.s` run on `machine68k` through `tests/music_harness.s`; needs the m68k binutils and `pip install machine68k`, the real-bank part also the ROM and `py65`),
 ...). Run `python -m unittest discover -s atari_st\tests` (142 tests at the time of
 writing). They cover the asset pipeline and tables; the 68000 music player is the one piece of
@@ -623,6 +626,12 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   The **Tab screen** (`menu.s`) shows a 2x4 grid of the B items plus a row of what is carried, table driven (Left/Right).
   Nothing in the game hands out most of these yet: the shops and caves are not ported (`debug_keys` K gives keys, bombs, the
   candle; the harness can poke any `INV_*`).
+- **File menu** (`filesel.s`, `tools/filesel.py`): Return on the title calls `intro_to_menu` -> `filesel_begin`; the menu runs inside `MODE_INTRO` with
+  `OFF_INTRO_PHASE = INTRO_PHASE_MENU` (2), so the main loop dispatch and the silent `music_update` are unchanged. Buffer roles: after `intro_present`
+  SCREEN_PTR holds the clean picture (never swapped), BG_NEXT is the shown screen (sprites and cursors are drawn on it and restored from the clean copy).
+  Keys: Return = Start, Tab = Select, Space = A, Ctrl/Alt = B (`file_buttons`, NES button layout). The NES picture sits at cell column +4, row -3
+  (`PLAYFIELD_COLS`). Slots (`SLOT_ACTIVE/NAMES/HEARTS/DEATHS/QUEST/RING`) and `OFF_PROFILE` are in `globals.s`; a slot starts the game with `begin_game`.
+  `|` is the comment character of the assembler: never use it as OR in expressions (`+`). Saving to `ZELDA.SAV` is M10 part c.
 - **Title and story** (`intro.s`, `tools/intro.py`, game mode `MODE_INTRO`): the game starts here unless it is a development build
   (`ZELDA_START_ROOM/UW/CAVE` or `ZELDA_SKIP_INTRO` set, `DEV_SKIP_INTRO`), and `begin_game` (main.s) is what Start runs. Everything is read from the
   ROM at build time: the pictures are the nametable transfer streams `GameTitleTransferBuf` and `StoryTileAttrTransferBuf` replayed on a model of the

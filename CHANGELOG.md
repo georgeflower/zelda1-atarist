@@ -2,7 +2,21 @@
 
 Versions are milestones of the Atari ST port (`0.NN`), tagged on the commit that finishes them. A big change (a dungeon,
 a new mechanic family, a milestone package of `atari_st/PLAN.md`) gets its own version; fixes and docs ride along with the
-version they belong to. The current version is **0.34**.
+version they belong to. The current version is **0.35**.
+
+## 0.35 (2026-10-20) - the file menu (M10, part b)
+- Return on the title (or in the story) now opens the ROM's player select (game mode 1): three slots with name, hearts, death count and Link (with his
+  sword for a Second Quest name), the REGISTER YOUR NAME and ELIMINATION MODE lines, the heart cursor. Select (Tab) cycles through the active slots and the
+  two lines, Start (Return) picks: a slot starts the game, REGISTER opens the name board (mode E), ELIMINATION the delete screen (mode F).
+- Name board: the 11 x 4 character board of `ModeE_CharMap`, the flashing block behind the letter being typed, the ROM's button repeat (16 frames, then every
+  8), A (Space) writes, B (Ctrl/Alt) skips a letter, Start on END registers the name in every free slot (3 heart containers and the partial heart the
+  ROM gives; `ZELDA` sets the Second Quest flag). Elimination: Start on a slot blanks its name (the ROM leaves the sword on screen), END goes back to the board.
+  Arrow keys / WASD or the joystick move, Space or the fire button also works as A, and the select screen accepts A as Start.
+- Pictures, tiles, glyphs and sprites come from the ROM at build time (`tools/filesel.py`: `Mode1TileTransferBuf`, `ModeFTitleTransferBuf`,
+  `ModeFCharsTransferBuf`, the menu palettes and the ring colours); the screen code is `src/filesel.s`. The slots live in memory only: loading and saving
+  `ZELDA.SAV` is part c. Click, delete and cursor sounds use the rupee, bomb and harmed effects.
+- Six new golden scenes (`file_register`, `file_register_typed`, `file_named`, `file_play`, `file_eliminate`, `file_eliminated`); `title_start` now ends on the
+  player select. 10 new tests (`test_filesel.py`).
 
 ## 0.34 (2026-10-19) - the title screen and the story (M10, part a)
 - The game starts at the ROM's title: the waterfall's waves and crest (`UpdateWaterfallAnimation`), the glowing Triforce (`TriforceGlowingColors`), 512

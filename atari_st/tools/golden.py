@@ -33,13 +33,38 @@ GOLDEN = PROJECT / "tests" / "golden" / "frames.json"
 GANON_ARROW = ("500:=GANON_SCENE=0,500:=LINK_HELD=0,500:=HP_HALVES=40,500:=ENEMY_X.0=0x78,500:=ENEMY_Y.0=0x80,500:=ENEMY_STATE.0=0xff,"
                "500:=INV_ARROW=2,500:=INV_BOW=1,500:=INV_RUPEES=50,500:=B_ITEM=4,505:+up,507:-up,512:+ctrl,514:-ctrl")
 
+def _taps(start: int, keys: list[str], gap: int = 4) -> str:
+    """Each key pressed for two frames, one every `gap` frames."""
+    events = []
+    for number, key in enumerate(keys):
+        at = start + number * gap
+        events += [f"{at}:+{key}", f"{at + 2}:-{key}"]
+    return ",".join(events)
+
+
+# The file menu (filesel.s), from the title: Start at frame 400 brings up the select screen, Start again on REGISTER the
+# name board, where ZELDA is typed (Z: two down and three right; E: two up, one right; L: down, four left; D: up,
+# three right; A: three left) and Tab moves on over the other two slots to END; Start leaves it with the new profile.
+MENU_TO_REGISTER = "400:+return,410:-return,440:+return,450:-return"
+MENU_ZELDA = _taps(500, ["down", "down", "right", "right", "right", "space", "up", "up", "right", "space",
+                         "down", "left", "left", "left", "left", "space", "up", "right", "right", "right", "space",
+                         "left", "left", "left", "space"])
+MENU_REGISTERED = f"{MENU_TO_REGISTER},{MENU_ZELDA},{_taps(610, ['tab', 'tab', 'tab'])},630:+return,632:-return"
+MENU_TO_ELIMINATION = f"{MENU_REGISTERED},{_taps(710, ['tab', 'tab'], 4)},720:+return,722:-return"
+
 SCENES: dict[str, list[str]] = {
     # The title and the story (intro.s) run in the normal build, which `make` has built (the others are dev builds).
     "title": ["--vbls", "400"],
     "title_fade": ["--vbls", "760"],
     "story_page": ["--vbls", "1600"],
     "story_parade": ["--vbls", "2600"],
-    "title_start": ["--vbls", "700", "--keys", "400:+return,420:-return"],
+    "title_start": ["--vbls", "480", "--keys", "400:+return,420:-return"],
+    "file_register": ["--vbls", "480", "--keys", MENU_TO_REGISTER],
+    "file_register_typed": ["--vbls", "556", "--keys", f"{MENU_TO_REGISTER},{MENU_ZELDA}"],
+    "file_named": ["--vbls", "700", "--keys", MENU_REGISTERED],
+    "file_play": ["--vbls", "800", "--keys", f"{MENU_REGISTERED},710:+return,712:-return"],
+    "file_eliminate": ["--vbls", "745", "--keys", MENU_TO_ELIMINATION],
+    "file_eliminated": ["--vbls", "780", "--keys", f"{MENU_TO_ELIMINATION},750:+return,752:-return"],
     "ow_start": ["--room", "0x77", "--vbls", "420"],
     "ow_entrance_l2": ["--room", "0x3c", "--vbls", "420"],
     "uw1_start": ["--uw", "0x73", "--level", "1", "--vbls", "420"],

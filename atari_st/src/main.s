@@ -865,6 +865,8 @@ dbl_end_far:
     bra dbl_end
 draw_hud_tile_far:
     bra draw_hud_tile
+draw_hud_tile_ptr_far:
+    bra draw_hud_tile_ptr
 menu_check_open_far:
     bra menu_check_open
 uw_select_level_far:
@@ -943,6 +945,7 @@ uw_person_update_far:
     .include "menu.s"
     .include "bosses.s"
     .include "intro.s"
+    .include "filesel.s"
 
 | ---------------------------------------------------------------------------
 
@@ -1041,6 +1044,17 @@ intro_sprites:
     .incbin "intro_sprites.bin"
 intro_spawns:
     .incbin "intro_spawns.bin"
+    | The file menu (tools/filesel.py).
+    .align 2
+file_tiles:
+    .incbin "file_tiles.bin"
+file_cells:
+    .incbin "file_cells.bin"
+file_glyphs:
+    .incbin "file_glyphs.bin"
+    .align 2
+file_sprites:
+    .incbin "file_sprites.bin"
     | Each dungeon's tables and level_table (generated). They are reached through pointers that
     | uw_select_level builds, so they may sit anywhere, however far from table_anchor.
     .align 2
