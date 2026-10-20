@@ -1072,6 +1072,16 @@ file_glyphs:
     .align 2
 file_sprites:
     .incbin "file_sprites.bin"
+    | The inventory screen (tools/submenu.py).
+    .align 2
+menu_tiles:
+    .incbin "menu_tiles.bin"
+menu_cells:
+    .incbin "menu_cells.bin"
+menu_glyphs:
+    .incbin "menu_glyphs.bin"
+menu_sprites:
+    .incbin "menu_sprites.bin"
     | Link's death (tools/gameover.py).
     .align 2
 death_sprites:

@@ -145,12 +145,16 @@ class ActorTableTests(unittest.TestCase):
             self.assertLess(slots[3 * code], 32)
             self.assertLess(slots[3 * code + 1], 32)
         menu = (src / "menu.s").read_text(encoding="utf-8")
-        names = re.search(r"menu_names:\n(.*?)\s+\.align", menu, re.S).group(1)
-        self.assertEqual(len(re.findall(r"\.asciz", names)), last)
-        # a name plus its padding is ten bytes, so menu_draw can index the table by code * 10
-        total = sum(len(m) + 1 for m in re.findall(r'\.asciz "([^"]*)"', names)) + sum(
-            int(n) for n in re.findall(r"\.space (\d+)", names))
-        self.assertEqual(total, 10 * last)
+        # the inventory screen's two tables: the ROM's item slot of each B code and the B code of each slot (8 slots, ROM order)
+        code_slot = bytes_of("menu_code_slot", menu)
+        raw = re.search(r"^menu_slot_code:\n\s+\.byte ([^\n]*)\n", menu, re.M).group(1)
+        codes = {name: int(v) for name, v in re.findall(r"\.equ (B_[A-Z]+), (\d+)", items)}
+        slot_code = [codes.get(n.strip(), 0) if not n.strip().isdigit() else int(n) for n in raw.split(",")]
+        self.assertEqual(len(code_slot), last + 1)
+        self.assertEqual(len(slot_code), 9)
+        for code in range(1, last + 1):
+            self.assertIn(code, slot_code)
+            self.assertEqual(slot_code[code_slot[code]], code)
 
     def test_overworld_walkers_are_listed_with_their_data(self) -> None:
         for nes_type in actors.OVERWORLD_MONSTERS:

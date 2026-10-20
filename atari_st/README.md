@@ -255,9 +255,13 @@ Combat and items
   the magic shield (parries fireballs and sword shots); the clock (freezes the
   monsters until the screen changes, and nothing can hurt Link meanwhile); the
   fairy (three hearts); the clock and fairy are also drops
-- inventory screen (`Tab`): freezes the game and shows a 2x4 grid of the B
-  items Link owns, plus a row of what he carries; Left and Right move
-  the B label
+- inventory screen (`Tab`): freezes the game and shows the original's
+  submenu, built from the ROM (`tools/submenu.py`): the B-item box ("USE B
+  BUTTON FOR THIS"), the items box with the flashing cursor, the passive items,
+  and the triforce frame (overworld) or the compass, map and the sheet map of
+  the rooms visited so far with Link's green dot (dungeons); the status bar sits
+  below it. Left and Right move the cursor over the B items Link owns, `Tab`
+  closes it
 - push block (room `$42`): once the monsters are dead, stand against the
   block, lined up, and push for 16 frames. It swaps places with the floor
   beyond it and the room's shutters open for good (they no longer open when

@@ -854,6 +854,9 @@ finish_scroll:
     tst.b OFF_LEVEL(%a5)
     beq 1f
     bsr uw_commit_next
+    moveq #0, %d0
+    move.b OFF_ROOM_ID(%a5), %d0
+    bsr uw_mark_visited                 | the inventory screen's map shows the room he has come into
 1:  bsr spawn_room_enemies
     move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
     rts
