@@ -378,7 +378,10 @@ class SwordTests(unittest.TestCase):
 
     @staticmethod
     def _bytes(block: str) -> list[int]:
-        return [int(v, 0) for line in re.findall(r"\.byte ([^|\n]+)", block) for v in line.split(",")]
+        def value(expr: str) -> int:   # a sum of terms such as -1+6-8
+            return sum(int(term.replace(" ", ""), 0) for term in re.findall(r"[+-]?\s*\w+", expr))
+
+        return [value(v) for line in re.findall(r"\.byte ([^|\n]+)", block) for v in line.split(",")]
 
     def test_the_sword_box_is_the_roms_stabbing_collision(self) -> None:
         z07 = (self.ROM_SRC / "Z_07.asm").read_text(encoding="utf-8")

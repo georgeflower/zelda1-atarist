@@ -580,10 +580,10 @@ update_combat:
 | blade and $10 along it. Per direction (up, down, left, right): the X and Y to add to Link's to meet a monster's,
 | then how near it must be in X and in Y.
 sword_box:
-    .byte -3, -10, 12, 16
-    .byte -1, 13, 12, 16
-    .byte -11, 1, 16, 12
-    .byte 11, 1, 16, 12
+    .byte -1+6-8, -10+8-8, 12, 16
+    .byte 1+6-8, 13+8-8, 12, 16
+    .byte -11+8-8, 3+6-8, 16, 12
+    .byte 11+8-8, 3+6-8, 16, 12
 
 | Every enemy the blade touches takes a hit, the box of sword_box.
 sword_hits:
