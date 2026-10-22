@@ -470,7 +470,10 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   48 frames, shove 32 px; monsters `$10` = 32 frames, shove up to 64 px at 4 px/frame.
   Damage table `ObjTypeToDamagePoints` (`$80` = half heart, `$01` = one heart).
 - **Sword**: phases 1,8,1,1,1 frames; only cuts in state 2; tile `$20` (vertical,
-  narrow) / `$82` (horizontal); offsets `PlayerToWeaponOffsetsX/Y` (Z_07). **Beam** (full
+  narrow) / `$82` (horizontal); offsets `PlayerToWeaponOffsetsX/Y` (Z_07). Hit box (`sword_box` in combat.s,
+  `CheckMonsterStabbingCollision`): blade middle +6,+8 (up/down) or +8,+6 (sideways) vs the monster's +8,+8,
+  nearer than `$C` across the blade and `$10` along it. Darknuts parry only a blow whose direction ORed with
+  theirs is `$0C` or `$03` (they face each other); from behind or the side it hurts. **Beam** (full
   hearts only: `MakeSwordShot` wants the last heart's partial >= `$80` and any blow takes it to `$7F`): launched at phase 3, 3 px/frame, palette cycles with
   `FrameCounter & 3`, spark tile `$30` in 4 corners spreading k=2..23.
 - **Bombs**: fuse 48 frames; cloud 36 frames: first 24 damage (radius `$18`, `$40`

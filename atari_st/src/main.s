@@ -769,7 +769,7 @@ update_play:
     tst.b OFF_SKIP_DRAW(%a5)
     bne 4f                   | a catch-up pass leaves the transition to the main loop
     cmp.b #MODE_SCROLL, %d0
-    beq update_scroll       | a room transition started this frame
+    beq update_scroll_far   | a room transition started this frame
     rts                      | cave entry already redrew the new background
 4:  rts
 3:

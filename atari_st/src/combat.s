@@ -575,14 +575,40 @@ update_combat:
 9:  movem.l (%sp)+, %d0-%d7/%a0-%a3
     rts
 
-| Every enemy within SWORD_REACH of the blade on both axes takes a hit.
+| CheckMonsterStabbingCollision: the blade fully out (PlayerToWeaponOffsets of state 2, as sword_offsets) has its
+| middle 6 across and 8 along from its corner, a monster 8 and 8, and they touch when nearer than $C across the
+| blade and $10 along it. Per direction (up, down, left, right): the X and Y to add to Link's to meet a monster's,
+| then how near it must be in X and in Y.
+sword_box:
+    .byte -1+6-8, -10+8-8, 12, 16
+    .byte 1+6-8, 13+8-8, 12, 16
+    .byte -11+8-8, 3+6-8, 16, 12
+    .byte 11+8-8, 3+6-8, 16, 12
+
+| Every enemy the blade touches takes a hit, the box of sword_box.
 sword_hits:
     movem.l %d0-%d6/%a0, -(%sp)
     cmpi.b #(ATTACK_FRAMES - 1), OFF_ATTACK(%a5)
     bhi 9f                      | the blade only cuts while it is fully out
     cmpi.b #4, OFF_ATTACK(%a5)
     blo 9f
-    bsr sword_pos
+    bsr sword_pos               | d0 = which way it points
+    lsl.w #2, %d0
+    lea sword_box(%pc, %d0.w), %a0
+    moveq #0, %d1
+    move.b OFF_LINK_X(%a5), %d1
+    move.b (%a0)+, %d3
+    ext.w %d3
+    add.w %d3, %d1              | d1, d2 = the X and Y a monster would have with its middle on the blade's
+    moveq #0, %d2
+    move.b OFF_LINK_Y(%a5), %d2
+    move.b (%a0)+, %d3
+    ext.w %d3
+    add.w %d3, %d2
+    moveq #0, %d4
+    move.b (%a0)+, %d4          | d4, d6 = how near it has to be in X and in Y
+    moveq #0, %d6
+    move.b (%a0), %d6
     moveq #0, %d5
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
     bhs 9f
@@ -594,15 +620,16 @@ sword_hits:
     bne 8f                      | burrowed, submerged or flying high: the blade passes through
     move.w %d1, %d0
     bsr enemy_dx                | d3 = how far the blade is from the monster's body
-    cmp.w #SWORD_REACH, %d3
+    cmp.w %d4, %d3
     bhs 8f
     moveq #0, %d3
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
     sub.w %d2, %d3
     bpl 3f
     neg.w %d3
-3:  cmp.w #SWORD_REACH, %d3
+3:  cmp.w %d6, %d3
     bhs 8f
+    movem.l %d1-%d2/%d4/%d6, -(%sp)    | a kill uses them (kill_enemy) and the next monster needs them
     move.b OFF_LINK_DIR(%a5), OFF_ENEMY_SHOVE(%a5, %d5.w)
     bsr set_sword_damage
     tst.b OFF_ATTACK_ROD(%a5)
@@ -613,10 +640,11 @@ sword_hits:
     bne 41f
     clr.b OFF_HIT_DAMAGE(%a5)
     bsr dodongo_sword           | only a stunned Dodongo is hurt, and it dies
-    bra 8f
+    bra 7f
 41: move.b #HIT_SWORD, OFF_HIT_TYPE(%a5)
     move.b OFF_LINK_DIR(%a5), OFF_HIT_DIR(%a5)
     bsr hit_enemy
+7:  movem.l (%sp)+, %d1-%d2/%d4/%d6
 8:  addq.w #1, %d5
     bra 1b
 9:  movem.l (%sp)+, %d0-%d6/%a0

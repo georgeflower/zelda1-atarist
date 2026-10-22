@@ -370,5 +370,53 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(tight[0][0] < 0, True)
 
 
+class SwordTests(unittest.TestCase):
+    """The sword's reach and the darknuts' shields follow Z_01.asm and Z_07.asm."""
+
+    SRC = Path(__file__).resolve().parents[1] / "src"
+    ROM_SRC = Path(__file__).resolve().parents[2] / "src"
+
+    @staticmethod
+    def _bytes(block: str) -> list[int]:
+        def value(expr: str) -> int:   # a sum of terms such as -1+6-8
+            return sum(int(term.replace(" ", ""), 0) for term in re.findall(r"[+-]?\s*\w+", expr))
+
+        return [value(v) for line in re.findall(r"\.byte ([^|\n]+)", block) for v in line.split(",")]
+
+    def test_the_sword_box_is_the_roms_stabbing_collision(self) -> None:
+        z07 = (self.ROM_SRC / "Z_07.asm").read_text(encoding="utf-8")
+        offsets = {}
+        for axis in ("X", "Y"):
+            block = z07.split(f"PlayerToWeaponOffsets{axis}:", 1)[1].split("\n\n", 1)[0]
+            values = [int(h, 16) for h in re.findall(r"\$([0-9A-F]{2})", block)]
+            offsets[axis] = [v - 256 if v >= 0x80 else v for v in values[4:8]]   # state 2: up, down, left, right
+        combat = (self.SRC / "combat.s").read_text(encoding="utf-8")
+        drawn = self._bytes(combat.split("sword_offsets:", 1)[1].split(".align", 1)[0])[:8]
+        self.assertEqual(drawn, [v for pair in zip(offsets["X"], offsets["Y"]) for v in pair])
+        box = self._bytes(combat.split("sword_box:", 1)[1].split("\n\n", 1)[0])
+        self.assertEqual(len(box), 16)
+        for index in range(4):
+            vertical = index < 2
+            # CheckMonsterSlenderWeaponCollision2: the blade's middle is +6,+8 (up, down) or +8,+6 (sideways),
+            # GetObjectMiddle puts the monster's at +8,+8; CheckMonsterStabbingCollision's thresholds $C and $10
+            mid_x, mid_y = (6, 8) if vertical else (8, 6)
+            reach = (0x0C, 0x10) if vertical else (0x10, 0x0C)
+            expected = [offsets["X"][index] + mid_x - 8, offsets["Y"][index] + mid_y - 8, *reach]
+            self.assertEqual(box[4 * index : 4 * index + 4], expected, index)
+
+    def test_a_darknut_turns_aside_only_a_blow_from_the_front(self) -> None:
+        dmon = (self.SRC / "dmon.s").read_text(encoding="utf-8")
+        shield = dmon.split("| the shield:", 1)[1].split("5:", 1)[0]
+        self.assertIn("or.b OFF_ENEMY_DIR(%a5, %d5.w), %d0", shield)
+        blocked_by = {int(v, 0) for v in re.findall(r"cmp\.b #(0x[0-9a-fA-F]+), %d0\n\s+beq 7f", shield)}
+        self.assertEqual(blocked_by, {0x0C, 0x03})      # HandleMonsterWeaponCollision @CheckDarknut
+        right, left, down, up = 1, 2, 4, 8
+        opposite = {right: left, left: right, down: up, up: down}
+        for darknut in (right, left, down, up):
+            for blade in (right, left, down, up):
+                blocked = (blade | darknut) in blocked_by
+                self.assertEqual(blocked, blade == opposite[darknut], (blade, darknut))
+
+
 if __name__ == "__main__":
     unittest.main()
