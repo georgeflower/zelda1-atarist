@@ -463,7 +463,8 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   level with Link within 8 px -> straight at him, else sideways toward him when the timer ends); goriya
   `UpdateGoriya` (faces Link only if within `$51` on the longer axis, keeps its heading otherwise; the red
   one throws on rolls `$23`/`$77`, 2 frames in 256, only with `ENEMY_WANT` set at a boundary; the throw timer
-  is set when it throws); rope `UpdateRope` (timer `rand&$3F`, `enemy_face_unblocked` never ahead; rush
+  is set when it throws, and set again when it catches the boomerang: `$30`, `$50` or `$70` by a roll, as
+  `CatchBoomerang` does); rope `UpdateRope` (timer `rand&$3F`, `enemy_face_unblocked` never ahead; rush
   only from a boundary); gel moves 1 px/frame and rests `$08/$18/$28/$38` frames at each square edge. Keese: `ControlKeeseFlight`
   state machine (accelerate to `$C0`, chase/wander, slow, rest), fly over blocks, 8 dirs.
 - **Damage/invincibility**: Link `ObjInvincibilityTimer` `$18` counted every 2nd frame =
@@ -590,6 +591,17 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   Patra (the seven children, then the eye with one hit point left, room clears), the door man with all pieces (silent, shutters open)
   and without (his words), Ganon's and Zelda's scenes. Not checked: a human-speed fight with any of them.
 - **Blue goriya** (`$05`): throws whenever its timer reaches 0, no `$23`/`$77` roll (`goriya_ai` reads the NES type from `mon_table`).
+- **A goriya's boomerang** (`proj_*` kinds `PK_BOOMERANG`, `PK_RETURNING` in `ai.s`; ROM `UpdateArrowOrBoomerang`): flies out at 2.5 px/frame
+  for 33 frames. It hurts Link (a heart) or is parried (the small shield is enough: Link idle and facing it, `CheckLinkCollision`) only
+  while it flies out, and either way sparks for 3 frames and flies home at 2 px/frame (`PJ_TIMER` $83 down to $80). At its range it
+  drifts on for 16 frames at 1 px/frame, comes back at 1 px/frame for 32 frames (`PJ_TIMER` 48 down to 1), then at 2 px/frame;
+  sparking, drifting and returning it does no harm. The goriya stands still until it is within 8 px of it (`GetOneDirectionAndDistanceToTarget`).
+  `uw2_goriya_parried` and `uw2_goriya_hit` show the two outcomes.
+- **Walking speeds** (`ROM_QSPEED` in `tools/actors.py`, held to `MONSTER_PERIOD` by `test_walking_speeds_are_the_roms_q_speeds`): a
+  q-speed is a 64th of a pixel a frame: `$20` lynels, moblins, goriyas, slow octoroks, red darknuts, stalfos, gibdos, vires (a pixel every
+  other frame), `$28` blue darknuts (5 in 8 frames), `$30` fast octoroks (6 in 8, `step_patterns` in `enemy.s`), `$18` zols (3 in 8), `$40`
+  gels and bubbles; a rope charges at `$60`. The one difference left is the armos, which rolls `$20` or `$60` in the ROM and always walks at
+  `$20` here. Speeds are per frame: a 50 Hz display plays at the PAL NES's pace, a 60 Hz one at NTSC pace (PLAN.md Q7).
   **Ringleader** (`TRIGGER_RINGLEADER`, `uw_check_clear`): when slot 0 is dead, kill the others and open the shutters.
 - **Dodongo** (`$32`, `BEH_DODONGO`, `MODE_DODONGO`; ROM `UpdateDodongo`): a wanderer (turn rate `$20`) whose X is shifted by `$10` when it
   does not face left (it is two sprites wide: `draw_dodongo`, second erase offsets `ENEMY_ERASE2_OFFSETS`). State 0 walks, 1 is

@@ -218,6 +218,25 @@ class ActorTableTests(unittest.TestCase):
         data = rom_actors()
         self.assertEqual(len(data.mon_art), 2 * (len(data.mon_table) // 8))
 
+    def test_walking_speeds_are_the_roms_q_speeds(self) -> None:
+        # A q-speed is a 64th of a pixel a frame, so eight frames cover q/8 pixels: $20 is four, $30 six, $40 eight.
+        source = (Path(__file__).resolve().parents[1] / "src" / "enemy.s").read_text(encoding="utf-8")
+        row = re.search(r"step_patterns:\n\s*\.byte ([^\n]+)", source).group(1)
+        patterns = [int(value, 16) for value in row.split(",")]
+        for nes_type, q_speed in actors.ROM_QSPEED.items():
+            period = actors.MONSTER_PERIOD[nes_type]
+            if period >= actors.PERIOD_PATTERN:
+                pixels = bin(patterns[period - actors.PERIOD_PATTERN]).count("1")
+            else:
+                pixels = 8 // period
+            self.assertEqual(pixels * 8, q_speed, f"type {nes_type:#04x}")
+
+    def test_the_fast_octoroks_take_six_pixels_in_eight_frames(self) -> None:
+        # InitFastOctorock: q-speed $30, 0.75 pixels a frame (a whole pixel a frame was too fast)
+        for nes_type in (0x08, 0x0A):
+            self.assertEqual(actors.ROM_QSPEED[nes_type], 0x30)
+            self.assertEqual(actors.MONSTER_PERIOD[nes_type], actors.PERIOD_PATTERN + 2)
+
     def test_a_gel_walks_a_pixel_a_frame_and_rests_between_squares(self) -> None:
         # quarter-speed $40 (UpdateNormalZolOrGel); the rests are the game's ZolGelDelays
         self.assertEqual(actors.MONSTER_PERIOD[0x15], 1)

@@ -1254,7 +1254,7 @@ mon_art_ptr:
 | 0 is $18 (a zol, three in eight), 1 is $28 (a blue darknut, five in eight).
     .equ PERIOD_PATTERN, 0x80
 step_patterns:
-    .byte 0x92, 0xb5
+    .byte 0x92, 0xb5, 0xdb
     .align 2
 
 enemy_spawn_lists:

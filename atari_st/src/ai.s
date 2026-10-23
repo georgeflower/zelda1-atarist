@@ -107,6 +107,11 @@
     .equ BOOMERANG_QSPEED, 0xa0     | 2.5 pixels a frame
     .equ BOOMERANG_FRAMES, 33       | about $51 pixels out
     .equ BOOMERANG_RANGE, 0x51
+    .equ BOOMERANG_SLOW_Q, 0x40     | a pixel a frame: drifting on, and the first stretch back
+    .equ BOOMERANG_BACK_Q, 0x80     | two pixels a frame on the way back
+    .equ BOOMERANG_DRIFT_FRAMES, 16
+    .equ BOOMERANG_SLOW_FRAMES, 48  | 16 drifting on and 32 coming back slowly
+    .equ BOOMERANG_SPARK, 0x83      | a spark, three frames
     .equ PROJ_RANGE, 10
     .equ WALLMASTER_GAP, 0x60
     .equ WALLMASTER_TILE, 16
@@ -1086,18 +1091,47 @@ update_projectiles:
 
     bsr proj_move                   | a boomerang on its way out
     tst.w %d0
-    bne 21f
+    bne 21f                         | the room's edge: it sparks, then comes straight back
     subq.b #1, PJ_TIMER(%a4, %d7.w)
     bne 60f
+    move.b #PK_RETURNING, PJ_KIND(%a4, %d7.w)       | at its limit: it drifts on, then comes back slowly
+    move.b #BOOMERANG_SLOW_FRAMES, PJ_TIMER(%a4, %d7.w)
+    bra 8f                          | (it cannot hurt Link any more)
 21: move.b #PK_RETURNING, PJ_KIND(%a4, %d7.w)
-    bra 60f
+    move.b #BOOMERANG_SPARK, PJ_TIMER(%a4, %d7.w)
+    bra 8f
 
-30: | Coming back: head for the goriya along whichever way is longer.
+30: | Coming back: head for the goriya along whichever way is longer. PJ_TIMER says how:
+    | $80+n a spark with n frames to go, 33..48 drifting on at a pixel a frame, 1..32 coming
+    | back at a pixel a frame, 0 coming back at two. It only hurts Link while it flies out.
     moveq #0, %d1
     move.b PJ_OWNER(%a4, %d7.w), %d1
     tst.b OFF_ENEMY_ACTIVE(%a5, %d1.w)
     beq 39f                         | it died with the boomerang out
-    moveq #0, %d2
+    move.b PJ_TIMER(%a4, %d7.w), %d0
+    bpl 301f
+    subq.b #1, PJ_TIMER(%a4, %d7.w)             | sparking: it hangs still for three frames
+    cmpi.b #0x80, PJ_TIMER(%a4, %d7.w)
+    bne 8f
+    clr.b PJ_TIMER(%a4, %d7.w)
+    bra 8f
+301: cmp.b #(BOOMERANG_SLOW_FRAMES - BOOMERANG_DRIFT_FRAMES + 1), %d0
+    blo 302f
+    subq.b #1, PJ_TIMER(%a4, %d7.w)             | drifting on the way it flew, at a pixel a frame
+    tst.b PJ_QX(%a4, %d7.w)
+    beq 3011f
+    move.b #BOOMERANG_SLOW_Q, PJ_QX(%a4, %d7.w)
+3011: tst.b PJ_QY(%a4, %d7.w)
+    beq 3012f
+    move.b #BOOMERANG_SLOW_Q, PJ_QY(%a4, %d7.w)
+3012: bsr proj_move
+    bra 8f
+302: move.w #BOOMERANG_BACK_Q, %d5
+    tst.b %d0
+    beq 303f
+    subq.b #1, PJ_TIMER(%a4, %d7.w)
+    moveq #BOOMERANG_SLOW_Q, %d5                | the first 32 frames of the way back are slow
+303: moveq #0, %d2
     move.b OFF_ENEMY_X(%a5, %d1.w), %d2
     moveq #0, %d3
     move.b PJ_X(%a4, %d7.w), %d3
@@ -1113,11 +1147,20 @@ update_projectiles:
 31: move.w %d3, %d6
     bpl 32f
     neg.w %d6
-32: cmp.w #6, %d4
+32: cmp.w #9, %d4
     bhs 33f
-    cmp.w #6, %d6
+    cmp.w #9, %d6
     bhs 33f
-    clr.b OFF_ENEMY_STATE(%a5, %d1.w)       | caught
+    clr.b OFF_ENEMY_STATE(%a5, %d1.w)       | caught: it may throw again after $30, $50 or $70 frames
+    moveq #0x30, %d2
+    bsr rand8
+    cmp.b #0x30, %d0
+    blo 38f
+    moveq #0x50, %d2
+    cmp.b #0x70, %d0
+    blo 38f
+    moveq #0x70, %d2
+38: move.b %d2, OFF_ENEMY_TIMER(%a5, %d1.w)
 39: clr.b PJ_KIND(%a4, %d7.w)
     bra 8f
 33: clr.b PJ_QX(%a4, %d7.w)
@@ -1129,16 +1172,16 @@ update_projectiles:
     bpl 34f
     moveq #DIR_LEFT, %d0
 34: move.b %d0, PJ_DIR(%a4, %d7.w)
-    move.b #BOOMERANG_QSPEED, PJ_QX(%a4, %d7.w)
+    move.b %d5, PJ_QX(%a4, %d7.w)
     bra 36f
 35: moveq #DIR_DOWN, %d0
     tst.w %d3
     bpl 37f
     moveq #DIR_UP, %d0
 37: move.b %d0, PJ_DIR(%a4, %d7.w)
-    move.b #BOOMERANG_QSPEED, PJ_QY(%a4, %d7.w)
+    move.b %d5, PJ_QY(%a4, %d7.w)
 36: bsr proj_move
-    bra 60f
+    bra 8f
 
 40: | A fireball hangs about for a moment, then flies until a wall stops it.
     tst.b PJ_TIMER(%a4, %d7.w)
@@ -1311,8 +1354,9 @@ proj_move:
     movem.l (%sp)+, %d1-%d4
     rts
 
-| Projectile d7 touching Link hurts him: a boomerang for a whole heart, then
-| it turns back; a fireball for half a heart, and it is gone.
+| Projectile d7 touching Link. A goriya's boomerang hurts him, or is parried like a rock, only
+| while it flies out; sparking, drifting and coming back it does no harm. A fireball
+| does half a heart, and is gone.
 proj_hit_link:
     movem.l %d0-%d3, -(%sp)
     tst.b OFF_LINK_HURT(%a5)
@@ -1322,6 +1366,8 @@ proj_hit_link:
     tst.b OFF_LINK_HELD(%a5)
     bne 9f
     move.b PJ_KIND(%a4, %d7.w), %d3
+    beq 9f
+    cmp.b #PK_RETURNING, %d3
     beq 9f
     cmp.b #PK_FIREBALL, %d3
     bne 1f
@@ -1347,34 +1393,28 @@ proj_hit_link:
     bhs 9f
     cmp.b #PK_ROCK, %d3
     bhs shot_meets_link
-    cmp.b #PK_FIREBALL, %d3
-    bne 31f
+    cmp.b #PK_BOOMERANG, %d3
+    beq shot_meets_link
     tst.b OFF_INV_MAGIC_SHIELD(%a5) | the magic shield stops fireballs too
     bne shot_meets_link
-31: bsr link_shove_from             | d0 = its X, d2 = its Y
+    bsr link_shove_from             | d0 = its X, d2 = its Y
     moveq #1, %d1
-    cmp.b #PK_FIREBALL, %d3
-    beq 4f
-    moveq #2, %d1
-4:  movem.l %d7/%a4, -(%sp)
+    movem.l %d7/%a4, -(%sp)
     bsr hurt_link
     movem.l (%sp)+, %d7/%a4
-    move.b PJ_KIND(%a4, %d7.w), %d3
-    beq 9f                          | dying wipes the room's projectiles
-    cmp.b #PK_FIREBALL, %d3
-    bne 5f
     clr.b PJ_KIND(%a4, %d7.w)
-    bra 9f
-5:  move.b #PK_RETURNING, PJ_KIND(%a4, %d7.w)
 9:  movem.l (%sp)+, %d0-%d3
     rts
 
-| A monster's shot (d3 = its kind) has reached Link, who is not invincible. Rocks and arrows
-| bounce off him when he stands idle facing them; anything else costs hearts (a rock or
-| arrow half a heart, a sword shot two) and is gone.
+| A monster's shot (d3 = its kind) has reached Link, who is not invincible. Boomerangs, rocks and
+| arrows bounce off him when he stands idle facing them (a goriya's boomerang just turns back,
+| a rock or arrow is pushed back and fades); anything else costs hearts (a boomerang a whole
+| heart, a rock or arrow half a heart, a sword shot two) and is gone.
 shot_meets_link:
     tst.b OFF_ATTACK(%a5)
     bne 5f                          | not idle: no parrying
+    cmp.b #PK_BOOMERANG, %d3
+    beq 52f                         | the small shield is enough
     cmp.b #PK_ROCK, %d3
     bhs 51f
     cmp.b #PK_FIREBALL, %d3
@@ -1400,12 +1440,21 @@ shot_meets_link:
     bne 41f
     clr.b PJ_KIND(%a4, %d7.w)       | a fireball just goes out
     bra 9f
-41: move.b OFF_LINK_DIR(%a5), PJ_OWNER(%a4, %d7.w)  | the way it is pushed back
+41: cmp.b #PK_BOOMERANG, %d3
+    bne 42f
+    move.b #PK_RETURNING, PJ_KIND(%a4, %d7.w)       | a boomerang sparks and goes home
+    move.b #BOOMERANG_SPARK, PJ_TIMER(%a4, %d7.w)
+    bra 9f
+42: move.b OFF_LINK_DIR(%a5), PJ_OWNER(%a4, %d7.w)  | the way it is pushed back
     move.b #1, PJ_TIMER(%a4, %d7.w)
     bra 9f
 5:  bsr link_shove_from
     moveq #1, %d1
-    cmp.b #PK_SWORDSHOT, %d3
+    cmp.b #PK_BOOMERANG, %d3
+    bne 61f
+    moveq #2, %d1
+    bra 6f
+61: cmp.b #PK_SWORDSHOT, %d3
     bne 6f
     moveq #4, %d1
     cmpi.b #2, PJ_OWNER(%a4, %d7.w)
@@ -1414,7 +1463,14 @@ shot_meets_link:
 6:  movem.l %d7/%a4, -(%sp)
     bsr hurt_link
     movem.l (%sp)+, %d7/%a4
-    clr.b PJ_KIND(%a4, %d7.w)
+    cmp.b #PK_BOOMERANG, %d3
+    bne 62f
+    tst.b PJ_KIND(%a4, %d7.w)
+    beq 9f                          | dying wipes the room's projectiles
+    move.b #PK_RETURNING, PJ_KIND(%a4, %d7.w)       | the boomerang sparks and goes home
+    move.b #BOOMERANG_SPARK, PJ_TIMER(%a4, %d7.w)
+    bra 9f
+62: clr.b PJ_KIND(%a4, %d7.w)
 9:  movem.l (%sp)+, %d0-%d3
     rts
 

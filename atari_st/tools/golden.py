@@ -84,6 +84,11 @@ SCENES: dict[str, list[str]] = {
     "uw2_moldorm": ["--uw", "0x3e", "--level", "2", "--vbls", "420"],
     "uw2_traps": ["--uw", "0x3f", "--level", "2", "--vbls", "420"],
     "uw2_goriyas": ["--uw", "0x5e", "--level", "2", "--vbls", "420"],
+    # A goriya's boomerang reaches Link on the same row: his shield turns it back (facing it), or it costs a heart.
+    "uw2_goriya_parried": ["--uw", "0x5e", "--level", "2", "--vbls", "366", "--keys",
+                           "320:=LINK_X=60,320:=LINK_Y=157,320:=LINK_DIR=1"],
+    "uw2_goriya_hit": ["--uw", "0x5e", "--level", "2", "--vbls", "366", "--keys",
+                       "320:=LINK_X=60,320:=LINK_Y=157,320:=LINK_DIR=2"],
     "uw2_old_man": ["--uw", "0x1f", "--level", "2", "--vbls", "420"],
     "uw3_crowd": ["--uw", "0x49", "--level", "3", "--vbls", "420"],
     "uw4_dark": ["--uw", "0x30", "--level", "4", "--vbls", "420"],
