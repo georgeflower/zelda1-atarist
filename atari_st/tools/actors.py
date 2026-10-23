@@ -66,11 +66,13 @@ FAIRY_TILES = (0x50, 0x52)       # the two frames of the fairy item (Anim_ItemFr
 # a frame; keese are quicker and wallmasters slower. A gel walks a pixel a frame (quarter-speed
 # $40) but rests at the edge of every square. Aquamentus moves a
 # pixel every eighth frame.
-# A period of PERIOD_PATTERN + n steps on the frames set in STEP_PATTERNS[n] (a pixel on each bit set of eight frames).
+# A period of PERIOD_PATTERN + n steps on the frames set in STEP_PATTERNS[n] (a pixel on each bit set of eight frames):
+# 0 is three in eight ($18), 1 five in eight ($28), 2 six in eight ($30).
 PERIOD_PATTERN = 0x80
 MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8, 0x49: 1,
-                  # lynels and moblins walk at quarter-speed $20; octoroks too, the fast ones at $40
-                  0x01: 2, 0x02: 2, 0x03: 2, 0x04: 2, 0x07: 2, 0x08: 1, 0x09: 2, 0x0A: 1,
+                  # lynels and moblins walk at quarter-speed $20; octoroks too, the fast ones at $30 (InitFastOctorock:
+                  # 0.75 pixels a frame, six in eight)
+                  0x01: 2, 0x02: 2, 0x03: 2, 0x04: 2, 0x07: 2, 0x08: PERIOD_PATTERN + 2, 0x09: 2, 0x0A: PERIOD_PATTERN + 2,
                   # ghinis walk at $20; the others move by their own rules (the period is not used)
                   0x0D: 1, 0x0E: 1, 0x0F: 2, 0x10: 2, 0x11: 1, 0x1A: 1, 0x1F: 1, 0x20: 1, 0x21: 2,
                   # blue goriya like the red; Dodongo walks at the default quarter-speed; Moldorm moves itself
@@ -85,6 +87,15 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
                   0x47: 1, 0x48: 1, 0x25: 1, 0x26: 1, 0x3E: 1, 0x37: 1, 0x3F: 1,
                   # armos at quarter-speed $20; the whirlwind two pixels a frame and the fairy move themselves
                   0x1E: 2, 0x2E: 1, 0x2F: 1}
+# The q-speed (a 64th of a pixel a frame) each walking monster is given, as the ROM's Init and Update routines set it:
+# InitObject's default $20 for lynels, moblins, goriyas, slow octoroks, red darknuts, the vire, rope (which charges at
+# $60), stalfos and gibdos; $30 for fast octoroks; $28 for blue darknuts; $18 for a zol; $40 for gels and bubbles.
+# tests/test_actors.py holds MONSTER_PERIOD to this: the two must give the same pixels per frame.
+# The armos is the one exception: the ROM rolls $20 or $60 for each (InitArmosOrFlyingGhini), the port always walks at $20.
+ROM_QSPEED = {0x01: 0x20, 0x02: 0x20, 0x03: 0x20, 0x04: 0x20, 0x05: 0x20, 0x06: 0x20,
+              0x07: 0x20, 0x08: 0x30, 0x09: 0x20, 0x0A: 0x30, 0x0B: 0x20, 0x0C: 0x28,
+              0x12: 0x20, 0x13: 0x18, 0x15: 0x40, 0x28: 0x20, 0x2A: 0x20, 0x2B: 0x40, 0x30: 0x20,
+              0x1E: 0x20}
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
                   # ObjTypeToDamagePoints: blue lynel $02 (two hearts), red lynel $01, the rest $80
