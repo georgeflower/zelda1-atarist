@@ -18,7 +18,7 @@ missing is small: the overworld minimap on the ribbon and a few ending extras (b
 | 1 | **A thorough play-through of the full game**, especially of Levels 3 to 9, and of the Level 2 Moldorm segment deaths and the ringleader room | Built and checked with scripted Hatari input and limited human testing; bugs are expected | M6 to M9, section 9.4 |
 | 2 | **Memory on a 512 KB machine and speed on real hardware** (8 enemies plus shots at 8 MHz; a real PAL STFM at 50 Hz) | Unmeasured; Hatari only | M12, risks R2 to R4 |
 | 3 | **Overworld minimap on the status bar** (grey box with the red dot) | The ribbon has the dungeon minimap only; the overworld corner is empty | M5 HUD, section 8.2 |
-| 4 | **Ending extras:** the scrolling credits wall, the Second Quest restart at the end | The typed credits stand in | M10 d, section 11.4 |
+| 4 | **Ending extras:** the Second Quest restart at the end | The credits wall is in; Start goes back to the title | M10 d, section 11.4 |
 | 5 | **Fidelity gaps by design:** the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once, not out of a cloud | Eight monster slots (`MAX_ENEMIES`); a refactor to raise it | risk R6 |
 | 6 | **Intro odds and ends:** skip logic (`SkippedDemo`), and "save and exit without dying" from the Tab menu (not in the original) | Optional | M10, sections 11.1 and 11.3 |
 | 7 | **Checks marked (verify)** against the ROM and the walkthroughs | Listed in section 13.3 | section 13.3 |
@@ -43,8 +43,8 @@ missing is small: the overworld minimap on the ribbon and a few ending extras (b
 | M6 | Dungeon engine generalised: doors, dark rooms, stair rooms, triggers, per-level palettes and tiles | M0 | L | **done** for all nine levels (#24, #27, #29); needs a person's play-through |
 | M7 | Dungeon monsters (all underworld types) | M6 | XL | **done**: every type of Levels 1 to 9 (#24, #27, #29) |
 | M8 | Bosses | M7 | XL | Aquamentus, Dodongo, Moldorm (two worms of four), Manhandla, Gohma, Digdogger, Gleeok; Lanmola, Patra, Ganon and Zelda's scene done (#29; Ganon's music #30; checked in Hatari with scripted input, not played by a person) |
-| M9 | Levels 2 to 9 content, triforce sequence, map/compass minimap | M6, M7, M8 | XL | Levels 1 to 9 built (rooms, layout, items, monsters, bosses); only partly play-tested, see 9.3; the credits are in (typed pages, not the scrolling wall) |
-| M10 | Title/story, file select, name entry, save, continue/death, ending | M5 | L | **done** (#39, #41, #42): title, story, parade, file select, name entry, elimination, death, continue/save/retry, `ZELDA.SAV`, typed credits; the Second Quest restart and the scrolling credits wall are not ported |
+| M9 | Levels 2 to 9 content, triforce sequence, map/compass minimap | M6, M7, M8 | XL | Levels 1 to 9 built (rooms, layout, items, monsters, bosses); only partly play-tested, see 9.3; the credits wall is in |
+| M10 | Title/story, file select, name entry, save, continue/death, ending | M5 | L | **done** (#39, #41, #42): title, story, parade, file select, name entry, elimination, death, continue/save/retry, `ZELDA.SAV`, the scrolling credits wall (0.38); the Second Quest restart is not ported |
 | M11 | Sound effects and music (player, bank and the Level 1 events done; the rest are hooks, see 12) | any | M | mostly done (#4 to #9, #30) |
 | M12 | Polish: PAL 50 Hz, performance, memory, unit tests, docs | all | M | PAL checked (#18); docs refreshed after #25; the rest open |
 | M13 | Deferred (decided: not now): Second Quest | all | L | deferred |
@@ -332,7 +332,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 - **Level 6**: Magical Rod in cellar `$75`; Wizzrobe-heavy; Gleeok (4 heads) mini-boss `$18`; Gohma (blue) boss `$1C`; Like Like rooms.
 - **Level 7**: Red Candle in cellar `$4A`; Grumble room `$28`; three Digdogger rooms, three Dodongo rooms, three Moldorm rooms; Aquamentus boss `$2A`; bomb capacity man `$48`; 33 rooms.
 - **Level 8**: Magical Key `$0F` and Book of Magic `$6F` in cellars; Gohma (red) twice; Manhandla three times; Gleeok (1 head) boss `$3C`; Darknut-heavy; the "life or money" man.
-- **Level 9**: 57 rooms plus eight stair rooms; Lanmola rooms; Patra rooms; Ganon `$42` (drops the Triforce of Power); Zelda `$32`; Silver Arrow `$4F` and Red Ring `$00` in cellars; entrance man needs all eight triforce pieces. **Built in the Level 9 branch** (rooms from the ROM tables, a ten-entry cellar array, person table C): Lanmola as two worms of four (`lanmola_*`, bosses.s); Patra as the eye plus seven children that come out one at a time and orbit it (`patra_*`, `pchild_*`; the eye takes the sword only once the children are gone); Ganon (`ganon_*`: the dark room and the Triforce of Courage, hidden, teleporting and throwing fire, brown after a sword blow, a silver arrow kills him, ashes and the hidden Triforce of Power; his pictures come from the boss pool, `BP_GANON`); Zelda `$32` and her four fires (`zelda_*`: fanfare, curtain, typed thanks, triforce flash, closing words; the texts are appended to `cave_text.bin`, `ENDING_TEXT_THANKS` / `ENDING_TEXT_PEACE`). Ganon's music (`MUS_GANON`) plays; the credits are typed pages after the closing words (`CREDIT_PAGES`, with "ATARI ST PORT / BY Q"). **Not done**: the boss roars, a play-through of the level.
+- **Level 9**: 57 rooms plus eight stair rooms; Lanmola rooms; Patra rooms; Ganon `$42` (drops the Triforce of Power); Zelda `$32`; Silver Arrow `$4F` and Red Ring `$00` in cellars; entrance man needs all eight triforce pieces. **Built in the Level 9 branch** (rooms from the ROM tables, a ten-entry cellar array, person table C): Lanmola as two worms of four (`lanmola_*`, bosses.s); Patra as the eye plus seven children that come out one at a time and orbit it (`patra_*`, `pchild_*`; the eye takes the sword only once the children are gone); Ganon (`ganon_*`: the dark room and the Triforce of Courage, hidden, teleporting and throwing fire, brown after a sword blow, a silver arrow kills him, ashes and the hidden Triforce of Power; his pictures come from the boss pool, `BP_GANON`); Zelda `$32` and her four fires (`zelda_*`: fanfare, curtain, typed thanks, triforce flash, closing words; the texts are appended to `cave_text.bin`, `ENDING_TEXT_THANKS` / `ENDING_TEXT_PEACE`). Ganon's music (`MUS_GANON`) plays; the credits wall follows the closing words (`credits.s`). **Not done**: the boss roars, a play-through of the level.
 
 ### 9.4 Acceptance
 
@@ -419,7 +419,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 ### 11.4 Winning
 
 - Music for this and the other screens is already in the bank (`MUS_TITLE`, `MUS_ZELDA`, `MUS_ENDING`, `MUS_GAMEOVER`, hook with `music_event`/`music_play`). Mode `$13`: curtain effect, Zelda's text box "THANKS LINK, YOU'RE THE HERO OF HYRULE...", Link and Zelda holding the triforces, "FINALLY PEACE RETURNS TO HYRULE. THIS ENDS THE STORY.", ash pile where Ganon was, credits (`DrawCredits`), then the game restarts the same slot as a Second Quest profile (`SwitchProfileToSecondQuest` clears world flags and sets the quest number).
-- [x] Credits: three-line pages typed by `cave_talk` (the staff from the ROM's `CreditsTextLines`, the port's line, the last page stays); the scrolling wall, the ash pile and the Second Quest restart are not ported.
+- [x] Credits (0.38): the scrolling wall of `DrawCredits` (`credits.s`, `tools/credits.py`), then the last screen with the ash pile and the flashing Triforce of Power; Start goes to the title. The Second Quest restart is not ported. The port's own line, "PORTED TO ATARI ST BY Q", is on the title screen.
 
 ## 12. M11 Sound, M12 polish, M13 Second Quest
 
@@ -526,7 +526,7 @@ The five original requests are all met in the code: (1) the hidden bomb and fire
 | M4 Overworld specials | complete (the ROM has no waterfall or sea sound) |
 | M5 Items, inventory, HUD | complete except the overworld minimap (section 1.1, item 3) |
 | M6, M7, M8, M9 Dungeons, monsters, bosses, content | complete for all nine levels, checked by script and by limited play; a thorough play-through is open |
-| M10 Title, file select, save, ending | complete except the Second Quest restart and the scrolling credits wall |
+| M10 Title, file select, save, ending | complete except the Second Quest restart |
 | M11 Sound | complete: ROM music, effects and the seven DPCM samples (the sea and waterfall have no sound in the ROM) |
 | M12 Polish | PAL 50 Hz checked; docs kept current; memory and real-hardware checks open |
 | M13 Second Quest | deferred |

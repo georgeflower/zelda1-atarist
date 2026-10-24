@@ -8,7 +8,7 @@ text out of a ROM you supply yourself.
 
 Status: a complete First Quest, played through in Level 1 and 2 and run in every room of Levels 3 to 9. You can walk
 the whole overworld, fight its monsters, use its caves, shops and hidden spots, and play all nine dungeons up to Ganon,
-Zelda's thanks and the credits, with the title, file select, death, continue and saving. Levels 3 to 9 have had limited
+Zelda's thanks and the scrolling credits, with the title, file select, death, continue and saving. Levels 3 to 9 have had limited
 testing by hand. The Second Quest, the overworld map on the status bar and a few ending extras are not in (see "Known
 gaps").
 
@@ -195,7 +195,7 @@ Level 9 (Death Mountain)
   turns him brown, a silver arrow into a brown Ganon kills him, he burns to ashes and the Triforce of Power lies there
 - Zelda (room `$32`) and the four fires that guard her: stand level with her (X `$70`..`$80`, Y `$95`) and the scene
   runs: the Zelda fanfare, the curtain, her thanks typed out, the two triforce pieces over Link and Zelda while the
-  backdrop flashes, then the closing words. Then the credits, a page of three lines at a time (the staff, "ATARI ST PORT / BY Q", "END OF THE LEGEND OF ZELDA"); the last page stays, Esc quits.
+  backdrop flashes, then the closing words. Then the credits wall of the ROM scrolls up (a line every other frame, 600 lines: the bricks, the staff, "ANOTHER QUEST WILL START FROM HERE.", the copyright), and stops on the black screen with the ash pile and the flashing Triforce of Power. Start, after a moment, goes back to the title (the Second Quest, where the ROM goes, is not ported); Esc quits. The title carries a small line, "PORTED TO ATARI ST BY Q".
 
 Levels 3 to 8 (underworld)
 
@@ -328,7 +328,7 @@ Things that behave differently from the original, or are stand-ins:
 - `K` is a debug key that gives keys, bombs and the candle; the game has no use for it any more but it stays for testing
 - a pushed overworld stone jumps one square instead of sliding
 - the overworld has no map on the ribbon (the original shows the grey map with Link's red dot)
-- the Second Quest, the scrolling credits wall and the demo-skip logic of the title are not ported
+- the Second Quest and the demo-skip logic of the title are not ported
 - the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed
 - the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
   it back so the tempo stays right
@@ -346,7 +346,7 @@ Next, in the order of `PLAN.md`
 
 1. a play-through of Levels 3 to 9 (M6 to M9)
 2. the overworld minimap on the status bar
-3. the rest of the ending (M10): the credits wall and the Second Quest restart
+3. the Second Quest restart at the end of the credits (M10)
 4. a check on real STFM timing and memory, a release build (M12)
 
 The Second Quest is deferred.

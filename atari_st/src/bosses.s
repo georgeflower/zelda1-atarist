@@ -20,6 +20,7 @@
     farstub walker_fire_bf, walker_fire
     farstub zora_fire_bf, zora_fire
     farstub keese_ai_bf, keese_ai
+    farstub credits_begin_bf, credits_begin
     farstub mon_art_ptr_bf, mon_art_ptr
     farstub sprite_offset_bf, sprite_offset
     farstub draw_sprite_bf, draw_sprite
@@ -2793,9 +2794,9 @@ ganon_draw:
 | fires round her (killable, half a heart on contact) and does nothing until Link comes level with her: X $70..$80 and
 | Y $95. Then he is put at ($88,$88) facing her, the Zelda fanfare plays for $80 frames, the room is furled away by a
 | curtain, she thanks him in typed letters, and Link and she stand with a triforce piece over each head while the
-| backdrop flashes. The last screen of the credits has the final words. Link is held for all of it, so the scene is
+| backdrop flashes. The credits wall follows. Link is held for all of it, so the scene is
 | run from zelda_tick, by boss_misc_update, and not from the monster. ZELDA_SCENE: 1 fanfare, 2 curtain, 3 thanks being
-| typed, 4 pause, 5 flash, 6 pause, 7 final words being typed, 8 they stay up, 9 a page of the credits being typed, 10 the page is read, 11 the last page, for good.
+| typed, 4 pause, 5 flash, 6 pause, 7 final words being typed, 8 they stay up, 9 the credits wall (credits.s) has taken over.
     .equ ZELDA_X, 0x78
     .equ ZELDA_Y, 0x88
     .equ ZELDA_LINK_X, 0x88
@@ -2808,9 +2809,6 @@ ganon_draw:
     .equ ZELDA_TEXT_DELAY, 10
     .equ ZELDA_CREDIT_WAIT, 0xb0
 
-zelda_credit_pages:
-    .word ENDING_CREDIT_0, ENDING_CREDIT_1, ENDING_CREDIT_2, ENDING_CREDIT_3
-    .word ENDING_CREDIT_4, ENDING_CREDIT_5, ENDING_CREDIT_6, ENDING_CREDIT_7
 zelda_fire_x:
     .byte 0x60, 0x70, 0x80, 0x90
 zelda_fire_y:
@@ -3040,37 +3038,11 @@ zelda_tick:
     move.b #ZELDA_CREDIT_WAIT, OFF_ZELDA_TIMER(%a5)
     bra 99f
 60: cmp.b #8, %d0
-    bne 70f
-    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 8: the last words stay up, then the credits' first page
     bne 99f
-    clr.b OFF_ZELDA_STEP(%a5)
-    bra 66f
-70: cmp.b #9, %d0
-    bne 80f
-    bsr cave_talk_bf                    | 9: a page of the credits being typed
-    tst.b OFF_CAVE_TEXT_ON(%a5)
+    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 8: the last words stay up, then the credits wall (credits.s)
     bne 99f
-    move.b #10, OFF_ZELDA_SCENE(%a5)
-    move.b #ZELDA_CREDIT_WAIT, OFF_ZELDA_TIMER(%a5)
-    bra 99f
-80: cmp.b #10, %d0
-    bne 99f
-    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 10: the page is read; the next one, or the last stays for good (scene 11)
-    bne 99f
-    addq.b #1, OFF_ZELDA_STEP(%a5)
-    cmpi.b #ENDING_CREDIT_PAGES, OFF_ZELDA_STEP(%a5)
-    blo 66f
-    move.b #11, OFF_ZELDA_SCENE(%a5)
-    subq.b #1, OFF_ZELDA_STEP(%a5)
-    bra 99f
-66: bsr zelda_wipe_text
-    moveq #0, %d0
-    move.b OFF_ZELDA_STEP(%a5), %d0
-    add.w %d0, %d0
-    lea zelda_credit_pages(%pc), %a0
-    move.w 0(%a0, %d0.w), %d0
-    bsr zelda_say
     move.b #9, OFF_ZELDA_SCENE(%a5)
+    bsr credits_begin_bf
 99: movem.l (%sp)+, %d0-%d2/%a0-%a1
     rts
 

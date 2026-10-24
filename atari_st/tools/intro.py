@@ -231,6 +231,10 @@ class IntroData:
     sprites: bytes = b""
     sprite_count: int = 0
     spawns: bytes = b""            # records of 8 bytes: strip line (word), x (word), first frame (word), kind (word)
+    credits_palette: list[int] = field(default_factory=list)       # the credits wall (tools/credits.py)
+    credits_tiles: bytes = b""
+    credits_rows: bytes = b""
+    credits_map: bytes = b""
     spawn_count: int = 0
     waves: list[int] = field(default_factory=list)                # first frame of the wave pairs
     crests: list[int] = field(default_factory=list)
@@ -259,6 +263,23 @@ def title_image(ppu: Ppu, bg_tiles, sp_tiles, palette: B.PaletteMap, sprites: li
                         continue
                     image[line_y][x + dx] = pixel
     return image
+
+
+# The port's own line, small at the top of the title above the logo's frame.
+PORT_LINE = "PORTED TO ATARI ST BY Q"
+PORT_LINE_X = 36                        # the logo's frame is 176 pixels wide and starts at x 40; the line is a little wider
+PORT_LINE_Y = WINDOW_TOP_LINE + 5       # NES line: the window's 6th line, the cliffs' pink above the frame
+PORT_TEXT_TILE_ROW = 20                 # "PUSH START BUTTON" is on this tile row; the line has its palette
+
+
+def stamp_text(image: list[list[int]], ppu: Ppu, bg_tiles, palette: B.PaletteMap, text: str, x: int, y: int) -> None:
+    """Letters of the background patterns drawn into the picture at any pixel position (not only on the tile grid)."""
+    import credits as credits_module
+    row = ppu.palette_row(PAGE_A, PORT_TEXT_TILE_ROW, 10)
+    for number, tile in enumerate(credits_module.nes_codes(text)):
+        pixels = cell_pixels(bg_tiles, palette, tile, row)
+        for dy in range(8):
+            image[y + dy][x + number * 8 : x + number * 8 + 8] = pixels[dy]
 
 
 def image_cells(image: list[list[int]], first_line: int, lines: int, bank: TileBank) -> bytes:
@@ -467,6 +488,7 @@ def build(source_root: Path) -> IntroData:
     initial = table(asm2, "InitialTitleSprites")
     static = [tuple(initial[i : i + 4]) for i in range(0, 0x70, 4)]
     image = title_image(ppu, bg_tiles, sp_tiles, title_palette, static)
+    stamp_text(image, ppu, bg_tiles, title_palette, PORT_LINE, PORT_LINE_X, PORT_LINE_Y)
     bank = TileBank()
     out.title_cells = image_cells(image, WINDOW_TOP_LINE, WINDOW_LINES, bank)
     out.title_tiles = bank.blob()
@@ -566,6 +588,19 @@ def build(source_root: Path) -> IntroData:
         row += 1
     out.spawns = b"".join(words(s) for s in spawns)
     out.spawn_count = len(spawns)
+
+    # ----- the credits wall: its strip, and the sprite frames of its last screen (ash pile, then the two triforce pictures)
+    import credits as credits_module
+    wall = credits_module.build(source_root)
+    out.credits_palette = wall["palette"]
+    out.credits_tiles = wall["tiles"]
+    out.credits_rows = wall["rows"]
+    out.credits_map = wall["map"]
+    out.constants["CREDITS_FRAME_ASH"] = len(frames)
+    out.constants["CREDITS_FRAME_TRIFORCE"] = len(frames) + wall["triforce_first"]
+    out.constants["CREDITS_TRIFORCE_KIND"] = wall["triforce_kind"]
+    out.constants["CREDITS_ROWS"] = wall["row_count"]
+    frames.extend(wall["frames"])
     out.sprites = b"".join(frames)
     out.sprite_count = len(frames)
     out.constants.update({
@@ -583,7 +618,8 @@ def write(out_dir: Path, data: IntroData) -> list[str]:
     for name, blob in (("title_tiles", data.title_tiles), ("title_cells", data.title_cells),
                        ("story_tiles", data.story_tiles), ("story_rows", data.story_rows),
                        ("story_map", data.story_map), ("intro_sprites", data.sprites),
-                       ("intro_spawns", data.spawns)):
+                       ("intro_spawns", data.spawns), ("credits_tiles", data.credits_tiles),
+                       ("credits_rows", data.credits_rows), ("credits_map", data.credits_map)):
         (out_dir / f"{name}.bin").write_bytes(blob)
     lines = ["", "| The title screen and the story (tools/intro.py)."]
     for name, value in sorted(data.constants.items()):
@@ -601,6 +637,8 @@ def intro_tables(data: IntroData) -> list[str]:
         B.format_words("title_palette", data.title_palette),
         "",
         B.format_words("story_palette", data.story_palette),
+        "",
+        B.format_words("credits_palette", data.credits_palette),
         "",
         B.format_words("glow_colours", data.glow_colours),
         "",
