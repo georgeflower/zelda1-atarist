@@ -43,7 +43,9 @@ MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
                  0x3E, 0x37, 0x3F,
                  # the overworld's own: the armos that wakes when Link pushes it, the whirlwind of the recorder and
                  # the fairy of the ponds
-                 0x1E, 0x2E, 0x2F)
+                 0x1E, 0x2E, 0x2F,
+                 # the flying ghini a touched gravestone lets out (InitArmosOrFlyingGhini)
+                 0x22)
 # Pieces of a boss that the ROM draws as part of it but this port makes monsters of: (the type whose art they use, the
 # first frame of that art). Gohma's legs are frames 4 and 5 of its own animation.
 SYNTHETIC_TYPES = {0xFD: (0x33, 4), 0xFC: (0x34, 4), 0xFB: (0x38, 0), 0xF9: (0x43, 0)}
@@ -55,10 +57,10 @@ NO_DROP_BOSSES = (0x2E, 0x2F, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x38, 0xFB, 0x47, 0x
 # (red slow, red fast, blue slow, blue fast). Their art comes from the overworld's sprite pattern table.
 OVERWORLD_MONSTERS = (0x01, 0x02, 0x03, 0x04, 0x07, 0x08, 0x09, 0x0A,
                       0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x1A, 0x1F, 0x20, 0x21)
-# Armos and the whirlwind are drawn with the overworld's sprite patterns too but no room lists them (armos wake from the
-# map, the whirlwind from the recorder); the fairy is a screen's only monster in the two ponds ($39 and $43) and takes
+# Armos, flying ghinis and the whirlwind are drawn with the overworld's sprite patterns too but no room lists them (armos
+# and flying ghinis wake from the map, the whirlwind from the recorder); the fairy is a screen's only monster in the two ponds ($39 and $43) and takes
 # the common patterns, as the items do.
-OVERWORLD_ART = OVERWORLD_MONSTERS + (0x1E, 0x2E)
+OVERWORLD_ART = OVERWORLD_MONSTERS + (0x1E, 0x2E, 0x22)
 OVERWORLD_LISTED = OVERWORLD_MONSTERS + (0x2F,)
 FAIRY_TILES = (0x50, 0x52)       # the two frames of the fairy item (Anim_ItemFrameTiles at the fairy's offset)
 # Zoras are not in any room's list: a screen whose attribute A has bit 3 makes one in the water (CheckZora).
@@ -86,16 +88,16 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
                   0x38: 1, 0xFB: 1, 0x18: 1, 0x43: 1, 0x44: 1, 0x45: 1, 0xF9: 1, 0x46: 1, 0x3A: 1, 0x3B: 1,
                   0x47: 1, 0x48: 1, 0x25: 1, 0x26: 1, 0x3E: 1, 0x37: 1, 0x3F: 1,
                   # armos at quarter-speed $20; the whirlwind two pixels a frame and the fairy move themselves
-                  0x1E: 2, 0x2E: 1, 0x2F: 1}
+                  0x1E: 2, 0x2E: 1, 0x2F: 1, 0x22: 1}
 # The q-speed (a 64th of a pixel a frame) each walking monster is given, as the ROM's Init and Update routines set it:
 # InitObject's default $20 for lynels, moblins, goriyas, slow octoroks, red darknuts, the vire, rope (which charges at
 # $60), stalfos and gibdos; $30 for fast octoroks; $28 for blue darknuts; $18 for a zol; $40 for gels and bubbles.
 # tests/test_actors.py holds MONSTER_PERIOD to this: the two must give the same pixels per frame.
-# The armos is the one exception: the ROM rolls $20 or $60 for each (InitArmosOrFlyingGhini), the port always walks at $20.
+# The armos and the flying ghini are no walkers: they fly like a peahat (UpdateArmos is UpdateFlyingGhini) and speed up to $A0.
 ROM_QSPEED = {0x01: 0x20, 0x02: 0x20, 0x03: 0x20, 0x04: 0x20, 0x05: 0x20, 0x06: 0x20,
               0x07: 0x20, 0x08: 0x30, 0x09: 0x20, 0x0A: 0x30, 0x0B: 0x20, 0x0C: 0x28,
               0x12: 0x20, 0x13: 0x18, 0x15: 0x40, 0x28: 0x20, 0x2A: 0x20, 0x2B: 0x40, 0x30: 0x20,
-              0x1E: 0x20}
+              }
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
                   # ObjTypeToDamagePoints: blue lynel $02 (two hearts), red lynel $01, the rest $80
@@ -123,7 +125,7 @@ MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2,
                   # Ganon: $04, four hearts; Zelda touches nobody; a guard fire $80
                   0x3E: 8, 0x37: 0, 0x3F: 1,
                   # armos $01 (a heart), the whirlwind and the fairy $00
-                  0x1E: 2, 0x2E: 0, 0x2F: 0}
+                  0x1E: 2, 0x2E: 0, 0x2F: 0, 0x22: 2}
 # What hurts a monster: the bits of the original's damage types ($01 sword, $02 boomerang (it stuns), $04 arrow,
 # $08 bomb, $10 magic, $20 fire) that its ObjInvincibilityMask leaves, and bit 7 for the darknuts' shield, which
 # turns a sword aside when the two face each other. Anything not listed is hurt by all six.
@@ -146,7 +148,7 @@ MONSTER_HURT = {
     0x2E: 0x00, 0x2F: 0x00,     # the whirlwind and the fairy take nothing
 }
 # Keese ignore walls and blocks and are only held in by the room edges.
-MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x47, 0x48, 0x25, 0x26, 0x3E, 0x2E, 0x2F)
+MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x47, 0x48, 0x25, 0x26, 0x3E, 0x2E, 0x2F, 0x1E, 0x22)
 
 # What the game does with a monster every frame, besides drawing it.
 (BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS,
@@ -176,7 +178,7 @@ MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIO
                       0x47: BEHAVIOUR_PATRA, 0x48: BEHAVIOUR_PATRA,
                       0x25: BEHAVIOUR_PATRA_CHILD, 0x26: BEHAVIOUR_PATRA_CHILD, 0x3E: BEHAVIOUR_GANON,
                       0x37: BEHAVIOUR_ZELDA, 0x3F: BEHAVIOUR_FIRE,
-                      0x1E: BEHAVIOUR_ARMOS, 0x2E: BEHAVIOUR_WHIRLWIND, 0x2F: BEHAVIOUR_FAIRY,
+                      0x1E: BEHAVIOUR_ARMOS, 0x22: BEHAVIOUR_ARMOS, 0x2E: BEHAVIOUR_WHIRLWIND, 0x2F: BEHAVIOUR_FAIRY,
                       # the darknuts, gibdo, vire, zol and like-like walk like a stalfos (turn rate $80) or a gel
                       0x13: BEHAVIOUR_GEL, 0x1C: BEHAVIOUR_KEESE}
 
@@ -251,6 +253,7 @@ MONSTER_DRAW = {
     0x1F: ("wide", 1, MODE_NONE),
     0x20: ("wide", 2, MODE_BOULDER),
     0x21: ("wide", 2, MODE_GHINI),
+    0x22: ("wide", 2, MODE_GHINI),         # a flying ghini draws like a ghini
     0x05: ("wide", 4, MODE_WALKER),
     0x31: ("wide", 10, MODE_DODONGO),
     0x32: ("wide", 10, MODE_DODONGO),

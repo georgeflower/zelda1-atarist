@@ -1215,6 +1215,8 @@ def underworld_equates(uw, level_count: int = 1) -> list[str]:
         f".equ MON_ZELDA, {uw.actors.mon_index[0x37]}",
         f".equ MON_ZELDA_FIRE, {uw.actors.mon_index[0x3F]}",
         f".equ MON_ARMOS, {uw.actors.mon_index[0x1E]}",
+        f".equ MON_FGHINI, {uw.actors.mon_index[0x22]}",
+        f".equ MON_GHINI, {uw.actors.mon_index[0x21]}",
         f".equ MON_WHIRLWIND, {uw.actors.mon_index[0x2E]}",
         f".equ MON_FAIRY, {uw.actors.mon_index[0x2F]}",
         f".equ MON_GANON, {uw.actors.mon_index[0x3E]}",

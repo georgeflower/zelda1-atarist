@@ -6,14 +6,11 @@ disassembly in `src/`. It runs as a stock TOS `.PRG` on a 512KB ST in 320x200
 sixteen-colour mode, and reads all of its graphics, room layouts, palettes and
 text out of a ROM you supply yourself.
 
-Status: a playable game with eight dungeons. You can walk the whole overworld,
-fetch the wooden sword from the first cave, fight the overworld's monsters,
-and play Level 1 (to Aquamentus) and Level 2 (to the Dodongo, the heart
-container and the triforce piece) as in the original; Levels 3 to 9 are built
-with their rooms, items, monsters and bosses (up to Ganon and Zelda) but not yet played through. Every item the game has
-is in the code, but most can only be found in the dungeons and caves that are
-not ported yet. It is not yet a complete game: the shops and
-most caves and saving are missing.
+Status: a complete First Quest, played through in Level 1 and 2 and run in every room of Levels 3 to 9. You can walk
+the whole overworld, fight its monsters, use its caves, shops and hidden spots, and play all nine dungeons up to Ganon,
+Zelda's thanks and the credits, with the title, file select, death, continue and saving. Levels 3 to 9 have had limited
+testing by hand. The Second Quest, the overworld map on the status bar and a few ending extras are not in (see "Known
+gaps").
 
 How to play
 -----------
@@ -30,9 +27,8 @@ How to play
 The two item boxes on the ribbon show what each button holds: the sword under
 A (wooden, white or magical, as you earn it) and the chosen B item under B. The
 boomerang is in Level 1 (room `$44`, in the goriyas' room), the magic boomerang
-in Level 2 (room `$4F`); the candle, potions, rings and the like come from
-caves and shops that are not ported yet, so for now only `K` (and pokes in the
-test harness) give them.
+in Level 2 (room `$4F`); the candle, potions, rings and the like are bought in the shops and found in the caves,
+as in the original (`K` is a debug shortcut).
 
 A typical run:
 
@@ -93,7 +89,8 @@ Overworld
   sword parries rocks and arrows); the monsters of a screen stand in a spawn
   cloud for a moment before they move (octoroks longer), screens with edge
   spawns bring them in from the border one at a time instead, and monsters you kill stay dead for a few screens (the
-  original's room history); the other overworld monsters are still missing
+  original's room history); tektites, leevers, zoras, peahats, ghinis, boulders, armos and the flying ghinis of the
+  gravestones are in too (next list)
 
 Overworld monsters
 
@@ -103,8 +100,9 @@ Overworld monsters
   the original puts them. The shots (rock, arrow, sword shot) parry and bounce
   as in the original, screens with edge spawns bring the monsters in from the
   border, and killed monsters stay dead for a few screens (the room history)
-- not yet: armos and the gravestone ghinis (the room-tile patch they need now exists, see
-  "Hidden spots" below)
+- armos wake when Link pushes against one (twelve screens, seven of which hide stairs, one the power bracelet) and fly
+  at him in eight directions like the original's `UpdateArmos`, which is the flying ghini's routine; touching any
+  gravestone lets a flying ghini out of it (it fades in for `$3F` frames and dies with the screen's ghini)
 
 Hidden spots (overworld)
 
@@ -326,14 +324,11 @@ Things that behave differently from the original, or are stand-ins:
 - Level 2's Dodongo bomb and sword kill, the Moldorm's segment deaths and the
   ringleader room were checked by reading the code against the ROM and by
   loading every room in Hatari, but not played through
-- most items cannot be found yet: the caves and shops that give the candle, the
-  potions, rings, shield, recorder, food and rod are not ported (`K` and the
-  harness's pokes stand in), and the recorder plays its tune without the whirlwind
-- `K` is a debug key standing in for the shops and secrets that give keys,
-  bombs and the candle
-- overworld armos and gravestone ghinis are not ported (milestones M2 and M4 in `PLAN.md`); the hidden spots open, but
-  most of the caves and stairs behind them are empty until M3, and a pushed stone jumps one square instead of sliding
-- the old man's fireballs are not in; the overworld has no map on the ribbon
+- `K` is a debug key that gives keys, bombs and the candle; the game has no use for it any more but it stays for testing
+- a pushed overworld stone jumps one square instead of sliding
+- the overworld has no map on the ribbon (the original shows the grey map with Link's red dot)
+- the Second Quest, the scrolling credits wall, the burst rays of Ganon's death and the demo-skip logic of the title
+  are not ported
 - the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed
 - the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
   it back so the tempo stays right
@@ -349,15 +344,10 @@ The detailed plan, with the data tables behind it, is in [`PLAN.md`](PLAN.md).
 
 Next, in the order of `PLAN.md`
 
-1. the caves behind the overworld's hidden spots (M1 is done): shops, hints, money-making games, doors that charge, shortcut
-   stairs (M3), which is also where the items the engine already has come from
-2. armos, gravestones and the rest of the overworld specials (M4): the raft,
-   the ladder, the recorder's whirlwind, the animated pond
-3. the other seven dungeons, now that a level is data (M6 to M9): per level the
-   monsters, the boss and the palette rows of its sprites
-4. the rest of the ending (M10): the Second Quest restart
-   (the title, file menu, death, continue and saving are done)
-5. a check on real STFM timing and memory, a release build (M12)
+1. a play-through of Levels 3 to 9 (M6 to M9)
+2. the overworld minimap on the status bar
+3. the rest of the ending (M10): the credits wall and the Second Quest restart
+4. a check on real STFM timing and memory, a release build (M12)
 
 The Second Quest is deferred.
 

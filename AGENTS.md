@@ -14,13 +14,14 @@ yourself** (`ext/Original.nes`, gitignored, never committed). It produces a stoc
 TOS `ZELDAST.PRG` that runs in Hatari (and should on real hardware): 320x200,
 16 colours, 4-plane interleaved.
 
-Current scope: the whole overworld is walkable (128 screens) with its monsters,
-the first cave and the wooden sword, **Level 1 (the Eagle)** is playable to the
+Current scope: the whole overworld is walkable (128 screens) with its monsters, hidden spots, specials, caves and shops,
+**Level 1 (the Eagle)** is playable to the
 boss Aquamentus and the triforce piece, and **Level 2 (the Moon)** to the Dodongo,
 its heart container and the triforce piece. **Levels 3 to 9** are built too (rooms,
 layouts, items, every monster and boss of those levels, up to Ganon and Zelda's thanks) but only partly play-tested.
-Every item of the original's inventory is in the code. The title, the file menu, death, the continue question and saving to
-`ZELDA.SAV` are in; the rest is future work, see section 14 and `atari_st/PLAN.md`.
+Every item of the original's inventory is in the game (found, bought or given as in the original). The title, the file menu, death, the
+continue question and saving to `ZELDA.SAV` are in; the rest (overworld minimap, credits wall, Second Quest) is future work, see section 14
+and `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
 (`src/Z_00.asm` .. `Z_07.asm`, aldonunez's labelled NES disassembly). It is the
@@ -29,7 +30,7 @@ damage, tile id, table), read it from there rather than guessing.
 
 ## 1.1 Versions
 
-The port has versions `0.NN` (current: **0.35**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
+The port has versions `0.NN` (current: **0.36**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
 the commit that finishes it. A big change (a dungeon, a mechanic family, a package of `atari_st/PLAN.md`) takes the next number; fixes
 and docs ride along. When you finish one: bump `VERSION`, the "Version" line of `README.md`, the status line of `atari_st/PLAN.md`
 and add the `CHANGELOG.md` entry, in the same PR; tag it after the merge. The next step is named in `atari_st/PLAN.md` section 1 (what is left) and 2.1.
@@ -74,7 +75,7 @@ atari_st/                the port
   README.md              user-facing docs: features, known gaps, roadmap, notes
   src/*.s                68000 code (one assembly unit, main.s .includes the rest)
   tools/*.py             asset pipeline, PRG packer, Hatari screenshot harness
-  tests/*.py             unittest suites (162 tests); tests/golden/frames.json = golden frame hashes
+  tests/*.py             unittest suites (about 200 tests); tests/golden/frames.json = golden frame hashes
   music/                 the YM2149 digidrum player (ymplay.h); the songs are ripped from the ROM
   build/                 OUTPUT (gitignored): generated/, ZELDAST.PRG, scratch, shots/
 ```
@@ -95,7 +96,8 @@ atari_st/                the port
 | `movers.s` | the overworld monsters with rules of their own: tektites and boulders (jumps), leevers and zoras (burrowing), peahats, ghinis, the boulder set |
 | `items.s` | the B items beyond bombs/boomerang/candle (bow and arrows, rod, recorder, food, potion), Link's shots, heart fill, the `b_*` tables |
 | `secrets.s` | the overworld's hidden spots: `ow_bomb_secret_far`/`ow_fire_secret_far` hooks (bomb cloud, flame), `ow_push_secret` (Link blocked by a rock or gravestone), `ow_secret_undo` (called by `render_room`), patching `room_maps` in place |
-| `owspec.s` | the overworld's special objects (M4): Lost Woods/Hills mazes, ladder, raft and docks, armos, the recorder's whirlwind and pond, fairy ponds; its `owspec_*_far` stubs sit in `main.s` |
+| `owspec.s` | the overworld's special objects (M4): Lost Woods/Hills mazes, ladder, raft and docks, armos and the flying ghinis of the gravestones (one flight routine, as in the ROM), the recorder's whirlwind and pond, fairy ponds; its `owspec_*_far` stubs sit in `main.s` |
+| `caves.s` | the 20 cave types (`cave_table`, from `OverworldPersonTextSelectors` and the level block's attribute E): old men and women, shopkeepers, the moblins, take-any-one and take-any-road, paid hints, the money game, the door repair charge, the letter (`cs_letter`), white and magic sword hearts; persistent flags in `OW_KILLS` |
 | `combat.s` | sword, beam, bombs, candle, drops/kill counters, `take_item`, HP/knock-back, rings, shield, clock, effects (spark/cloud), shutters, triforce ending, the ringleader trigger |
 | `hud.s` | status ribbon, hearts, counters, A/B boxes (`hud_items`) |
 | `menu.s` | Tab inventory screen (MODE_MENU), laid out as the ROM's submenu: B-item box, items box with the cursor, passive row, triforce or map sheet; the HUD ribbon sits below it |
@@ -213,7 +215,7 @@ of its own): a build without `ext/Original.nes` stops with a message, and `build
 `test_intro.py` (the title and story tables, from the ROM),
 `test_filesel.py` (the file menu's pictures, palette, glyphs, board),
 `test_music_player.py` (the packer, and `music.s` run on `machine68k` through `tests/music_harness.s`; needs the m68k binutils and `pip install machine68k`, the real-bank part also the ROM and `py65`),
-...). Run `python -m unittest discover -s atari_st\tests` (142 tests at the time of
+...). Run `python -m unittest discover -s atari_st\tests` (about 200 tests at the time of
 writing). They cover the asset pipeline and tables; the 68000 music player is the one piece of
 68000 code with unit tests. `test_actors.py` also holds the Makefile-vs-`build_assets.UW_LEVELS` check and the
 reach-check listing parser.
@@ -609,8 +611,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **Walking speeds** (`ROM_QSPEED` in `tools/actors.py`, held to `MONSTER_PERIOD` by `test_walking_speeds_are_the_roms_q_speeds`): a
   q-speed is a 64th of a pixel a frame: `$20` lynels, moblins, goriyas, slow octoroks, red darknuts, stalfos, gibdos, vires (a pixel every
   other frame), `$28` blue darknuts (5 in 8 frames), `$30` fast octoroks (6 in 8, `step_patterns` in `enemy.s`), `$18` zols (3 in 8), `$40`
-  gels and bubbles; a rope charges at `$60`. The one difference left is the armos, which rolls `$20` or `$60` in the ROM and always walks at
-  `$20` here. Speeds are per frame: a 50 Hz display plays at the PAL NES's pace, a 60 Hz one at NTSC pace (PLAN.md Q7).
+  gels and bubbles; a rope charges at `$60`. Armos and flying ghinis do not walk: they use the flying state machine (below). Speeds are per frame: a 50 Hz display plays at the PAL NES's pace, a 60 Hz one at NTSC pace (PLAN.md Q7).
   **Ringleader** (`TRIGGER_RINGLEADER`, `uw_check_clear`): when slot 0 is dead, kill the others and open the shutters.
 - **Dodongo** (`$32`, `BEH_DODONGO`, `MODE_DODONGO`; ROM `UpdateDodongo`): a wanderer (turn rate `$20`) whose X is shifted by `$10` when it
   does not face left (it is two sprites wide: `draw_dodongo`, second erase offsets `ENEMY_ERASE2_OFFSETS`). State 0 walks, 1 is
@@ -624,7 +625,12 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   (half a pixel a frame, `ENEMY_SPEED/FRAC`); a wall bounce is kept in `ENEMY_BOUNCE` until the next turn. A killed segment comes back once with
   `$20` HP and the tail is removed instead; the head dies for good (`moldorm_died`). Drawn as tile `$44`, palette row 2.
 - **Overworld movers** (`movers.s`): tektites and boulders jump (`UpdateTektiteOrBoulder`), leevers and zoras burrow
-  (`ENEMY_GHOST`: bit 0 weapons pass through, bit 1 harms nobody), peahats fly, ghinis wander at rate `$FF`, the boulder set drops boulders.
+  (`ENEMY_GHOST`: bit 0 weapons pass through, bit 1 harms nobody), peahats fly, ghinis wander at rate `$FF`, the boulder set drops boulders. **Armos and flying ghinis** (`$1E`, `$22`, `BEH_ARMOS`;
+  `owspec_armos_ai`): `UpdateArmos` and `UpdateFlyingGhini` are one routine in the ROM, so both rise for `$3F` frames (`ENEMY_ANIMC`, shown every
+  other frame, no weapon touches them) and then fly in eight directions with `flyer_control` (decide rolls `$A0` and `$08`, top speed `$A0`,
+  speed `$1F` at the start) and `flyer_move`; unlike a peahat they can always be hit. A step blocked by a gravestone tile (`$BC`-`$BF`) makes a
+  flying ghini on that square, one blocked by an armos tile (`$C0`-`$C3`) an armos (`ow_armos_touch`); a dying ghini (`$21`) puts out all flying
+  ghinis (`ghini_lets_go_of_ghosts`); neither counts for the screen's kill history.
 - **Dungeon people** (`$4B..$52` in the room list; `actors.dungeon_people`): the speech is picked through
   `UnderworldPersonTextSelectorsA/B` (`Z_01.asm`, by level) and `PersonTextAddrs`, appended to `cave_text.bin` after the
   first cave's speech; the room record is 16 bytes and byte 14 is the speech offset (`$FF` = nobody). `uw_spawn` calls
@@ -663,8 +669,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   are redrawn from the empty-triforce memory (`menu_triforce`). The picture fills y 0..175 and the HUD ribbon is drawn below it
   (`HUD_MENU_ROW`, `draw_hud_tile_ptr` moves its rows in `MODE_MENU`); in dungeons the compass and map icons sit on the left and the
   sheet map on the right. Left/Right walk the owned B items in the ROM's slot order (`menu_code_slot`/`menu_slot_code`), Tab closes.
-  Nothing in the game hands out most of these yet: the shops and caves are not ported (`debug_keys` K gives keys, bombs, the
-  candle; the harness can poke any `INV_*`).
+  The caves and shops (`caves.s`) hand them out as in the original (`debug_keys` K gives keys, bombs, the candle; the harness can poke any `INV_*`).
 - **File menu** (`filesel.s`, `tools/filesel.py`): Return on the title calls `intro_to_menu` -> `filesel_begin`; the menu runs inside `MODE_INTRO` with
   `OFF_INTRO_PHASE = INTRO_PHASE_MENU` (2), so the main loop dispatch and the silent `music_update` are unchanged. Buffer roles: after `intro_present`
   SCREEN_PTR holds the clean picture (never swapped), BG_NEXT is the shown screen (sprites and cursors are drawn on it and restored from the clean copy).
@@ -759,7 +764,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - Mon table (`mon_table.bin`, 8 bytes/monster): nes type, hp, period, damage, drop row, flies,
   draw mode, behaviour. Monsters ported (`actors.MONSTER_TYPES`): `05`/`06` goriya (blue/red), `15` gel, `1B` keese, `28` rope, `2A`
   stalfos, `27` wallmaster, `3D` Aquamentus, `49` trap, `31`/`32` Dodongo, `41` Moldorm segment, and the overworld's `01`/`02` lynel,
-  `03`/`04` moblin, `07`-`0A` octorok, tektites, leevers, zoras, peahats, ghinis, boulders (`movers.s`).
+  `03`/`04` moblin, `07`-`0A` octorok, tektites, leevers, zoras, peahats, ghinis, boulders (`movers.s`), armos `1E` and the flying ghini `22` (`owspec.s`).
   **`MAX_ENEMIES` is 8**: the per-monster arrays are indexed `d8(%a5,%dn)` (they must start below offset 128) and some code
   uses stride-8 accesses between them (`8(%a0,%d5.w)` from `ENEMY_TURN` to `ENEMY_WANT`), so raising it is a refactor; a worm
   or a group of traps takes slots from the room's other monsters (`_room_info` truncates to eight). `mon_art.bin` gives, per monster, the first frame of its
@@ -817,8 +822,8 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 
 ## 14. Status and what is next
 
-Done: the overworld (all 128 screens) with octoroks, moblins, lynels, tektites, leevers, zoras, peahats, ghinis and boulders (walking,
-shooting, edge spawns, kill history); the first cave; Level 1 (doors/keys/shutters/bombable and false walls, stairs + cellar, stalfos,
+Done: the overworld (all 128 screens) with octoroks, moblins, lynels, tektites, leevers, zoras, peahats, ghinis, armos, flying ghinis and boulders
+(walking, shooting, edge spawns, kill history); all 20 caves and shops, the hidden spots and the specials (mazes, raft, ladder, recorder, ponds); Level 1 (doors/keys/shutters/bombable and false walls, stairs + cellar, stalfos,
 keese, gels, ropes, goriyas, wallmasters, Aquamentus, blade traps, push blocks, triforce ending, map and compass with the minimap, the
 old man in `$41`); **Level 2** (18 rooms, blue goriyas, Dodongo, Moldorm worms, trap+keese room, the ringleader room, the magic
 boomerang, heart container, triforce); **Levels 3-8** (rooms, layouts, items, darknuts, vire, zol, pols voice, like-like,
@@ -827,12 +832,11 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the overworld map on the ribbon; the Second Quest restart of the ending (M10). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the overworld map on the ribbon; the rest of the ending (the scrolling credits wall, Ganon's burst rays, the Second Quest restart; M10); the title's demo-skip logic. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
 cloud. Level 2's Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
 Unmeasured: free memory on a 512 KB machine.
 
-The full plan for everything still missing (hidden bomb/fire spots, enemies, caves, items, all nine
-dungeons and bosses, title/save) is `atari_st/PLAN.md`. Scope decision: First Quest only, the Second
+The full plan, with what is done and what is left, is `atari_st/PLAN.md`. Scope decision: First Quest only, the Second
 Quest is deferred. Its tables are decoded from a user-supplied ROM; do not commit the ROM.
 
 ## 15. Persistent notes also kept in the repo memory (VS Code agent memory)

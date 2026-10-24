@@ -238,18 +238,23 @@ ladder_update:
     rts
 
 | -------------------------------------------------------------------------------------------------------- armos
-| CheckPassiveTileObjects: a step blocked by an armos tile ($C0-$C3) wakes the armos on that square, unless it is
-| awake already. link_pixel calls this after every blocked step on the overworld.
+| CheckPassiveTileObjects: a step blocked by an armos tile ($C0-$C3) wakes the armos on that square, and one blocked by a
+| gravestone ($BC-$BF) lets a flying ghini out of it, unless one is rising there already. link_pixel calls this after
+| every blocked step on the overworld.
 ow_armos_touch:
     movem.l %d0-%d5/%a0-%a1, -(%sp)
     tst.b OFF_LEVEL(%a5)
     bne 9f
     moveq #0, %d0
     move.b OFF_HOTSPOT_TILE(%a5), %d0
-    sub.w #0xc0, %d0
-    cmp.w #3, %d0
+    sub.w #0xbc, %d0
+    cmp.w #7, %d0
     bhi 9f
-    moveq #0, %d2
+    moveq #MON_FGHINI, %d1              | ChooseObjType: tile $C0 and up is an armos, below it a flying ghini
+    cmp.w #4, %d0
+    blo 4f
+    moveq #MON_ARMOS, %d1
+4:  moveq #0, %d2
     move.b OFF_HOT_COL(%a5), %d2
     lsr.w #1, %d2
     lsl.w #4, %d2                       | the square's X
@@ -263,16 +268,18 @@ ow_armos_touch:
     bhs 3f
     tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
     beq 2f
-    cmpi.b #MON_ARMOS, OFF_ENEMY_TYPE(%a5, %d5.w)
+    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
+    cmp.b #MON_ARMOS, %d0
+    beq 15f
+    cmp.b #MON_FGHINI, %d0
     bne 2f
-    cmp.b OFF_ENEMY_X(%a5, %d5.w), %d2
+15: cmp.b OFF_ENEMY_X(%a5, %d5.w), %d2
     bne 2f
     cmp.b OFF_ENEMY_Y(%a5, %d5.w), %d3
     beq 9f                              | it is rising there already
 2:  addq.w #1, %d5
     bra 1b
-3:  moveq #MON_ARMOS, %d1
-    moveq #DIR_DOWN, %d4
+3:  moveq #DIR_DOWN, %d4
     bsr enemy_make
 9:  movem.l (%sp)+, %d0-%d5/%a0-%a1
     rts
@@ -306,22 +313,40 @@ owspec_init:
 9:  movem.l (%sp)+, %d0/%a0
     rts
 
-| d5 = the armos, called from mover_update. Returns d0.w = 1 while it must not move. It rises for $3F frames,
-| then (UpdateArmos) walks like a goriya that throws nothing.
+| d5 = the armos or the flying ghini, called from mover_update. Returns d0.w = 1: it moves itself. It rises for $3F frames
+| (InitArmosOrFlyingGhini); then EndInitFlyer gives it speed $1F and the flying state machine takes over. UpdateArmos
+| and UpdateFlyingGhini are one routine in the ROM: ControlFlyingGhiniFlight (decide rolls $A0 and $08, top speed
+| $A0) and MoveFlyer, so an armos flies in eight directions like a peahat that can always be hit.
 owspec_armos_ai:
-    movem.l %d1/%a0, -(%sp)
+    movem.l %d1-%d3/%a0, -(%sp)
     lea OFF_ENEMY_ANIMC(%a5), %a0
     move.b 0(%a0, %d5.w), %d1
     beq 5f
     subq.b #1, %d1
     move.b %d1, 0(%a0, %d5.w)
     bne 8f
-    bsr armos_wake
+    cmpi.b #MON_FGHINI, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 3f
+    lea OFF_ENEMY_GHOST(%a5), %a0       | a flying ghini leaves no hole behind: weapons hurt it now
+    clr.b 0(%a0, %d5.w)
+    bra 4f
+3:  bsr armos_wake
+4:  lea OFF_ENEMY_SPEED(%a5), %a0       | EndInitFlyer
+    move.b #0x1f, 0(%a0, %d5.w)
+    lea OFF_ENEMY_FRAC(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
+    clr.b OFF_ENEMY_STEP(%a5, %d5.w)
 8:  moveq #1, %d0
     bra 9f
-5:  bsr goriya_ai_far
-    moveq #0, %d0
-9:  movem.l (%sp)+, %d1/%a0
+5:  move.w #0xa0, %d1                   | Flyer_GhiniDecideState: chase at >= $A0, wander at >= $08, else slow down
+    move.w #0x08, %d2
+    move.w #0xa0, %d3
+    bsr flyer_control
+    bsr flyer_move
+    moveq #1, %d0
+9:  movem.l (%sp)+, %d1-%d3/%a0
     rts
 
 | The armos has risen (InitArmosOrFlyingGhini): the square it stood on turns to floor, or to stairs when it covered

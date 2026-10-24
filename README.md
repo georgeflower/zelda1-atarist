@@ -12,17 +12,17 @@ Done: the whole overworld with its monsters, caves, secrets and specials; all ni
 
 - walk all 128 overworld screens with the original movement and collision, and scroll between them
 - fight the overworld's octoroks, moblins, lynels, tektites, leevers, zoras, peahats, ghinis and boulders, with their shots, edge spawns and kill history
-- go into the first cave, hear the old man's speech and take the wooden sword
-- bomb the overworld's rock walls, burn its trees (with the candle) and push its gravestones and bracelet rocks: the hidden stairs and caves open (what is inside most of them is not ported yet)
-- explore Levels 1 to 8 (entered from the overworld's dungeon stairs, for instance `$37` and `$3C`): locked doors, bombable and false walls, shutters, push blocks, stairs and cellars, the map, the compass and the minimap, and the old men's hints
+- go into the caves: the old man and the wooden sword, shops, hints, the money game, the medicine woman and the letter, the take-any-road stairs
+- bomb the overworld's rock walls, burn its trees (with the candle), push its gravestones and bracelet rocks and wake its armos: the hidden stairs and caves open, with their old men, shops, hints and money games
+- explore Levels 1 to 9 (entered from the overworld's dungeon stairs, for instance `$37` and `$3C`): locked doors, bombable and false walls, shutters, push blocks, stairs and cellars, the map, the compass and the minimap, and the old men's hints
 - fight stalfos, keese, gels, ropes, goriyas (red and blue), darknuts, vires, zols, pols voice, like-likes, wizzrobes, gibdos, bubbles, wallmasters, blade traps, Aquamentus, the Dodongo (feed it bombs), the Moldorm, Manhandla, Gohma, Digdogger and Gleeok with the sword and its beam, bombs, the boomerang (also the magic one), the candle, the bow and arrows and the magic rod, and pick up the drops (hearts, rupees, bombs, the clock, the fairy)
-- use everything the original's inventory holds in the code: white and magical swords, potions, food, the recorder, the rings and the magic shield; most of these can only be found once their caves and shops are ported
+- use everything the original's inventory holds in the code: white and magical swords, potions, food, the recorder, the rings and the magic shield, found and bought as in the original
 - open the inventory screen, laid out exactly as the original's (B-item box, items, triforce pieces), and choose the B item
 - find the map and the compass and read the dungeon minimap on the ribbon, and the sheet map of the rooms you have visited on the inventory screen
 - meet the old man in the first dungeon's room `$41` and read his hint
 - hear the music and sound effects, ripped from the ROM's own sound engine at build time: overworld, dungeon and Level 9 themes, the item and triforce fanfares, Link's death jingle, and effects for sword, boomerang, flame, bomb, stairs, pickups, hurt, the low-life beep, menu clicks and cave text
 
-**Not there yet:** armos (and the stairs they hide), shops and most caves, the title screen and saving. The Second Quest is deferred. The plan for all of it is `atari_st/PLAN.md`.
+**Not there yet:** the overworld minimap on the status bar, the credits wall and the burst rays of Ganon's death. The Second Quest is deferred. The plan for all of it is `atari_st/PLAN.md`.
 
 ## Controls
 
