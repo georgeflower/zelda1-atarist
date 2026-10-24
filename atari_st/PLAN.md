@@ -15,14 +15,13 @@ missing is small: the overworld minimap on the ribbon and a few ending extras (b
 
 | # | What | Why it is open | Where |
 |---|---|---|---|
-| 1 | **A thorough play-through of the full game**, especially of Levels 3 to 9, and of the Level 2 Dodongo kill, the Moldorm segment deaths and the ringleader room | Built and checked with scripted Hatari input and limited human testing; bugs are expected | M6 to M9, section 9.4 |
+| 1 | **A thorough play-through of the full game**, especially of Levels 3 to 9, and of the Level 2 Moldorm segment deaths and the ringleader room | Built and checked with scripted Hatari input and limited human testing; bugs are expected | M6 to M9, section 9.4 |
 | 2 | **Memory on a 512 KB machine and speed on real hardware** (8 enemies plus shots at 8 MHz; a real PAL STFM at 50 Hz) | Unmeasured; Hatari only | M12, risks R2 to R4 |
 | 3 | **Overworld minimap on the status bar** (grey box with the red dot) | The ribbon has the dungeon minimap only; the overworld corner is empty | M5 HUD, section 8.2 |
-| 4 | **Level 2 and 5 "odd rooms"** (never defined: which rooms are meant?) | Asked, no answer; nothing in the ROM's tables for those levels is unsupported | M3 and M6, sections 6.3 and 9.1 |
-| 5 | **Ending extras:** the scrolling credits wall, the Second Quest restart at the end | The typed credits stand in | M10 d, section 11.4 |
-| 6 | **Fidelity gaps by design:** the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once, not out of a cloud | Eight monster slots (`MAX_ENEMIES`); a refactor to raise it | risk R6 |
-| 7 | **Intro odds and ends:** skip logic (`SkippedDemo`), and "save and exit without dying" from the Tab menu (not in the original) | Optional | M10, sections 11.1 and 11.3 |
-| 8 | **Checks marked (verify)** against the ROM and the walkthroughs | Listed in section 13.3 | section 13.3 |
+| 4 | **Ending extras:** the scrolling credits wall, the Second Quest restart at the end | The typed credits stand in | M10 d, section 11.4 |
+| 5 | **Fidelity gaps by design:** the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once, not out of a cloud | Eight monster slots (`MAX_ENEMIES`); a refactor to raise it | risk R6 |
+| 6 | **Intro odds and ends:** skip logic (`SkippedDemo`), and "save and exit without dying" from the Tab menu (not in the original) | Optional | M10, sections 11.1 and 11.3 |
+| 7 | **Checks marked (verify)** against the ROM and the walkthroughs | Listed in section 13.3 | section 13.3 |
 
 ### 1.2 Deliberately deferred
 
@@ -325,7 +324,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 ### 9.3 Notes per level (what is special)
 
 - **Level 1** (done, including the triforce sequence, the bow cellar and the push-block rooms): the old man at `$41` is in too (speech, flames that shoot when he is hit, blocking) (the map and compass, the dungeon minimap on the ribbon and the Tab screen are in).
-- **Level 2** (done, #24: all 18 rooms, items and monsters; the Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by a play-through): Dodongo boss room `$0E` takes bombs; Moldorm mini-boss `$3E`; Magical Boomerang from the Goriya room `$4F`; eight rope rooms.
+- **Level 2** (done, #24: all 18 rooms, items and monsters; the Dodongo, played through by Göran, works well; the Moldorm segment deaths and ringleader room are verified by reading and loading, not by a play-through): Dodongo boss room `$0E` takes bombs; Moldorm mini-boss `$3E`; Magical Boomerang from the Goriya room `$4F`; eight rope rooms.
 - **Levels 3 to 8** (built in the Levels 3-8 branch: rooms, layout, doors, items and monsters come from the ROM tables through `tools/actors.py`; a sweep of every room loads without a crash; **not played through by a person**; scripted Hatari checks: second Digdogger kill and heart container, stash on leave and return, Pols Voice and Vire moving; the magic key opens locked doors and the ladder crosses moats, both found missing while checking and added; `test_build_assets.py` replays every level's doors). Rooms with seven or more monsters take two VBLs to draw; `catch_up` in `main.s` runs the logic one extra time so the speed stays that of 60 Hz and only the picture drops to 30 Hz. The "more bombs" man (`$4F`, Levels 5 and 7) and the "life or money" man (`$51`, no First Quest room has him) are ported.
 - **Level 3**: Manhandla boss; the Raft is down the stairs in the eight-Darknut room `$69` (stairs room `$0F`); the old man asks about "the sword from the old man on top of the waterfall".
 - **Level 4**: seven dark rooms; Vire and Zol rooms; Manhandla at `$10` then Gleeok (3 heads) at `$13`; stepladder in the cellar `$60`.

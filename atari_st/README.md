@@ -322,9 +322,9 @@ Things that behave differently from the original, or are stand-ins:
   ladder is not drawn: with it Link just walks over the moat
 - the Moldorm is two worms of four segments, not one of ten, because the engine
   has eight monster slots; the Dodongo and the Moldorm leave no death cloud
-- Level 2's Dodongo bomb and sword kill, the Moldorm's segment deaths and the
-  ringleader room were checked by reading the code against the ROM and by
-  loading every room in Hatari, but not played through
+- Level 2's Dodongo (bomb and sword kill) has been played through and works well;
+  the Moldorm's segment deaths and the ringleader room were checked by reading
+  the code against the ROM and by loading every room in Hatari, but not played through
 - `K` is a debug key that gives keys, bombs and the candle; the game has no use for it any more but it stays for testing
 - a pushed overworld stone jumps one square instead of sliding
 - the overworld has no map on the ribbon (the original shows the grey map with Link's red dot)

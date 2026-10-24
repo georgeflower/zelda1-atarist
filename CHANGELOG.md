@@ -12,7 +12,8 @@ version they belong to. The current version is **0.37**.
   counts as out when X+`$B` < left or X-`$C` >= right, Y+`$F` < up or Y-`$12` >= down), so it stops at the edge of the room, not at a tile, and it is
   made even with a wall in front of Link. The port stopped it at any blocking tile. Link's arrows, the rod's shot and the monsters' rocks and arrows go
   through the same routine and now ignore tiles as well (`shot_blocked` is a stub).
-- Documentation: the burst rays are no longer listed as missing.
+- Documentation: the burst rays are no longer listed as missing; the undefined "Level 2 and 5 odd rooms" item is gone from the plan; the Level 2 Dodongo is
+  marked as played through and working well.
 
 ## 0.36 (2026-10-24) - the flying ghini, and the documentation checked against the ROM
 - The ROM's overworld object table, caves and sounds were compared with the port. Everything the First Quest uses was in except the **flying ghini**

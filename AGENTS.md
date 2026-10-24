@@ -833,7 +833,7 @@ kill counters, knock-back and invincibility; the HUD with the A/B boxes and the 
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
 Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the overworld map on the ribbon; the rest of the ending (the scrolling credits wall, the Second Quest restart; M10); the title's demo-skip logic. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
-cloud. Level 2's Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
+cloud. Level 2's Dodongo (bomb and sword kill) has been played through by Göran and works well; the Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
 Unmeasured: free memory on a 512 KB machine.
 
 The full plan, with what is done and what is left, is `atari_st/PLAN.md`. Scope decision: First Quest only, the Second
