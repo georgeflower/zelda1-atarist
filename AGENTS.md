@@ -90,13 +90,13 @@ atari_st/                the port
 | `link.s` | input -> direction, grid-step movement, collision, room transitions, caves, scroll |
 | `enemy.s` | monster spawn (overworld monsters come out of a spawn cloud: `cloud_begin`/`cloud_tick`; screens with edge spawns use `edge_spawn_tick`), walker AI (16-px lanes), shove, draw, `sprite_offset`, `rand8` |
 | `dmon.s` | the dungeon monsters of Levels 3-8 (darknuts, gibdo, zol, vire, pols voice, like-like, bubbles, wizzrobes), `mon_mask` (which weapons hurt what), `STEP_PATTERNS`, and the `farstub` trampoline macro + list |
-| `bosses.s` | Manhandla, Gohma, Digdogger, Gleeok, Lanmola, Patra, Ganon, Zelda and her fires (included last; its `*_bf` stubs reach back into main.s), the boss sprite pool (`bp_add`, `boss_pool_draw`), pre-shifted narrow art (`draw_pre`), the baked Gleeok body, rupee stashes and Grumble (`boss_room_init`, `stash_bake`, `grumble_bake`, `boss_misc_update`) |
+| `bosses.s` | Manhandla, Gohma, Digdogger, Gleeok, Lanmola, Patra, Ganon, Zelda and her fires (included last; its `*_bf` stubs reach back into main.s), the old man's fire (`person_hit`, `person_fire_tick`), the push block (`block_*`: setup, push, the 16-frame slide, landing, the trigger-5 stairs), the boss sprite pool (`bp_add`, `boss_pool_draw`), pre-shifted narrow art (`draw_pre`), the baked Gleeok body, rupee stashes and Grumble (`boss_room_init`, `stash_bake`, `grumble_bake`, `boss_misc_update`) |
 | `ai.s` | per-monster behaviours (rope, goriya incl. the blue one, wallmaster, Aquamentus, keese, blade trap, **Dodongo, Moldorm**), projectile system, **Link's boomerang** |
 | `movers.s` | the overworld monsters with rules of their own: tektites and boulders (jumps), leevers and zoras (burrowing), peahats, ghinis, the boulder set |
 | `items.s` | the B items beyond bombs/boomerang/candle (bow and arrows, rod, recorder, food, potion), Link's shots, heart fill, the `b_*` tables |
 | `secrets.s` | the overworld's hidden spots: `ow_bomb_secret_far`/`ow_fire_secret_far` hooks (bomb cloud, flame), `ow_push_secret` (Link blocked by a rock or gravestone), `ow_secret_undo` (called by `render_room`), patching `room_maps` in place |
 | `owspec.s` | the overworld's special objects (M4): Lost Woods/Hills mazes, ladder, raft and docks, armos, the recorder's whirlwind and pond, fairy ponds; its `owspec_*_far` stubs sit in `main.s` |
-| `combat.s` | sword, beam, bombs, candle, drops/kill counters, `take_item`, HP/knock-back, rings, shield, clock, effects (spark/cloud), push block, shutters, triforce ending, the ringleader trigger |
+| `combat.s` | sword, beam, bombs, candle, drops/kill counters, `take_item`, HP/knock-back, rings, shield, clock, effects (spark/cloud), shutters, triforce ending, the ringleader trigger |
 | `hud.s` | status ribbon, hearts, counters, A/B boxes (`hud_items`) |
 | `menu.s` | Tab inventory screen (MODE_MENU), laid out as the ROM's submenu: B-item box, items box with the cursor, passive row, triforce or map sheet; the HUD ribbon sits below it |
 | `intro.s` | the title, the story and the parade of the treasures (MODE_INTRO, game mode 0 of the ROM, M10): ring of 200 lines filled from tile tables, the waterfall's sprites, the glowing Triforce, the fade, `intro_leave`; included after `bosses.s`, reaches main.s through `*_far` stubs |
@@ -310,14 +310,14 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
   `OFF_UWL_BYTES`; code loads them with **`lvtab NAME, %aN`** (`lvtab ROOMS, %a2`). The tables are
   `room_index rooms doors tiles tile_nes room_info cellar_maps cellar_info`, built per level as `uw<N>_<table>.bin`
   (`UW_LEVELS` in the Makefile and in `build_assets.py`; a test keeps them equal). `room_palette` must stay the first
-  `.rodata` table (the reach check uses it as the end of the code). `init_anchor` and `init_pointers` sit mid-code.
+  `.rodata` table (the reach check uses it as the end of the code). `init_anchor` is the last routine of the code (its distance to `table_anchor` is a 32-bit PC-relative relocation, so the code may pass 64 KB), `init_pointers` sits mid-code.
 - **Code is the limit.** A `bsr`/`bra`/`Bcc` and an operand `(label,%pc)` span a signed 16 bits. **GNU as does not
   report overflow, not even for an explicit `.w`: it wraps the displacement** (binutils 2.42 `-m68000`), so the program
   jumps into the wrong place; ld says nothing either. Level 2 hit it: `bsr draw_hud`, `bsr update_menu` and
   `bsr minimap_tick` in `main.s` were 32,786 to 32,972 bytes from their targets and the game died with a Line-F
   exception at start (the symptom in the harness: see section 5). `check_reach.py` now reads the assembler listing
   (`build/zelda_st.lst`, `as -al`), computes each branch and PC-relative distance against the linked symbols, and fails
-  the build on any that does not fit; it prints the tightest three (315 bytes to spare after Level 9, 479 after Levels 3-8, 86 after Level 2, so
+  the build on any that does not fit; it prints the tightest three (230 bytes to spare with the push block's slide, 315 after Level 9, 479 after Levels 3-8, 86 after Level 2, so
   **expect it to fail as soon as you add code**). Fix: route the call through a `*_far` stub (`bra target`) placed in
   the middle of the image in `main.s` before `.include "link.s"` (`clear_erase_state_far`, `show_background_far`,
   `draw_hud_far`, `update_menu_far`, `minimap_tick_far`), and call the stub. Data that nothing branches into
@@ -509,9 +509,18 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **Push block** (rooms with attribute D bit 6: `$42` with trigger 4, and `$22`, the bow room, with
   trigger 0; the room record's trigger byte carries it as bit 7, `ROOM_BLOCK`): block tile `$B0` at tile row 10 (found from col 4,
   step 2); push only when the room is cleared (UW_FLAGS bit 0), Link lined up and pushing
-  16 frames; it swaps with the floor 16 px beyond. Only trigger-4 rooms open their shutters for good (and
-  do not open them on clear); in `$22` the block just moves (secret tune): the stairs sit inside a ring of 8
-  blocks and the player pushes the left block up or down to open a gap. Slide is instantaneous (no animation).
+  16 frames; it then slides 16 px at a pixel a frame, as `UpdateBlock` does (`BLOCK_STATE` 3): `block_slide` (bosses.s,
+  with the other `block_*` routines; the near code calls them through `block_*_f` stubs in dmon.s) grabs the block's
+  picture from the clean room into `BLOCK_SPRITE`, draws the room without it, puts the block's tiles into the map where it
+  will land (so Link cannot walk through) and `block_draw` paints the picture as effect slot 11 (`fx_put_a0`); Link follows
+  it as he keeps pushing. After 16 frames `block_land` finishes: trigger-4 rooms open their shutters for good (and do not
+  open them on clear), trigger-5 rooms lay the stairs (below), in `$22` the block just lands (secret tune): the stairs sit
+  inside a ring of 8 blocks and the player pushes the left block up or down to open a gap. **Trigger 5**
+  (`CheckSecretTriggerBlockStairs`): the stairs are the four tiles `$70`-`$73` (column-major) at tile column 26, row 4, i.e. ($D0,$60),
+  put into the map as the last four entries of the level's tile bank (`underworld.py`, `stairs_first`, byte 5 of the
+  level record, `OFF_UW_STAIRS_ID`; palette row 2) and walked onto for the cellar like any stairs. Link rests at Y `$5E` at the top wall (the
+  ROM lets him rest at `$5D`), so `check_warps` takes `UW_BOUND_UP` as that row. Rooms with trigger 5: Level 4 `$32`, 5 `$05`,
+  6 `$09` and `$3A`, 7 `$0D`, 9 `$05 $10 $30`.
 - **Triforce ending** (`UpdateMode12EndLevel_Full`; `ending_update` in combat.s, phases in `ENDING_PHASE`):
   taking item `$1B` records the level's piece (`TRIFORCE_PIECES`, bit level-1), starts the end-level song and hides
   monsters; 1 Link holds it up for 48 frames (his arms-up picture is item picture `$3F`, tile `$78`, drawn
@@ -538,8 +547,8 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   (`bomb_tick`, within 16 px), flame on its last frame (`fire_update`, timer 1), Link blocked going up or down (`link_pixel`). The spot's
   Y is `row*16+$40`. The module sits after `uw.s` and the near modules reach it through four stubs in `main.s`: anything put between
   `.text+$88c` and `uw_person_update` eats the 16-bit reach budget of `bsr uw_person_update` (185 bytes left).
-- **Secret triggers** (`LevelBlock` attr F & 7): 1 kill all -> open shutters, 4 push block,
-  7 kill all -> item appears; others in `Z_05.asm` (`CheckSecretTrigger`).
+- **Secret triggers** (`LevelBlock` attr F & 7): 1 kill all -> open shutters, 4 push block (shutters), 5 push block
+  (stairs), 7 kill all -> item appears; others in `Z_05.asm` (`CheckSecretTrigger`).
 - **Level 1 rooms** (reachable from `$73`): `$22` traps, `$23` goriya+key, `$33` stalfos+key,
   `$35` Aquamentus + heart container, `$36` triforce, `$41` old man (`$4C` person, see
   **Dungeon people**), `$42` gels + push block, `$43` map room, `$44` goriyas + **boomerang**, `$45`
@@ -621,7 +630,11 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   first cave's speech; the room record is 16 bytes and byte 14 is the speech offset (`$FF` = nobody). `uw_spawn` calls
   `uw_person_begin` (`uw.s`): `UW_PERSON` 1 while speaking (Link held, `cave_talk` types the text), 2 afterwards.
   `uw_bake_person` draws the man into the room buffers, `draw_effects` the two flames, `link_collide` blocks Link
-  going up past Y `$8E`. Not ported: hitting him to make the flames shoot; the flame is the candle flame art.
+  going up past Y `$8E`. A sword blow on him (`sword_hits` -> `person_hit`, bosses.s) sets `PERSON_FIRE` (the ROM's
+  `PersonFireballsEnabled`); `person_fire_tick` (from `boss_misc_update`) then lets each flame shoot a fireball at Link
+  (`fireball_aim_xy`, `fireball_spawn_xy` in ai.s) after `$50/$80/$F0/$60` frames, never with Link within `$18` of it (`UpdateStatues`
+  pattern 2); `uw_person_begin` quiets them at each visit. Only the sword counts (the ROM kills him with any weapon).
+  The flame is the candle flame art.
   Two people do more than talk (room record byte 13 = `PERSON_KIND_BOMBS`/`PERSON_KIND_MONEY` in a room with no monsters, `UW_PERSON_KIND`):
   the "more bombs" man (`$4F`, but only in the levels whose people are table A, 5 and 7; Link must be level with him) sells +4
   `MAX_BOMBS` (a variable now, starts at 8, `combat.s` uses it) and a refill for 100 rupees; the "life or money" man (`$51`, the same
@@ -797,8 +810,7 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the old man's flames shooting when he is hit; the overworld map on the ribbon; the stairs-type push block
-(trigger 5); visible block slide animation; the waterfall and the sea sound; the rest of the sound (boss music, DPCM); the Second Quest restart of the ending (M10). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the overworld map on the ribbon; the waterfall and the sea sound; the rest of the sound (boss music, DPCM); the Second Quest restart of the ending (M10). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
 cloud. Level 2's Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
 Unmeasured: free memory on a 512 KB machine.
 

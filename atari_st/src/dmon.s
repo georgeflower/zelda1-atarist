@@ -672,5 +672,10 @@ vire_hops:
     farstub boss_grumble_bake_f, grumble_bake
     farstub boss_room_init_f, boss_room_init
     farstub boss_misc_f, boss_misc_update
+    farstub boss_person_hit_f, person_hit
+    farstub block_setup_f, block_setup
+    farstub block_push_tick_f, block_push_tick
+    farstub block_update_f, block_update
+    farstub block_draw_f, block_draw
     farstub boss_dig_init_f, dig_init
     farstub boss_dig_flute_f, dig_flute

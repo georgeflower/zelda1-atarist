@@ -91,7 +91,7 @@ uw_spawn:
     and.b #0x7f, OFF_ROOM_UNSUPPORTED(%a5)
     and.b #0x80, OFF_ROOM_DARK(%a5)
     bsr uw_setup_item
-    bsr block_setup
+    bsr block_setup_f
     lea OFF_UW_FLAGS(%a5), %a2
     btst #0, 0(%a2, %d0.w)
     beq spawn_from_record

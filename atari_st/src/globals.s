@@ -247,7 +247,7 @@
     gvar FIRE_Y, 1
     gvar FIRE_DIR, 1
     gvar FIRE_TIMER, 1
-    gvar BLOCK_STATE, 1        | the room's push block: 0 none, 1 waiting, 2 pushed
+    gvar BLOCK_STATE, 1        | the room's push block: 0 none, 1 waiting, 2 pushed, 3 sliding
     gvar BLOCK_X, 1
     gvar BLOCK_Y, 1
     gvar BLOCK_PUSH, 1         | frames Link has been pushing it
@@ -326,6 +326,7 @@
     .equ OFF_UW_TRIFORCE_ROOM, OFF_UWL_BYTES + 2
     .equ OFF_UW_MAP_COL0, OFF_UWL_BYTES + 3
     .equ OFF_UW_CELLARS, OFF_UWL_BYTES + 4
+    .equ OFF_UW_STAIRS_ID, OFF_UWL_BYTES + 5     | the first of the four stairs tiles in the level's bank (0 = none)
 
     | A Dodongo is two sprites wide: the second one's erase offsets, and Moldorm's chain fields.
     galign
@@ -473,5 +474,12 @@
     gvar FAIRY_DIR, 3
     gvar HELD_DIRS, 1            | every direction held this frame (a diagonal has two bits)
     gvar MENU_PHASE, 1           | which of the cursor's two colours the inventory screen shows
+    gvar PERSON_FIRE, 1          | the old man was hit: his two flames shoot (PersonFireballsEnabled)
+    gvar PERSON_FIRE_T, 2        | each flame's wait before its next shot (Statue_ObjFireballTimer)
+    gvar BLOCK_DIR, 1            | the way the push block slides (the pushing direction, DIR_* bits)
+    gvar BLOCK_FRAME, 1          | frames it has slid, 0..16 (BLOCK_STATE 3 while it slides)
+    gvar BLOCK_TILES, 8          | its four tiles, then the four floor tiles it slides onto
+    galign
+    gvar BLOCK_SPRITE, 160       | the block's picture, grabbed from the clean room, drawn as effect slot 11 while it slides
     galign
     .equ GLOBALS_BYTES, gvar_offset

@@ -953,17 +953,20 @@ zora_fire:
 
 | The way from monster d5's mouth to Link: d3 = the directions, d6 = horizontal and d7 = vertical speed.
 fireball_aim:
-    moveq #0, %d0
-    move.b OFF_LINK_X(%a5), %d0
     moveq #0, %d1
     move.b OFF_ENEMY_X(%a5, %d5.w), %d1
     addq.w #4, %d1
-    sub.w %d1, %d0                  | d0 = how far right of the mouth Link is
     moveq #0, %d2
-    move.b OFF_LINK_Y(%a5), %d2
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
+| The same from a mouth at d1.w, d2.w (the fireball's own X, four right of its shooter's).
+fireball_aim_xy:
+    moveq #0, %d0
+    move.b OFF_LINK_X(%a5), %d0
+    sub.w %d1, %d0                  | d0 = how far right of the mouth Link is
     moveq #0, %d1
-    move.b OFF_ENEMY_Y(%a5, %d5.w), %d1
-    sub.w %d1, %d2                  | d2 = how far below
+    move.b OFF_LINK_Y(%a5), %d1
+    sub.w %d2, %d1
+    move.w %d1, %d2                 | d2 = how far below
     moveq #DIR_RIGHT, %d3
     tst.w %d0
     bpl 1f
@@ -985,6 +988,26 @@ fireball_aim:
 3:  lea fireball_speeds(%pc), %a0
     move.b 8(%a0, %d6.w), %d7       | vertical speed
     move.b 0(%a0, %d6.w), %d6       | horizontal speed
+    rts
+
+| A fireball at d1.w, d2.w (its own X), aimed by fireball_aim_xy: d3 = directions, d6, d7 = speeds.
+fireball_spawn_xy:
+    movem.l %d0/%a4, -(%sp)
+    bsr proj_alloc
+    tst.w %d0
+    bmi 9f
+    lea OFF_PROJ_KIND(%a5), %a4
+    move.b #PK_FIREBALL, PJ_KIND(%a4, %d0.w)
+    move.b %d1, PJ_X(%a4, %d0.w)
+    move.b %d2, PJ_Y(%a4, %d0.w)
+    move.b %d3, PJ_DIR(%a4, %d0.w)
+    move.b %d6, PJ_QX(%a4, %d0.w)
+    move.b %d7, PJ_QY(%a4, %d0.w)
+    clr.b PJ_FRACX(%a4, %d0.w)
+    clr.b PJ_FRACY(%a4, %d0.w)
+    move.b #0x10, PJ_TIMER(%a4, %d0.w)
+    clr.b PJ_OWNER(%a4, %d0.w)
+9:  movem.l (%sp)+, %d0/%a4
     rts
 
 | d3 = directions, d6 = horizontal and d7 = vertical speed, d4 = Y drift

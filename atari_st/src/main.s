@@ -201,9 +201,8 @@ _start:
 game_start:
     lea globals(%pc), %a5
     | The table anchor is set up by a routine at the very end of the code (init_anchor),
-    | which is the only place close enough to the tables for a PC-relative lea: code,
-    | variables and the stack together are nearly 32 KB.
-    bsr init_anchor
+    | which is the only place close enough to the tables for a PC-relative lea.
+    bsr init_anchor_far
     | Clear the variable block before anything is stored in it; bsr leaves the
     | stack alone, so the basepage is still at 4(sp) afterwards.
     bsr init_state
@@ -809,14 +808,11 @@ update_play:
     .include "items.s"
     .include "dmon.s"
 
-    | room_palette is the first read-only table and close enough for a PC-relative
-    | lea from here; the anchor in the middle of the tables is then a link-time constant
-    | away. This routine sits in the middle of the code: game_start reaches it by a
-    | 16-bit branch and it reaches room_palette by a 16-bit displacement, however large the code grows
-    | (up to 64 KB).
-init_anchor:
-    lea room_palette(%pc), %a6
-    adda.l #(table_anchor - room_palette), %a6
+    | init_anchor itself is the last routine of the code (just before the read-only tables, see below); game_start
+    | reaches it through this trampoline, a 32-bit jump that touches no register.
+init_anchor_far:
+    pea 1f(%pc)
+1:  addi.l #(init_anchor - 1b), (%sp)
     rts
 
     | The monster pictures are the last table, past what the anchor can address, so they are found
@@ -963,6 +959,14 @@ blit_rect_far:
     .include "filesel.s"
     .include "death.s"
     .include "save.s"
+
+    | The anchor is this address plus a 32-bit link-time distance (a PC-relative relocation), so the routine may sit
+    | anywhere. (It used to sit in the middle of the code with a 16-bit `lea room_palette(%pc)`, which limited the
+    | whole code to about 64 KB: the object file keeps that displacement in 16 bits.)
+init_anchor:
+    lea 1f(%pc), %a6
+1:  adda.l #(table_anchor - 1b), %a6
+    rts
 
 | ---------------------------------------------------------------------------
 

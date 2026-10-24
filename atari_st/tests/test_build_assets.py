@@ -375,6 +375,16 @@ class RomAllDungeonsTests(unittest.TestCase):
             self.assertIn(uw.triforce_room, stored, level)
             self.assertIn(uw.start_room, stored, level)
 
+    def test_levels_with_a_stairs_block_carry_the_four_stairs_tiles_in_their_bank(self) -> None:
+        # CheckSecretTriggerBlockStairs: trigger 5 (Levels 4, 5, 6, 7 and 9) puts tiles $70-$73 at ($D0, $60)
+        for level in range(1, 10):
+            uw = self.bundle.levels[level - 1]
+            if level in (4, 5, 6, 7, 9):
+                self.assertGreater(uw.stairs_first, 0, level)
+                self.assertEqual(uw.tile_nes[uw.stairs_first : uw.stairs_first + 4], bytes(range(0x70, 0x74)), level)
+            else:
+                self.assertEqual(uw.stairs_first, 0, level)
+
     STEP = (1, -1, 16, -16)
     OPPOSITE = (1, 0, 3, 2)
 

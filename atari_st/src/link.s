@@ -99,7 +99,7 @@ link_pixel:
     bsr ow_push_secret          | blocked: a rock or gravestone may give way
     bsr ow_armos_touch_far      | or an armos may wake
     bra 5f                      | and he keeps facing the wall
-4:  bsr block_push_tick         | a block may give way
+4:  bsr block_push_tick_f         | a block may give way
     bsr uw_try_door             | a locked door may open
     bra 5f
 3:  bsr grid_distance
