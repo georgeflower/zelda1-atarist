@@ -1,6 +1,6 @@
 # Zelda 1 for Atari ST - plan for all remaining work
 
-Status: **work in progress**. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged; PRs #4 to #43 have since implemented most of it. Ticked boxes (`[x]`) in the work packages show what is done.
+Status: **work in progress**. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged; PRs #4 to #56 have since implemented nearly all of it (version 0.36). Ticked boxes (`[x]`) in the work packages show what is done.
 
 How to read this: the plan is laid out in three parts. **Section 1 is what is left** (read this first). **Section 2 is the plan**: the order of work and the next step, with sections 3 to 12 as one work package each (checklist and acceptance test) and section 13 with the decisions, risks and checks still open. **Section 14 is what is done**: a summary, the status of every milestone and the merged PRs. The appendices hold the data tables, decoded from the PAL (Europe, Rev 1) ROM you supplied. That ROM has the same data layout as the disassembly in `src/` (start room `$77`, start Y `$8D`, same blob offsets), so the tables should apply to the NTSC ROM the build expects as well.
 
@@ -8,7 +8,8 @@ Where I could not confirm something from the disassembly or the ROM, the line sa
 
 ## 1. What is left
 
-Nothing in the First Quest is missing as a *feature* any more; what is left is checking it by playing, and the finishing touches. Ordered by how much it matters to someone playing.
+Checked against the ROM's object, cave and sound tables (0.36): every monster, cave type and sound the First Quest uses is in the game. What is
+missing is small: the overworld minimap on the ribbon and a few ending extras (below), plus checking all of it by playing. Ordered by how much it matters to someone playing.
 
 ### 1.1 Open work, most important first
 
@@ -17,11 +18,11 @@ Nothing in the First Quest is missing as a *feature* any more; what is left is c
 | 1 | **A thorough play-through of the full game**, especially of Levels 3 to 9, and of the Level 2 Dodongo kill, the Moldorm segment deaths and the ringleader room | Built and checked with scripted Hatari input and limited human testing; bugs are expected | M6 to M9, section 9.4 |
 | 2 | **Memory on a 512 KB machine and speed on real hardware** (8 enemies plus shots at 8 MHz; a real PAL STFM at 50 Hz) | Unmeasured; Hatari only | M12, risks R2 to R4 |
 | 3 | **Overworld minimap on the status bar** (grey box with the red dot) | The ribbon has the dungeon minimap only; the overworld corner is empty | M5 HUD, section 8.2 |
-| 5 | **Level 2 and 5 "odd rooms"** (never defined: which rooms are meant?) | Small mechanics skipped | M3 and M6, sections 6.3 and 9.1 |
-| 7 | **Ending extras:** the scrolling credits wall, the burst rays of Ganon's death, the Second Quest restart at the end | The typed credits stand in | M10 d, section 11.4 |
-| 8 | **Fidelity gaps by design:** the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once, not out of a cloud | Eight monster slots (`MAX_ENEMIES`); a refactor to raise it | risk R6 |
-| 9 | **Intro odds and ends:** skip logic (`SkippedDemo`), and "save and exit without dying" from the Tab menu (not in the original) | Optional | M10, sections 11.1 and 11.3 |
-| 10 | **Checks marked (verify)** against the ROM and the walkthroughs | Listed in section 13.3 | section 13.3 |
+| 4 | **Level 2 and 5 "odd rooms"** (never defined: which rooms are meant?) | Asked, no answer; nothing in the ROM's tables for those levels is unsupported | M3 and M6, sections 6.3 and 9.1 |
+| 5 | **Ending extras:** the scrolling credits wall, the burst rays of Ganon's death, the Second Quest restart at the end | The typed credits stand in | M10 d, section 11.4 |
+| 6 | **Fidelity gaps by design:** the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once, not out of a cloud | Eight monster slots (`MAX_ENEMIES`); a refactor to raise it | risk R6 |
+| 7 | **Intro odds and ends:** skip logic (`SkippedDemo`), and "save and exit without dying" from the Tab menu (not in the original) | Optional | M10, sections 11.1 and 11.3 |
+| 8 | **Checks marked (verify)** against the ROM and the walkthroughs | Listed in section 13.3 | section 13.3 |
 
 ### 1.2 Deliberately deferred
 
@@ -36,10 +37,10 @@ Nothing in the First Quest is missing as a *feature* any more; what is left is c
 |---|---|---|---|---|
 | M0 | Foundations: table-dump tool, palette strategy, PAL timing, regression screenshots | - | S | **done** (#18, #25) |
 | M1 | **Hidden bomb/fire/push spots fixed** (the visible bug) | M0 | M | **done** (#32); the armos spots came with M4 |
-| M2 | Overworld enemies, spawn rules, drops | M0 | L | steps 1-3 done (#20-#22); armos and gravestone ghinis can use the overlay of M1 (0.31) |
+| M2 | Overworld enemies, spawn rules, drops | M0 | L | steps 1-3 done (#20-#22); armos (0.33) and the flying ghinis of the gravestones (0.36) done |
 | M3 | Caves: people, shops, hints, money game, door repair, take-any-road, old woman | M1 | L | **done** (#35) |
-| M4 | Overworld specials: armos, bracelet rocks, gravestones, docks/raft, ladder, recorder + whirlwind, Lost Woods/Hills, fairy ponds | M1, M2 | L | **done** (#36); waterfall and sea sound left |
-| M5 | Items, inventory screen, HUD, every B item and passive item | M3 | L | **mostly done** (#23, #31, #43): every item is in the code, the Tab screen is the ROM's; open: overworld minimap on the ribbon, the Book of Magic beyond the rod, beam range per sword (section 1.1) |
+| M4 | Overworld specials: armos, bracelet rocks, gravestones, docks/raft, ladder, recorder + whirlwind, Lost Woods/Hills, fairy ponds | M1, M2 | L | **done** (#36); the ROM has no waterfall or sea sound |
+| M5 | Items, inventory screen, HUD, every B item and passive item | M3 | L | **mostly done** (#23, #31, #43): every item is in the code, the Tab screen is the ROM's; open: overworld minimap on the ribbon (section 1.1); the Book of Magic beyond the rod and a beam range per sword are not features of the game |
 | M6 | Dungeon engine generalised: doors, dark rooms, stair rooms, triggers, per-level palettes and tiles | M0 | L | **done** for all nine levels (#24, #27, #29); needs a person's play-through |
 | M7 | Dungeon monsters (all underworld types) | M6 | XL | **done**: every type of Levels 1 to 9 (#24, #27, #29) |
 | M8 | Bosses | M7 | XL | Aquamentus, Dodongo, Moldorm (two worms of four), Manhandla, Gohma, Digdogger, Gleeok; Lanmola, Patra, Ganon and Zelda's scene done (#29; Ganon's music #30; checked in Hatari with scripted input, not played by a person) |
@@ -140,9 +141,9 @@ The HP and damage columns come from `ObjectTypeToHpPairs` and `ObjTypeToDamagePo
 | `$0F`/`$10` | Leever blue / red | 4 / 2 | 1 heart / half heart | `UpdateBlueLeever`/`UpdateRedLeever` | Burrowed in sand until Link is near, surfaces, chases, sinks again. Blue lingers longer. |
 | `$1A` | Peahat | 2 | half heart | `UpdatePeahat` | Flies over any terrain, drifts toward Link; hurt only while its blades are stopped (**verify** the exact phase). |
 | `$11` | Zora | 2 | half heart | `UpdateZora` | Surfaces at a water edge near Link, spits a fireball, dives. Only on the 37 Zora screens. |
-| `$1E` | Armos | 3 | 1 heart | `UpdateArmos` | Statue; wakes when touched, walks toward Link. Seven of them hide stairs or the bracelet (M1). |
+| `$1E` | Armos | 3 | 1 heart | `UpdateArmos` | Statue; wakes when pushed, rises for `$3F` frames, then flies in eight directions like the flying ghini (`UpdateArmos` is `UpdateFlyingGhini`: speed `$1F` rising to `$A0`, decide rolls `$A0`/`$08`). Seven of them hide stairs or the bracelet (M1). |
 | `$1F`/`$20` | Boulder set / boulder | n/a | half heart | `UpdateBoulderSet` | Death Mountain: boulders fall down columns; cannot be killed. Screens D1, I1, G2, H2, I2, J2. |
-| `$21`/`$22` | Ghini / flying Ghini | 9 / n/a | 1 heart | `UpdateGhini`/`UpdateFlyingGhini` | Graveyard (A3 to B5). **verify** wake-up and ringleader rules. |
+| `$21`/`$22` | Ghini / flying Ghini | 9 / n/a | 1 heart | `UpdateGhini`/`UpdateFlyingGhini` | Graveyard (A3 to B5). The flying ghini comes out of any gravestone Link walks into (fades in `$3F` frames, flies like an armos); when a ghini dies the flying ones die too (**done** 0.36). |
 | `$2F` | Pond fairy | n/a | none | `UpdatePondFairy` | See section 6.4. |
 | `$2E` | Whirlwind | n/a | none | `UpdateWhirlwind` | Recorder effect, section 7. |
 
@@ -155,12 +156,12 @@ Appendix B1 lists every screen with its monsters and count, plus the Zora, edge-
 - [x] **Step 1 (done): data plus plain walkers.** Octorok (`$07`-`$0A`), moblin (`$03`, `$04`) and lynel (`$01`, `$02`) are in `MONSTER_TYPES`; octoroks have their own draw mode (`MODE_OCTOROK`: side, front and back views in two animation sets, art mirrored to face right) and `mon_art` says where each monster's art starts in `mon_sprites` (the slow and fast octorok share it). Red/blue octoroks turn at `$70`/`$A0`, moblins `$A0`, lynels walk like goriyas without throwing. Every overworld screen has a 16-byte record in `ow_room_info.bin` (count, flags for edge-spawn and Zora, monster indices), expanded from the ROM's monster lists. Peahats, leevers, zoras, ghinis, armos, boulders and tektites spawn nothing yet.
 - [x] **Step 2 (done): projectiles, edge-spawn ring, kill history.** `walker_shoot`/`walker_fire` (`ai.s`) follow `_TryShooting`: shoot timer `$30`, shot at `$10`, red types start only on a random `>= $F8`, at most 4 shots; rock and sword shot fly 3 px/frame, the arrow 2; damage 1 half-heart (rock, arrow) or 4 (sword shot); Link parries rock and arrow with the sword facing them while standing still (bounce 16 frames); rock and arrow stop at walls, the sword shot does not. `proj_sprites` has 32 frames (rock `PF_ROCK`, arrows `PF_ARROW`). Drops use the ROM rows already in `mon_table` (fairy and clock pickups are still missing). Screens flagged for edge spawning (`FindNextEdgeSpawnCell`) bring monsters in one by one over the border (`edge_spawn_tick`), and `ow_history_count`/`ow_save_kills` keep the last six screens and their kill counts (`ModifyObjCountByHistoryOW`, `SaveKillCountOW`); dying clears the history. Checked in Hatari: kills 2 of 4 in `$78`, leave and return, 2 come back.
 - [x] **Step 3 (done): special movers** (`src/movers.s`). Tektite and boulder share `UpdateTektiteOrBoulder` jump physics (`jumper_*` tables from the ROM); blue leever wanders and burrows, red leever surfaces 40 px ahead of or behind Link (`red_leever_place`); peahat is `MoveFlyer` with the `$B0`/`$20` rolls, hittable only in state 5; zora is made by `zora_check` on screens with water (13 tries on tiles `$8D`-`$98`), fires one fireball and is untouchable unless it is up; ghini is the wanderer with `$FF`; boulders come from the boulder set (`$1F`). Weapons pass through anything with `ENEMY_GHOST` bit 0 set, bit 1 means it harms nobody. The room spawn list now cycles like `AssignObjSpawnPositions` (it used to give up after nine spots, so peahat screens came up short).
-- [ ] (original item, kept for reference) Add each type to `MONSTER_TYPES` in `actors.py` with the HP/damage above, sprite frames from the CHR data, a draw mode and a behaviour in `ai.s` (recipe in `AGENTS.md` section 12).
-- [ ] Overworld sprite pattern tables: unlike the underworld, the overworld swaps pattern blocks by region. List the blocks needed (octorok/moblin/lynel/tektite/leever/peahat/zora/ghini/armos/boulders) and load them at room entry.
-- [ ] Build `room_monsters.bin` for the overworld the same way `actors.py` builds it for dungeon rooms, including the edge-spawn flag and the Zora flag.
-- [ ] Drops: extend the drop table rows for every new type; fairy (kill 16) and clock drops need their pickups (section 8).
+- [x] (original item, kept for reference) Add each type to `MONSTER_TYPES` in `actors.py` with the HP/damage above, sprite frames from the CHR data, a draw mode and a behaviour in `ai.s` (recipe in `AGENTS.md` section 12).
+- [x] Overworld sprite pattern tables: unlike the underworld, the overworld swaps pattern blocks by region. List the blocks needed (octorok/moblin/lynel/tektite/leever/peahat/zora/ghini/armos/boulders) and load them at room entry.
+- [x] Build `room_monsters.bin` for the overworld the same way `actors.py` builds it for dungeon rooms, including the edge-spawn flag and the Zora flag.
+- [x] Drops: extend the drop table rows for every new type; fairy (kill 16) and clock drops need their pickups (section 8).
 - [x] Projectiles: rock, arrow, sword shot done (M2 step 2); the fireball is the ROM's tile `$44` flashing through the four sprite palettes.
-- [ ] Acceptance: screenshot a screen of each type with the monster present; unit test that every screen's list expands to the same types as appendix B1; Hatari scripts that check one behaviour per type (for example a Leever surfacing within N frames of Link standing in sand).
+- [x] Acceptance: screenshot a screen of each type with the monster present; unit test that every screen's list expands to the same types as appendix B1; Hatari scripts that check one behaviour per type (for example a Leever surfacing within N frames of Link standing in sand).
 
 ## 6. M3 Caves, shops and people
 
@@ -507,6 +508,10 @@ The five original requests are all met in the code: (1) the hidden bomb and fire
 | #39 (0.34, 0.35) | M10 a and b: title, story and parade of the treasures, file select, name entry, elimination (`intro.s`, `filesel.s`, `tools/intro.py`, `tools/filesel.py`) | M10 |
 | #41 | M10 c: death sequence (red world, fade, grey Link, GAME OVER), the continue question, `ZELDA.SAV` with CONTINUE / SAVE / RETRY (`death.s`, `save.s`) | M10 |
 | #42 | Playtest fixes: boomerang, RETRY, start position, HUD level, fairy, traps | M10, M5 |
+| #54 | DPCM samples ripped from the ROM and hooked (beam, hurt, door, boss hit and death cry, the three roars), the ambient roar of a boss room | M11 |
+| #55 | The letter as a B item, shown to the medicine woman with B | M3, M5 |
+| #56 | The push block's visible 16-frame slide, the trigger-5 stairs, the old man's flames, a 32-bit `init_anchor` (the code passes 64 KB) | M6, M9 |
+| 0.36 | The flying ghini a gravestone lets out; armos fly like it (`UpdateArmos` is `UpdateFlyingGhini`); the documentation checked against the ROM | M2, M4 |
 | #43 | M5: the Tab inventory screen exactly as the ROM draws it (`tools/submenu.py`, `menu.s`): B-item box, items with the flashing cursor, triforce frame, in dungeons the compass, map and the sheet map of the rooms visited so far; the HUD ribbon sits below it; four golden scenes | M5 |
 
 
@@ -516,10 +521,10 @@ The five original requests are all met in the code: (1) the hidden bomb and fire
 |---|---|
 | M0 Foundations | complete: table-dump tool, reach check, palette strategy, PAL check, golden frames |
 | M1 Hidden spots | complete |
-| M2 Overworld enemies | complete: walkers, shots, edge spawns, kill history, the special movers; armos came with M4 |
+| M2 Overworld enemies | complete: walkers, shots, edge spawns, kill history, the special movers; armos came with M4, the flying ghinis of the gravestones with 0.36 |
 | M3 Caves, shops, people | complete: all 20 cave types |
-| M4 Overworld specials | complete except the waterfall and the sea sound |
-| M5 Items, inventory, HUD | mostly complete (see section 1.1, items 3 and 4) |
+| M4 Overworld specials | complete (the ROM has no waterfall or sea sound) |
+| M5 Items, inventory, HUD | complete except the overworld minimap (section 1.1, item 3) |
 | M6, M7, M8, M9 Dungeons, monsters, bosses, content | complete for all nine levels, checked by script and by limited play; a thorough play-through is open |
 | M10 Title, file select, save, ending | complete except the Second Quest restart and the scrolling credits wall |
 | M11 Sound | complete: ROM music, effects and the seven DPCM samples (the sea and waterfall have no sound in the ROM) |

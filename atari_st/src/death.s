@@ -486,10 +486,14 @@ death_restart:
     bsr intro_leave
     tst.b OFF_LEVEL(%a5)
     bne 1f
-    bsr enter_room_far
+    bsr enter_room_df
     bra 2f
-1:  bsr uw_warp_to_start
-2:  bra draw_hud_far
+1:  bsr uw_warp_to_start_df
+2:  bra draw_hud_df
+
+    farstub uw_warp_to_start_df, uw_warp_to_start     | 32-bit stubs: the code between here and these two has grown past 16 bits
+    farstub draw_hud_df, draw_hud_far
+    farstub enter_room_df, enter_room_far
 
 | SAVE: the hearts are filled up to the containers, the profile is written, and the file menu comes back.
 death_save:

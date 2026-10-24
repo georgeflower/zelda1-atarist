@@ -2,7 +2,19 @@
 
 Versions are milestones of the Atari ST port (`0.NN`), tagged on the commit that finishes them. A big change (a dungeon,
 a new mechanic family, a milestone package of `atari_st/PLAN.md`) gets its own version; fixes and docs ride along with the
-version they belong to. The current version is **0.35**.
+version they belong to. The current version is **0.36**.
+
+## 0.36 (2026-10-24) - the flying ghini, and the documentation checked against the ROM
+- The ROM's overworld object table, caves and sounds were compared with the port. Everything the First Quest uses was in except the **flying ghini**
+  (`$22`): walking into a gravestone makes one on that square (`InitArmosOrFlyingGhini`). It fades in for `$3F` frames, then flies in eight directions,
+  and it dies when the screen's ghini does (`UpdateGhini`).
+- **Armos now fly.** `UpdateArmos` and `UpdateFlyingGhini` are one routine in the ROM (the flying state machine: speed `$1F` up to `$A0`, decide rolls
+  `$A0` and `$08`, `MoveFlyer`); the port walked armos like goriyas. Both share `owspec_armos_ai`.
+- Earlier, unversioned work that landed after 0.35 and is now in this entry: the DPCM samples and boss roars (#54), the letter as a B item (#55), the push
+  block's visible slide, the trigger-5 stairs, the old man's flames and a 32-bit `init_anchor` so the code may pass 64 KB (#56).
+- Documentation: `README.md`, `atari_st/README.md`, `AGENTS.md`/`CLAUDE.md` and `atari_st/PLAN.md` no longer say that armos, caves, shops, the title and
+  saving are missing; `caves.s` is in the file table; the open-work list names what is really left (overworld minimap on the ribbon, the credits wall,
+  Ganon's burst rays, the Second Quest, the demo-skip logic).
 
 ## 0.35 (2026-10-20) - the file menu (M10, part b)
 - Return on the title (or in the story) now opens the ROM's player select (game mode 1): three slots with name, hearts, death count and Link (with his

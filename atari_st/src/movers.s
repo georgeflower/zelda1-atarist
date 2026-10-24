@@ -1092,13 +1092,32 @@ mover_died:
     subq.b #1, OFF_RED_LEEVERS(%a5)
 1:  cmp.b #0x1e, %d0
     beq 2f                              | an armos is not one of the screen's monsters either
-    cmp.b #0x11, %d0
+    cmp.b #0x22, %d0
+    beq 2f                              | nor is a flying ghini
+    cmp.b #0x21, %d0
+    bne 4f
+    bsr ghini_lets_go_of_ghosts         | UpdateGhini: when a ghini dies, the flying ghinis die with it
+4:  cmp.b #0x11, %d0
     seq %d0
     and.w #1, %d0
     eori.w #1, %d0
     bra 3f
 2:  moveq #0, %d0
 3:  movem.l (%sp)+, %d1/%a0
+    rts
+
+| The ghini has died: every flying ghini the gravestones let out goes with it. d0 is kept.
+ghini_lets_go_of_ghosts:
+    movem.l %d0/%d1, -(%sp)
+    moveq #0, %d1
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d1
+    bhs 9f
+    cmpi.b #MON_FGHINI, OFF_ENEMY_TYPE(%a5, %d1.w)
+    bne 2f
+    clr.b OFF_ENEMY_ACTIVE(%a5, %d1.w)
+2:  addq.w #1, %d1
+    bra 1b
+9:  movem.l (%sp)+, %d0/%d1
     rts
 
 | ------------------------------------------------------------------ drawing
@@ -1167,7 +1186,16 @@ mover_frame:
     move.b 0(%a0, %d3.w), %d1
     and.w #1, %d1
     bra 9f
-50: move.b OFF_ENEMY_DIR(%a5, %d3.w), %d0   | a ghini: the back going up, else the front; mirrored toward its side
+50: cmpi.b #MON_FGHINI, OFF_ENEMY_TYPE(%a5, %d3.w)
+    bne 52f
+    lea OFF_ENEMY_ANIMC(%a5), %a0       | a flying ghini fading in shows every other frame
+    tst.b 0(%a0, %d3.w)
+    beq 52f
+    btst #0, (OFF_FRAME_COUNTER + 1)(%a5)
+    beq 52f
+    moveq #-1, %d1
+    bra 9f
+52: move.b OFF_ENEMY_DIR(%a5, %d3.w), %d0   | a ghini: the back going up, else the front; mirrored toward its side
     btst #3, %d0
     beq 51f
     btst #1, %d0
