@@ -293,7 +293,39 @@ link_collide:
     moveq #1, %d0
     movem.l (%sp)+, %d1-%d5
     rts
-0:  moveq #0, %d2
+0:  tst.b OFF_ROCK_STATE(%a5)           | a rock that slides stops him when he is within 16 of it, in any direction
+    beq 01f                             | (CheckTileObjectsBlocking)
+    moveq #0, %d2
+    move.b OFF_LINK_X(%a5), %d2
+    moveq #0, %d3
+    move.b OFF_ROCK_X(%a5), %d3
+    sub.w %d3, %d2
+    bpl 02f
+    neg.w %d2
+02: cmp.w #16, %d2
+    bhs 01f
+    moveq #0, %d2
+    move.b OFF_LINK_Y(%a5), %d2
+    addq.w #3, %d2
+    moveq #0, %d3
+    move.b OFF_ROCK_Y(%a5), %d3
+    moveq #0, %d4
+    move.b OFF_ROCK_FRAME(%a5), %d4
+    lsr.w #1, %d4
+    cmpi.b #DIR_UP, OFF_ROCK_DIR(%a5)
+    bne 03f
+    sub.w %d4, %d3
+    bra 04f
+03: add.w %d4, %d3
+04: sub.w %d3, %d2
+    bpl 05f
+    neg.w %d2
+05: cmp.w #16, %d2
+    bhs 01f
+    moveq #1, %d0
+    movem.l (%sp)+, %d1-%d5
+    rts
+01: moveq #0, %d2
     move.b OFF_LINK_Y(%a5), %d2
     add.w #HOTSPOT_Y_OFFSET, %d2
     moveq #0, %d3
@@ -456,18 +488,10 @@ tile_blocks:
 9:  movem.l (%sp)+, %d1-%d2/%a0
     rts
 
-    .equ UW_MOAT_TILE, 0xf4
-
-| The underworld has no walkable-tile exceptions, only a threshold, and the moat that the ladder crosses.
+| The underworld has no walkable-tile exceptions, only a threshold (the moat is over it, so it blocks).
 7:  cmp.w #UW_FIRST_UNWALKABLE_TILE, %d0
     blo 6f
-    cmp.w #UW_MOAT_TILE, %d0
-    bne 5f
-    tst.b OFF_INV_LADDER(%a5)
-    beq 5f
-    moveq #0, %d0                       | the ladder takes Link across the moat (it is not drawn)
-    rts
-5:  moveq #1, %d0
+5:  moveq #1, %d0                       | the moat blocks; link_collide lets Link on with the ladder (uw_ladder_ok)
     rts
 6:  moveq #0, %d0
     rts

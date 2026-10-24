@@ -355,21 +355,8 @@ class ActorTableTests(unittest.TestCase):
         original = bytes(int(h, 16) for h in re.findall(r"\$([0-9A-F]{2})", block))
         self.assertEqual(B.ENDING_THANKS_TEXT, original)
         self.assertEqual(B.ENDING_PEACE_TEXT[-1] & 0xC0, 0xC0, "the last letter ends the speech")
-        self.assertEqual(B.ENDING_TEXTS, B.ENDING_THANKS_TEXT + B.ENDING_PEACE_TEXT + b"".join(B.CREDIT_TEXTS))
+        self.assertEqual(B.ENDING_TEXTS, B.ENDING_THANKS_TEXT + B.ENDING_PEACE_TEXT)
         self.assertTrue(B.AssetBundle.__dataclass_fields__["cave_text"].default.endswith(B.ENDING_TEXTS))
-
-    def test_every_credits_page_fits_three_lines_and_the_port_is_credited(self) -> None:
-        self.assertEqual(len(B.CREDIT_TEXTS), len(B.CREDIT_PAGES))
-        for page, text in zip(B.CREDIT_PAGES, B.CREDIT_TEXTS):
-            self.assertLessEqual(len(page), 3)
-            self.assertTrue(all(len(line) <= 24 for line in page), page)      # the width cave_talk's wipe clears
-            self.assertEqual(text[-1] & 0xC0, 0xC0)
-            self.assertEqual(sum(1 for code in text if code & 0xC0 == 0xC0), 1, "one speech to a page")
-        self.assertIn(("ATARI ST PORT", " ", "BY Q"), B.CREDIT_PAGES)
-        self.assertEqual(B.CREDIT_PAGES[-1][-1], "THE LEGEND OF ZELDA")
-        bosses = (Path(__file__).resolve().parents[1] / "src" / "bosses.s").read_text(encoding="utf-8")
-        table = re.search(r"zelda_credit_pages:\n((?:\s+\.word .*\n)+)", bosses).group(1)
-        self.assertEqual(re.findall(r"ENDING_CREDIT_(\d+)", table), [str(n) for n in range(len(B.CREDIT_PAGES))])
 
     def test_the_bomb_and_money_men_are_marked_in_byte_13_of_a_room_without_monsters(self) -> None:
         bombs = actors._room_info(0, ([0x0F], [0x80], [0], [0]), [1, 4, 5, 6], bytes(64), person=100, level=5)

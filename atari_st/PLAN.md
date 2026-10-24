@@ -1,6 +1,6 @@
 # Zelda 1 for Atari ST - plan for all remaining work
 
-Status: **work in progress**. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged; PRs #4 to #56 have since implemented nearly all of it (version 0.36). Ticked boxes (`[x]`) in the work packages show what is done.
+Status: **work in progress**. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged; PRs #4 to #56 have since implemented nearly all of it (version 0.37). Ticked boxes (`[x]`) in the work packages show what is done.
 
 How to read this: the plan is laid out in three parts. **Section 1 is what is left** (read this first). **Section 2 is the plan**: the order of work and the next step, with sections 3 to 12 as one work package each (checklist and acceptance test) and section 13 with the decisions, risks and checks still open. **Section 14 is what is done**: a summary, the status of every milestone and the merged PRs. The appendices hold the data tables, decoded from the PAL (Europe, Rev 1) ROM you supplied. That ROM has the same data layout as the disassembly in `src/` (start room `$77`, start Y `$8D`, same blob offsets), so the tables should apply to the NTSC ROM the build expects as well.
 
@@ -9,20 +9,18 @@ Where I could not confirm something from the disassembly or the ROM, the line sa
 ## 1. What is left
 
 Checked against the ROM's object, cave and sound tables (0.36): every monster, cave type and sound the First Quest uses is in the game. What is
-missing is small: the overworld minimap on the ribbon and a few ending extras (below), plus checking all of it by playing. Ordered by how much it matters to someone playing.
+missing is small: the Second Quest (deferred) and a few options, plus checking all of it by playing. Ordered by how much it matters to someone playing.
 
 ### 1.1 Open work, most important first
 
 | # | What | Why it is open | Where |
 |---|---|---|---|
-| 1 | **A thorough play-through of the full game**, especially of Levels 3 to 9, and of the Level 2 Dodongo kill, the Moldorm segment deaths and the ringleader room | Built and checked with scripted Hatari input and limited human testing; bugs are expected | M6 to M9, section 9.4 |
+| 1 | **A thorough play-through of the full game**, especially of Levels 3 to 9, and of the Level 2 Moldorm segment deaths and the ringleader room | Built and checked with scripted Hatari input and limited human testing; bugs are expected | M6 to M9, section 9.4 |
 | 2 | **Memory on a 512 KB machine and speed on real hardware** (8 enemies plus shots at 8 MHz; a real PAL STFM at 50 Hz) | Unmeasured; Hatari only | M12, risks R2 to R4 |
-| 3 | **Overworld minimap on the status bar** (grey box with the red dot) | The ribbon has the dungeon minimap only; the overworld corner is empty | M5 HUD, section 8.2 |
-| 4 | **Level 2 and 5 "odd rooms"** (never defined: which rooms are meant?) | Asked, no answer; nothing in the ROM's tables for those levels is unsupported | M3 and M6, sections 6.3 and 9.1 |
-| 5 | **Ending extras:** the scrolling credits wall, the burst rays of Ganon's death, the Second Quest restart at the end | The typed credits stand in | M10 d, section 11.4 |
-| 6 | **Fidelity gaps by design:** the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once, not out of a cloud | Eight monster slots (`MAX_ENEMIES`); a refactor to raise it | risk R6 |
-| 7 | **Intro odds and ends:** skip logic (`SkippedDemo`), and "save and exit without dying" from the Tab menu (not in the original) | Optional | M10, sections 11.1 and 11.3 |
-| 8 | **Checks marked (verify)** against the ROM and the walkthroughs | Listed in section 13.3 | section 13.3 |
+| 3 | **The Second Quest** (deferred by decision) | The credits end with the ROM's own steps (profile reset and saved, the file menu), but the new profile plays the First Quest again | M10 d, section 11.4 |
+| 5 | **Fidelity gaps by design:** the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once, not out of a cloud | Eight monster slots (`MAX_ENEMIES`); a refactor to raise it | risk R6 |
+| 6 | **Intro odds and ends:** "save and exit without dying" from the Tab menu (not in the original) | Optional | M10, sections 11.1 and 11.3 |
+| 7 | **Checks marked (verify)** against the ROM and the walkthroughs | Listed in section 13.3 | section 13.3 |
 
 ### 1.2 Deliberately deferred
 
@@ -40,19 +38,19 @@ missing is small: the overworld minimap on the ribbon and a few ending extras (b
 | M2 | Overworld enemies, spawn rules, drops | M0 | L | steps 1-3 done (#20-#22); armos (0.33) and the flying ghinis of the gravestones (0.36) done |
 | M3 | Caves: people, shops, hints, money game, door repair, take-any-road, old woman | M1 | L | **done** (#35) |
 | M4 | Overworld specials: armos, bracelet rocks, gravestones, docks/raft, ladder, recorder + whirlwind, Lost Woods/Hills, fairy ponds | M1, M2 | L | **done** (#36); the ROM has no waterfall or sea sound |
-| M5 | Items, inventory screen, HUD, every B item and passive item | M3 | L | **mostly done** (#23, #31, #43): every item is in the code, the Tab screen is the ROM's; open: overworld minimap on the ribbon (section 1.1); the Book of Magic beyond the rod and a beam range per sword are not features of the game |
+| M5 | Items, inventory screen, HUD, every B item and passive item | M3 | L | **mostly done** (#23, #31, #43): every item is in the code, the Tab screen is the ROM's; done: the overworld minimap on the ribbon (the ROM's grey 16x8 map and Link's dot, `mm_overworld` in `hud.s`); the Book of Magic beyond the rod and a beam range per sword are not features of the game |
 | M6 | Dungeon engine generalised: doors, dark rooms, stair rooms, triggers, per-level palettes and tiles | M0 | L | **done** for all nine levels (#24, #27, #29); needs a person's play-through |
 | M7 | Dungeon monsters (all underworld types) | M6 | XL | **done**: every type of Levels 1 to 9 (#24, #27, #29) |
 | M8 | Bosses | M7 | XL | Aquamentus, Dodongo, Moldorm (two worms of four), Manhandla, Gohma, Digdogger, Gleeok; Lanmola, Patra, Ganon and Zelda's scene done (#29; Ganon's music #30; checked in Hatari with scripted input, not played by a person) |
-| M9 | Levels 2 to 9 content, triforce sequence, map/compass minimap | M6, M7, M8 | XL | Levels 1 to 9 built (rooms, layout, items, monsters, bosses); only partly play-tested, see 9.3; the credits are in (typed pages, not the scrolling wall) |
-| M10 | Title/story, file select, name entry, save, continue/death, ending | M5 | L | **done** (#39, #41, #42): title, story, parade, file select, name entry, elimination, death, continue/save/retry, `ZELDA.SAV`, typed credits; the Second Quest restart and the scrolling credits wall are not ported |
+| M9 | Levels 2 to 9 content, triforce sequence, map/compass minimap | M6, M7, M8 | XL | Levels 1 to 9 built (rooms, layout, items, monsters, bosses); only partly play-tested, see 9.3; the credits wall is in |
+| M10 | Title/story, file select, name entry, save, continue/death, ending | M5 | L | **done** (#39, #41, #42): title, story, parade, file select, name entry, elimination, death, continue/save/retry, `ZELDA.SAV`, the scrolling credits wall (0.38); the Second Quest restart is not ported |
 | M11 | Sound effects and music (player, bank and the Level 1 events done; the rest are hooks, see 12) | any | M | mostly done (#4 to #9, #30) |
 | M12 | Polish: PAL 50 Hz, performance, memory, unit tests, docs | all | M | PAL checked (#18); docs refreshed after #25; the rest open |
 | M13 | Deferred (decided: not now): Second Quest | all | L | deferred |
 
 ### 2.1 Next step
 
-Next step: the items at the top of section 1.1 in that order. First a thorough play-through of the full game (Levels 3 to 9 above all); then the memory check for a 512 KB machine (M12); then the overworld minimap on the status bar, which closes M5's HUD part.
+Next step: the items at the top of section 1.1 in that order. First a thorough play-through of the full game (Levels 3 to 9 above all); then the memory check for a 512 KB machine (M12); then the Second Quest if it is wanted.
 
 Reasoning: M1 went first because it was the bug you could see and it fixed the data model (secret objects per room, patched into the room maps) that M3, M4 and M9 reuse; M3 follows because every hidden spot, stair and cave of the overworld now leads to it. M6 comes before the monsters because every dungeon monster needs the room, door and palette machinery to be tested in place. M10 comes late because save files store the inventory, so the inventory must be final first.
 
@@ -98,7 +96,7 @@ Layer A, look (build time, small):
 Layer B, behaviour (runtime):
 - [x] **Bombs** (`$63`, `UpdateRockWall` in `Z_04.asm`): when the bomb cloud is in the damaging window and overlaps the wall tile, replace it with cave square idx 12 (`$24` floor tile in the opening), play the secret-found tune, set the room flag bit 7. The port's cloud already has a "last 12 frames open a bombable wall" phase for dungeons; reuse it with overworld squares.
 - [x] **Candle fire** (`$64`, `UpdateTree`): when the flame (state `$22`, timer below 2) is at the tree, replace it with stairs idx 18 (`$70`) and set the flag. The blue candle can burn once per screen; the red candle without that limit (item 7). Both use the same trigger.
-- [x] **Power Bracelet rock** (`$62`) and **gravestone** (`$65`) (`UpdateRockOrGravestone`): when Link pushes toward it for the original push time and has the bracelet (rock only), slide it one square, stairs idx 18 appear where it stood. Gravestones need no item.
+- [x] **Power Bracelet rock** (`$62`) and **gravestone** (`$65`) (`UpdateRockOrGravestone`): when Link pushes toward it for the original push time and has the bracelet (rock only), slide it one square, stairs idx 18 appear where it stood. (The slide, 32 frames at speed `$20` with the stone blocking Link, was added later; before it the stone jumped.) Gravestones need no item.
 - [x] **Armos** (done in 0.33 with M4): `UpdateArmos`/`InitArmosOrFlyingGhini`, the seven rooms `$24 $0B $1C $22 $34 $3D $4E` with armos X `$E0 $B0 $B0 $30 $40 $90 $A0` and Y `$80`. Room `$24` (E3) drops the Power Bracelet at the armos spot; the other six turn the touched armos into stairs. All seven spots exist in the Q1 layouts (checked against the decoded layouts).
 - [x] **Persistence**: room flag bit 7 = secret found. A found secret is drawn already open the next time you enter. The existing room-flag array in the port is the place to put it.
 - [x] **Quest filter**: attribute F bits 6-7 gate hidden secrets only (`IsQuestSecretMismatch` has just three call sites, all in the rock/tree/wall updaters). Value 1 = Quest 1, value 2 = Quest 2. A Q2-only secret in a Q1 game stays a plain rock or tree. Visible caves are not gated by it. **(verify)** that a Q2-tagged visible cave such as G1 is really absent from the Q1 layout and not just untagged.
@@ -154,7 +152,7 @@ Appendix B1 lists every screen with its monsters and count, plus the Zora, edge-
 ### 5.4 Work items
 
 - [x] **Step 1 (done): data plus plain walkers.** Octorok (`$07`-`$0A`), moblin (`$03`, `$04`) and lynel (`$01`, `$02`) are in `MONSTER_TYPES`; octoroks have their own draw mode (`MODE_OCTOROK`: side, front and back views in two animation sets, art mirrored to face right) and `mon_art` says where each monster's art starts in `mon_sprites` (the slow and fast octorok share it). Red/blue octoroks turn at `$70`/`$A0`, moblins `$A0`, lynels walk like goriyas without throwing. Every overworld screen has a 16-byte record in `ow_room_info.bin` (count, flags for edge-spawn and Zora, monster indices), expanded from the ROM's monster lists. Peahats, leevers, zoras, ghinis, armos, boulders and tektites spawn nothing yet.
-- [x] **Step 2 (done): projectiles, edge-spawn ring, kill history.** `walker_shoot`/`walker_fire` (`ai.s`) follow `_TryShooting`: shoot timer `$30`, shot at `$10`, red types start only on a random `>= $F8`, at most 4 shots; rock and sword shot fly 3 px/frame, the arrow 2; damage 1 half-heart (rock, arrow) or 4 (sword shot); Link parries rock and arrow with the sword facing them while standing still (bounce 16 frames); rock and arrow stop at walls, the sword shot does not. `proj_sprites` has 32 frames (rock `PF_ROCK`, arrows `PF_ARROW`). Drops use the ROM rows already in `mon_table` (fairy and clock pickups are still missing). Screens flagged for edge spawning (`FindNextEdgeSpawnCell`) bring monsters in one by one over the border (`edge_spawn_tick`), and `ow_history_count`/`ow_save_kills` keep the last six screens and their kill counts (`ModifyObjCountByHistoryOW`, `SaveKillCountOW`); dying clears the history. Checked in Hatari: kills 2 of 4 in `$78`, leave and return, 2 come back.
+- [x] **Step 2 (done): projectiles, edge-spawn ring, kill history.** `walker_shoot`/`walker_fire` (`ai.s`) follow `_TryShooting`: shoot timer `$30`, shot at `$10`, red types start only on a random `>= $F8`, at most 4 shots; rock and sword shot fly 3 px/frame, the arrow 2; damage 1 half-heart (rock, arrow) or 4 (sword shot); Link parries rock and arrow with the sword facing them while standing still (bounce 16 frames); rock, arrow and sword shot fly over tiles up to the room's bounds (corrected in 0.37: `MoveShot` has no tile test). `proj_sprites` has 32 frames (rock `PF_ROCK`, arrows `PF_ARROW`). Drops use the ROM rows already in `mon_table` (fairy and clock pickups are still missing). Screens flagged for edge spawning (`FindNextEdgeSpawnCell`) bring monsters in one by one over the border (`edge_spawn_tick`), and `ow_history_count`/`ow_save_kills` keep the last six screens and their kill counts (`ModifyObjCountByHistoryOW`, `SaveKillCountOW`); dying clears the history. Checked in Hatari: kills 2 of 4 in `$78`, leave and return, 2 come back.
 - [x] **Step 3 (done): special movers** (`src/movers.s`). Tektite and boulder share `UpdateTektiteOrBoulder` jump physics (`jumper_*` tables from the ROM); blue leever wanders and burrows, red leever surfaces 40 px ahead of or behind Link (`red_leever_place`); peahat is `MoveFlyer` with the `$B0`/`$20` rolls, hittable only in state 5; zora is made by `zora_check` on screens with water (13 tries on tiles `$8D`-`$98`), fires one fireball and is untouchable unless it is up; ghini is the wanderer with `$FF`; boulders come from the boulder set (`$1F`). Weapons pass through anything with `ENEMY_GHOST` bit 0 set, bit 1 means it harms nobody. The room spawn list now cycles like `AssignObjSpawnPositions` (it used to give up after nine spots, so peahat screens came up short).
 - [x] (original item, kept for reference) Add each type to `MONSTER_TYPES` in `actors.py` with the HP/damage above, sprite frames from the CHR data, a draw mode and a behaviour in `ai.s` (recipe in `AGENTS.md` section 12).
 - [x] Overworld sprite pattern tables: unlike the underworld, the overworld swaps pattern blocks by region. List the blocks needed (octorok/moblin/lynel/tektite/leever/peahat/zora/ghini/armos/boulders) and load them at room entry.
@@ -287,7 +285,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 - [x] Passive effects: magic shield (parries fireballs and sword shots), rings (damage division, recolour), white/magic sword damage, the clock, Power Bracelet, Raft, Ladder and Magical Key (all done with M4 and M6). The Book of Magic only turns the rod's shot into flame and a sword beam has one range: the ROM has no more to them. Heart containers stop at 16, as in `TakeItem`. The letter is a B item (`B_LETTER`): it takes the potion's place on the inventory screen while there is no potion.
 - [ ] Done: heart containers from the dungeon, the half-heart damage unit, the low-hearts beep, refill at the triforce. Still to do: container count up to 16, partial heart, low-hearts beep, the half-heart damage unit `$80`, refill by fairy or pond.
 - [ ] Bomb capacity upgrade and `MaxBombs` handling.
-- [x] HUD: the minimap on the ribbon in dungeons (map/compass, #12), the level label, the B/A boxes, key count, bomb count, rupee count. (The overworld has no map on the ribbon yet.)
+- [x] HUD: the minimap on the ribbon in dungeons (map/compass, #12), the level label, the B/A boxes, key count, bomb count, rupee count. The overworld has the ROM's grey map there with Link's dot (`mm_overworld`).
 - [ ] Acceptance: a debug key that gives every item; golden scenes `inv_overworld`, `inv_overworld_right`, `inv_closed` and `inv_dungeon` are in; unit test that every id has a descriptor row.
 
 ## 9. M6 Dungeon engine and levels 2 to 9
@@ -325,7 +323,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 ### 9.3 Notes per level (what is special)
 
 - **Level 1** (done, including the triforce sequence, the bow cellar and the push-block rooms): the old man at `$41` is in too (speech, flames that shoot when he is hit, blocking) (the map and compass, the dungeon minimap on the ribbon and the Tab screen are in).
-- **Level 2** (done, #24: all 18 rooms, items and monsters; the Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by a play-through): Dodongo boss room `$0E` takes bombs; Moldorm mini-boss `$3E`; Magical Boomerang from the Goriya room `$4F`; eight rope rooms.
+- **Level 2** (done, #24: all 18 rooms, items and monsters; the Dodongo, played through by Göran, works well; the Moldorm segment deaths and ringleader room are verified by reading and loading, not by a play-through): Dodongo boss room `$0E` takes bombs; Moldorm mini-boss `$3E`; Magical Boomerang from the Goriya room `$4F`; eight rope rooms.
 - **Levels 3 to 8** (built in the Levels 3-8 branch: rooms, layout, doors, items and monsters come from the ROM tables through `tools/actors.py`; a sweep of every room loads without a crash; **not played through by a person**; scripted Hatari checks: second Digdogger kill and heart container, stash on leave and return, Pols Voice and Vire moving; the magic key opens locked doors and the ladder crosses moats, both found missing while checking and added; `test_build_assets.py` replays every level's doors). Rooms with seven or more monsters take two VBLs to draw; `catch_up` in `main.s` runs the logic one extra time so the speed stays that of 60 Hz and only the picture drops to 30 Hz. The "more bombs" man (`$4F`, Levels 5 and 7) and the "life or money" man (`$51`, no First Quest room has him) are ported.
 - **Level 3**: Manhandla boss; the Raft is down the stairs in the eight-Darknut room `$69` (stairs room `$0F`); the old man asks about "the sword from the old man on top of the waterfall".
 - **Level 4**: seven dark rooms; Vire and Zol rooms; Manhandla at `$10` then Gleeok (3 heads) at `$13`; stepladder in the cellar `$60`.
@@ -333,7 +331,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 - **Level 6**: Magical Rod in cellar `$75`; Wizzrobe-heavy; Gleeok (4 heads) mini-boss `$18`; Gohma (blue) boss `$1C`; Like Like rooms.
 - **Level 7**: Red Candle in cellar `$4A`; Grumble room `$28`; three Digdogger rooms, three Dodongo rooms, three Moldorm rooms; Aquamentus boss `$2A`; bomb capacity man `$48`; 33 rooms.
 - **Level 8**: Magical Key `$0F` and Book of Magic `$6F` in cellars; Gohma (red) twice; Manhandla three times; Gleeok (1 head) boss `$3C`; Darknut-heavy; the "life or money" man.
-- **Level 9**: 57 rooms plus eight stair rooms; Lanmola rooms; Patra rooms; Ganon `$42` (drops the Triforce of Power); Zelda `$32`; Silver Arrow `$4F` and Red Ring `$00` in cellars; entrance man needs all eight triforce pieces. **Built in the Level 9 branch** (rooms from the ROM tables, a ten-entry cellar array, person table C): Lanmola as two worms of four (`lanmola_*`, bosses.s); Patra as the eye plus seven children that come out one at a time and orbit it (`patra_*`, `pchild_*`; the eye takes the sword only once the children are gone); Ganon (`ganon_*`: the dark room and the Triforce of Courage, hidden, teleporting and throwing fire, brown after a sword blow, a silver arrow kills him, ashes and the hidden Triforce of Power; his pictures come from the boss pool, `BP_GANON`); Zelda `$32` and her four fires (`zelda_*`: fanfare, curtain, typed thanks, triforce flash, closing words; the texts are appended to `cave_text.bin`, `ENDING_TEXT_THANKS` / `ENDING_TEXT_PEACE`). Ganon's music (`MUS_GANON`) plays; the credits are typed pages after the closing words (`CREDIT_PAGES`, with "ATARI ST PORT / BY Q"). **Not done**: the boss roars, a play-through of the level.
+- **Level 9**: 57 rooms plus eight stair rooms; Lanmola rooms; Patra rooms; Ganon `$42` (drops the Triforce of Power); Zelda `$32`; Silver Arrow `$4F` and Red Ring `$00` in cellars; entrance man needs all eight triforce pieces. **Built in the Level 9 branch** (rooms from the ROM tables, a ten-entry cellar array, person table C): Lanmola as two worms of four (`lanmola_*`, bosses.s); Patra as the eye plus seven children that come out one at a time and orbit it (`patra_*`, `pchild_*`; the eye takes the sword only once the children are gone); Ganon (`ganon_*`: the dark room and the Triforce of Courage, hidden, teleporting and throwing fire, brown after a sword blow, a silver arrow kills him, ashes and the hidden Triforce of Power; his pictures come from the boss pool, `BP_GANON`); Zelda `$32` and her four fires (`zelda_*`: fanfare, curtain, typed thanks, triforce flash, closing words; the texts are appended to `cave_text.bin`, `ENDING_TEXT_THANKS` / `ENDING_TEXT_PEACE`). Ganon's music (`MUS_GANON`) plays; the credits wall follows the closing words (`credits.s`). **Not done**: the boss roars, a play-through of the level.
 
 ### 9.4 Acceptance
 
@@ -398,7 +396,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 - Phase 1: the story scroll: lines of text scroll up the screen (`DemoLineAttrs`, `DemoLineTextAddrs`), then a parade of the items on both sides (`DemoLeftItemIds`, `DemoRightItemIds`), Link and the stationary fairy, then back to the title. Start at any time goes on to the file menu (mode 1).
 - [x] Palettes for title and story (`TitlePaletteTransferRecord`, `StoryPaletteTransferRecord`, risk R1); nametable data and tiles from the ROM; keep copyright text out of the repo (the pipeline reads it from the ROM at build). Done in 0.34: `tools/intro.py` replays the ROM's transfer streams, `intro.s` shows them; the title uses its own 16 colours (the merged palette of its eight NES rows), the fade steps keep each colour's slot, the story its own. Start (Return) runs `begin_game` for now; part b makes it go on to the file menu.
 - [x] Title: waterfall waves and crest, glowing Triforce, the 512 frames, the 14-step fade, the story (first page, 256 frames, 1408 parade steps with the items, 256, 56), back to the title; the title song.
-- [ ] Skip logic: `SkippedDemo`, the `TransferredDemoPatterns` flag (only needed once the file menu exists).
+- [x] Skip logic: Start in any phase of the title or story goes to the file menu (`intro_to_menu`); `SkippedDemo` and `TransferredDemoPatterns` only keep the NES's CHR RAM straight, which the ST has no need for. What they make visible is the way back after the ending, which goes to the file menu and not through the title (`credits_to_menu`, 11.4).
 
 ### 11.2 Player select, register, eliminate (modes 1, E, F)
 
@@ -420,7 +418,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 ### 11.4 Winning
 
 - Music for this and the other screens is already in the bank (`MUS_TITLE`, `MUS_ZELDA`, `MUS_ENDING`, `MUS_GAMEOVER`, hook with `music_event`/`music_play`). Mode `$13`: curtain effect, Zelda's text box "THANKS LINK, YOU'RE THE HERO OF HYRULE...", Link and Zelda holding the triforces, "FINALLY PEACE RETURNS TO HYRULE. THIS ENDS THE STORY.", ash pile where Ganon was, credits (`DrawCredits`), then the game restarts the same slot as a Second Quest profile (`SwitchProfileToSecondQuest` clears world flags and sets the quest number).
-- [x] Credits: three-line pages typed by `cave_talk` (the staff from the ROM's `CreditsTextLines`, the port's line, the last page stays); the scrolling wall, the ash pile and the Second Quest restart are not ported.
+- [x] Credits (0.38): the scrolling wall of `DrawCredits` (`credits.s`, `tools/credits.py`), then the last screen with the ash pile and the flashing Triforce of Power; Start does the ROM's steps before its Second Quest (`SwitchProfileToSecondQuest` and mode D: the profile cleared of items and world flags, three hearts, the quest number 1, saved) and goes to the file menu with no title (`credits_to_menu`); the Second Quest itself is not ported, the slot plays the First Quest again. Zelda's last words are "FINALLY," and two lines at the ROM's places, a letter every 8 frames (`CAVE_TEXT_PEACE` in `cave_talk`). The port's own line, "PORTED TO ATARI ST BY Q", is on the title screen.
 
 ## 12. M11 Sound, M12 polish, M13 Second Quest
 
@@ -512,6 +510,7 @@ The five original requests are all met in the code: (1) the hidden bomb and fire
 | #55 | The letter as a B item, shown to the medicine woman with B | M3, M5 |
 | #56 | The push block's visible 16-frame slide, the trigger-5 stairs, the old man's flames, a 32-bit `init_anchor` (the code passes 64 KB) | M6, M9 |
 | 0.36 | The flying ghini a gravestone lets out; armos fly like it (`UpdateArmos` is `UpdateFlyingGhini`); the documentation checked against the ROM | M2, M4 |
+| 0.37 | The burst of Ganon's death (eight clouds and eight rays out of the ashes); the sword beam and the other shots fly over tiles and stop at the room's bounds only | M9, M2 |
 | #43 | M5: the Tab inventory screen exactly as the ROM draws it (`tools/submenu.py`, `menu.s`): B-item box, items with the flashing cursor, triforce frame, in dungeons the compass, map and the sheet map of the rooms visited so far; the HUD ribbon sits below it; four golden scenes | M5 |
 
 
@@ -524,9 +523,9 @@ The five original requests are all met in the code: (1) the hidden bomb and fire
 | M2 Overworld enemies | complete: walkers, shots, edge spawns, kill history, the special movers; armos came with M4, the flying ghinis of the gravestones with 0.36 |
 | M3 Caves, shops, people | complete: all 20 cave types |
 | M4 Overworld specials | complete (the ROM has no waterfall or sea sound) |
-| M5 Items, inventory, HUD | complete except the overworld minimap (section 1.1, item 3) |
+| M5 Items, inventory, HUD | complete |
 | M6, M7, M8, M9 Dungeons, monsters, bosses, content | complete for all nine levels, checked by script and by limited play; a thorough play-through is open |
-| M10 Title, file select, save, ending | complete except the Second Quest restart and the scrolling credits wall |
+| M10 Title, file select, save, ending | complete except the Second Quest restart |
 | M11 Sound | complete: ROM music, effects and the seven DPCM samples (the sea and waterfall have no sound in the ROM) |
 | M12 Polish | PAL 50 Hz checked; docs kept current; memory and real-hardware checks open |
 | M13 Second Quest | deferred |

@@ -333,8 +333,10 @@ draw_minimap:
 minimap_paint:
     movem.l %d0-%d7/%a0-%a2, -(%sp)
     tst.b OFF_LEVEL(%a5)
-    beq 9f                      | the overworld has no map here yet
-    moveq #0, %d6
+    bne 0f
+    bsr mm_overworld            | the overworld's grey map and Link's dot
+    bra 9f
+0:  moveq #0, %d6
     move.b OFF_LEVEL(%a5), %d6
     subq.w #1, %d6
     and.w #7, %d6
@@ -383,6 +385,60 @@ minimap_paint:
     moveq #MM_LINK, %d2
     jsr (%a3)
 9:  movem.l (%sp)+, %d0-%d7/%a0-%a2
+    rts
+
+| The overworld's map (LevelInfoOW's status bar map: 8x4 tiles of the grey tile $F5, and
+| the marker tile $3E as a sprite at four pixels a room; UpdatePositionMarker): the whole
+| 32x24 corner in grey, every one of the 16x8 screens a 2x3 cell, Link's a 2x2 dot.
+mm_overworld:
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    movea.l OFF_SCREEN_PTR(%a5), %a0
+    cmpi.b #MODE_MENU, OFF_GAME_MODE(%a5)
+    bne 0f
+    adda.l #(HUD_MENU_ROW * 8 * SCREEN_STRIDE), %a0
+0:  moveq #(HUD_HEIGHT - 1), %d7
+1:  clr.w (%a0)                 | colour 2 is plane 1 only, two groups of sixteen pixels
+    move.w #0xffff, 2(%a0)
+    clr.l 4(%a0)
+    clr.w 8(%a0)
+    move.w #0xffff, 10(%a0)
+    clr.l 12(%a0)
+    adda.w #SCREEN_STRIDE, %a0
+    dbra %d7, 1b
+    suba.w #(HUD_HEIGHT * SCREEN_STRIDE), %a0
+    moveq #0, %d0
+    move.b OFF_ROOM_ID(%a5), %d0
+    move.w %d0, %d1
+    lsr.w #4, %d1               | row 0..7
+    and.w #15, %d0              | column 0..15
+    mulu.w #(3 * SCREEN_STRIDE), %d1
+    adda.l %d1, %a0
+    add.w %d0, %d0              | pixel x
+    move.w %d0, %d3
+    lsr.w #4, %d3
+    lsl.w #3, %d3
+    adda.w %d3, %a0             | the 16-pixel group
+    and.w #15, %d0
+    move.w #0xc000, %d3
+    lsr.w %d0, %d3              | the two pixels
+    move.w %d3, %d4
+    not.w %d4
+    moveq #MM_LINK, %d2
+    moveq #1, %d7               | two lines
+2:  movea.l %a0, %a1
+    moveq #0, %d5
+3:  move.w (%a1), %d6
+    and.w %d4, %d6
+    btst %d5, %d2
+    beq 4f
+    or.w %d3, %d6
+4:  move.w %d6, (%a1)+
+    addq.w #1, %d5
+    cmp.w #4, %d5
+    blo 3b
+    adda.w #SCREEN_STRIDE, %a0
+    dbra %d7, 2b
+    movem.l (%sp)+, %d0-%d7/%a0-%a1
     rts
 
 | Room id d3.w -> map cell: d0.w = column, d1.w = row; d0 is -1 when the room lies
@@ -443,10 +499,14 @@ mm_box:
 | compass arriving, the level changing, or the triforce marker's flash turning over.
 minimap_tick:
     movem.l %d0-%d2, -(%sp)
-    moveq #0, %d0               | the overworld shows nothing
+    moveq #0, %d0               | the overworld shows the room Link is in
     moveq #0, %d1
     move.b OFF_LEVEL(%a5), %d1
-    beq 3f
+    bne 4f
+    move.b OFF_ROOM_ID(%a5), %d0
+    lsl.w #8, %d0
+    bra 3f
+4:
     subq.w #1, %d1
     and.w #7, %d1
     moveq #1, %d2

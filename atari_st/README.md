@@ -8,8 +8,8 @@ text out of a ROM you supply yourself.
 
 Status: a complete First Quest, played through in Level 1 and 2 and run in every room of Levels 3 to 9. You can walk
 the whole overworld, fight its monsters, use its caves, shops and hidden spots, and play all nine dungeons up to Ganon,
-Zelda's thanks and the credits, with the title, file select, death, continue and saving. Levels 3 to 9 have had limited
-testing by hand. The Second Quest, the overworld map on the status bar and a few ending extras are not in (see "Known
+Zelda's thanks and the scrolling credits, with the title, file select, death, continue and saving. Levels 3 to 9 have had limited
+testing by hand. The Second Quest is not in (see "Known
 gaps").
 
 How to play
@@ -116,8 +116,10 @@ Hidden spots (overworld)
   `room_secrets` says what to patch. Found secrets stay open (room flag bit 7); a
   pushed rock or gravestone is back when Link returns, as in the original (the stairs
   under the rock stay, those under the gravestone do not)
-- not like the original: the stone jumps one square instead of sliding, and the second
-  quest's spots (attribute F bits 6-7) are plain scenery
+- the pushed stone slides one square in 32 frames, as in the original: the spot turns to
+  floor at once, the stone is drawn moving, blocks Link while it goes, and the stairs and
+  the tune come when it lands
+- not like the original: the second quest's spots (attribute F bits 6-7) are plain scenery
 
 Level 1 (underworld)
 
@@ -195,7 +197,7 @@ Level 9 (Death Mountain)
   turns him brown, a silver arrow into a brown Ganon kills him, he burns to ashes and the Triforce of Power lies there
 - Zelda (room `$32`) and the four fires that guard her: stand level with her (X `$70`..`$80`, Y `$95`) and the scene
   runs: the Zelda fanfare, the curtain, her thanks typed out, the two triforce pieces over Link and Zelda while the
-  backdrop flashes, then the closing words. Then the credits, a page of three lines at a time (the staff, "ATARI ST PORT / BY Q", "END OF THE LEGEND OF ZELDA"); the last page stays, Esc quits.
+  backdrop flashes, then the closing words ("FINALLY," and two lines, placed and timed as the ROM does). Then the credits wall of the ROM scrolls up (a line every other frame, 600 lines: the bricks, the staff, "ANOTHER QUEST WILL START FROM HERE.", the copyright), and stops on the black screen with the ash pile and the flashing Triforce of Power. Start, after a moment, does what the ROM does before its Second Quest: the profile is reset (items and world cleared, three hearts), saved, and the file menu comes up with no title in between (the Second Quest itself is not ported, the slot starts the First Quest again); Esc quits. The title carries a small line, "PORTED TO ATARI ST BY Q".
 
 Levels 3 to 8 (underworld)
 
@@ -224,7 +226,8 @@ Combat and items
   before they can be taken, and vanish after about eight
 - sword beam: with full hearts only, the third phase of a
   swing fires a beam that flashes through the four sprite palettes until it
-  hits a wall or a monster, and then spreads out as the original's spark
+  leaves the room's bounds or hits a monster, and then spreads out as the original's spark
+  (it flies over trees, stones and walls: the ROM's `MoveShot` looks at the room's bounds only)
 - bombs: 48 frames of fuse, then a 36-frame cloud (four sprites, three puffs
   that swap sides every frame): for the first 24 the screen flashes grey twice
   and every monster near it takes four hits' worth of damage, at the start of
@@ -271,6 +274,8 @@ Combat and items
 - the dungeon map in the corner of the ribbon: the level's rooms as grey boxes
   once you have the map, a green box where Link is, and with the compass the
   triforce room flashing until you take the piece
+- the overworld map in the same corner: the ROM's grey box of the 16x8 screens (two by three pixels each) with a green dot on
+  the one Link is in
 - Link is invincible and blinks for about 0.8 seconds after being hurt (the
   original's $18 timer ticks every second frame), and is knocked back 32
   pixels; monsters are knocked back up to 64 pixels when the sword hits them
@@ -318,17 +323,15 @@ Things that behave differently from the original, or are stand-ins:
   man, the magic key on a locked door, the ladder over a moat) and by a test that replays every
   level's doors; nobody has played them through at human speed. Not checked: the first
   Digdogger's three little ones, a Vire dying into keese, scrolling between dark rooms. The
-  ladder is not drawn: with it Link just walks over the moat
+  ladder over a dungeon moat is drawn, as in the original: it is put down in front of Link
+  and he can cross it along its direction only
 - the Moldorm is two worms of four segments, not one of ten, because the engine
   has eight monster slots; the Dodongo and the Moldorm leave no death cloud
-- Level 2's Dodongo bomb and sword kill, the Moldorm's segment deaths and the
-  ringleader room were checked by reading the code against the ROM and by
-  loading every room in Hatari, but not played through
+- Level 2's Dodongo (bomb and sword kill) has been played through and works well;
+  the Moldorm's segment deaths and the ringleader room were checked by reading
+  the code against the ROM and by loading every room in Hatari, but not played through
 - `K` is a debug key that gives keys, bombs and the candle; the game has no use for it any more but it stays for testing
-- a pushed overworld stone jumps one square instead of sliding
-- the overworld has no map on the ribbon (the original shows the grey map with Link's red dot)
-- the Second Quest, the scrolling credits wall, the burst rays of Ganon's death and the demo-skip logic of the title
-  are not ported
+- the Second Quest is not ported
 - the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed
 - the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
   it back so the tempo stays right
@@ -345,9 +348,8 @@ The detailed plan, with the data tables behind it, is in [`PLAN.md`](PLAN.md).
 Next, in the order of `PLAN.md`
 
 1. a play-through of Levels 3 to 9 (M6 to M9)
-2. the overworld minimap on the status bar
-3. the rest of the ending (M10): the credits wall and the Second Quest restart
-4. a check on real STFM timing and memory, a release build (M12)
+2. the Second Quest, which the credits announce (M10)
+3. a check on real STFM timing and memory, a release build (M12)
 
 The Second Quest is deferred.
 

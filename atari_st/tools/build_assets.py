@@ -161,22 +161,10 @@ def _ending_text(lines: tuple[str, ...]) -> bytes:
     return bytes(out)
 
 
-# Zelda's words (ThanksText in Z_02.asm: the second line is a blank one) and the last screen of the credits.
+# Zelda's words (ThanksText in Z_02.asm: the second line is a blank one). The credits are the scrolling wall of tools/credits.py.
 ENDING_THANKS_TEXT = _ending_text(("THANKS LINK,YOU'RE", " ", "THE HERO OF HYRULE."))
-ENDING_PEACE_TEXT = _ending_text(("PEACE RETURNS TO HYRULE.", " ", "THIS ENDS THE STORY."))   # the original has a "FINALLY," first
-# The credits (CreditsTextLines.dat, three lines to a page instead of a scrolling wall), and the port's own line.
-CREDIT_PAGES = (
-    ("EXECUTIVE PRODUCER", " ", "H.YAMAUCHI"),
-    ("PRODUCER AND DIRECTOR", " ", "S.MIYAHON"),
-    ("DESIGNER", " ", "TEN TEN"),
-    ("PROGRAMMERS", "T.NAKAZOO", "YACHAN, MARUMARU"),
-    ("SOUND COMPOSER", " ", "KONCHAN"),
-    ("ATARI ST PORT", " ", "BY Q"),
-    ("YOU ARE GREAT.", "YOU HAVE AN AMAZING", "WISDOM AND POWER."),
-    ("END OF", " ", "THE LEGEND OF ZELDA"),
-)
-CREDIT_TEXTS = tuple(_ending_text(page) for page in CREDIT_PAGES)
-ENDING_TEXTS = ENDING_THANKS_TEXT + ENDING_PEACE_TEXT + b"".join(CREDIT_TEXTS)
+ENDING_PEACE_TEXT = _ending_text(("FINALLY,", "PEACE RETURNS TO HYRULE.", "THIS ENDS THE STORY."))   # PeaceText; cave_talk places the lines
+ENDING_TEXTS = ENDING_THANKS_TEXT + ENDING_PEACE_TEXT
 
 PERSON_TEXT_BYTES = 43             # the first person's speech
 OLD_MAN_TYPE = 0x6A
@@ -1332,9 +1320,6 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
         *underworld_equates(bundle.uw, len(bundle.levels) or 1),
         f".equ ENDING_TEXT_THANKS, {len(bundle.cave_text) - len(ENDING_TEXTS)}",
         f".equ ENDING_TEXT_PEACE, {len(bundle.cave_text) - len(ENDING_TEXTS) + len(ENDING_THANKS_TEXT)}",
-        f".equ ENDING_CREDIT_PAGES, {len(CREDIT_PAGES)}",
-        *(f".equ ENDING_CREDIT_{n}, {len(bundle.cave_text) - sum(len(t) for t in CREDIT_TEXTS[n:])}"
-          for n in range(len(CREDIT_PAGES))),
         f".equ DEV_START_ENTRANCE, 0x{dungeon_entrance(bundle):02x}",
         *intro_lines,
         "",

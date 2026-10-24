@@ -2,7 +2,27 @@
 
 Versions are milestones of the Atari ST port (`0.NN`), tagged on the commit that finishes them. A big change (a dungeon,
 a new mechanic family, a milestone package of `atari_st/PLAN.md`) gets its own version; fixes and docs ride along with the
-version they belong to. The current version is **0.36**.
+version they belong to. The current version is **0.38**.
+
+## 0.38 (2026-10-24) - the credits wall, and the port's line on the title
+- **The credits wall.** After Zelda's closing words the screen scrolls the ROM's credits (`UpdateMode13WinGame_Sub3`): the brick wall with the staff in it, one
+  line every other frame for 600 lines, then "ANOTHER QUEST WILL START FROM HERE.", "PRESS THE START BUTTON." and the copyright, and the last screen with the
+  ash pile of Ganon and the Triforce of Power flashing. `tools/credits.py` replays `DrawCredits` on a model of the nametables; `credits.s` scrolls the strip
+  through the ring of the story. Start goes back to the title (the ROM goes to the Second Quest, which is not ported). The typed three-line credit pages
+  (`CREDIT_PAGES`) are gone.
+- **"PORTED TO ATARI ST BY Q"** is on the title screen, small, above the logo.
+- Golden scenes `uw9_zelda_words`, `uw9_credits_start`, `uw9_credits_wall`, `uw9_credits_end` (was `uw9_credits_port`) and `uw9_credits_title`; the title scenes re-recorded.
+
+## 0.37 (2026-10-24) - Ganon's burst, and shots that ignore the scenery
+- **Ganon's death burst.** While he burns solid (`$50`..`$9F`) eight clouds close in on the ash and eight rays fly out of it (right, left, down, the three
+  diagonals down, up, up-right, up-left; diagonals move 3 of 4 frames), flashing with the frame counter, with the boss-hit sample and the Ganon song as they
+  start (`ganon_burst_*` in `bosses.s`, `GANON_RAYS` in `actors.py`). The Triforce of Power still appears at `$A0`.
+- **The sword beam flies over trees, stones and walls.** The ROM moves it with `MoveShot`, which only checks the room's bounds (`BoundByRoomWithA`: a weapon
+  counts as out when X+`$B` < left or X-`$C` >= right, Y+`$F` < up or Y-`$12` >= down), so it stops at the edge of the room, not at a tile, and it is
+  made even with a wall in front of Link. The port stopped it at any blocking tile. Link's arrows, the rod's shot and the monsters' rocks and arrows go
+  through the same routine and now ignore tiles as well (`shot_blocked` is a stub).
+- Documentation: the burst rays are no longer listed as missing; the undefined "Level 2 and 5 odd rooms" item is gone from the plan; the Level 2 Dodongo is
+  marked as played through and working well.
 
 ## 0.36 (2026-10-24) - the flying ghini, and the documentation checked against the ROM
 - The ROM's overworld object table, caves and sounds were compared with the port. Everything the First Quest uses was in except the **flying ghini**

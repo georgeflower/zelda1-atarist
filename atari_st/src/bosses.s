@@ -20,6 +20,7 @@
     farstub walker_fire_bf, walker_fire
     farstub zora_fire_bf, zora_fire
     farstub keese_ai_bf, keese_ai
+    farstub credits_begin_bf, credits_begin
     farstub mon_art_ptr_bf, mon_art_ptr
     farstub sprite_offset_bf, sprite_offset
     farstub draw_sprite_bf, draw_sprite
@@ -42,6 +43,8 @@
     farstub uw_render_map_bf, uw_render_map
     farstub show_background_bf, show_background
     farstub fx_put_a0_bf, fx_put_a0
+    farstub rock_update_bf, rock_update
+    farstub rock_draw_bf, rock_draw
     farstub fireball_spawn_xy_bf, fireball_spawn_xy
     farstub enemy_behaviour_bf, enemy_behaviour
 
@@ -1410,7 +1413,7 @@ bp_add:
 | a segment is only its middle eight lines. A frame has no time for more.
     .equ BP_SEGMENT, 12
     .equ BP_GANON, 0x40                 | pool pictures from here are Ganon's (his art's frames)
-    .equ BP_ITEM, 0x80                  | and from here an item's: the number less BP_ITEM is the index in item_sprites
+    .equ BP_ITEM, 0xc0                  | and from here an item's: the number less BP_ITEM is the index in item_sprites
     .equ BP_HEAD, 13
     .equ BP_PRE_FRAME, 28               | the art's first pre-shifted frame (after 14 images of two frames)
 bp_paint:
@@ -2399,11 +2402,6 @@ ganon_died:
 1:  move.b #1, OFF_ENEMY_STEP(%a5, %d5.w)
     lea OFF_ENEMY_GHOST(%a5), %a0
     move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
-    sfx SFX_MONSTER_DIED
-    move.l %d0, -(%sp)
-    moveq #MUS_GANON, %d0               | and again when he starts to burn
-    bsr music_event_bf
-    move.l (%sp)+, %d0
 9:  movem.l (%sp)+, %a0
     rts
 
@@ -2583,7 +2581,15 @@ ganon_tick:
     bne 21f
     move.b #0xff, %d0
 21: move.b %d0, OFF_ENEMY_STEP(%a5, %d5.w)
+    cmp.b #0x50, %d0
+    bne 22f
+    bsr ganon_burst_begin               | Ganon_Dying at phase $50: the ashes, the burst, the cry and the song
+22: cmp.b #0x50, %d0
+    blo 23f
     cmp.b #0xa0, %d0
+    bhs 23f
+    bsr ganon_burst_move
+23: cmp.b #0xa0, %d0
     bne 30f                             | (the ashes stay, the item lies on them)
     move.b OFF_ENEMY_X(%a5, %d5.w), %d0     | the Triforce of Power lies where the ashes are
     subq.b #1, %d0
@@ -2593,6 +2599,127 @@ ganon_tick:
 30: bsr ganon_draw
 99: movem.l (%sp)+, %d0-%d7/%a0
     rts
+
+| Ganon_Dying at phase $50 (d5 = Ganon): the ashes are where the clouds and the rays start, eight rays set off from
+| (X + 4, Y + 4) of them, the eight clouds start 8 pixels out, and the boss-death cry and the Ganon song play.
+ganon_burst_begin:
+    movem.l %d0-%d3/%a0-%a1, -(%sp)
+    move.b #8, OFF_GANON_CLOUD(%a5)
+    moveq #0, %d1
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d1
+    subq.b #1, %d1                      | the ashes sit at (X - 1, Y) of the body's middle
+    addq.b #4, %d1
+    moveq #0, %d2
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
+    addq.b #4, %d2
+    lea OFF_GANON_RAY_X(%a5), %a0
+    lea OFF_GANON_RAY_Y(%a5), %a1
+    moveq #7, %d3
+1:  move.b %d1, 0(%a0, %d3.w)
+    move.b %d2, 0(%a1, %d3.w)
+    dbra %d3, 1b
+    sfx SMP_BOSS_HIT                    | PlayBossDeathCry
+    moveq #MUS_GANON, %d0
+    bsr music_event_bf
+    movem.l (%sp)+, %d0-%d3/%a0-%a1
+    rts
+
+ganon_ray_dirs:                         | GanonBurstDirs: right, left, down, down-right, down-left, up, up-right, up-left
+    .byte 0x01, 0x02, 0x04, 0x05, 0x06, 0x08, 0x09, 0x0a
+
+| Once a frame during the burst (d5 = Ganon): the clouds draw in by a pixel every eight frames, the rays move a pixel
+| along their headings: the four straight ones (slots 2, 3, 4 and 7) every frame, the diagonals three frames in four, so
+| the burst spreads in a rough circle.
+ganon_burst_move:
+    movem.l %d0-%d4/%a0-%a2, -(%sp)
+    move.w OFF_FRAME_COUNTER(%a5), %d4
+    tst.b OFF_GANON_CLOUD(%a5)
+    beq 1f
+    move.w %d4, %d0
+    and.w #7, %d0
+    bne 1f
+    subq.b #1, OFF_GANON_CLOUD(%a5)
+1:  lea ganon_ray_dirs(%pc), %a0
+    lea OFF_GANON_RAY_X(%a5), %a1
+    lea OFF_GANON_RAY_Y(%a5), %a2
+    moveq #7, %d3
+2:  cmp.w #3, %d3
+    blo 3f                              | rays 3 to 6 (slots 5, 6, 8, 9) but the straight one at 5 (slot 7)
+    cmp.w #5, %d3
+    beq 3f
+    move.w %d4, %d0
+    and.w #3, %d0
+    beq 9f                              | this diagonal rests this frame
+3:  move.b 0(%a0, %d3.w), %d0
+    btst #0, %d0
+    beq 4f
+    addq.b #1, 0(%a1, %d3.w)
+4:  btst #1, %d0
+    beq 5f
+    subq.b #1, 0(%a1, %d3.w)
+5:  btst #2, %d0
+    beq 6f
+    addq.b #1, 0(%a2, %d3.w)
+6:  btst #3, %d0
+    beq 9f
+    subq.b #1, 0(%a2, %d3.w)
+9:  dbra %d3, 2b
+    movem.l (%sp)+, %d0-%d4/%a0-%a2
+    rts
+
+| d5 = Ganon, burning at phase $50 to $9F: the eight clouds round the ashes and the eight rays, into the boss pool.
+ganon_burst_draw:
+    movem.l %d0-%d7/%a0-%a2, -(%sp)
+    moveq #0, %d6
+    move.b OFF_GANON_CLOUD(%a5), %d6    | how far out the clouds are
+    moveq #0, %d4
+    move.b OFF_ENEMY_X(%a5, %d5.w), %d4
+    subq.w #1, %d4                      | the ashes' X
+    moveq #0, %d5
+    move.b OFF_ENEMY_Y(%a5, %d5.w), %d5 | and Y (d5 is Ganon no more)
+    move.w #(BP_GANON + 42), %d7        | the medium cloud, the low one from distance 5 down
+    cmp.w #6, %d6
+    bhs 1f
+    move.w #(BP_GANON + 44), %d7
+1:  lea ganon_cloud_dx(%pc), %a0
+    moveq #7, %d3
+2:  move.w %d4, %d1
+    move.b 0(%a0, %d3.w), %d0           | -1, 0 or 1: which way out
+    ext.w %d0
+    muls.w %d6, %d0
+    add.w %d0, %d1
+    move.w %d5, %d2
+    move.b 8(%a0, %d3.w), %d0
+    ext.w %d0
+    muls.w %d6, %d0
+    add.w %d0, %d2
+    move.w %d7, %d0
+    bsr bp_add
+    dbra %d3, 2b
+    move.w OFF_FRAME_COUNTER(%a5), %d7
+    and.w #3, %d7                       | the flash: a palette row a frame
+    lea OFF_GANON_RAY_X(%a5), %a1
+    lea OFF_GANON_RAY_Y(%a5), %a2
+    moveq #7, %d3
+3:  moveq #0, %d1
+    move.b 0(%a1, %d3.w), %d1
+    moveq #0, %d2
+    move.b 0(%a2, %d3.w), %d2
+    move.w %d3, %d0
+    lsl.w #3, %d0                       | 8 frames a ray
+    move.w %d7, %d6
+    add.w %d6, %d6
+    add.w %d6, %d0                      | and 2 a palette row
+    add.w #(BP_GANON + 46), %d0
+    bsr bp_add
+    dbra %d3, 3b
+    movem.l (%sp)+, %d0-%d7/%a0-%a2
+    rts
+
+ganon_cloud_dx:                         | the four corners, the top and bottom, the left and right: dx then dy
+    .byte -1, 1, -1, 1, 0, 0, -1, 1
+    .byte -1, -1, 1, 1, -1, 1, 0, 0
+    .even
 
 | d5 = Ganon: his four pictures, or his ashes, into the boss pool.
 ganon_draw:
@@ -2658,6 +2785,9 @@ ganon_draw:
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d2
     move.w #(BP_GANON + GANON_ASHES_FRAME), %d0
     bsr bp_add
+    cmp.b #0xa0, OFF_ENEMY_STEP(%a5, %d5.w)
+    bhs 99f
+    bsr ganon_burst_draw                | the clouds and rays, for the 80 frames the phase takes to reach $A0
 99: movem.l (%sp)+, %d0-%d7/%a0-%a1
     rts
 
@@ -2666,9 +2796,9 @@ ganon_draw:
 | fires round her (killable, half a heart on contact) and does nothing until Link comes level with her: X $70..$80 and
 | Y $95. Then he is put at ($88,$88) facing her, the Zelda fanfare plays for $80 frames, the room is furled away by a
 | curtain, she thanks him in typed letters, and Link and she stand with a triforce piece over each head while the
-| backdrop flashes. The last screen of the credits has the final words. Link is held for all of it, so the scene is
+| backdrop flashes. The credits wall follows. Link is held for all of it, so the scene is
 | run from zelda_tick, by boss_misc_update, and not from the monster. ZELDA_SCENE: 1 fanfare, 2 curtain, 3 thanks being
-| typed, 4 pause, 5 flash, 6 pause, 7 final words being typed, 8 they stay up, 9 a page of the credits being typed, 10 the page is read, 11 the last page, for good.
+| typed, 4 pause, 5 flash, 6 pause, 7 final words being typed, 8 they stay up, 9 the credits wall (credits.s) has taken over.
     .equ ZELDA_X, 0x78
     .equ ZELDA_Y, 0x88
     .equ ZELDA_LINK_X, 0x88
@@ -2681,9 +2811,6 @@ ganon_draw:
     .equ ZELDA_TEXT_DELAY, 10
     .equ ZELDA_CREDIT_WAIT, 0xb0
 
-zelda_credit_pages:
-    .word ENDING_CREDIT_0, ENDING_CREDIT_1, ENDING_CREDIT_2, ENDING_CREDIT_3
-    .word ENDING_CREDIT_4, ENDING_CREDIT_5, ENDING_CREDIT_6, ENDING_CREDIT_7
 zelda_fire_x:
     .byte 0x60, 0x70, 0x80, 0x90
 zelda_fire_y:
@@ -2753,6 +2880,15 @@ zelda_say:
     move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
     move.b #CAVE_TEXT_ROW0, OFF_CAVE_TEXT_ROW(%a5)
     move.b #ZELDA_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
+    clr.b OFF_CAVE_TEXT_PEACE(%a5)
+    rts
+
+| The last words: "FINALLY," at the ROM's ($22AC), then the other two lines further down (cave_talk places them).
+zelda_say_peace:
+    bsr zelda_say
+    move.b #1, OFF_CAVE_TEXT_PEACE(%a5)
+    move.b #16, OFF_CAVE_TEXT_COL(%a5)
+    move.b #16, OFF_CAVE_TEXT_ROW(%a5)
     rts
 
 | The fires are gone from the picture (and still count as the room's monsters: nothing here may clear the room).
@@ -2902,7 +3038,7 @@ zelda_tick:
     bne 99f
     move.b #7, OFF_ZELDA_SCENE(%a5)
     move.w #ENDING_TEXT_PEACE, %d0
-    bsr zelda_say
+    bsr zelda_say_peace
     bra 99f
 55: cmp.b #7, %d0
     bne 60f
@@ -2913,37 +3049,11 @@ zelda_tick:
     move.b #ZELDA_CREDIT_WAIT, OFF_ZELDA_TIMER(%a5)
     bra 99f
 60: cmp.b #8, %d0
-    bne 70f
-    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 8: the last words stay up, then the credits' first page
     bne 99f
-    clr.b OFF_ZELDA_STEP(%a5)
-    bra 66f
-70: cmp.b #9, %d0
-    bne 80f
-    bsr cave_talk_bf                    | 9: a page of the credits being typed
-    tst.b OFF_CAVE_TEXT_ON(%a5)
+    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 8: the last words stay up, then the credits wall (credits.s)
     bne 99f
-    move.b #10, OFF_ZELDA_SCENE(%a5)
-    move.b #ZELDA_CREDIT_WAIT, OFF_ZELDA_TIMER(%a5)
-    bra 99f
-80: cmp.b #10, %d0
-    bne 99f
-    subq.b #1, OFF_ZELDA_TIMER(%a5)     | 10: the page is read; the next one, or the last stays for good (scene 11)
-    bne 99f
-    addq.b #1, OFF_ZELDA_STEP(%a5)
-    cmpi.b #ENDING_CREDIT_PAGES, OFF_ZELDA_STEP(%a5)
-    blo 66f
-    move.b #11, OFF_ZELDA_SCENE(%a5)
-    subq.b #1, OFF_ZELDA_STEP(%a5)
-    bra 99f
-66: bsr zelda_wipe_text
-    moveq #0, %d0
-    move.b OFF_ZELDA_STEP(%a5), %d0
-    add.w %d0, %d0
-    lea zelda_credit_pages(%pc), %a0
-    move.w 0(%a0, %d0.w), %d0
-    bsr zelda_say
     move.b #9, OFF_ZELDA_SCENE(%a5)
+    bsr credits_begin_bf
 99: movem.l (%sp)+, %d0-%d2/%a0-%a1
     rts
 
@@ -3315,6 +3425,7 @@ block_push_tick:
 | Pushing only counts while it goes on without a break. A block that is sliding moves a pixel a frame (UpdateBlock's
 | moving state) and lands after 16.
 block_update:
+    bsr rock_update_bf                  | (the overworld's rock that slides)
     cmpi.b #3, OFF_BLOCK_STATE(%a5)
     bne 2f
     addq.b #1, OFF_BLOCK_FRAME(%a5)
@@ -3502,6 +3613,7 @@ block_land:
 
 | While the block slides, its picture is the effect in slot 11, a pixel further each frame.
 block_draw:
+    bsr rock_draw_bf
     cmpi.b #3, OFF_BLOCK_STATE(%a5)
     bne 9f
     movem.l %d0-%d2/%d6/%a0, -(%sp)

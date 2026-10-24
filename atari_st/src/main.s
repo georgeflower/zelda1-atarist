@@ -551,12 +551,30 @@ cave_talk:
     bsr draw_hud_tile_far
     move.l (%sp)+, OFF_SCREEN_PTR(%a5)
 21:
-    sfx SFX_HEART                       | the text blip
-    addq.b #1, OFF_CAVE_TEXT_COL(%a5)
+    tst.b OFF_CAVE_TEXT_PEACE(%a5)
+    beq 22f
+    cmp.w #0x24, %d3                    | the last words make no blip on a space
+    beq 23f
+22: sfx SFX_HEART                       | the text blip
+23: addq.b #1, OFF_CAVE_TEXT_COL(%a5)
     move.b #CAVE_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
-    and.w #0xc0, %d4
+    tst.b OFF_CAVE_TEXT_PEACE(%a5)
+    beq 24f
+    move.b #8, OFF_CAVE_TEXT_TIMER(%a5) | UpdatePeaceTextbox: a letter every 8 frames
+24: and.w #0xc0, %d4
     beq 9f
-    move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
+    tst.b OFF_CAVE_TEXT_PEACE(%a5)
+    beq 25f
+    cmp.w #0xc0, %d4
+    beq 4f
+    move.b #8, OFF_CAVE_TEXT_COL(%a5)   | PeaceTextboxCharAddrsLo: the second line starts at ($22E4), the third at ($2346)
+    move.b #18, OFF_CAVE_TEXT_ROW(%a5)
+    cmp.w #0x80, %d4
+    beq 9f
+    move.b #10, OFF_CAVE_TEXT_COL(%a5)
+    move.b #21, OFF_CAVE_TEXT_ROW(%a5)
+    bra 9f
+25: move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
     cmp.w #0x80, %d4
     bne 3f
     move.b #(CAVE_TEXT_ROW0 + 1), OFF_CAVE_TEXT_ROW(%a5)
@@ -566,6 +584,7 @@ cave_talk:
     move.b #(CAVE_TEXT_ROW0 + 2), OFF_CAVE_TEXT_ROW(%a5)
     bra 9f
 4:  clr.b OFF_CAVE_TEXT_ON(%a5)     | the last line: he has finished
+    clr.b OFF_CAVE_TEXT_PEACE(%a5)
 9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
     rts
 
@@ -936,10 +955,8 @@ owspec_init_far:
     bra owspec_init
 uw_person_update_far:
     bra uw_person_update
-update_death_far:
-    bra update_death
-death_begin_far:
-    bra death_begin
+    farstub update_death_far, update_death
+    farstub death_begin_far, death_begin
 draw_link_far:
     bra draw_link
 erase_sprite_far:
@@ -956,6 +973,7 @@ blit_rect_far:
     .include "menu.s"
     .include "bosses.s"
     .include "intro.s"
+    .include "credits.s"
     .include "filesel.s"
     .include "death.s"
     .include "save.s"
@@ -1065,6 +1083,12 @@ intro_sprites:
     .incbin "intro_sprites.bin"
 intro_spawns:
     .incbin "intro_spawns.bin"
+credits_tiles:
+    .incbin "credits_tiles.bin"
+credits_rows:
+    .incbin "credits_rows.bin"
+credits_map:
+    .incbin "credits_map.bin"
     | The file menu (tools/filesel.py).
     .align 2
 file_tiles:

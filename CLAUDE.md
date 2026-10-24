@@ -20,7 +20,7 @@ boss Aquamentus and the triforce piece, and **Level 2 (the Moon)** to the Dodong
 its heart container and the triforce piece. **Levels 3 to 9** are built too (rooms,
 layouts, items, every monster and boss of those levels, up to Ganon and Zelda's thanks) but only partly play-tested.
 Every item of the original's inventory is in the game (found, bought or given as in the original). The title, the file menu, death, the
-continue question and saving to `ZELDA.SAV` are in; the rest (overworld minimap, credits wall, Second Quest) is future work, see section 14
+continue question and saving to `ZELDA.SAV` are in; the rest (the Second Quest) is future work, see section 14
 and `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
@@ -102,6 +102,7 @@ atari_st/                the port
 | `hud.s` | status ribbon, hearts, counters, A/B boxes (`hud_items`) |
 | `menu.s` | Tab inventory screen (MODE_MENU), laid out as the ROM's submenu: B-item box, items box with the cursor, passive row, triforce or map sheet; the HUD ribbon sits below it |
 | `intro.s` | the title, the story and the parade of the treasures (MODE_INTRO, game mode 0 of the ROM, M10): ring of 200 lines filled from tile tables, the waterfall's sprites, the glowing Triforce, the fade, `intro_leave`; included after `bosses.s`, reaches main.s through `*_far` stubs |
+| `credits.s` | the credits wall (`INTRO_PHASE_CREDITS` of `MODE_INTRO`, game mode `$13` of the ROM after Zelda's words): the same ring of 200 lines as the story, filled from `credits_*` tables; scrolls 600 lines, then the last screen (ash pile, flashing Triforce of Power); included after `intro.s` |
 | `filesel.s` | the file menu (mode 1, E, F inside `MODE_INTRO` phase 2): player select, name board, elimination, and the continue question after a death (`FILE_CONTINUE`); the slots (`SLOT_*`) |
 | `death.s` | Link's death (`MODE_DEATH`, game mode $11): blink, the red-world remap, spin, fade, grey Link and spark, GAME OVER, then the continue question; also `game_reset_position`, `death_continue/save/retry` (M10 c) |
 | `save.s` | `ZELDA.SAV` through GEMDOS (Fopen/Fread/Fcreate/Fwrite/Frename...): records of 640 bytes, the `save_fields` table, the secrets patch log replay, checksum (M10 c) |
@@ -116,6 +117,7 @@ atari_st/                the port
 | `build_assets.py` | ROM -> ST data: tiles, rooms, palette, HUD glyphs, caves, writes `build/generated/*.bin` and `assets.inc`; stops without the ROM (no stand-in art); `--verify-only` |
 | `underworld.py` | Level tile rooms (LayOutRoom port), doors, cellars, reachable rooms |
 | `actors.py` | monsters, items, drops, sprites (sword, beam, effects, boomerang, HUD icons), per-room records |
+| `credits.py` | the credits wall's strip: runs `DrawCredits` (`Z_02.asm`) on a model of the nametables, writes `credits_tiles`, `credits_rows`, `credits_map` and the ash and Triforce frames (appended to `intro_sprites`); `intro.py` calls it |
 | `intro.py` | the title screen, the story and the parade (`Z_02.asm` mode 0): replays the ROM's nametable transfer streams and palettes, writes `title_*`, `story_*`, `intro_sprites` and `intro_spawns` `.bin` files and the fade palettes |
 | `submenu.py` | the Tab inventory screen from the ROM: the submenu's nametable transfer buffers replayed on a PPU model (`menu_tiles`, `menu_cells` for the overworld and the dungeons, `menu_glyphs`), the 23 item sprites and the cursor/dot (`menu_sprites`), the empty-triforce memory and its rows |
 | `filesel.py` | the file menu's pictures (four: select, register, eliminate, continue), glyphs and sprites from `Mode1TileTransferBuf`, `ModeFTitleTransferBuf`, `ModeFCharsTransferBuf` and the menu palettes |
@@ -185,7 +187,7 @@ Makefile variables: `TOOLCHAIN_PREFIX` (default `m68k-linux-gnu-`), `PYTHON`
 screenshot harness), `HATARI` (binary, default `hatari`), and the **dev-start
 variables** below.
 
-Nothing in the port is drawn, written or composed separately from the ROM (the credits page for the port is the one text
+Nothing in the port is drawn, written or composed separately from the ROM (the port's line on the title, "PORTED TO ATARI ST BY Q", is the one text
 of its own): a build without `ext/Original.nes` stops with a message, and `build/generated/asset_manifest.txt` says
 `source=ROM-derived ...`. Do not add stand-in art for anything that is not available: read it from the ROM.
 
@@ -478,7 +480,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   nearer than `$C` across the blade and `$10` along it. Darknuts parry only a blow whose direction ORed with
   theirs is `$0C` or `$03` (they face each other); from behind or the side it hurts. **Beam** (full
   hearts only: `MakeSwordShot` wants the last heart's partial >= `$80` and any blow takes it to `$7F`): launched at phase 3, 3 px/frame, palette cycles with
-  `FrameCounter & 3`, spark tile `$30` in 4 corners spreading k=2..23.
+  `FrameCounter & 3`, spark tile `$30` in 4 corners spreading k=2..23. It looks at no tile: `MoveShot` only calls `BoundByRoomWithA` (a weapon's offsets: X+`$B` < left or X-`$C` >= right, Y+`$F` < up or Y-`$12` >= down, in byte arithmetic), so the beam, Link's arrows and the rod's shot, and the monsters' rocks and arrows, fly over trees, stones and walls up to the room's bounds (`beam_update`, `shot_blocked` is a stub).
 - **Bombs**: fuse 48 frames; cloud 36 frames: first 24 damage (radius `$18`, `$40`
   damage = 4 sword hits) + two grey screen flashes (timer 22-19 and 17-14), last 12 open
   a bombable wall; max 8; tiles `$34` (bomb), `$70/$72` clouds. Gone when you leave
@@ -537,14 +539,16 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   room is always a green box, and with the compass the triforce room is a box that flashes red/white every 16 frames until the piece
   is taken, then stays dull. The Tab screen shows the ROM's big sheet map instead (`menu_sheet_map`: only rooms Link has visited, `UW_FLAGS` bit 5 = `UW_FLAG_VISITED`, set by `uw_mark_visited` on entering a room, each with its door openings; the sheet is turned by the level's `MapSheet` rotation like the ROM; the green dot is Link; the compass adds the triforce room). Rooms come from `uw_room_index`; `UW_MAP_COL0` (circular window of 8 columns, centred, from
   `underworld.minimap_first_column`) and `UW_TRIFORCE_ROOM` (LevelInfo) are build equates. `minimap_tick` (main loop) raises
-  `HUD_DIRTY` when the room, the items or the flash phase change (`MINIMAP_SIG`). The overworld shows nothing there yet.
+  `HUD_DIRTY` when the room, the items or the flash phase change (`MINIMAP_SIG`). The overworld has the ROM's grey map in the same corner: `mm_overworld` fills the 32x24 pixels (colour 2, the tile `$F5` of LevelInfoOW's status bar map) and puts Link's 2x2 dot (colour 7, the marker tile `$3E`) at 2x3 pixels a screen, `minimap_tick` redraws when the room changes.
 - **Overworld hidden spots** (`secrets.s`, ROM `UpdateRockWall`/`UpdateTree`/`UpdateRockOrGravestone`, `CheckTileObject`): the layouts hide
   six marker squares (38-43, primaries `$E5-$EA`); `build_assets.decode_overworld` draws them as the squares the ROM swaps in (19, 27, 25,
   20, 44, 44) and writes `room_secrets.bin`, one 8-byte record per screen (type, the spot's square `row*16+col`, what it becomes, the stairs'
   square and metatile, the rock's metatile one square above and below). Quest-2-only spots (attr F >> 6 = 2) get no record. Finding one
   patches `room_maps` in RAM (the PRG is RAM-resident) and redraws with `render_room` + `show_background`, so `fetch_tile` and `check_warps`
   see the new tile. The room flags are `OW_KILLS` (bit 7 secret found, bit 5 rock pushed; the low three bits stay the kill count). A
-  pushed rock or gravestone is undone by `ow_secret_undo` when `render_room` next draws (the ROM lays a screen out afresh on every
+  pushed rock or gravestone **slides** (`ROCK_STATE/FRAME/DIR/X/Y`, `ROCK_FRAMES` 32: `ow_push_secret` starts it, `rock_update` runs from
+  `block_update`, `rock_draw` from `block_draw` via the effect slot 11 and `OFF_BLOCK_SPRITE`, `rock_land` places the stairs and plays the
+  tune; `link_collide` blocks Link while it moves) and is undone by `ow_secret_undo` when `render_room` next draws (the ROM lays a screen out afresh on every
   entry); the stairs under a rock are permanent, those under a gravestone are not (`CheckShortcut`). The triggers: bomb cloud open
   (`bomb_tick`, within 16 px), flame on its last frame (`fire_update`, timer 1), Link blocked going up or down (`link_pixel`). The spot's
   Y is `row*16+$40`. The module sits after `uw.s` and the near modules reach it through four stubs in `main.s`: anything put between
@@ -575,8 +579,11 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   scrolling between dark rooms (the maze-like rooms need the ladder or bombs to leave from the start spot).
   **Keys and moats**: a locked door (types 5, 6) opens with a key, and the magic key (`INV_MAGIC_KEY`) opens it without using one up
   (the HUD shows "XA" for it); Level 9 has 16 locked doors and 4 keys, it is the magic key's level (`test_every_room...` in
-  `test_build_assets.py` replays the doors of all levels). The moat (NES tile `$F4`) is crossed with the ladder: with it Link
-  walks over `UW_MOAT_TILE` (the ladder itself is not drawn). Moat rooms that cut doors off from each other: Level 4 `$01 $21 $30`,
+  `test_build_assets.py` replays the doors of all levels). The moat (NES tile `$F4`) always blocks (`tile_blocks`); the ladder
+  (`uw_ladder_ok`/`uw_ladder_update` in owspec.s, as `CheckLadder`) is put down in item slot 2 (`RAFT_SLOT`, `ITEM_LIFTED`, drawn by
+  `draw_items`) at Link + (up 0,-5; down 0,+19; left -16,+3; right +16,+3), `LADDER_DIR/STATE/ROOM`. `link_collide` lets Link pass the moat
+  only along the ladder's axis; it is stashed again (and when the room changes) as `CheckLadder` does. The overworld ladder is still the
+  older square-snapped approximation. Moat rooms that cut doors off from each other: Level 4 `$01 $21 $30`,
   5 `$46 $66`, 6 `$19 $1A`, 7 `$18 $49 $5A`, 9 `$23 $40 $56 $65`.
 - **Level 9** (`UW_LEVELS := 1 2 3 4 5 6 7 8 9`; the monsters live in `bosses.s`, the dungeon people and the door man in `uw.s`): 57 rooms,
   a ten-entry cellar array, the old men from person table C, and the man at the door (record trigger bit 4) who opens only
@@ -589,15 +596,13 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   Courage held up); he is drawn from the boss pool (`BP_GANON` frames, ten blue and ten brown pictures plus the ashes), hides,
   teleports (`ganon_relocate`) and throws fire; a sword blow turns him brown (`ganon_died` the first time), a silver arrow into a
   brown Ganon kills him (`ganon_filter`), he burns solid for `$50` frames, then the ash pile (it stays) and the **Triforce of Power** (item `$0E`, drawn from Level 9's
-  sprite table) lies on it at `$A0`; the burst rays are not ported (trigger 7 hides the room item until then). **Zelda** (`$37`, `BEH_ZELDA`) comes with four
+  sprite table) lies on it at `$A0`; the **burst** comes first, over `$50`..`$9F` (`ganon_burst_begin`/`_move`/`_draw`): eight clouds close in on the ash (distance `GANON_CLOUD`, 8 down to 0, one less every 8 frames) and eight rays fly out of it (`ganon_ray_dirs`: right, left, down, down-right, down-left, up, up-right, up-left; the straight ones move every frame, the diagonal ones 3 of 4), the palette row flashing with `FrameCounter & 3`, the boss hit sample and the Ganon song starting with it. **Zelda** (`$37`, `BEH_ZELDA`) comes with four
   guard fires (`$3F`, `BEH_FIRE`, killable, half a heart): `_room_info` expands the one Zelda into five monsters, `zelda_init` and
   `fire_init` put them at the ROM's places. `dmon_zelda` starts the scene when Link stands at X `$70`..`$80`, Y `$95`; `zelda_tick`
   (`ZELDA_SCENE` 1-8, run by `boss_misc_update`) plays the fanfare (`MUS_ZELDA`), the curtain (`curtain_column`), the thanks typed
-  by `cave_talk` (the texts are appended to `cave_text.bin`, `ENDING_TEXT_THANKS`/`ENDING_TEXT_PEACE` in `assets.inc`), the two
-  triforce pieces with the flashing backdrop (`MUS_ENDING` after it) and the closing words. Scenes 8-11 are the credits: `CREDIT_PAGES` (`build_assets.py`: three lines a page, the staff of the ROM's
-  `CreditsTextLines`, then "ATARI ST PORT / BY Q", "YOU ARE GREAT", "END OF / THE LEGEND OF ZELDA") are typed one after the other by
-  `cave_talk` in the black room (`zelda_credit_pages`, `ENDING_CREDIT_n`), `ZELDA_CREDIT_WAIT` frames apart, the last stays (Esc quits; the
-  original's scrolling wall, the ash pile and the Second Quest restart are not ported).
+  by `cave_talk` (the texts are appended to `cave_text.bin`, `ENDING_TEXT_THANKS`/`ENDING_TEXT_PEACE` in `assets.inc`; the last words are three lines, "FINALLY," first, placed at the ROM's addresses `$22AC $22E4 $2346` = screen rows 16, 18, 21 and typed a letter every 8 frames with no blip on spaces: `CAVE_TEXT_PEACE`, `zelda_say_peace`), the two
+  triforce pieces with the flashing backdrop (`MUS_ENDING` after it) and the closing words. Scene 8 waits `ZELDA_CREDIT_WAIT` frames and hands over to the credits wall (`credits_begin`, scene 9 = taken over): see
+  **Credits wall** in the intro section. The Second Quest restart is not ported.
   Silver Arrow and Red Ring are in cellars. `MUS_GANON` plays when Ganon appears and again when he burns. The boss roars are hooked (sound section). Checked in Hatari: Lanmola (all eight segments, room clears, item appears),
   Patra (the seven children, then the eye with one hit point left, room clears), the door man with all pieces (silent, shutters open)
   and without (his words), Ganon's and Zelda's scenes. Not checked: a human-speed fight with any of them.
@@ -707,7 +712,15 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   most expensive thing the game does (about 130,000 cycles a picture, split over two frames); the music's drums take enough of the rest that a few
   frames in a hundred run a VBL long while the animated items are on screen. Return (or the keypad Enter or the joystick button) is Start; leaving
   restores the three buffers, the palette and the game's mode (`intro_leave`). `music_update` leaves the song alone in this mode (the title song is an
-  event song, `MUS_TITLE`).
+  event song, `MUS_TITLE`). The title carries a line of the port's own, "PORTED TO ATARI ST BY Q", stamped into the picture at the top (`intro.stamp_text`). **Skip logic**: Start in any phase of the title or the story goes to the file menu (`intro_to_menu`), as `UpdateMode0Demo_Sub0` does; the ROM's `SkippedDemo` and `TransferredDemoPatterns` only keep the NES's CHR RAM and the menu entry after saving straight (mode D goes to mode 0 submode 1, past the title), which on the ST is `credits_to_menu` and `death_save` calling `filesel_begin` directly.
+- **Credits wall** (`credits.s`, `tools/credits.py`): after Zelda's closing words `zelda_tick` scene 8 calls `credits_begin`, which only sets `MODE_INTRO` and
+  `INTRO_PHASE_CREDITS` (`zelda_tick` runs inside the game's frame); the first `update_intro` then ends the game's double buffering (`dbl_end`), builds the
+  window and the black palette's replacement (Level 9's palettes with `EndingPaletteTransferBuf`) and the scroll runs like the story's: 600 steps, one every other
+  frame (`CreditsLastVscrollList`), a line of the strip per step into the ring. `credits.py` replays `DrawCredits` (a row of tiles per 8 pixels, brick wall tile
+  `$FA`, the text lines of `CreditsTextLines.dat` placed by `CreditsPagesTextMasks`, colours from `CreditsAttrs`) for 76 calls, and keeps Zelda's last words in
+  the first rows so they scroll off. The ROM's last screen stays: "ANOTHER QUEST WILL START FROM HERE." and the copyright, with the ash pile (Ganon's
+  frame 11) and the Triforce of Power (item `$0E`, flashing every 8 frames) at ($78,$88) drawn as sprites. Start there does the ROM's steps before the Second Quest
+  (`credits_to_menu`: `SwitchProfileToSecondQuest` and mode D, the profile cleared (`save_fields_clear`), three hearts, eight bombs, quest 1, `save_store_game`) and goes to the file menu, not through the title (what `SkippedDemo` is for); the Second Quest itself is not ported.
 - **Music and sound**: YM2149 register streams (the MOD/XM->YM tool's game-kit format) replayed
   from a VBL hook (`music_vbl`, chains to TOS's handler). `music_update` (every frame) picks the
   area song from the state: overworld theme, dungeon theme (level 1-8), level 9 theme, silence in
@@ -832,8 +845,8 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the overworld map on the ribbon; the rest of the ending (the scrolling credits wall, Ganon's burst rays, the Second Quest restart; M10); the title's demo-skip logic. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
-cloud. Level 2's Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
+Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the Second Quest (deferred). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+cloud. Level 2's Dodongo (bomb and sword kill) has been played through by Göran and works well; the Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
 Unmeasured: free memory on a 512 KB machine.
 
 The full plan, with what is done and what is left, is `atari_st/PLAN.md`. Scope decision: First Quest only, the Second

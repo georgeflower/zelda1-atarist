@@ -49,6 +49,7 @@ MENU_TO_REGISTER = "400:+return,410:-return,440:+return,450:-return"
 MENU_ZELDA = _taps(500, ["down", "down", "right", "right", "right", "space", "up", "up", "right", "space",
                          "down", "left", "left", "left", "left", "space", "up", "right", "right", "right", "space",
                          "left", "left", "left", "space"])
+ZELDA_WIN = "190:=HP_HALVES=40,190:=LINK_Y=0x95"     # Link at Zelda's, with the hearts of the last dungeon
 MENU_REGISTERED = f"{MENU_TO_REGISTER},{MENU_ZELDA},{_taps(610, ['tab', 'tab', 'tab'])},630:+return,632:-return"
 MENU_TO_ELIMINATION = f"{MENU_REGISTERED},{_taps(710, ['tab', 'tab'], 4)},720:+return,722:-return"
 
@@ -114,7 +115,15 @@ SCENES: dict[str, list[str]] = {
     "uw1_block_slide": ["--uw", "0x42", "--level", "1", "--vbls", "358", "--keys", BLOCK_L1],
     "uw1_block_landed": ["--uw", "0x42", "--level", "1", "--vbls", "392", "--keys", BLOCK_L1],
     "uw5_block_stairs": ["--uw", "0x05", "--level", "5", "--vbls", "480", "--keys", BLOCK_L5],
-    "uw9_credits_port": ["--uw", "0x32", "--level", "9", "--vbls", "3250", "--keys", "190:=HP_HALVES=40,190:=LINK_Y=0x95"],
+    # The credits wall (credits.s): Zelda's last words (1300 typing, 1420 done: "FINALLY," and two lines placed as the ROM does),
+    # the wall going by (1600, 2000), the last screen with the ash and the Triforce of Power (3250), and Start there: the
+    # file menu with the profile reset, without the title (3600 with Start at 3450).
+    "uw9_zelda_words": ["--uw", "0x32", "--level", "9", "--vbls", "1300", "--keys", ZELDA_WIN],
+    "uw9_zelda_peace": ["--uw", "0x32", "--level", "9", "--vbls", "1420", "--keys", ZELDA_WIN],
+    "uw9_credits_start": ["--uw", "0x32", "--level", "9", "--vbls", "1600", "--keys", ZELDA_WIN],
+    "uw9_credits_wall": ["--uw", "0x32", "--level", "9", "--vbls", "2000", "--keys", ZELDA_WIN],
+    "uw9_credits_end": ["--uw", "0x32", "--level", "9", "--vbls", "3250", "--keys", ZELDA_WIN],
+    "uw9_credits_menu": ["--uw", "0x32", "--level", "9", "--vbls", "3600", "--keys", ZELDA_WIN + ",3450:+return,3452:-return"],
     # The overworld's hidden spots (secrets.s). Enemies are cleared at frame 300 so nothing disturbs the poked-in Link.
     "ow_bomb_wall": ["--room", "0x01", "--vbls", "470", "--keys",
                      "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0x5d,300:=LINK_DIR=8,300:=INV_BOMBS=8,300:=B_ITEM=1,340:+ctrl,343:-ctrl"],
@@ -124,14 +133,28 @@ SCENES: dict[str, list[str]] = {
                       "300:=ENEMY_COUNT=0,300:=LINK_X=0xc0,300:=LINK_Y=0xa5,300:=LINK_DIR=1,300:=INV_CANDLE=1,300:=B_ITEM=3,340:+ctrl,343:-ctrl"],
     "ow_rock_pushed": ["--room", "0x79", "--vbls", "480", "--keys",
                        "300:=ENEMY_COUNT=0,300:=LINK_X=0x80,300:=LINK_Y=0xa5,300:=LINK_DIR=8,300:=INV_BRACELET=1,340:+up"],
+    "ow_rock_sliding": ["--room", "0x79", "--vbls", "358", "--keys",
+                        "300:=ENEMY_COUNT=0,300:=LINK_X=0x80,300:=LINK_Y=0xa5,300:=LINK_DIR=8,300:=INV_BRACELET=1,340:+up"],
+    "ow_grave_sliding": ["--room", "0x21", "--vbls", "358", "--keys",
+                         "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up,352:-up"],
     "ow_rock_no_bracelet": ["--room", "0x79", "--vbls", "480", "--keys",
                             "300:=ENEMY_COUNT=0,300:=LINK_X=0x80,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up"],
+    # The sword beam is not stopped by trees, stones or walls (MoveShot only knows the room's bounds): from the start screen it
+    # flies down through the forest and is seen over the trees.
+    "ow_beam_over_trees": ["--room", "0x77", "--vbls", "322", "--keys",
+                           "280:=ENEMY_COUNT=0,280:=HAS_SWORD=1,280:=LINK_DIR=4,300:+space,302:-space"],
     "ow_grave_pushed": ["--room", "0x21", "--vbls", "420", "--keys",
                         "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up,352:-up"],
     "ow_grave_returns": ["--room", "0x21", "--vbls", "1000", "--keys",
                          "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up,352:-up,380:=LINK_X=0x80,380:=LINK_Y=0xd5,385:+down,560:-down,570:+up"],
+    # The ladder over a dungeon moat (owspec.s): put down in front of Link, picked up again once he is across.
+    "uw6_ladder_moat": ["--uw", "0x19", "--level", "6", "--vbls", "290", "--keys",
+                        "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,260:+right"],
+    "uw6_ladder_across": ["--uw", "0x19", "--level", "6", "--vbls", "310", "--keys",
+                          "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,260:+right"],
     # Ganon: brown after the sword, then a silver arrow. He burns solid, the ashes stay under the Triforce of Power.
     "uw9_ganon_brown": ["--uw", "0x42", "--level", "9", "--vbls", "515", "--keys", GANON_ARROW],
+    "uw9_ganon_burst": ["--uw", "0x42", "--level", "9", "--vbls", "670", "--keys", GANON_ARROW],
     "uw9_ganon_ashes": ["--uw", "0x42", "--level", "9", "--vbls", "1100", "--keys", GANON_ARROW],
     "uw9_zelda_thanks": ["--uw", "0x32", "--level", "9", "--vbls", "800", "--keys", "190:=HP_HALVES=40,190:=LINK_Y=0x95"],
     # Caves (caves.s): --cave starts inside the cave behind the screen; the keys poke rupees and walk to a ware.

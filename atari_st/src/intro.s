@@ -44,14 +44,14 @@ intro_start:
     bsr save_init                       | the slots as ZELDA.SAV has them
     move.b #MODE_INTRO, OFF_GAME_MODE(%a5)
     move.b #1, OFF_INTRO_KEYS(%a5)      | a Start that is still down from before does not count
-    bsr swap_screens_far                    | SCREEN_PTR is the hidden screen from here on
+    bsr swap_screens_xf                    | SCREEN_PTR is the hidden screen from here on
     bsr intro_title_begin
     moveq #MUS_TITLE, %d0
-    bra music_event_far
+    bra music_event_xf
 
 | Everything the game expects of the screens, restored: the buffers clean and in their places, the game's colours.
 intro_leave:
-    bsr music_stop_far
+    bsr music_stop_xf
     clr.b OFF_MUS_FORCED(%a5)
     bsr intro_black
     bsr intro_clear_all
@@ -61,11 +61,11 @@ intro_leave:
     add.l #(2 * SCREEN_BYTES), %d0
     move.l %d0, OFF_BG_NEXT(%a5)
     move.l OFF_SCREEN_PTR(%a5), %d0
-    bsr set_video_base_far
+    bsr set_video_base_xf
     clr.b OFF_PRESENT_PENDING(%a5)
     clr.b OFF_INTRO_KEYS(%a5)
     clr.b OFF_GAME_MODE(%a5)
-    bsr cur_palette_far
+    bsr cur_palette_xf
     bra intro_set_palette
 
 intro_black:
@@ -195,8 +195,8 @@ intro_copy:
 
 | Show what is in the hidden screen, then make the other one the hidden one.
 intro_present:
-    bsr present_frame_far
-    bra swap_screens_far
+    bsr present_frame_xf
+    bra swap_screens_xf
 
 | ----------------------------------------------------------------------------------------------------- sprites
 | Like draw_sprite, for some of the 16 lines: a0 = the data of the first line to draw, a1 = where it goes,
@@ -625,6 +625,8 @@ intro_draw_items:
 | Once a frame in game mode MODE_INTRO.
 update_intro:
     addq.w #1, OFF_INTRO_FRAME(%a5)
+    cmpi.b #INTRO_PHASE_CREDITS, OFF_INTRO_PHASE(%a5)
+    beq credits_update                  | the credits wall (credits.s)
     cmpi.b #INTRO_PHASE_MENU, OFF_INTRO_PHASE(%a5)
     bhs filesel_update                  | the file menu (filesel.s)
     bsr intro_check_start
@@ -636,7 +638,7 @@ update_intro:
 
 | Start: the title song stops and the file menu comes up.
 intro_to_menu:
-    bsr music_stop_far
+    bsr music_stop_xf
     clr.b OFF_MUS_FORCED(%a5)
     moveq #FILE_SELECT, %d0
     bra filesel_begin
