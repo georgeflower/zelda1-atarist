@@ -20,7 +20,7 @@ boss Aquamentus and the triforce piece, and **Level 2 (the Moon)** to the Dodong
 its heart container and the triforce piece. **Levels 3 to 9** are built too (rooms,
 layouts, items, every monster and boss of those levels, up to Ganon and Zelda's thanks) but only partly play-tested.
 Every item of the original's inventory is in the game (found, bought or given as in the original). The title, the file menu, death, the
-continue question and saving to `ZELDA.SAV` are in; the rest (overworld minimap, Second Quest) is future work, see section 14
+continue question and saving to `ZELDA.SAV` are in; the rest (the Second Quest) is future work, see section 14
 and `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
@@ -539,7 +539,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   room is always a green box, and with the compass the triforce room is a box that flashes red/white every 16 frames until the piece
   is taken, then stays dull. The Tab screen shows the ROM's big sheet map instead (`menu_sheet_map`: only rooms Link has visited, `UW_FLAGS` bit 5 = `UW_FLAG_VISITED`, set by `uw_mark_visited` on entering a room, each with its door openings; the sheet is turned by the level's `MapSheet` rotation like the ROM; the green dot is Link; the compass adds the triforce room). Rooms come from `uw_room_index`; `UW_MAP_COL0` (circular window of 8 columns, centred, from
   `underworld.minimap_first_column`) and `UW_TRIFORCE_ROOM` (LevelInfo) are build equates. `minimap_tick` (main loop) raises
-  `HUD_DIRTY` when the room, the items or the flash phase change (`MINIMAP_SIG`). The overworld shows nothing there yet.
+  `HUD_DIRTY` when the room, the items or the flash phase change (`MINIMAP_SIG`). The overworld has the ROM's grey map in the same corner: `mm_overworld` fills the 32x24 pixels (colour 2, the tile `$F5` of LevelInfoOW's status bar map) and puts Link's 2x2 dot (colour 7, the marker tile `$3E`) at 2x3 pixels a screen, `minimap_tick` redraws when the room changes.
 - **Overworld hidden spots** (`secrets.s`, ROM `UpdateRockWall`/`UpdateTree`/`UpdateRockOrGravestone`, `CheckTileObject`): the layouts hide
   six marker squares (38-43, primaries `$E5-$EA`); `build_assets.decode_overworld` draws them as the squares the ROM swaps in (19, 27, 25,
   20, 44, 44) and writes `room_secrets.bin`, one 8-byte record per screen (type, the spot's square `row*16+col`, what it becomes, the stairs'
@@ -600,7 +600,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   guard fires (`$3F`, `BEH_FIRE`, killable, half a heart): `_room_info` expands the one Zelda into five monsters, `zelda_init` and
   `fire_init` put them at the ROM's places. `dmon_zelda` starts the scene when Link stands at X `$70`..`$80`, Y `$95`; `zelda_tick`
   (`ZELDA_SCENE` 1-8, run by `boss_misc_update`) plays the fanfare (`MUS_ZELDA`), the curtain (`curtain_column`), the thanks typed
-  by `cave_talk` (the texts are appended to `cave_text.bin`, `ENDING_TEXT_THANKS`/`ENDING_TEXT_PEACE` in `assets.inc`), the two
+  by `cave_talk` (the texts are appended to `cave_text.bin`, `ENDING_TEXT_THANKS`/`ENDING_TEXT_PEACE` in `assets.inc`; the last words are three lines, "FINALLY," first, placed at the ROM's addresses `$22AC $22E4 $2346` = screen rows 16, 18, 21 and typed a letter every 8 frames with no blip on spaces: `CAVE_TEXT_PEACE`, `zelda_say_peace`), the two
   triforce pieces with the flashing backdrop (`MUS_ENDING` after it) and the closing words. Scene 8 waits `ZELDA_CREDIT_WAIT` frames and hands over to the credits wall (`credits_begin`, scene 9 = taken over): see
   **Credits wall** in the intro section. The Second Quest restart is not ported.
   Silver Arrow and Red Ring are in cellars. `MUS_GANON` plays when Ganon appears and again when he burns. The boss roars are hooked (sound section). Checked in Hatari: Lanmola (all eight segments, room clears, item appears),
@@ -712,15 +712,15 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   most expensive thing the game does (about 130,000 cycles a picture, split over two frames); the music's drums take enough of the rest that a few
   frames in a hundred run a VBL long while the animated items are on screen. Return (or the keypad Enter or the joystick button) is Start; leaving
   restores the three buffers, the palette and the game's mode (`intro_leave`). `music_update` leaves the song alone in this mode (the title song is an
-  event song, `MUS_TITLE`). The title carries a line of the port's own, "PORTED TO ATARI ST BY Q", stamped into the picture at the top (`intro.stamp_text`).
+  event song, `MUS_TITLE`). The title carries a line of the port's own, "PORTED TO ATARI ST BY Q", stamped into the picture at the top (`intro.stamp_text`). **Skip logic**: Start in any phase of the title or the story goes to the file menu (`intro_to_menu`), as `UpdateMode0Demo_Sub0` does; the ROM's `SkippedDemo` and `TransferredDemoPatterns` only keep the NES's CHR RAM and the menu entry after saving straight (mode D goes to mode 0 submode 1, past the title), which on the ST is `credits_to_menu` and `death_save` calling `filesel_begin` directly.
 - **Credits wall** (`credits.s`, `tools/credits.py`): after Zelda's closing words `zelda_tick` scene 8 calls `credits_begin`, which only sets `MODE_INTRO` and
   `INTRO_PHASE_CREDITS` (`zelda_tick` runs inside the game's frame); the first `update_intro` then ends the game's double buffering (`dbl_end`), builds the
   window and the black palette's replacement (Level 9's palettes with `EndingPaletteTransferBuf`) and the scroll runs like the story's: 600 steps, one every other
   frame (`CreditsLastVscrollList`), a line of the strip per step into the ring. `credits.py` replays `DrawCredits` (a row of tiles per 8 pixels, brick wall tile
   `$FA`, the text lines of `CreditsTextLines.dat` placed by `CreditsPagesTextMasks`, colours from `CreditsAttrs`) for 76 calls, and keeps Zelda's last words in
   the first rows so they scroll off. The ROM's last screen stays: "ANOTHER QUEST WILL START FROM HERE." and the copyright, with the ash pile (Ganon's
-  frame 11) and the Triforce of Power (item `$0E`, flashing every 8 frames) at ($78,$88) drawn as sprites. Start there goes back to the title
-  (`credits_to_title`); the ROM starts the Second Quest, which is not ported.
+  frame 11) and the Triforce of Power (item `$0E`, flashing every 8 frames) at ($78,$88) drawn as sprites. Start there does the ROM's steps before the Second Quest
+  (`credits_to_menu`: `SwitchProfileToSecondQuest` and mode D, the profile cleared (`save_fields_clear`), three hearts, eight bombs, quest 1, `save_store_game`) and goes to the file menu, not through the title (what `SkippedDemo` is for); the Second Quest itself is not ported.
 - **Music and sound**: YM2149 register streams (the MOD/XM->YM tool's game-kit format) replayed
   from a VBL hook (`music_vbl`, chains to TOS's handler). `music_update` (every frame) picks the
   area song from the state: overworld theme, dungeon theme (level 1-8), level 9 theme, silence in
@@ -845,7 +845,7 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the overworld map on the ribbon; the rest of the ending (the Second Quest restart; M10); the title's demo-skip logic. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the Second Quest (deferred). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
 cloud. Level 2's Dodongo (bomb and sword kill) has been played through by Göran and works well; the Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
 Unmeasured: free memory on a 512 KB machine.
 

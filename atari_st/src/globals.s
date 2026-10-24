@@ -496,5 +496,6 @@
     gvar LADDER_DIR, 1           | the dungeon's ladder over a moat (owspec.s uw_ladder_*): the way it points (DIR_*)
     gvar LADDER_STATE, 1         | 1 laid down in front of Link, 2 he stands on it (ObjState of the ladder)
     gvar LADDER_ROOM, 1          | the room it was laid in
+    gvar CAVE_TEXT_PEACE, 1      | cave_talk is typing the ending's last words: three lines placed as the ROM does, 8 frames a letter, no blip on spaces
     galign
     .equ GLOBALS_BYTES, gvar_offset

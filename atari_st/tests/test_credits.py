@@ -28,8 +28,9 @@ class WallTests(unittest.TestCase):
     def test_the_strip_has_the_roms_credits_in_order(self) -> None:
         texts = [row_text(row) for row in credits.strip(ROM_ROOT)]
         texts = [t for t in texts if t]
-        self.assertEqual(texts[0], "PEACE RETURNS TO HYRULE.")
-        self.assertEqual(texts[1], "THIS ENDS THE STORY.")
+        self.assertEqual(texts[0], "FINALLY,")
+        self.assertEqual(texts[1], "PEACE RETURNS TO HYRULE.")
+        self.assertEqual(texts[2], "THIS ENDS THE STORY.")
         wanted = ["STAFF", "ANOTHER QUEST WILL START", "FROM HERE.", "PRESS THE START BUTTON.", "1986 NINTENDO"]
         position = 0
         for text in texts:

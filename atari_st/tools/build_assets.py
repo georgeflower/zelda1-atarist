@@ -163,7 +163,7 @@ def _ending_text(lines: tuple[str, ...]) -> bytes:
 
 # Zelda's words (ThanksText in Z_02.asm: the second line is a blank one). The credits are the scrolling wall of tools/credits.py.
 ENDING_THANKS_TEXT = _ending_text(("THANKS LINK,YOU'RE", " ", "THE HERO OF HYRULE."))
-ENDING_PEACE_TEXT = _ending_text(("PEACE RETURNS TO HYRULE.", " ", "THIS ENDS THE STORY."))   # the original has a "FINALLY," first
+ENDING_PEACE_TEXT = _ending_text(("FINALLY,", "PEACE RETURNS TO HYRULE.", "THIS ENDS THE STORY."))   # PeaceText; cave_talk places the lines
 ENDING_TEXTS = ENDING_THANKS_TEXT + ENDING_PEACE_TEXT
 
 PERSON_TEXT_BYTES = 43             # the first person's speech

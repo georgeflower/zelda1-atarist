@@ -42,9 +42,9 @@ TRIFORCE_ITEM = 0x0E
 GANON_TYPE = 0x3E
 ASHES_FRAME = 11
 
-# What Zelda's last words leave in the black room (the port types them at tile column 8, row 8 of the screen: column 4,
-# row 11 of the NES picture) and which of its lines the typed text uses.
-PEACE_LINES = ((11, 4, "PEACE RETURNS TO HYRULE."), (13, 4, "THIS ENDS THE STORY."))
+# What Zelda's last words leave in the black room (PeaceTextboxCharAddrsLo puts them at ($22AC), ($22E4) and ($2346) of the NES
+# picture, rows 21, 23 and 26; the port types them at screen rows 16, 18 and 21, which are strip rows 19, 21 and 24: the strip's first row is on screen row -3) and which of its lines the typed text uses.
+PEACE_LINES = ((19, 12, "FINALLY,"), (21, 4, "PEACE RETURNS TO HYRULE."), (24, 6, "THIS ENDS THE STORY."))
 
 
 def nes_codes(text: str) -> list[int]:

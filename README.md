@@ -18,11 +18,11 @@ Done: the whole overworld with its monsters, caves, secrets and specials; all ni
 - fight stalfos, keese, gels, ropes, goriyas (red and blue), darknuts, vires, zols, pols voice, like-likes, wizzrobes, gibdos, bubbles, wallmasters, blade traps, Aquamentus, the Dodongo (feed it bombs), the Moldorm, Manhandla, Gohma, Digdogger and Gleeok with the sword and its beam, bombs, the boomerang (also the magic one), the candle, the bow and arrows and the magic rod, and pick up the drops (hearts, rupees, bombs, the clock, the fairy)
 - use everything the original's inventory holds in the code: white and magical swords, potions, food, the recorder, the rings and the magic shield, found and bought as in the original
 - open the inventory screen, laid out exactly as the original's (B-item box, items, triforce pieces), and choose the B item
-- find the map and the compass and read the dungeon minimap on the ribbon, and the sheet map of the rooms you have visited on the inventory screen
+- find the map and the compass and read the dungeon minimap on the ribbon (the overworld has its grey map there too), and the sheet map of the rooms you have visited on the inventory screen
 - meet the old man in the first dungeon's room `$41` and read his hint
 - hear the music and sound effects, ripped from the ROM's own sound engine at build time: overworld, dungeon and Level 9 themes, the item and triforce fanfares, Link's death jingle, and effects for sword, boomerang, flame, bomb, stairs, pickups, hurt, the low-life beep, menu clicks and cave text
 
-**Not there yet:** the overworld minimap on the status bar. The Second Quest is deferred. The plan for all of it is `atari_st/PLAN.md`.
+**Not there yet:** the Second Quest, which is deferred. The plan for all of it is `atari_st/PLAN.md`.
 
 ## Controls
 

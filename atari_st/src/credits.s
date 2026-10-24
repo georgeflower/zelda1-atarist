@@ -3,7 +3,7 @@
 | After Zelda's last words the screen scrolls up one line every other frame, 600 lines (CreditsLastVscrollList), and the
 | wall of bricks with the staff in it goes by: "STAFF", the names, "ANOTHER QUEST WILL START FROM HERE.", "PRESS THE START
 | BUTTON." and the copyright. Then the black screen with the ash pile of Ganon and the Triforce of Power stays. Start
-| goes back to the title (the Second Quest, where the ROM goes, is not in this port).
+| goes to the file menu with the profile reset, as the ROM does before its Second Quest (which is not in this port).
 |
 | It works like the story of the intro (intro.s): a ring of 200 lines holds the window, and a line of the strip
 | (tools/credits.py) is drawn into it for each line of scroll. The ending song is still playing when it begins: it is
@@ -50,7 +50,7 @@ credits_update:
 2:  bsr intro_check_start
     tst.b %d0
     beq 90f
-    bra credits_to_title
+    bra credits_to_menu
 1:  btst #0, (OFF_INTRO_FRAME + 1)(%a5)
     beq 90f
     bsr credits_step                    | the picture moves up a line, on every other frame
@@ -164,10 +164,24 @@ credits_line:
 9:  movem.l (%sp)+, %d0-%d2/%a0/%a2
     rts
 
-| Start on the last screen: the title again, with its song.
-credits_to_title:
+| Start on the last screen (UpdateMode13WinGame_Sub4): the ROM silences everything, turns the profile into a Second Quest one
+| (SwitchProfileToSecondQuest: the world flags and the items cleared, three full hearts, eight bombs, the quest number 1),
+| saves it as mode D does and goes to mode 0 submode 1, the file menu, without the title and its demo (that is what
+| SkippedDemo is for). The Second Quest itself is not in this port: the slot starts the First Quest afresh.
+credits_to_menu:
     bsr music_stop_xf
     clr.b OFF_MUS_FORCED(%a5)
-    bsr intro_title_begin
-    moveq #MUS_TITLE, %d0
-    bra music_event_xf
+    bsr save_world_reset                | the screens as the ROM made them
+    bsr save_fields_clear               | the items and the flags of the world
+    move.b #3, OFF_HEART_CONTAINERS(%a5)
+    move.b #8, OFF_MAX_BOMBS(%a5)
+    moveq #0, %d0
+    move.b OFF_PROFILE(%a5), %d0
+    lea OFF_SLOT_QUEST(%a5), %a0
+    move.b #1, 0(%a0, %d0.w)
+    bsr save_store_game                 | the hearts filled, the record written (a slot that is not in use is left alone)
+    lea OFF_SLOT_ACTIVE(%a5), %a0       | the two options are always on (a development build never read the file)
+    move.b #1, 3(%a0)
+    move.b #1, 4(%a0)
+    moveq #FILE_SELECT, %d0
+    bra filesel_begin

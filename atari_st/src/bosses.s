@@ -2880,6 +2880,15 @@ zelda_say:
     move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
     move.b #CAVE_TEXT_ROW0, OFF_CAVE_TEXT_ROW(%a5)
     move.b #ZELDA_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
+    clr.b OFF_CAVE_TEXT_PEACE(%a5)
+    rts
+
+| The last words: "FINALLY," at the ROM's ($22AC), then the other two lines further down (cave_talk places them).
+zelda_say_peace:
+    bsr zelda_say
+    move.b #1, OFF_CAVE_TEXT_PEACE(%a5)
+    move.b #16, OFF_CAVE_TEXT_COL(%a5)
+    move.b #16, OFF_CAVE_TEXT_ROW(%a5)
     rts
 
 | The fires are gone from the picture (and still count as the room's monsters: nothing here may clear the room).
@@ -3029,7 +3038,7 @@ zelda_tick:
     bne 99f
     move.b #7, OFF_ZELDA_SCENE(%a5)
     move.w #ENDING_TEXT_PEACE, %d0
-    bsr zelda_say
+    bsr zelda_say_peace
     bra 99f
 55: cmp.b #7, %d0
     bne 60f
