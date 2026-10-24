@@ -65,6 +65,7 @@ LEVEL_INFO_FOE_COUNTS = 0x6BA2 - LEVEL_INFO_BASE
 LEVEL_INFO_START_Y = 0x6BA6 - LEVEL_INFO_BASE
 LEVEL_INFO_START_ROOM_ID = 0x6BAD - LEVEL_INFO_BASE
 LEVEL_INFO_TRIFORCE_ROOM_ID = 0x6BAE - LEVEL_INFO_BASE
+LEVEL_INFO_BOSS_ROOM_ID = 0x6BBC - LEVEL_INFO_BASE
 LEVEL_INFO_ITEM_POSITIONS = 0x6BA7 - LEVEL_INFO_BASE
 PALETTE_ROWS = 8
 PALETTE_ROW_COLORS = 4
@@ -1100,7 +1101,7 @@ def level_include(levels) -> str:
             lines.append(f"    .long uw{uw.level}_{name} - table_anchor")
         lines.append(
             f"    .byte 0x{uw.start_room:02x}, 0x{uw.start_y:02x}, 0x{uw.triforce_room:02x}, {uw.map_col0}, "
-            f"{len(uw.cellar_info)}, 0, 0, 0"
+            f"{len(uw.cellar_info)}, 0x{uw.boss_room:02x}, 0, 0"
         )
     lines.append("")
     return "\n".join(lines)

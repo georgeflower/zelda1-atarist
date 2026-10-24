@@ -37,6 +37,72 @@
     farstub cur_palette_bf, cur_palette
     farstub draw_hud_tile_bf, draw_hud_tile
     farstub music_event_bf, music_event
+    farstub enemy_behaviour_bf, enemy_behaviour
+
+| ---------------------------------------------------------------- the bosses' voices (DPCM samples)
+| A boss has been placed in its room: its roar (the Init routines' SampleRequest). d5 = monster. Keeps every
+| register. The ambient roar of the rooms around the boss is music_roar_tick's.
+spawn_roar:
+    movem.l %d0-%d1/%a0, -(%sp)
+    bsr enemy_behaviour_bf
+    moveq #SMP_ROAR_BIG, %d1
+    cmp.w #BEH_BOSS, %d0                | Aquamentus
+    beq 1f
+    cmp.w #BEH_GLEEOK, %d0
+    beq 1f
+    moveq #SMP_ROAR_LOW, %d1
+    cmp.w #BEH_DODONGO, %d0
+    beq 1f
+    cmp.w #BEH_GOHMA, %d0
+    beq 1f
+    moveq #SMP_ROAR_WAIL, %d1
+    cmp.w #BEH_MANHANDLA, %d0
+    beq 1f
+    cmp.w #BEH_DIGDOGGER, %d0
+    beq 1f
+    cmp.w #BEH_PATRA, %d0
+    beq 1f
+    moveq #SMP_BOSS_HIT, %d1            | Ganon's shout (InitGanon asks for the boss-hit sample)
+    cmp.w #BEH_GANON, %d0
+    bne 9f
+1:  move.l %d1, %d0
+    bsr music_play_bf
+9:  movem.l (%sp)+, %d0-%d1/%a0
+    rts
+
+| Enemy d5 has taken a hit: the bosses that cry out when they are struck (PlayBossHitCryIfNeeded) do so with
+| the boss-hit sample. The same sample is the death cry of the rest (PlayBossDeathCry), see boss_death_cry.
+boss_hit_cry:
+    movem.l %d0/%a0, -(%sp)
+    bsr enemy_behaviour_bf
+    cmp.w #BEH_BOSS, %d0                | Aquamentus
+    beq 1f
+    cmp.w #BEH_MANHANDLA, %d0
+    beq 1f
+    cmp.w #BEH_GOHMA, %d0
+    beq 1f
+    cmp.w #BEH_GLEEOK_HEAD, %d0
+    beq 1f
+    cmp.w #BEH_PATRA, %d0
+    beq 1f
+    cmp.w #BEH_GANON, %d0
+    bne 9f
+1:  sfx SMP_BOSS_HIT
+9:  movem.l (%sp)+, %d0/%a0
+    rts
+
+| The Dodongo and Digdogger cry only when they die (UpdateDodongoState1_Bloated_Sub_Die, L_Digdogger_AfterFlute);
+| the others cried with the blow that killed them.
+boss_death_cry:
+    movem.l %d0/%a0, -(%sp)
+    bsr enemy_behaviour_bf
+    cmp.w #BEH_DODONGO, %d0
+    beq 1f
+    cmp.w #BEH_DIGDOGGER, %d0
+    bne 9f
+1:  sfx SMP_BOSS_HIT
+9:  movem.l (%sp)+, %d0/%a0
+    rts
 
 | ---------------------------------------------------------------- wizzrobes
 | Wizzrobes (UpdateBlueWizzrobe, UpdateRedWizzrobe). ENEMY_GHOST is set while one is not drawn: weapons pass through

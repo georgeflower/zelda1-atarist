@@ -757,6 +757,7 @@ uw_try_door:
     beq 8f
     subq.b #1, OFF_INV_KEYS(%a5)
 22: bsr uw_open_door_pair
+    sfx SMP_DOOR                    | the door sample plays for keys and shutters
     move.b #1, OFF_HUD_DIRTY(%a5)
     bsr uw_redraw_room
     bra 8f
@@ -914,6 +915,7 @@ uw_enter_cellar:
     clr.b OFF_ROOM_TRIGGER(%a5)
     clr.b OFF_ROOM_UNSUPPORTED(%a5)
     clr.b OFF_ROOM_DARK(%a5)
+    clr.b OFF_ROOM_ROAR(%a5)
     lea cellar_keese(%pc), %a1
     ltab mon_table, %a2
     moveq #MON_KEESE, %d1

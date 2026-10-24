@@ -964,7 +964,7 @@ def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_by
 
 def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, lists=(), level: int = 0) -> bytes:
     """count, secret trigger (bit 7: the room has a push block, 6 a rupee stash, 5 Grumble, 4 the man at Level 9's door), item id, item X, item Y,
-    unsupported (bit 7: a dark room),
+    unsupported (bit 7: a dark room, bits 5-6: which boss roar the room can hear, attribute E's sound index),
     eight monsters, then where the person's speech starts in the cave text (0xFF: nobody talks here)."""
     attr_c, attr_d, attr_e, attr_f = attrs
     list_id = (attr_c[room] & 0x3F) | (0x40 if attr_d[room] & 0x80 else 0)
@@ -1015,7 +1015,10 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
     if level == 9 and list_id == PERSON_LIST_FIRST:
         trigger |= 0x10                                 # the man who lets Link in once he holds all eight pieces
     dark = 0x80 if attr_e[room] & 0x80 else 0           # attribute E bit 7: a dark room (until the candle is lit)
-    record = bytearray([len(monsters), trigger, item_id, pos & 0xF0, (pos & 0x0F) << 4, unsupported | dark])
+    roar = (attr_e[room] >> 5) & 3                      # CheckBossSoundEffectUW: 0 none, 1 $10, 2 $20, 3 $40
+    if unsupported > 0x1F:
+        raise SystemExit(f"room {room:#x}: {unsupported} unsupported monsters leave no room for the roar bits")
+    record = bytearray([len(monsters), trigger, item_id, pos & 0xF0, (pos & 0x0F) << 4, unsupported | roar << 5 | dark])
     record.extend(monsters)
     record.extend([0xFF] * (ROOM_INFO_BYTES - 2 - len(record)))
     if person != NO_PERSON and not monsters:

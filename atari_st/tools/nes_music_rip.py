@@ -618,6 +618,86 @@ def rip_all(prg: bytes, only: list[str] | None = None, max_frames: int = 30000) 
     return out
 
 
+# --------------------------------------------------------------------------- DPCM samples
+
+# The seven samples of the ROM (PlaySample / DriveSample, src/Z_00.asm). SampleRequest bit n plays sample n:
+# (stem, request bit, DMC address register, DMC length register, DMC rate index). Where the data lives:
+# PcmSamples, the first 9216 bytes of the fixed bank ($C000); the address register counts 64-byte steps,
+# the length register 16-byte steps plus one byte. The boss hit and the Digdogger roar share their data.
+PCM_OFFSET = 7 * BANK_SIZE
+SAMPLES: list[tuple[str, int, int, int, int]] = [
+    ("smp_sword_beam", 0x01, 0x00, 0x75, 0x0F),
+    ("smp_boss_hit", 0x02, 0x4C, 0xC0, 0x0F),
+    ("smp_door", 0x04, 0x80, 0x40, 0x0D),
+    ("smp_link_hurt", 0x08, 0x1D, 0x0A, 0x0F),
+    ("smp_roar_big", 0x10, 0x20, 0xB0, 0x0E),  # Aquamentus, Gleeok, Ganon
+    ("smp_roar_low", 0x20, 0x28, 0x90, 0x0F),  # Dodongo, Gohma
+    ("smp_roar_wail", 0x40, 0x4C, 0xD0, 0x0E),  # Digdogger, Manhandla, Patra
+]
+DMC_PERIODS = {
+    "ntsc": [428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54],
+    "pal": [398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50],
+}
+# The YM2149's sixteen volume steps as fractions of the loudest (the amplitudes ST-Sound uses).
+YM_LEVELS = [0, 62, 161, 265, 377, 580, 774, 1155, 1575, 2260, 3088, 4570, 6233, 9330, 13187, 21220]
+
+
+def dmc_decode(data: bytes, start: int = 64) -> list[int]:
+    """The DMC output unit: one bit per step moves the 7-bit counter by 2, bit 0 first. One value per bit."""
+    level = start
+    out = []
+    for byte in data:
+        for bit in range(8):
+            if byte >> bit & 1:
+                if level <= 125:
+                    level += 2
+            elif level >= 2:
+                level -= 2
+            out.append(level)
+    return out
+
+
+def dmc_to_drum(levels: list[int], bit_rate: float, centre: float = 0.28, swing: float = 0.26, clip: float = 0.995) -> bytes:
+    """Decoded DMC counter values -> one 4-bit digidrum (YM volume steps) at DRUM_RATE.
+
+    The counter's DC offset is taken away and the sound is averaged down to the drum rate (a box filter, so
+    the 33 kHz hiss does not fold back). The YM only has a volume, and its sixteen steps are logarithmic, so
+    the wave rides low on the scale, where the steps are fine: it swings +-`swing` around `centre` of the
+    loudest step (the loudest 1 - `clip` of the samples are clipped), and the rounding error is carried on
+    to the next sample (error diffusion), which is worth about 3 dB over rounding each sample alone.
+    """
+    mean = sum(levels) / len(levels)
+    count = int(len(levels) * DRUM_RATE / bit_rate)
+    step = bit_rate / DRUM_RATE
+    wave = []
+    for i in range(count):
+        lo, hi = int(i * step), max(int(i * step) + 1, int((i + 1) * step))
+        chunk = levels[lo:hi]
+        wave.append(sum(chunk) / len(chunk) - mean)
+    by_size = sorted(abs(v) for v in wave)
+    top = by_size[max(0, int(len(by_size) * clip) - 1)] or 1.0
+    full = YM_LEVELS[-1]
+    out = bytearray()
+    carried = 0.0
+    for v in wave:
+        want = (centre + swing * max(-1.0, min(1.0, v / top))) * full + carried
+        k = min(range(16), key=lambda j: abs(YM_LEVELS[j] - want))
+        carried = want - YM_LEVELS[k]
+        out.append(k)
+    return bytes(out)
+
+
+def rip_samples(prg: bytes, clock: str = "pal") -> dict[str, bytes]:
+    """Every DPCM sample of the game as a 4-bit digidrum, by stem."""
+    out = {}
+    for stem, _bit, address, length, rate in SAMPLES:
+        start = PCM_OFFSET + address * 64
+        data = prg[start : start + length * 16 + 1]
+        bit_rate = CPU_CLOCK[clock] / DMC_PERIODS[clock][rate & 15]
+        out[stem] = dmc_to_drum(dmc_decode(data), bit_rate)
+    return out
+
+
 # --------------------------------------------------------------------------- .ym writer
 
 
