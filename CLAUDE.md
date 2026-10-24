@@ -478,7 +478,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   nearer than `$C` across the blade and `$10` along it. Darknuts parry only a blow whose direction ORed with
   theirs is `$0C` or `$03` (they face each other); from behind or the side it hurts. **Beam** (full
   hearts only: `MakeSwordShot` wants the last heart's partial >= `$80` and any blow takes it to `$7F`): launched at phase 3, 3 px/frame, palette cycles with
-  `FrameCounter & 3`, spark tile `$30` in 4 corners spreading k=2..23.
+  `FrameCounter & 3`, spark tile `$30` in 4 corners spreading k=2..23. It looks at no tile: `MoveShot` only calls `BoundByRoomWithA` (a weapon's offsets: X+`$B` < left or X-`$C` >= right, Y+`$F` < up or Y-`$12` >= down, in byte arithmetic), so the beam, Link's arrows and the rod's shot, and the monsters' rocks and arrows, fly over trees, stones and walls up to the room's bounds (`beam_update`, `shot_blocked` is a stub).
 - **Bombs**: fuse 48 frames; cloud 36 frames: first 24 damage (radius `$18`, `$40`
   damage = 4 sword hits) + two grey screen flashes (timer 22-19 and 17-14), last 12 open
   a bombable wall; max 8; tiles `$34` (bomb), `$70/$72` clouds. Gone when you leave
@@ -589,7 +589,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   Courage held up); he is drawn from the boss pool (`BP_GANON` frames, ten blue and ten brown pictures plus the ashes), hides,
   teleports (`ganon_relocate`) and throws fire; a sword blow turns him brown (`ganon_died` the first time), a silver arrow into a
   brown Ganon kills him (`ganon_filter`), he burns solid for `$50` frames, then the ash pile (it stays) and the **Triforce of Power** (item `$0E`, drawn from Level 9's
-  sprite table) lies on it at `$A0`; the burst rays are not ported (trigger 7 hides the room item until then). **Zelda** (`$37`, `BEH_ZELDA`) comes with four
+  sprite table) lies on it at `$A0`; the **burst** comes first, over `$50`..`$9F` (`ganon_burst_begin`/`_move`/`_draw`): eight clouds close in on the ash (distance `GANON_CLOUD`, 8 down to 0, one less every 8 frames) and eight rays fly out of it (`ganon_ray_dirs`: right, left, down, down-right, down-left, up, up-right, up-left; the straight ones move every frame, the diagonal ones 3 of 4), the palette row flashing with `FrameCounter & 3`, the boss hit sample and the Ganon song starting with it. **Zelda** (`$37`, `BEH_ZELDA`) comes with four
   guard fires (`$3F`, `BEH_FIRE`, killable, half a heart): `_room_info` expands the one Zelda into five monsters, `zelda_init` and
   `fire_init` put them at the ROM's places. `dmon_zelda` starts the scene when Link stands at X `$70`..`$80`, Y `$95`; `zelda_tick`
   (`ZELDA_SCENE` 1-8, run by `boss_misc_update`) plays the fanfare (`MUS_ZELDA`), the curtain (`curtain_column`), the thanks typed
@@ -832,7 +832,7 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the overworld map on the ribbon; the rest of the ending (the scrolling credits wall, Ganon's burst rays, the Second Quest restart; M10); the title's demo-skip logic. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the overworld map on the ribbon; the rest of the ending (the scrolling credits wall, the Second Quest restart; M10); the title's demo-skip logic. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
 cloud. Level 2's Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
 Unmeasured: free memory on a 512 KB machine.
 

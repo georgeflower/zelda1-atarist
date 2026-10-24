@@ -485,5 +485,8 @@
     gvar ROOM_ROAR, 1            | attribute E's sound index of this dungeon room: 0 none, 1-3 the boss roar it can hear
     gvar ROAR_TIMER, 1           | frames until the ambient roar sounds again (SampleCounter)
     gvar ROAR_ROOM, 1            | the room the roar timer was started in, $FF outside the dungeons
+    gvar GANON_CLOUD, 1          | Ganon_ObjCloudDist: how far from the ashes the eight clouds of the burst are, 8 down to 0
+    gvar GANON_RAY_X, 8          | the burst's eight rays (Ganon_SetUpBurstRays): X and Y of each
+    gvar GANON_RAY_Y, 8
     galign
     .equ GLOBALS_BYTES, gvar_offset

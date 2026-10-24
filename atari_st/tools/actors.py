@@ -309,6 +309,9 @@ GANON_COLOURINGS = (        # blue and brown, as the ROM recolours palette row 7
     ((6, 1), (5, 2), (5, 3)),   # nearest colours of Level 9's own sprite rows (row, pixel): red, blue, white
     ((6, 1), (4, 3), (5, 3)),   # brown $07 $17 $30: the level has no $07, so red $16 stands in for it, then brown $17 and white
 )
+GANON_RAYS = (              # GanonBurstDirs / GanonBurstTiles / GanonBurstSpriteAttrs, by ray: right, left, down, down-right,
+    (0xEE, True, False), (0xEE, False, False), (0xE8, False, True), (0x30, True, True),     # down-left, up, up-right, up-left
+    (0x30, False, True), (0xE8, False, False), (0x30, True, False), (0x30, False, False))
 GANON_ASH_COLOURS = ((4, 2), (4, 3), (6, 1))      # the triforce colours $27 $06 $16: orange, brown for the dark red, red
 PATRA_CHILDREN = 7          # eight in the original, which has ten object slots; here the eye and seven
 PATRA_CHILD_OF = {0x47: 0x25, 0x48: 0x26}      # InitPatra: type $47 goes with child $25, $48 with $26
@@ -736,6 +739,19 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
                         images.append(_monster_image(tiles, view, B.LINK_PALETTE_ROW + 3, heap[base + part], "wide"))
                 view = _RemappedPalette(palette, GANON_ASH_COLOURS)
                 images.append(_monster_image(tiles, view, B.LINK_PALETTE_ROW + 3, heap[base + GANON_ASHES], "wide"))
+                # The burst Ganon_DrawBurst makes at his death: the two clouds (heap entries 12 and 13, sprite row 3, which
+                # the ROM has just recoloured to the triforce colours), then each of the eight rays in the four palette
+                # rows its attributes cycle through (the flash). Image 23 + 4 * ray + step; the pool picture is
+                # BP_GANON + 2 * image, since every image is stored plain and mirrored (the mirror is not used).
+                for tile in (heap[base + 12], heap[base + 13]):
+                    images.append(_monster_image(tiles, view, B.LINK_PALETTE_ROW + 3, tile, "mirror"))
+                for tile, h, v in GANON_RAYS:
+                    for step in range(4):
+                        ray_view = view if step == 3 else palette           # row 7 is the ashes' by then
+                        rows = _monster_image(tiles, ray_view, B.LINK_PALETTE_ROW + step, tile, "left")
+                        if h:
+                            rows = [r[7::-1] + r[8:] for r in rows]
+                        images.append(_flip_rows(rows, False, v))
         elif mode == MODE_LANMOLA:
             row = B.LINK_PALETTE_ROW + (2 if nes_type == 0x3A else 1)
             images = [_monster_image(tiles, palette, row, LANMOLA_HEAD_TILE, "narrow"),

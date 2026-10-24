@@ -384,7 +384,7 @@ death_copy_lines:
     adda.l %d0, %a1
     move.w %d7, %d0
     move.w #PLAYFIELD_BYTES, %d1
-    bsr blit_rect_far
+    bsr blit_rect_df
     movem.l (%sp)+, %d0-%d1/%a0-%a1
     rts
 
@@ -431,7 +431,7 @@ death_draw:
     movea.l OFF_SCREEN_PTR(%a5), %a1
     adda.l %d0, %a1
     move.w %d2, %d0
-    bsr draw_sprite_far
+    bsr draw_sprite_df
     movem.l (%sp)+, %d0-%d2/%a0-%a1
     rts
 
@@ -494,6 +494,8 @@ death_restart:
     farstub uw_warp_to_start_df, uw_warp_to_start     | 32-bit stubs: the code between here and these two has grown past 16 bits
     farstub draw_hud_df, draw_hud_far
     farstub enter_room_df, enter_room_far
+    farstub draw_sprite_df, draw_sprite_far
+    farstub blit_rect_df, blit_rect_far
 
 | SAVE: the hearts are filled up to the containers, the profile is written, and the file menu comes back.
 death_save:

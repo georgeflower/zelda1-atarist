@@ -22,7 +22,7 @@ Done: the whole overworld with its monsters, caves, secrets and specials; all ni
 - meet the old man in the first dungeon's room `$41` and read his hint
 - hear the music and sound effects, ripped from the ROM's own sound engine at build time: overworld, dungeon and Level 9 themes, the item and triforce fanfares, Link's death jingle, and effects for sword, boomerang, flame, bomb, stairs, pickups, hurt, the low-life beep, menu clicks and cave text
 
-**Not there yet:** the overworld minimap on the status bar, the credits wall and the burst rays of Ganon's death. The Second Quest is deferred. The plan for all of it is `atari_st/PLAN.md`.
+**Not there yet:** the overworld minimap on the status bar, the credits wall. The Second Quest is deferred. The plan for all of it is `atari_st/PLAN.md`.
 
 ## Controls
 

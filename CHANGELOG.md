@@ -2,7 +2,17 @@
 
 Versions are milestones of the Atari ST port (`0.NN`), tagged on the commit that finishes them. A big change (a dungeon,
 a new mechanic family, a milestone package of `atari_st/PLAN.md`) gets its own version; fixes and docs ride along with the
-version they belong to. The current version is **0.36**.
+version they belong to. The current version is **0.37**.
+
+## 0.37 (2026-10-24) - Ganon's burst, and shots that ignore the scenery
+- **Ganon's death burst.** While he burns solid (`$50`..`$9F`) eight clouds close in on the ash and eight rays fly out of it (right, left, down, the three
+  diagonals down, up, up-right, up-left; diagonals move 3 of 4 frames), flashing with the frame counter, with the boss-hit sample and the Ganon song as they
+  start (`ganon_burst_*` in `bosses.s`, `GANON_RAYS` in `actors.py`). The Triforce of Power still appears at `$A0`.
+- **The sword beam flies over trees, stones and walls.** The ROM moves it with `MoveShot`, which only checks the room's bounds (`BoundByRoomWithA`: a weapon
+  counts as out when X+`$B` < left or X-`$C` >= right, Y+`$F` < up or Y-`$12` >= down), so it stops at the edge of the room, not at a tile, and it is
+  made even with a wall in front of Link. The port stopped it at any blocking tile. Link's arrows, the rod's shot and the monsters' rocks and arrows go
+  through the same routine and now ignore tiles as well (`shot_blocked` is a stub).
+- Documentation: the burst rays are no longer listed as missing.
 
 ## 0.36 (2026-10-24) - the flying ghini, and the documentation checked against the ROM
 - The ROM's overworld object table, caves and sounds were compared with the port. Everything the First Quest uses was in except the **flying ghini**
