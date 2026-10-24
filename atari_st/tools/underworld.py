@@ -64,6 +64,7 @@ class UwData:
     start_y: int
     level: int
     triforce_room: int = 0    # LevelInfo_TriforceRoomId: where the compass marker points
+    boss_room: int = 0        # LevelInfo_BossRoomId: the room whose clearing ends the boss's ambient roar
     map_col0: int = 0         # room column drawn in the minimap's first column
     actors: object = None
     cellar_maps: tuple = ()   # UW_ROOM_BYTES row-major bank ids per cellar
@@ -508,6 +509,7 @@ def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes
         start_y=start_y,
         level=level,
         triforce_room=info[B.LEVEL_INFO_TRIFORCE_ROOM_ID],
+        boss_room=info[B.LEVEL_INFO_BOSS_ROOM_ID],
         map_col0=minimap_first_column(stored),
         actors=actors.build_actors(
             source_root, level, bg_tiles, ow_map, stored, (attrs[2], attrs_d, attrs[4], attrs[5]), info, ow_sprite_tiles,

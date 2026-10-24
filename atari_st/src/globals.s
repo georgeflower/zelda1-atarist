@@ -326,6 +326,7 @@
     .equ OFF_UW_TRIFORCE_ROOM, OFF_UWL_BYTES + 2
     .equ OFF_UW_MAP_COL0, OFF_UWL_BYTES + 3
     .equ OFF_UW_CELLARS, OFF_UWL_BYTES + 4
+    .equ OFF_UW_BOSS_ROOM, OFF_UWL_BYTES + 5
 
     | A Dodongo is two sprites wide: the second one's erase offsets, and Moldorm's chain fields.
     galign
@@ -473,5 +474,8 @@
     gvar FAIRY_DIR, 3
     gvar HELD_DIRS, 1            | every direction held this frame (a diagonal has two bits)
     gvar MENU_PHASE, 1           | which of the cursor's two colours the inventory screen shows
+    gvar ROOM_ROAR, 1            | attribute E's sound index of this dungeon room: 0 none, 1-3 the boss roar it can hear
+    gvar ROAR_TIMER, 1           | frames until the ambient roar sounds again (SampleCounter)
+    gvar ROAR_ROOM, 1            | the room the roar timer was started in, $FF outside the dungeons
     galign
     .equ GLOBALS_BYTES, gvar_offset

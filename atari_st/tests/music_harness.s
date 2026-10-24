@@ -3,6 +3,7 @@
 | the image; each runs one routine and spins on a branch to itself.
 
     .include "music_ids.inc"
+    .equ MODE_PLAY, 0
     .equ MODE_CAVE, 2
     .equ MODE_MENU, 3
     .equ MODE_INTRO, 4

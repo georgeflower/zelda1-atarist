@@ -64,6 +64,7 @@ Platform and rendering
 - YM2149 music and sound effects from a VBL hook: the NES original overworld theme, the ROM's
   dungeon and Level 9 themes, event fanfares and effects laid over the
   music (digidrums included): sword, boomerang, flame, bomb, stairs, pickups, hurt,
+  the ROM's DPCM samples (sword beam, door, Link's cry, boss cries and roars),
   the low-life beep and the menu and cave-text clicks. Everything is ripped from
   `ext/Original.nes` at build time with the ROM's own sound engine; without `py65` the game is silent
 - status ribbon: hearts (with halves), rupee, key and bomb counters, in the
@@ -355,7 +356,7 @@ Next, in the order of `PLAN.md`
    the ladder, the recorder's whirlwind, the animated pond
 3. the other seven dungeons, now that a level is data (M6 to M9): per level the
    monsters, the boss and the palette rows of its sprites
-4. the rest of the ending and the sound (M10, M11): the Second Quest restart, the boss roars, the sea and DPCM samples
+4. the rest of the ending (M10): the Second Quest restart
    (the title, file menu, death, continue and saving are done)
 5. a check on real STFM timing and memory, a release build (M12)
 

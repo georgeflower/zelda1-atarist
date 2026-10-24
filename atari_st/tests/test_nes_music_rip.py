@@ -205,6 +205,37 @@ class YmFileTests(unittest.TestCase):
         self.assertEqual(back["regs"], regs)
 
 
+class DpcmTests(unittest.TestCase):
+    def test_the_dmc_counter_moves_by_two_per_bit_lsb_first(self) -> None:
+        self.assertEqual(rip.dmc_decode(bytes([0b00000101]), 64), [66, 64, 66, 64, 62, 60, 58, 56])
+
+    def test_the_dmc_counter_stops_at_its_ends(self) -> None:
+        self.assertEqual(max(rip.dmc_decode(b"\xff" * 40, 64)), 126)       # +2 only up to 125: even values stop at 126
+        self.assertGreaterEqual(min(rip.dmc_decode(b"\x00" * 40, 64)), 0)
+
+    def test_a_sample_becomes_a_digidrum_of_the_right_length(self) -> None:
+        levels = [64 + (10 if (i // 8) % 2 else -10) for i in range(33_000)]       # a 2 kHz square wave, one second
+        pcm = rip.dmc_to_drum(levels, 33_000.0)
+        self.assertEqual(len(pcm), int(33_000 * rip.DRUM_RATE / 33_000.0))
+        self.assertTrue(all(v < 16 for v in pcm))
+        self.assertGreater(max(pcm), min(pcm) + 3)
+        low, high = rip.YM_LEVELS[min(pcm)], rip.YM_LEVELS[max(pcm)]
+        self.assertLess(low, 0.15 * rip.YM_LEVELS[-1] * 1.0 + 1)
+        self.assertGreater(high, 0.4 * rip.YM_LEVELS[-1])
+
+    def test_the_sample_tables_are_the_roms(self) -> None:
+        asm = (ROOT.parent / "src" / "Z_00.asm").read_text()
+
+        def table(label: str) -> list[int]:
+            body = asm.split(f"\n{label}:\n", 1)[1].split("\n\n", 1)[0]
+            return [int(x.strip().lstrip("$"), 16) for line in body.splitlines() for x in line.split(".BYTE")[1].split(",")]
+
+        self.assertEqual([x[2] for x in rip.SAMPLES], table("SampleAddrs"))
+        self.assertEqual([x[3] for x in rip.SAMPLES], table("SampleLengths"))
+        self.assertEqual([x[4] for x in rip.SAMPLES], table("SampleRates"))
+        self.assertEqual([x[1] for x in rip.SAMPLES], [1 << i for i in range(7)])
+
+
 ROM = Path(os.environ.get("ZELDA_ROM", ROOT.parent / "ext" / "Original.nes"))
 
 
@@ -253,6 +284,18 @@ class RomTests(unittest.TestCase):
                 self.assertEqual(row[7], 0xDF if frame.noise[0] else 0xFF, stem)
                 self.assertEqual(row[10] > 0, frame.noise[0] > 0, stem)
                 self.assertTrue(row[6] == 0 or 1 <= row[6] <= 31, stem)
+
+    def test_the_seven_dpcm_samples_are_sounds_not_silence(self) -> None:
+        samples = rip.rip_samples(self.prg)
+        self.assertEqual(list(samples), [x[0] for x in rip.SAMPLES])
+        for stem, pcm in samples.items():
+            seconds = len(pcm) / rip.DRUM_RATE
+            self.assertTrue(0.03 < seconds < 1.2, (stem, seconds))
+            self.assertGreater(len(set(pcm)), 4, f"{stem} uses a range of volume steps")
+            self.assertTrue(all(v < 16 for v in pcm))
+        # the hurt cry is a few frames, the Digdogger wail the longest
+        self.assertLess(len(samples["smp_link_hurt"]), 600)
+        self.assertEqual(max(samples, key=lambda k: len(samples[k])), "smp_roar_wail")
 
     def test_every_track_converts_in_both_drum_modes(self) -> None:
         for stem, kind, value, _ in rip.TRACKS:

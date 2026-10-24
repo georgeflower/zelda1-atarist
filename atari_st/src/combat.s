@@ -239,6 +239,7 @@ beam_launch:
     move.b %d3, OFF_BEAM_Y(%a5)
     move.b OFF_LINK_DIR(%a5), OFF_BEAM_DIR(%a5)
     move.b #1, OFF_BEAM_ACTIVE(%a5)
+    sfx SMP_BEAM
 9:  movem.l (%sp)+, %d0-%d4
     rts
 
@@ -684,6 +685,7 @@ hit_enemy:
     beq 11f
     rts
 11: move.b #ENEMY_HURT_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
+    bsr boss_hit_cry_f                  | a boss cries out when it is struck (bosses.s)
     move.l %d1, -(%sp)
     moveq #1, %d1                       | the hit's weight: set by the weapon, one by default
     tst.b OFF_HIT_DAMAGE(%a5)
@@ -756,6 +758,7 @@ moldorm_died:
 | sixteenth is a fairy.
 kill_enemy:
     sfx SFX_MONSTER_DIED
+    bsr boss_death_cry_f
     clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
     bsr dmon_died                           | a like-like lets go of Link
     bsr mover_died                          | a red leever stops being counted; a zora's death is not the screen's
@@ -989,6 +992,7 @@ link_shove_from:
 | kept in 128ths of a half heart: HP_HALVES is the count rounded up, HP_FRAC what is missing from it.
 hurt_link:
     move.l %d0, -(%sp)
+    sfx SMP_HURT                        | Link_BeHarmed's DPCM cry
     sfx SFX_HARMED
     move.b #LINK_HURT_FRAMES, OFF_LINK_HURT(%a5)
     clr.b OFF_WORLD_KILLS(%a5)          | being hurt starts the kill streak over
@@ -2410,5 +2414,6 @@ uw_open_shutters:
 8:  move.w %d3, %d1
     beq 9f
     sfx SFX_SECRET              | the shutters open
+    sfx SMP_DOOR                | and the door sample (PrepareWriteHorizontalDoorTransferRecords)
 9:  movem.l (%sp)+, %d0/%d2-%d3/%a0-%a2
     rts
