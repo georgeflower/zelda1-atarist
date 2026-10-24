@@ -224,7 +224,8 @@ Combat and items
   before they can be taken, and vanish after about eight
 - sword beam: with full hearts only, the third phase of a
   swing fires a beam that flashes through the four sprite palettes until it
-  hits a wall or a monster, and then spreads out as the original's spark
+  leaves the room's bounds or hits a monster, and then spreads out as the original's spark
+  (it flies over trees, stones and walls: the ROM's `MoveShot` looks at the room's bounds only)
 - bombs: 48 frames of fuse, then a 36-frame cloud (four sprites, three puffs
   that swap sides every frame): for the first 24 the screen flashes grey twice
   and every monster near it takes four hits' worth of damage, at the start of
@@ -327,8 +328,7 @@ Things that behave differently from the original, or are stand-ins:
 - `K` is a debug key that gives keys, bombs and the candle; the game has no use for it any more but it stays for testing
 - a pushed overworld stone jumps one square instead of sliding
 - the overworld has no map on the ribbon (the original shows the grey map with Link's red dot)
-- the Second Quest, the scrolling credits wall, the burst rays of Ganon's death and the demo-skip logic of the title
-  are not ported
+- the Second Quest, the scrolling credits wall and the demo-skip logic of the title are not ported
 - the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed
 - the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
   it back so the tempo stays right

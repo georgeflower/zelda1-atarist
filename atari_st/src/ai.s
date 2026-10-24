@@ -1292,23 +1292,11 @@ update_projectiles:
     movem.l (%sp)+, %d0-%d7/%a0-%a4
     rts
 
-| Is the tile a rock or arrow (projectile d7) has run into a wall? Like Link's shot, the leading
-| edge counts: 8 pixels past the origin going right or down. Returns d0.w = 1 when blocked.
+| Does a tile stop a rock or an arrow (projectile d7)? Not in the ROM: UpdateArrowOrBoomerang moves every
+| shot with MoveShot, which looks at the room's bounds only (proj_move), so shots fly over trees, stones
+| and walls alike. Returns d0.w = 0.
 shot_blocked:
-    movem.l %d1-%d3, -(%sp)
-    moveq #0, %d2
-    move.b PJ_X(%a4, %d7.w), %d2
-    moveq #0, %d3
-    move.b PJ_Y(%a4, %d7.w), %d3
-    move.b PJ_DIR(%a4, %d7.w), %d1
-    btst #0, %d1
-    beq 1f
-    addq.w #8, %d2
-1:  btst #2, %d1
-    beq 2f
-    addq.w #8, %d3
-2:  bsr enemy_blocked_at
-    movem.l (%sp)+, %d1-%d3
+    moveq #0, %d0
     rts
 
 | Move projectile d7 by its speeds. Returns d0.w = 1 when it reached the edge

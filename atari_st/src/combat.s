@@ -199,7 +199,7 @@ sword_offsets:
 
 | ------------------------------------------------------------- sword beam
 | With all hearts full a swing also sends the sword flying (MakeSwordShot wants the last heart's partial at
-| $80 or more, and the lightest blow takes it to $7F, so half a heart short is already too little), at three pixels a frame, until it hits a wall or a monster.
+| $80 or more, and the lightest blow takes it to $7F, so half a heart short is already too little), at three pixels a frame, until it leaves the room's bounds or hits a monster (it flies over trees, stones and walls).
     .equ BEAM_SPEED, 3
     .equ BEAM_LEAD, 16
 
@@ -232,9 +232,6 @@ beam_launch:
 3:  subq.w #(BEAM_LEAD - SWORD_REACH), %d2
 4:  move.w %d2, %d3
     move.w %d1, %d2
-    bsr enemy_blocked_at
-    tst.w %d0
-    bne 9f                      | no room for it in front of Link
     move.b %d2, OFF_BEAM_X(%a5)
     move.b %d3, OFF_BEAM_Y(%a5)
     move.b OFF_LINK_DIR(%a5), OFF_BEAM_DIR(%a5)
@@ -259,7 +256,31 @@ beam_update:
     move.b OFF_BEAM_Y(%a5), %d3
     moveq #0, %d6
     move.b OFF_BEAM_DIR(%a5), %d6
+
+    | MoveShot: BoundByRoomWithA looks at the room's bounds only (a weapon's offsets: X+$B < left or
+    | X-$C >= right, Y+$F < up or Y-$12 >= down) and then the shot flies on whatever tiles lie in its way,
+    | trees, stones and walls included. The bound is met before the move, so the spark opens where it stands.
+    moveq #0, %d1
     btst #0, %d6
+    bne 10f
+    btst #1, %d6
+    beq 20f
+10: move.b %d2, %d1
+    add.b #0x0b, %d1
+    cmp.b OFF_OBJ_LEFT(%a5), %d1
+    blo 8f
+    sub.b #0x17, %d1
+    cmp.b OFF_OBJ_RIGHT(%a5), %d1
+    bhs 8f
+    bra 21f
+20: move.b %d3, %d1
+    add.b #0x0f, %d1
+    cmp.b OFF_OBJ_UP(%a5), %d1
+    blo 8f
+    sub.b #0x21, %d1
+    cmp.b OFF_OBJ_DOWN(%a5), %d1
+    bhs 8f
+21: btst #0, %d6
     beq 1f
     addq.w #BEAM_SPEED, %d2
     bra 4f
@@ -273,18 +294,8 @@ beam_update:
     bra 4f
 3:  subq.w #BEAM_SPEED, %d3
 
-4:  | A wall is met by the leading edge, 8 pixels past the origin going right or down.
-    move.w %d2, %d4
+4:  move.w %d2, %d4
     move.w %d3, %d5
-    btst #0, %d6
-    beq 41f
-    addq.w #8, %d2
-41: btst #2, %d6
-    beq 42f
-    addq.w #8, %d3
-42: bsr enemy_blocked_at
-    tst.w %d0
-    bne 8f
     move.b %d4, OFF_BEAM_X(%a5)
     move.b %d5, OFF_BEAM_Y(%a5)
 
