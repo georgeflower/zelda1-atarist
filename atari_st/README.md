@@ -116,8 +116,10 @@ Hidden spots (overworld)
   `room_secrets` says what to patch. Found secrets stay open (room flag bit 7); a
   pushed rock or gravestone is back when Link returns, as in the original (the stairs
   under the rock stay, those under the gravestone do not)
-- not like the original: the stone jumps one square instead of sliding, and the second
-  quest's spots (attribute F bits 6-7) are plain scenery
+- the pushed stone slides one square in 32 frames, as in the original: the spot turns to
+  floor at once, the stone is drawn moving, blocks Link while it goes, and the stairs and
+  the tune come when it lands
+- not like the original: the second quest's spots (attribute F bits 6-7) are plain scenery
 
 Level 1 (underworld)
 
@@ -319,14 +321,14 @@ Things that behave differently from the original, or are stand-ins:
   man, the magic key on a locked door, the ladder over a moat) and by a test that replays every
   level's doors; nobody has played them through at human speed. Not checked: the first
   Digdogger's three little ones, a Vire dying into keese, scrolling between dark rooms. The
-  ladder is not drawn: with it Link just walks over the moat
+  ladder over a dungeon moat is drawn, as in the original: it is put down in front of Link
+  and he can cross it along its direction only
 - the Moldorm is two worms of four segments, not one of ten, because the engine
   has eight monster slots; the Dodongo and the Moldorm leave no death cloud
 - Level 2's Dodongo (bomb and sword kill) has been played through and works well;
   the Moldorm's segment deaths and the ringleader room were checked by reading
   the code against the ROM and by loading every room in Hatari, but not played through
 - `K` is a debug key that gives keys, bombs and the candle; the game has no use for it any more but it stays for testing
-- a pushed overworld stone jumps one square instead of sliding
 - the overworld has no map on the ribbon (the original shows the grey map with Link's red dot)
 - the Second Quest and the demo-skip logic of the title are not ported
 - the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed

@@ -51,7 +51,7 @@ owspec_room_start:
 
 owspec_update:
     tst.b OFF_LEVEL(%a5)
-    bne 9f
+    bne uw_ladder_update
     bsr raft_update
     bsr ladder_update
     bsr pond_update
@@ -134,7 +134,7 @@ ladder_rooms:
 | the ladder, water does not block (the ROM puts the ladder down in front of him whenever the square ahead is water).
 ow_ladder_ok:
     tst.b OFF_LEVEL(%a5)
-    bne 9f
+    bne uw_ladder_ok
     tst.b OFF_INV_LADDER(%a5)
     beq 9f
     cmp.w #0x8d, %d5
@@ -160,6 +160,108 @@ in_ladder_room:
 2:  moveq #0, %d0                       | found: Z = 1
 3:  movem.l (%sp)+, %d0-%d1/%a0         | (movem keeps the flags)
     rts
+
+| The dungeons' ladder (CheckLadder and Link_EndMoveAndAnimate, the same routines as the overworld's): when Link is about to
+| walk into the moat (NES tile $F4) with the ladder, it is laid down in front of him, 16 pixels long (LinkToLadderOffsetsX/Y:
+| up (0,-5), down (0,+19), left (-16,+3), right (+16,+3) from his position), and he may walk along it only, not across. It is put
+| away when he is a whole ladder past it, or off its line, or has left the room; the moat beyond gets a new one.
+    .equ UW_MOAT, 0xf4
+ladder_offset_x:
+    .byte 0, 0, -16, 16
+ladder_offset_y:
+    .byte -5, 19, 3, 3
+
+| link_collide has d5.w = the tile ahead of Link, d0.w = 1 (blocked) and d1.b = his direction. Returns d0.w = 0 to let him on.
+uw_ladder_ok:
+    tst.b OFF_INV_LADDER(%a5)
+    beq 9f
+    cmp.w #UW_MOAT, %d5
+    bne 9f
+    movem.l %d1-%d2/%a0, -(%sp)
+    tst.b OFF_LADDER_SHOWN(%a5)
+    beq 2f
+    move.b OFF_LADDER_DIR(%a5), %d2     | a ladder is down: he may walk along its line
+    eor.b %d1, %d2
+    and.b #DIR_VERTICAL, %d2
+    beq 8f                              | (both vertical or both horizontal) the same axis
+    bra 7f
+2:  tst.b OFF_FOOD_TIMER(%a5)
+    bne 7f                              | (the food has the slot)
+    moveq #0, %d2                       | which of the four: up, down, left, right
+    btst #3, %d1
+    bne 3f
+    moveq #1, %d2
+    btst #2, %d1
+    bne 3f
+    moveq #2, %d2
+    btst #1, %d1
+    bne 3f
+    moveq #3, %d2
+3:  lea ladder_offset_x(%pc), %a0
+    move.b OFF_LINK_X(%a5), %d0
+    add.b 0(%a0, %d2.w), %d0
+    move.b %d0, (OFF_ITEM_X + RAFT_SLOT)(%a5)
+    lea ladder_offset_y(%pc), %a0
+    move.b OFF_LINK_Y(%a5), %d0
+    add.b 0(%a0, %d2.w), %d0
+    move.b %d0, (OFF_ITEM_Y + RAFT_SLOT)(%a5)
+    move.b #LADDER_ITEM, (OFF_ITEM_ID + RAFT_SLOT)(%a5)
+    move.b #ITEM_LIFTED, (OFF_ITEM_ACTIVE + RAFT_SLOT)(%a5)
+    move.b %d1, OFF_LADDER_DIR(%a5)
+    move.b #1, OFF_LADDER_STATE(%a5)
+    move.b #1, OFF_LADDER_SHOWN(%a5)
+    move.b OFF_ROOM_ID(%a5), OFF_LADDER_ROOM(%a5)
+8:  moveq #0, %d0
+    movem.l (%sp)+, %d1-%d2/%a0
+    rts
+7:  movem.l (%sp)+, %d1-%d2/%a0
+9:  rts
+
+| Once a frame in a dungeon: the ladder is put away when the rules say so (CheckLadder).
+uw_ladder_update:
+    tst.b OFF_LADDER_SHOWN(%a5)
+    beq 9f
+    movem.l %d0-%d3, -(%sp)
+    move.b OFF_ROOM_ID(%a5), %d0
+    cmp.b OFF_LADDER_ROOM(%a5), %d0
+    bne 5f
+    moveq #0, %d0
+    move.b OFF_LINK_X(%a5), %d0
+    moveq #0, %d1
+    move.b OFF_LINK_Y(%a5), %d1
+    addq.w #3, %d1
+    moveq #0, %d2
+    move.b (OFF_ITEM_X + RAFT_SLOT)(%a5), %d2
+    moveq #0, %d3
+    move.b (OFF_ITEM_Y + RAFT_SLOT)(%a5), %d3
+    btst #3, OFF_LADDER_DIR(%a5)
+    bne 1f
+    btst #2, OFF_LADDER_DIR(%a5)
+    beq 2f
+1:  cmp.w %d2, %d0                      | vertical: he has to stay in its column
+    bne 5f
+    sub.w %d3, %d1
+    bra 3f
+2:  cmp.w %d3, %d1                      | horizontal: and in its row
+    bne 5f
+    move.w %d0, %d1
+    sub.w %d2, %d1
+3:  bpl 4f
+    neg.w %d1
+4:  cmp.w #16, %d1
+    blo 6f                              | on it
+    bhi 5f                              | past it
+    move.b OFF_LINK_DIR(%a5), %d0       | exactly a ladder away: only when he still faces it and has not been on it
+    cmp.b OFF_LADDER_DIR(%a5), %d0
+    bne 5f
+    cmpi.b #1, OFF_LADDER_STATE(%a5)
+    beq 7f
+5:  clr.b OFF_LADDER_SHOWN(%a5)
+    clr.b (OFF_ITEM_ACTIVE + RAFT_SLOT)(%a5)
+    bra 7f
+6:  move.b #2, OFF_LADDER_STATE(%a5)
+7:  movem.l (%sp)+, %d0-%d3
+9:  rts
 
 | The ladder is drawn on the square of water Link stands on, or the one he is walking into.
 ladder_update:

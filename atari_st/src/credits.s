@@ -10,6 +10,19 @@
 | an event song, so it goes on in MODE_INTRO. Phase INTRO_PHASE_CREDITS of OFF_INTRO_PHASE; OFF_INTRO_SUB 0 builds the
 | first window, 1 scrolls, 2 is the last screen.
 
+| Far calls of the late modules (intro, credits, filesel, death, save): 32-bit stubs, because main.s's *_far stubs are more than 32 KB
+| from the end of the code. One block, in the middle of them.
+    farstub begin_game_xf, begin_game
+    farstub cur_palette_xf, cur_palette
+    farstub dbl_end_xf, dbl_end
+    farstub draw_hud_tile_ptr_xf, draw_hud_tile_ptr
+    farstub music_event_xf, music_event
+    farstub music_play_xf, music_play
+    farstub music_stop_xf, music_stop
+    farstub present_frame_xf, present_frame
+    farstub set_video_base_xf, set_video_base
+    farstub swap_screens_xf, swap_screens
+
     .equ INTRO_PHASE_CREDITS, 4
     .equ CREDITS_STEPS, 600
     .equ CREDITS_START_WAIT, 0x40         | ObjTimer of Sub4: the player cannot skip ahead for $40 frames
@@ -79,8 +92,8 @@ credits_last_sprites:
 
 | The first window: the black room with what Zelda said, both screens, and the colours of the ending.
 credits_init:
-    bsr dbl_end_far                     | what is on show stays on show; no hidden buffer of the game
-    bsr swap_screens_far                | the intro's way with the buffers: SCREEN_PTR is the hidden one
+    bsr dbl_end_xf                     | what is on show stays on show; no hidden buffer of the game
+    bsr swap_screens_xf                | the intro's way with the buffers: SCREEN_PTR is the hidden one
     bsr intro_black
     bsr intro_clear_all
     clr.w OFF_INTRO_RING(%a5)
@@ -103,7 +116,7 @@ credits_init:
     movea.l OFF_BG_NEXT(%a5), %a2
     bsr intro_copy
     move.l OFF_BG_NEXT(%a5), %d0
-    bsr set_video_base_far
+    bsr set_video_base_xf
     move.b #1, OFF_INTRO_SUB(%a5)
     ltab credits_palette, %a0
     bra intro_set_palette
@@ -153,8 +166,8 @@ credits_line:
 
 | Start on the last screen: the title again, with its song.
 credits_to_title:
-    bsr music_stop_far
+    bsr music_stop_xf
     clr.b OFF_MUS_FORCED(%a5)
     bsr intro_title_begin
     moveq #MUS_TITLE, %d0
-    bra music_event_far
+    bra music_event_xf

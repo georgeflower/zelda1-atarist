@@ -546,7 +546,9 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   square and metatile, the rock's metatile one square above and below). Quest-2-only spots (attr F >> 6 = 2) get no record. Finding one
   patches `room_maps` in RAM (the PRG is RAM-resident) and redraws with `render_room` + `show_background`, so `fetch_tile` and `check_warps`
   see the new tile. The room flags are `OW_KILLS` (bit 7 secret found, bit 5 rock pushed; the low three bits stay the kill count). A
-  pushed rock or gravestone is undone by `ow_secret_undo` when `render_room` next draws (the ROM lays a screen out afresh on every
+  pushed rock or gravestone **slides** (`ROCK_STATE/FRAME/DIR/X/Y`, `ROCK_FRAMES` 32: `ow_push_secret` starts it, `rock_update` runs from
+  `block_update`, `rock_draw` from `block_draw` via the effect slot 11 and `OFF_BLOCK_SPRITE`, `rock_land` places the stairs and plays the
+  tune; `link_collide` blocks Link while it moves) and is undone by `ow_secret_undo` when `render_room` next draws (the ROM lays a screen out afresh on every
   entry); the stairs under a rock are permanent, those under a gravestone are not (`CheckShortcut`). The triggers: bomb cloud open
   (`bomb_tick`, within 16 px), flame on its last frame (`fire_update`, timer 1), Link blocked going up or down (`link_pixel`). The spot's
   Y is `row*16+$40`. The module sits after `uw.s` and the near modules reach it through four stubs in `main.s`: anything put between
@@ -577,8 +579,11 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   scrolling between dark rooms (the maze-like rooms need the ladder or bombs to leave from the start spot).
   **Keys and moats**: a locked door (types 5, 6) opens with a key, and the magic key (`INV_MAGIC_KEY`) opens it without using one up
   (the HUD shows "XA" for it); Level 9 has 16 locked doors and 4 keys, it is the magic key's level (`test_every_room...` in
-  `test_build_assets.py` replays the doors of all levels). The moat (NES tile `$F4`) is crossed with the ladder: with it Link
-  walks over `UW_MOAT_TILE` (the ladder itself is not drawn). Moat rooms that cut doors off from each other: Level 4 `$01 $21 $30`,
+  `test_build_assets.py` replays the doors of all levels). The moat (NES tile `$F4`) always blocks (`tile_blocks`); the ladder
+  (`uw_ladder_ok`/`uw_ladder_update` in owspec.s, as `CheckLadder`) is put down in item slot 2 (`RAFT_SLOT`, `ITEM_LIFTED`, drawn by
+  `draw_items`) at Link + (up 0,-5; down 0,+19; left -16,+3; right +16,+3), `LADDER_DIR/STATE/ROOM`. `link_collide` lets Link pass the moat
+  only along the ladder's axis; it is stashed again (and when the room changes) as `CheckLadder` does. The overworld ladder is still the
+  older square-snapped approximation. Moat rooms that cut doors off from each other: Level 4 `$01 $21 $30`,
   5 `$46 $66`, 6 `$19 $1A`, 7 `$18 $49 $5A`, 9 `$23 $40 $56 $65`.
 - **Level 9** (`UW_LEVELS := 1 2 3 4 5 6 7 8 9`; the monsters live in `bosses.s`, the dungeon people and the door man in `uw.s`): 57 rooms,
   a ten-entry cellar array, the old men from person table C, and the man at the door (record trigger bit 4) who opens only

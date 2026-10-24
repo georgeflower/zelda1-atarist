@@ -43,6 +43,8 @@
     farstub uw_render_map_bf, uw_render_map
     farstub show_background_bf, show_background
     farstub fx_put_a0_bf, fx_put_a0
+    farstub rock_update_bf, rock_update
+    farstub rock_draw_bf, rock_draw
     farstub fireball_spawn_xy_bf, fireball_spawn_xy
     farstub enemy_behaviour_bf, enemy_behaviour
 
@@ -3414,6 +3416,7 @@ block_push_tick:
 | Pushing only counts while it goes on without a break. A block that is sliding moves a pixel a frame (UpdateBlock's
 | moving state) and lands after 16.
 block_update:
+    bsr rock_update_bf                  | (the overworld's rock that slides)
     cmpi.b #3, OFF_BLOCK_STATE(%a5)
     bne 2f
     addq.b #1, OFF_BLOCK_FRAME(%a5)
@@ -3601,6 +3604,7 @@ block_land:
 
 | While the block slides, its picture is the effect in slot 11, a pixel further each frame.
 block_draw:
+    bsr rock_draw_bf
     cmpi.b #3, OFF_BLOCK_STATE(%a5)
     bne 9f
     movem.l %d0-%d2/%d6/%a0, -(%sp)
