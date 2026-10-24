@@ -936,10 +936,8 @@ owspec_init_far:
     bra owspec_init
 uw_person_update_far:
     bra uw_person_update
-update_death_far:
-    bra update_death
-death_begin_far:
-    bra death_begin
+    farstub update_death_far, update_death
+    farstub death_begin_far, death_begin
 draw_link_far:
     bra draw_link
 erase_sprite_far:

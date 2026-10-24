@@ -49,15 +49,15 @@
 death_begin:
     clr.b OFF_DYING(%a5)
     move.b #MODE_DEATH, OFF_GAME_MODE(%a5)
-    bsr music_stop_far                  | SilenceSound
+    bsr music_stop_df                  | SilenceSound
     clr.b OFF_MUS_FORCED(%a5)
-    bsr dbl_end_far                     | what is on show stays on show; no more hidden buffer
-    bsr show_background_far             | the bare room (the monsters, the items, everything that was drawn goes)
-    bsr clear_erase_state_far
+    bsr dbl_end_df                     | what is on show stays on show; no more hidden buffer
+    bsr show_background_df             | the bare room (the monsters, the items, everything that was drawn goes)
+    bsr clear_erase_state_df
     move.b #DPH_BLINK, OFF_DEATH_PHASE(%a5)
     move.w #DEATH_BLINK_FRAMES, OFF_DEATH_T(%a5)
     clr.b OFF_LINK_HURT(%a5)
-    bsr draw_link_far
+    bsr draw_link_df
     rts
 
 | ---------------------------------------------------------------------------------------------------------- each frame
@@ -80,10 +80,10 @@ update_death:
 
 | Phase 0: the invincibility flash. Link is drawn two frames in four.
 death_blink:
-    bsr erase_sprite_far
+    bsr erase_sprite_df
     btst #1, OFF_DEATH_T+1(%a5)
     bne 1f
-    bsr draw_link_far
+    bsr draw_link_df
 1:  subq.w #1, OFF_DEATH_T(%a5)
     bne 9f
     clr.w OFF_DEATH_LINE(%a5)
@@ -91,14 +91,14 @@ death_blink:
     moveq #0, %d0
     bsr death_colours_set               | where the red world starts
     moveq #MUS_DEATH, %d0               | the death tune
-    bsr music_event_far
+    bsr music_event_df
     move.b #DPH_REMAP, OFF_DEATH_PHASE(%a5)
-    bsr draw_link_far
+    bsr draw_link_df
 9:  rts
 
 | Phase 1: DEATH_LINES more lines of the room go red.
 death_remap:
-    bsr erase_sprite_far
+    bsr erase_sprite_df
     move.w OFF_DEATH_LINE(%a5), %d6
     moveq #DEATH_LINES, %d7
     bsr death_remap_lines
@@ -111,12 +111,12 @@ death_remap:
     move.b #DEATH_TURNS_TOTAL, OFF_DEATH_TURNS(%a5)
     move.b #DIR_DOWN, OFF_LINK_DIR(%a5)
     clr.w OFF_DEATH_T(%a5)
-1:  bsr draw_link_far
+1:  bsr draw_link_df
     rts
 
 | Phase 2: down, right, up, left, down ...; every turn that ends facing left counts one of the four.
 death_spin:
-    bsr erase_sprite_far
+    bsr erase_sprite_df
     tst.b OFF_DEATH_TURNS(%a5)
     beq 8f
     tst.w OFF_DEATH_T(%a5)
@@ -133,19 +133,19 @@ death_spin:
 3:  subq.b #1, OFF_DEATH_TURNS(%a5)
     moveq #DIR_DOWN, %d0
 4:  move.b %d0, OFF_LINK_DIR(%a5)
-5:  bra draw_link_far
+5:  bra draw_link_df
 8:  move.b #DPH_FADE, OFF_DEATH_PHASE(%a5)
     clr.b OFF_DEATH_STEP(%a5)
     clr.w OFF_DEATH_T(%a5)
-    bra draw_link_far
+    bra draw_link_df
 
 | Phase 3: the red fades away.
 death_fade:
-    bsr erase_sprite_far
+    bsr erase_sprite_df
     tst.w OFF_DEATH_T(%a5)
     beq 1f
     subq.w #1, OFF_DEATH_T(%a5)
-    bra draw_link_far
+    bra draw_link_df
 1:  moveq #0, %d0
     move.b OFF_DEATH_STEP(%a5), %d0
     addq.b #1, OFF_DEATH_STEP(%a5)
@@ -154,7 +154,7 @@ death_fade:
     cmpi.b #DEATH_FADE_STEPS, OFF_DEATH_STEP(%a5)
     bhs 2f
     move.w #(DEATH_FADE_FRAMES - 1), OFF_DEATH_T(%a5)
-    bra draw_link_far
+    bra draw_link_df
 
     | The world is black: Link turns grey (the sprite palette of Sub9), alone on the screen.
 2:  bsr death_clear_world
@@ -178,7 +178,7 @@ death_grey:
 
 | Phase 5: the spark, in the place where Link was.
 death_spark:
-    bsr erase_sprite_far
+    bsr erase_sprite_df
     move.b OFF_DEATH_SPARK(%a5), %d1
     subq.b #1, %d1
     move.b %d1, OFF_DEATH_SPARK(%a5)
@@ -189,7 +189,7 @@ death_spark:
     moveq #DEATH_FRAME_SPARK_BIG, %d0
 1:  bra death_draw
 7:  moveq #SFX_HEART, %d0               | Tune0Request = $10, the heart taken
-    bsr music_play_far
+    bsr music_play_df
     move.b #DPH_WAIT, OFF_DEATH_PHASE(%a5)
     move.w #(DEATH_WAIT_FRAMES - 1), OFF_DEATH_T(%a5)
     rts
@@ -213,12 +213,12 @@ death_over:
     cmpi.b #0xff, 0(%a0, %d0.w)
     beq 1f
     addq.b #1, 0(%a0, %d0.w)
-1:  bsr swap_screens_far                | the file menu's way with the buffers (intro_start): SCREEN_PTR hidden
+1:  bsr swap_screens_df                | the file menu's way with the buffers (intro_start): SCREEN_PTR hidden
     move.b #MODE_INTRO, OFF_GAME_MODE(%a5)
     moveq #FILE_CONTINUE, %d0
     bsr filesel_begin
     moveq #MUS_GAMEOVER, %d0
-    bra music_event_far
+    bra music_event_df
 9:  rts
 
 | "GAME OVER" (GameOverTransferBuf), in the letters of the cave people's speech.
@@ -234,7 +234,7 @@ death_game_over:
     move.w %d4, %d1
     add.w #DEATH_TEXT_COL, %d1
     moveq #DEATH_TEXT_ROW, %d2
-    bsr draw_hud_tile_far
+    bsr draw_hud_tile_df
     addq.w #1, %d4
     cmp.w #DEATH_TEXT_LEN, %d4
     blo 1b
@@ -496,6 +496,16 @@ death_restart:
     farstub enter_room_df, enter_room_far
     farstub draw_sprite_df, draw_sprite_far
     farstub blit_rect_df, blit_rect_far
+    farstub erase_sprite_df, erase_sprite_far
+    farstub draw_link_df, draw_link_far
+    farstub clear_erase_state_df, clear_erase_state_far
+    farstub show_background_df, show_background_far
+    farstub music_stop_df, music_stop_far
+    farstub dbl_end_df, dbl_end_far
+    farstub music_play_df, music_play_far
+    farstub swap_screens_df, swap_screens_far
+    farstub music_event_df, music_event_far
+    farstub draw_hud_tile_df, draw_hud_tile_far
 
 | SAVE: the hearts are filled up to the containers, the profile is written, and the file menu comes back.
 death_save:

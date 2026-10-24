@@ -131,6 +131,10 @@ SCENES: dict[str, list[str]] = {
                       "300:=ENEMY_COUNT=0,300:=LINK_X=0xc0,300:=LINK_Y=0xa5,300:=LINK_DIR=1,300:=INV_CANDLE=1,300:=B_ITEM=3,340:+ctrl,343:-ctrl"],
     "ow_rock_pushed": ["--room", "0x79", "--vbls", "480", "--keys",
                        "300:=ENEMY_COUNT=0,300:=LINK_X=0x80,300:=LINK_Y=0xa5,300:=LINK_DIR=8,300:=INV_BRACELET=1,340:+up"],
+    "ow_rock_sliding": ["--room", "0x79", "--vbls", "358", "--keys",
+                        "300:=ENEMY_COUNT=0,300:=LINK_X=0x80,300:=LINK_Y=0xa5,300:=LINK_DIR=8,300:=INV_BRACELET=1,340:+up"],
+    "ow_grave_sliding": ["--room", "0x21", "--vbls", "358", "--keys",
+                         "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up,352:-up"],
     "ow_rock_no_bracelet": ["--room", "0x79", "--vbls", "480", "--keys",
                             "300:=ENEMY_COUNT=0,300:=LINK_X=0x80,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up"],
     # The sword beam is not stopped by trees, stones or walls (MoveShot only knows the room's bounds): from the start screen it
@@ -141,6 +145,11 @@ SCENES: dict[str, list[str]] = {
                         "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up,352:-up"],
     "ow_grave_returns": ["--room", "0x21", "--vbls", "1000", "--keys",
                          "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up,352:-up,380:=LINK_X=0x80,380:=LINK_Y=0xd5,385:+down,560:-down,570:+up"],
+    # The ladder over a dungeon moat (owspec.s): put down in front of Link, picked up again once he is across.
+    "uw6_ladder_moat": ["--uw", "0x19", "--level", "6", "--vbls", "290", "--keys",
+                        "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,260:+right"],
+    "uw6_ladder_across": ["--uw", "0x19", "--level", "6", "--vbls", "310", "--keys",
+                          "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,260:+right"],
     # Ganon: brown after the sword, then a silver arrow. He burns solid, the ashes stay under the Triforce of Power.
     "uw9_ganon_brown": ["--uw", "0x42", "--level", "9", "--vbls", "515", "--keys", GANON_ARROW],
     "uw9_ganon_burst": ["--uw", "0x42", "--level", "9", "--vbls", "670", "--keys", GANON_ARROW],

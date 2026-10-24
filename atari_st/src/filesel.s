@@ -174,7 +174,7 @@ file_read_buttons:
 
 file_click:
     moveq #SFX_RUPEE, %d0               | Tune1Request = 1: the tune of a rupee taken
-    bra music_play_far
+    bra music_play_xf
 
 | ------------------------------------------------------------------------------------------------------- the text
 | One 8x8 tile of the menu's font into both screens: d0.b = the NES tile number, d1.w = column, d2.w = row (the ST
@@ -191,9 +191,9 @@ file_glyph:
     ltab file_tiles, %a0
     adda.w %d0, %a0
     move.l OFF_SCREEN_PTR(%a5), -(%sp)
-    bsr draw_hud_tile_ptr_far            | the clean copy
+    bsr draw_hud_tile_ptr_xf            | the clean copy
     move.l OFF_BG_NEXT(%a5), OFF_SCREEN_PTR(%a5)
-    bsr draw_hud_tile_ptr_far            | and the screen on show
+    bsr draw_hud_tile_ptr_xf            | and the screen on show
     move.l (%sp)+, OFF_SCREEN_PTR(%a5)
     movem.l (%sp)+, %d0-%d3/%a0-%a1
     rts
@@ -707,7 +707,7 @@ filesel_play:
     move.b %d0, OFF_PROFILE(%a5)
     bsr save_load_game                  | the profile's game, Link at the start
     bsr intro_leave
-    bra begin_game_far
+    bra begin_game_xf
 
 | Select on the register and elimination screens (UpdateModeEandF_Idle): on to the next choice. In mode E the slots
 | that are in use are passed over, and the name goes back to its first character.
@@ -754,7 +754,7 @@ file_register_update:
     cmp.b #BTN_A, %d0
     bne 4f                              | B, or both: the cursor moves on without a letter
     moveq #SFX_BOMB, %d0                | Tune0Request = $20: the click of a letter
-    bsr music_play_far
+    bsr music_play_xf
     moveq #0, %d0
     move.b OFF_FILE_BOARD(%a5), %d0
     ltab file_char_map, %a0
@@ -988,7 +988,7 @@ file_eliminate_update:
 | DeleteSlot: the slot is wiped and its name blanked on the screen.
 file_delete_slot:
     moveq #SFX_HARMED, %d0
-    bsr music_play_far
+    bsr music_play_xf
     moveq #0, %d7
     move.b OFF_FILE_SEL(%a5), %d7
     move.w %d7, %d0
@@ -1076,7 +1076,7 @@ file_continue_flash:
     rts
 
 file_continue_go:
-    bsr music_stop_far                  | SilenceAllSound
+    bsr music_stop_xf                  | SilenceAllSound
     clr.b OFF_MUS_FORCED(%a5)
     moveq #0, %d0
     move.b OFF_FILE_SEL(%a5), %d0

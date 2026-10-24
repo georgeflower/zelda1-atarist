@@ -26,6 +26,9 @@
     .equ SECRET_PUSHED, 5               | OW_KILLS bit: its rock was pushed
     .equ SECRET_REACH, 16               | how close the bomb or the flame has to be (DoObjectsCollide $10)
     .equ SECRET_ROW_Y, 0x40             | the screen's top row of squares starts here
+    .equ ROCK_FRAMES, 32                | UpdateRockOrGravestone: q-speed $20 is half a pixel a frame, 16 pixels
+    farstub rock_sprite_offset_sf, sprite_offset
+    farstub rock_fx_put_a0_sf, fx_put_a0
 
 | Returns a0 = the record of the current screen, d0.w = its type.
 ow_secret_record:
@@ -98,6 +101,7 @@ ow_secret_undo:
     beq 1f
     clr.b OFF_OWS_FRESH(%a5)            | this is the draw that shows the push itself
     rts
+1:  clr.b OFF_ROCK_STATE(%a5)                | (a rock that was still sliding stays where it began)
 1:  movem.l %d0-%d4/%a0, -(%sp)
     moveq #0, %d3
     move.b OFF_OWS_UNDO_N(%a5), %d3
@@ -265,17 +269,80 @@ ow_push_secret:
 5:  moveq #0, %d2
     move.b 0(%a0, %d5.w), %d2           | its metatile where it ends
     cmp.b #0xff, %d2
-    beq 9f
-    move.l %d2, %d5                     | d5 = that metatile
-    clr.b OFF_OWS_UNDO_N(%a5)
+    beq 9f                              | (there is nowhere for it to go)
+    move.b #DIR_UP, OFF_ROCK_DIR(%a5)
+    tst.w %d3
+    bmi 51f
+    move.b #DIR_DOWN, OFF_ROCK_DIR(%a5)
+51: clr.b OFF_OWS_UNDO_N(%a5)
+    moveq #0, %d1
+    move.b 1(%a0), %d1                  | the spot's square
+    move.w %d1, %d2
+    and.w #15, %d1
+    lsl.w #4, %d1                       | its X
+    lsr.w #4, %d2
+    lsl.w #4, %d2
+    add.w #SECRET_ROW_Y, %d2            | its Y
+    move.b %d1, OFF_ROCK_X(%a5)
+    move.b %d2, OFF_ROCK_Y(%a5)
+    bsr rock_grab                       | its picture, from the clean room
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
     moveq #0, %d1
-    move.b 1(%a0), %d1                  | the spot becomes floor
+    move.b 1(%a0), %d1                  | the spot becomes floor now; the rock is a picture on its way
     move.b 2(%a0), %d2
     bsr ow_set_square_for_now
-    add.w %d3, %d1                      | and the rock stands on the square next to it
-    move.b %d5, %d2
+    clr.b OFF_ROCK_FRAME(%a5)
+    move.b #1, OFF_ROCK_STATE(%a5)
+    bsr ow_secret_redraw
+9:  movem.l (%sp)+, %d0-%d5/%a0-%a1
+    rts
+
+| The rock's 16x16 picture from the clean room into BLOCK_SPRITE (opaque). d1.w = X, d2.w = Y of its square.
+rock_grab:
+    movem.l %d0-%d2/%d4/%d7/%a0-%a1, -(%sp)
+    subq.w #2, %d2
+    bsr rock_sprite_offset_sf
+    movea.l OFF_BG_CUR(%a5), %a0
+    adda.l %d1, %a0
+    lea OFF_BLOCK_SPRITE(%a5), %a1
+    moveq #(SPRITE_HEIGHT - 1), %d7
+1:  move.l (%a0)+, (%a1)+
+    move.l (%a0)+, (%a1)+
+    move.w #-1, (%a1)+
+    lea (SCREEN_STRIDE - 8)(%a0), %a0
+    dbra %d7, 1b
+    movem.l (%sp)+, %d0-%d2/%d4/%d7/%a0-%a1
+    rts
+
+| Once a frame (block_update): the rock slides half a pixel, and when it has gone 16 it stops where it ends.
+rock_update:
+    tst.b OFF_ROCK_STATE(%a5)
+    beq 9f
+    addq.b #1, OFF_ROCK_FRAME(%a5)
+    cmpi.b #ROCK_FRAMES, OFF_ROCK_FRAME(%a5)
+    blo 9f
+    bra rock_land
+9:  rts
+
+| The rock has gone 16 pixels: its square at the end, the stairs it uncovers, the secret tune.
+rock_land:
+    movem.l %d0-%d5/%a0-%a1, -(%sp)
+    clr.b OFF_ROCK_STATE(%a5)
+    bsr ow_secret_record
+    moveq #5, %d5
+    moveq #-16, %d3
+    cmpi.b #DIR_UP, OFF_ROCK_DIR(%a5)
+    beq 1f
+    moveq #6, %d5
+    moveq #16, %d3
+1:  moveq #0, %d2
+    move.b 0(%a0, %d5.w), %d2           | its metatile where it ends
+    moveq #0, %d0
+    move.b OFF_ROOM_ID(%a5), %d0
+    moveq #0, %d1
+    move.b 1(%a0), %d1
+    add.w %d3, %d1                      | the rock stands on the square next to the spot
     bsr ow_set_square_for_now
     moveq #0, %d1
     move.b 3(%a0), %d1                  | the stairs
@@ -291,8 +358,32 @@ ow_push_secret:
     bset #SECRET_PUSHED, 0(%a1, %d0.w)
 7:  bsr ow_secret_redraw
     sfx SFX_SECRET
-9:  movem.l (%sp)+, %d0-%d5/%a0-%a1
+    movem.l (%sp)+, %d0-%d5/%a0-%a1
     rts
+
+| While it slides its picture is the effect in slot 11, a pixel for every two frames.
+rock_draw:
+    tst.b OFF_ROCK_STATE(%a5)
+    beq 9f
+    movem.l %d0-%d2/%d6/%a0, -(%sp)
+    moveq #0, %d0
+    move.b OFF_ROCK_FRAME(%a5), %d0
+    lsr.w #1, %d0
+    moveq #0, %d1
+    move.b OFF_ROCK_X(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_ROCK_Y(%a5), %d2
+    subq.w #2, %d2
+    cmpi.b #DIR_UP, OFF_ROCK_DIR(%a5)
+    bne 1f
+    sub.w %d0, %d2
+    bra 2f
+1:  add.w %d0, %d2
+2:  lea OFF_BLOCK_SPRITE(%a5), %a0
+    moveq #11, %d6
+    bsr rock_fx_put_a0_sf
+    movem.l (%sp)+, %d0-%d2/%d6/%a0
+9:  rts
 
 | The Lost Woods (room $61) and the Lost Hills (room $1B) (CheckMazes in the ROM). Leaving the screen in the step's
 | direction counts a step and brings Link back into the same screen; any other way resets the count and does the

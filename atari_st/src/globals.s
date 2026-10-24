@@ -488,5 +488,13 @@
     gvar GANON_CLOUD, 1          | Ganon_ObjCloudDist: how far from the ashes the eight clouds of the burst are, 8 down to 0
     gvar GANON_RAY_X, 8          | the burst's eight rays (Ganon_SetUpBurstRays): X and Y of each
     gvar GANON_RAY_Y, 8
+    gvar ROCK_STATE, 1           | a pushed rock or gravestone is sliding (secrets.s rock_*): 0 no, 1 yes
+    gvar ROCK_FRAME, 1           | frames it has slid, 0..32 (half a pixel each)
+    gvar ROCK_DIR, 1             | the way it slides: DIR_UP or DIR_DOWN
+    gvar ROCK_X, 1               | where it began: X and Y of its square
+    gvar ROCK_Y, 1
+    gvar LADDER_DIR, 1           | the dungeon's ladder over a moat (owspec.s uw_ladder_*): the way it points (DIR_*)
+    gvar LADDER_STATE, 1         | 1 laid down in front of Link, 2 he stands on it (ObjState of the ladder)
+    gvar LADDER_ROOM, 1          | the room it was laid in
     galign
     .equ GLOBALS_BYTES, gvar_offset
