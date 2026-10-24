@@ -37,6 +37,12 @@
     farstub cur_palette_bf, cur_palette
     farstub draw_hud_tile_bf, draw_hud_tile
     farstub music_event_bf, music_event
+    farstub fireball_aim_xy_bf, fireball_aim_xy
+    farstub uw_open_shutters_bf, uw_open_shutters
+    farstub uw_render_map_bf, uw_render_map
+    farstub show_background_bf, show_background
+    farstub fx_put_a0_bf, fx_put_a0
+    farstub fireball_spawn_xy_bf, fireball_spawn_xy
     farstub enemy_behaviour_bf, enemy_behaviour
 
 | ---------------------------------------------------------------- the bosses' voices (DPCM samples)
@@ -3069,6 +3075,7 @@ grumble_bake:
 boss_misc_update:
     bsr ganon_tick
     bsr zelda_tick
+    bsr person_fire_tick
     movem.l %d0-%d7/%a0-%a2, -(%sp)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
@@ -3142,3 +3149,384 @@ boss_misc_update:
     blo 6b
 9:  movem.l (%sp)+, %d0-%d7/%a0-%a2
     rts
+
+| ------------------------------------------------------------ the old man's flames
+| A blow of the sword on the man between the two fires (Person_CheckCollisions) turns the fires on Link for the rest of
+| the visit: each flame (UpdateStatues, pattern 2) waits Statue_ObjFireballTimer frames, then, unless the random byte is
+| $F0 or more (then it waits 256), starts a wait of $50, $80, $F0 or $60 frames by the byte's low bits and shoots a fireball at
+| Link, but not when Link stands within $18 of the flame on both axes.
+    .equ PERSON_X, 0x78
+    .equ PERSON_FIRE_LEFT_X, 0x48
+    .equ PERSON_FIRE_RIGHT_X, 0xa8
+
+| The sword is out: d1.w, d2.w = where a monster would stand with its middle on the blade, d4.w, d6.w = how near it must
+| be in X and in Y (sword_hits). Hits the old man if the blade is on him.
+person_hit:
+    movem.l %d1-%d3, -(%sp)
+    tst.b OFF_UW_PERSON(%a5)
+    beq 9f
+    cmpi.b #3, OFF_UW_PERSON(%a5)
+    beq 9f
+    tst.b OFF_GRUMBLE_ON(%a5)
+    bne 9f
+    tst.b OFF_LEVEL(%a5)
+    beq 9f
+    sub.w #PERSON_X, %d1
+    bpl 1f
+    neg.w %d1
+1:  cmp.w %d4, %d1
+    bhs 9f
+    sub.w #CAVE_PERSON_Y, %d2
+    bpl 2f
+    neg.w %d2
+2:  cmp.w %d6, %d2
+    bhs 9f
+    move.b #1, OFF_PERSON_FIRE(%a5)
+9:  movem.l (%sp)+, %d1-%d3
+    rts
+
+person_fire_tick:
+    tst.b OFF_PERSON_FIRE(%a5)
+    beq 9f
+    tst.b OFF_UW_PERSON(%a5)
+    beq 9f
+    cmpi.b #3, OFF_UW_PERSON(%a5)
+    beq 9f
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    moveq #1, %d7                       | the flames, last first as in the ROM
+1:  lea OFF_PERSON_FIRE_T(%a5), %a0
+    subq.b #1, 0(%a0, %d7.w)
+    cmpi.b #0xff, 0(%a0, %d7.w)
+    bne 8f                              | not its turn yet
+    bsr rand8_bf
+    cmp.b #0xf0, %d0
+    bhs 8f                              | the wait stays $FF: another 256 frames
+    and.w #3, %d0
+    lea person_fire_waits(%pc), %a1
+    move.b 0(%a1, %d0.w), 0(%a0, %d7.w)
+    move.w #PERSON_FIRE_LEFT_X, %d1
+    tst.w %d7
+    beq 2f
+    move.w #PERSON_FIRE_RIGHT_X, %d1
+2:  moveq #0, %d0                       | within $18 of the flame on both axes: no shot
+    move.b OFF_LINK_X(%a5), %d0
+    sub.w %d1, %d0
+    cmp.w #0x18, %d0
+    bge 3f
+    cmp.w #-0x18, %d0
+    ble 3f
+    moveq #0, %d0
+    move.b OFF_LINK_Y(%a5), %d0
+    sub.w #CAVE_PERSON_Y, %d0
+    cmp.w #0x18, %d0
+    bge 3f
+    cmp.w #-0x18, %d0
+    bgt 8f
+3:  addq.w #4, %d1                      | the fireball starts four pixels right of its flame
+    move.w #CAVE_PERSON_Y, %d2
+    bsr fireball_aim_xy_bf
+    bsr fireball_spawn_xy_bf
+8:  dbra %d7, 1b
+    movem.l (%sp)+, %d0-%d7/%a0-%a1
+9:  rts
+
+person_fire_waits:
+    .byte 0x50, 0x80, 0xf0, 0x60
+
+| ------------------------------------------------------------------ the push block
+| (the section of combat.s that says how it works)
+block_setup:
+    movem.l %d0-%d3, -(%sp)
+    clr.b OFF_BLOCK_STATE(%a5)
+    clr.b OFF_BLOCK_PUSH(%a5)
+    tst.b OFF_LEVEL(%a5)
+    beq 9f
+    tst.b OFF_IN_CELLAR(%a5)
+    bne 9f
+    tst.b OFF_ROOM_BLOCK(%a5)
+    beq 9f
+    moveq #4, %d3                   | FindAndCreatePushBlockObject: row 10, from column 4
+1:  moveq #10, %d2
+    bsr fetch_tile_bf
+    cmp.w #BLOCK_TILE, %d0
+    beq 2f
+    addq.w #2, %d3
+    cmp.w #26, %d3
+    blo 1b
+    bra 9f
+2:  lsl.w #3, %d3
+    move.b %d3, OFF_BLOCK_X(%a5)
+    move.b #0x90, OFF_BLOCK_Y(%a5)
+    move.b #1, OFF_BLOCK_STATE(%a5)
+9:  movem.l (%sp)+, %d0-%d3
+    rts
+
+| Link is walking into a wall in direction d1.b: is it the block?
+block_push_tick:
+    movem.l %d0-%d5/%a0, -(%sp)
+    cmpi.b #1, OFF_BLOCK_STATE(%a5)
+    bne 9f
+    move.b %d1, %d5                 | the way he pushes
+    moveq #0, %d0
+    move.b OFF_ROOM_ID(%a5), %d0
+    lea OFF_UW_FLAGS(%a5), %a0
+    btst #0, 0(%a0, %d0.w)
+    beq 9f                          | the monsters are not all dead
+    moveq #0, %d2                   | Link, then the block
+    move.b OFF_LINK_X(%a5), %d2
+    moveq #0, %d3
+    move.b OFF_LINK_Y(%a5), %d3
+    addq.w #3, %d3
+    moveq #0, %d0
+    move.b OFF_BLOCK_X(%a5), %d0
+    moveq #0, %d1
+    move.b OFF_BLOCK_Y(%a5), %d1
+    cmp.w %d0, %d2
+    bne 3f
+    sub.w %d1, %d3                  | level in X: he pushes from below or above
+    bpl 1f
+    neg.w %d3
+    moveq #DIR_DOWN, %d4
+    bra 2f
+1:  moveq #DIR_UP, %d4
+2:  cmp.w #0x11, %d3
+    bhs 9f
+    bra 5f
+3:  cmp.w %d1, %d3
+    bne 9f
+    sub.w %d0, %d2                  | level in Y: he pushes from the right or the left
+    bpl 4f
+    neg.w %d2
+    moveq #DIR_RIGHT, %d4
+    bra 41f
+4:  moveq #DIR_LEFT, %d4
+41: cmp.w #0x11, %d2
+    bhs 9f
+5:  cmp.b %d4, %d5
+    bne 9f
+    move.b #1, OFF_BLOCK_TICK(%a5)
+    addq.b #1, OFF_BLOCK_PUSH(%a5)
+    cmpi.b #BLOCK_PUSH_FRAMES, OFF_BLOCK_PUSH(%a5)
+    blo 9f
+    bsr block_slide
+9:  movem.l (%sp)+, %d0-%d5/%a0
+    rts
+
+| Pushing only counts while it goes on without a break. A block that is sliding moves a pixel a frame (UpdateBlock's
+| moving state) and lands after 16.
+block_update:
+    cmpi.b #3, OFF_BLOCK_STATE(%a5)
+    bne 2f
+    addq.b #1, OFF_BLOCK_FRAME(%a5)
+    cmpi.b #BLOCK_PUSH_FRAMES, OFF_BLOCK_FRAME(%a5)
+    blo 2f
+    bsr block_land
+2:  tst.b OFF_BLOCK_TICK(%a5)
+    bne 1f
+    clr.b OFF_BLOCK_PUSH(%a5)
+1:  clr.b OFF_BLOCK_TICK(%a5)
+    rts
+
+| Out: d0.w, d1.w = the block's tile column and row, d4.w, d5.w = where it is going (BLOCK_DIR says which way).
+block_geom:
+    moveq #0, %d0
+    move.b OFF_BLOCK_X(%a5), %d0
+    lsr.w #3, %d0
+    moveq #0, %d1
+    move.b OFF_BLOCK_Y(%a5), %d1
+    sub.w #BLOCK_ROW_Y, %d1
+    lsr.w #3, %d1
+    move.w %d0, %d4
+    move.w %d1, %d5
+    move.b OFF_BLOCK_DIR(%a5), %d7
+    btst #0, %d7
+    beq 1f
+    addq.w #2, %d4
+    rts
+1:  btst #1, %d7
+    beq 2f
+    subq.w #2, %d4
+    rts
+2:  btst #2, %d7
+    beq 3f
+    addq.w #2, %d5
+    rts
+3:  subq.w #2, %d5
+    rts
+
+| d6.w = 0..3 (which of the block's four tiles), d0/d1/d4/d5 from block_geom.
+| Out: d2.w = its place in the room map where the block is, d3.w = where it is going.
+block_cell_index:
+    move.w %d1, %d2
+    btst #1, %d6
+    beq 1f
+    addq.w #1, %d2
+1:  lsl.w #5, %d2
+    add.w %d0, %d2
+    btst #0, %d6
+    beq 2f
+    addq.w #1, %d2
+2:  move.w %d5, %d3
+    btst #1, %d6
+    beq 3f
+    addq.w #1, %d3
+3:  lsl.w #5, %d3
+    add.w %d4, %d3
+    btst #0, %d6
+    beq 4f
+    addq.w #1, %d3
+4:  rts
+
+| Draws the clean room again from the map and shows it.
+block_render:
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    lea OFF_UW_MAP(%a5), %a0
+    movea.l OFF_BG_CUR(%a5), %a1
+    bsr uw_render_map_bf
+    bsr show_background_bf
+    clr.b OFF_ERASE_VALID(%a5)
+    movem.l (%sp)+, %d0-%d7/%a0-%a1
+    rts
+
+| The block starts to move 16 pixels the way d5.b says, if the floor there is free. Its picture is taken from the clean
+| room and floats over it (effect slot 11, block_draw); the room is drawn without it, and the map says the block is
+| already where it will land, so Link cannot walk through it.
+block_slide:
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    move.b %d5, OFF_BLOCK_DIR(%a5)
+    bsr block_geom
+    cmp.w #2, %d4
+    blt 9f
+    cmp.w #29, %d4
+    bgt 9f
+    cmp.w #2, %d5
+    blt 9f
+    cmp.w #19, %d5
+    bgt 9f
+    moveq #3, %d6
+5:  move.w %d5, %d2                 | all four tiles there have to be floor
+    btst #1, %d6
+    beq 51f
+    addq.w #1, %d2
+51: move.w %d4, %d3
+    btst #0, %d6
+    beq 52f
+    addq.w #1, %d3
+52: bsr fetch_tile_bf
+    bsr tile_blocks_bf
+    tst.w %d0
+    bne 9f
+    dbra %d6, 5b
+
+    move.b #3, OFF_BLOCK_STATE(%a5)
+    clr.b OFF_BLOCK_PUSH(%a5)
+    clr.b OFF_BLOCK_FRAME(%a5)
+    moveq #0, %d1                   | its picture, from the clean room (the block sits on a 16-pixel column)
+    move.b OFF_BLOCK_X(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_BLOCK_Y(%a5), %d2
+    subq.w #2, %d2
+    bsr sprite_offset_bf
+    movea.l OFF_BG_CUR(%a5), %a0
+    adda.l %d1, %a0
+    lea OFF_BLOCK_SPRITE(%a5), %a1
+    moveq #(SPRITE_HEIGHT - 1), %d7
+1:  move.l (%a0)+, (%a1)+
+    move.l (%a0)+, (%a1)+
+    move.w #-1, (%a1)+              | opaque
+    lea (SCREEN_STRIDE - 8)(%a0), %a0
+    dbra %d7, 1b
+    bsr block_geom                  | d7 was used
+    lea OFF_UW_MAP(%a5), %a0        | the room without the block: both places show the floor
+    lea OFF_BLOCK_TILES(%a5), %a1
+    moveq #3, %d6
+6:  bsr block_cell_index
+    move.b 0(%a0, %d2.w), 0(%a1, %d6.w)
+    move.b 0(%a0, %d3.w), 4(%a1, %d6.w)
+    move.b 4(%a1, %d6.w), 0(%a0, %d2.w)
+    dbra %d6, 6b
+    bsr block_render
+    lea OFF_UW_MAP(%a5), %a0
+    lea OFF_BLOCK_TILES(%a5), %a1
+    moveq #3, %d6
+7:  bsr block_cell_index             | and the block is in the map where it will land
+    move.b 0(%a1, %d6.w), 0(%a0, %d3.w)
+    dbra %d6, 7b
+9:  movem.l (%sp)+, %d0-%d7/%a0-%a1
+    rts
+
+| The block has landed. Trigger 4 opens the room's shutters for good; trigger 5 (CheckSecretTriggerBlockStairs) lays the
+| stairs at ($D0, $60), once; in any other room (the bow room's block) the secret tune plays and nothing else happens.
+block_land:
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    move.b #2, OFF_BLOCK_STATE(%a5)
+    clr.b OFF_BLOCK_FRAME(%a5)
+    bsr block_geom
+    cmpi.b #TRIGGER_PUSH_BLOCK, OFF_ROOM_TRIGGER(%a5)
+    bne 7f
+    moveq #0, %d0                   | the shutters open and the room is rebuilt (which puts the block back
+    move.b OFF_ROOM_ID(%a5), %d0    | where it started: the map is set again below)
+    bsr uw_open_shutters_bf
+    bsr uw_redraw_room_bf
+    bsr block_geom
+    bra 8f
+7:  sfx SFX_SECRET
+8:  lea OFF_UW_MAP(%a5), %a0        | the floor where it was, the block where it is
+    lea OFF_BLOCK_TILES(%a5), %a1
+    moveq #3, %d6
+6:  bsr block_cell_index
+    move.b 4(%a1, %d6.w), %d7
+    move.b %d7, 0(%a0, %d2.w)
+    move.b 0(%a1, %d6.w), 0(%a0, %d3.w)
+    dbra %d6, 6b
+    cmpi.b #5, OFF_ROOM_TRIGGER(%a5)
+    bne 5f
+    moveq #0, %d7                   | the stairs: four tiles, column-major, at tile column 26, row 4
+    move.b OFF_UW_STAIRS_ID(%a5), %d7
+    beq 5f
+    move.b %d7, (4 * 32 + 26)(%a0)
+    addq.b #1, %d7
+    move.b %d7, (5 * 32 + 26)(%a0)
+    addq.b #1, %d7
+    move.b %d7, (4 * 32 + 27)(%a0)
+    addq.b #1, %d7
+    move.b %d7, (5 * 32 + 27)(%a0)
+5:  lsl.w #3, %d4
+    move.b %d4, OFF_BLOCK_X(%a5)
+    lsl.w #3, %d5
+    add.w #BLOCK_ROW_Y, %d5
+    move.b %d5, OFF_BLOCK_Y(%a5)
+    bsr block_render
+    movem.l (%sp)+, %d0-%d7/%a0-%a1
+    rts
+
+| While the block slides, its picture is the effect in slot 11, a pixel further each frame.
+block_draw:
+    cmpi.b #3, OFF_BLOCK_STATE(%a5)
+    bne 9f
+    movem.l %d0-%d2/%d6/%a0, -(%sp)
+    moveq #0, %d0
+    move.b OFF_BLOCK_FRAME(%a5), %d0
+    moveq #0, %d1
+    move.b OFF_BLOCK_X(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_BLOCK_Y(%a5), %d2
+    subq.w #2, %d2
+    move.b OFF_BLOCK_DIR(%a5), %d6
+    btst #0, %d6
+    beq 1f
+    add.w %d0, %d1
+1:  btst #1, %d6
+    beq 2f
+    sub.w %d0, %d1
+2:  btst #2, %d6
+    beq 3f
+    add.w %d0, %d2
+3:  btst #3, %d6
+    beq 4f
+    sub.w %d0, %d2
+4:  lea OFF_BLOCK_SPRITE(%a5), %a0
+    moveq #11, %d6
+    bsr fx_put_a0_bf
+    movem.l (%sp)+, %d0-%d2/%d6/%a0
+9:  rts

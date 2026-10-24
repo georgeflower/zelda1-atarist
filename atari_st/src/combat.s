@@ -405,10 +405,17 @@ erase_effects:
 
 | d0.w = frame in fx_sprites, d1.w = X, d2.w = Y, d6.w = slot.
 fx_put:
-    movem.l %d0-%d4/%a0-%a2, -(%sp)
+    movem.l %d0/%a0, -(%sp)
     mulu.w #SPRITE_FRAME_BYTES, %d0
     ltab fx_sprites, %a0
     adda.l %d0, %a0
+    bsr fx_put_a0
+    movem.l (%sp)+, %d0/%a0
+    rts
+
+| The same with the picture's address in a0.
+fx_put_a0:
+    movem.l %d0-%d4/%a0-%a2, -(%sp)
     bsr sprite_offset
     tst.w %d4
     bmi 9f
@@ -427,6 +434,7 @@ fx_put:
 
 draw_effects:
     movem.l %d0-%d7/%a0-%a1, -(%sp)
+    bsr block_draw_f
     moveq #0, %d7
     move.b OFF_SPARK_K(%a5), %d7
     beq 5f
@@ -566,7 +574,7 @@ update_combat:
     bsr fairy_fly
     bsr beam_update
     bsr fire_update
-    bsr block_update
+    bsr block_update_f
     bsr bomb_tick
     tst.b OFF_LEVEL(%a5)
     beq 9f
@@ -612,7 +620,7 @@ sword_hits:
     move.b (%a0), %d6
     moveq #0, %d5
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
-    bhs 9f
+    bhs 10f
     tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
     beq 8f
     tst.b OFF_ENEMY_HURT(%a5, %d5.w)
@@ -648,6 +656,7 @@ sword_hits:
 7:  movem.l (%sp)+, %d1-%d2/%d4/%d6
 8:  addq.w #1, %d5
     bra 1b
+10: bsr boss_person_hit_f           | the old man between his fires
 9:  movem.l (%sp)+, %d0-%d6/%a0
     rts
 
@@ -2190,205 +2199,19 @@ uw_check_clear:
     rts
 
 | ---------------------------------------------------------------- push block
-| A trigger-4 room has one block that gives way once the monsters are dead:
+| A room with a push block (attribute D bit 6) has one that gives way once the monsters are dead:
 | Link has to stand against it, lined up, and keep pushing for 16 frames. It
-| then slides 16 pixels (here it swaps places with the floor there) and the
-| room's shutters open for good. BLOCK_X/Y are the origin of its top-left tile.
+| then slides 16 pixels, a pixel a frame (UpdateBlock), drawn as a sprite over the room; when it lands a trigger-4
+| room's shutters open for good and a trigger-5 room shows its stairs. BLOCK_X/Y are the origin of its top-left tile
+| (the source while it slides).
     .equ TRIGGER_PUSH_BLOCK, 4
     .equ TRIGGER_RINGLEADER, 2
     .equ BLOCK_TILE, 0xb0
     .equ BLOCK_ROW_Y, 0x40          | the top of the play area, where tile row 0 starts
     .equ BLOCK_PUSH_FRAMES, 16
 
-block_setup:
-    movem.l %d0-%d3, -(%sp)
-    clr.b OFF_BLOCK_STATE(%a5)
-    clr.b OFF_BLOCK_PUSH(%a5)
-    tst.b OFF_LEVEL(%a5)
-    beq 9f
-    tst.b OFF_IN_CELLAR(%a5)
-    bne 9f
-    tst.b OFF_ROOM_BLOCK(%a5)
-    beq 9f
-    moveq #4, %d3                   | FindAndCreatePushBlockObject: row 10, from column 4
-1:  moveq #10, %d2
-    bsr fetch_tile
-    cmp.w #BLOCK_TILE, %d0
-    beq 2f
-    addq.w #2, %d3
-    cmp.w #26, %d3
-    blo 1b
-    bra 9f
-2:  lsl.w #3, %d3
-    move.b %d3, OFF_BLOCK_X(%a5)
-    move.b #0x90, OFF_BLOCK_Y(%a5)
-    move.b #1, OFF_BLOCK_STATE(%a5)
-9:  movem.l (%sp)+, %d0-%d3
-    rts
-
-| Link is walking into a wall in direction d1.b: is it the block?
-block_push_tick:
-    movem.l %d0-%d5/%a0, -(%sp)
-    cmpi.b #1, OFF_BLOCK_STATE(%a5)
-    bne 9f
-    move.b %d1, %d5                 | the way he pushes
-    moveq #0, %d0
-    move.b OFF_ROOM_ID(%a5), %d0
-    lea OFF_UW_FLAGS(%a5), %a0
-    btst #0, 0(%a0, %d0.w)
-    beq 9f                          | the monsters are not all dead
-    moveq #0, %d2                   | Link, then the block
-    move.b OFF_LINK_X(%a5), %d2
-    moveq #0, %d3
-    move.b OFF_LINK_Y(%a5), %d3
-    addq.w #3, %d3
-    moveq #0, %d0
-    move.b OFF_BLOCK_X(%a5), %d0
-    moveq #0, %d1
-    move.b OFF_BLOCK_Y(%a5), %d1
-    cmp.w %d0, %d2
-    bne 3f
-    sub.w %d1, %d3                  | level in X: he pushes from below or above
-    bpl 1f
-    neg.w %d3
-    moveq #DIR_DOWN, %d4
-    bra 2f
-1:  moveq #DIR_UP, %d4
-2:  cmp.w #0x11, %d3
-    bhs 9f
-    bra 5f
-3:  cmp.w %d1, %d3
-    bne 9f
-    sub.w %d0, %d2                  | level in Y: he pushes from the right or the left
-    bpl 4f
-    neg.w %d2
-    moveq #DIR_RIGHT, %d4
-    bra 41f
-4:  moveq #DIR_LEFT, %d4
-41: cmp.w #0x11, %d2
-    bhs 9f
-5:  cmp.b %d4, %d5
-    bne 9f
-    move.b #1, OFF_BLOCK_TICK(%a5)
-    addq.b #1, OFF_BLOCK_PUSH(%a5)
-    cmpi.b #BLOCK_PUSH_FRAMES, OFF_BLOCK_PUSH(%a5)
-    blo 9f
-    bsr block_slide
-9:  movem.l (%sp)+, %d0-%d5/%a0
-    rts
-
-| Pushing only counts while it goes on without a break.
-block_update:
-    tst.b OFF_BLOCK_TICK(%a5)
-    bne 1f
-    clr.b OFF_BLOCK_PUSH(%a5)
-1:  clr.b OFF_BLOCK_TICK(%a5)
-    rts
-
-| The block moves 16 pixels the way d5.b says, if the floor there is free, and
-| the room's shutters open.
-block_slide:
-    movem.l %d0-%d7/%a0-%a1, -(%sp)
-    move.w %d5, %d7
-    moveq #0, %d0
-    move.b OFF_BLOCK_X(%a5), %d0
-    lsr.w #3, %d0                   | its tile column and row
-    moveq #0, %d1
-    move.b OFF_BLOCK_Y(%a5), %d1
-    sub.w #BLOCK_ROW_Y, %d1
-    lsr.w #3, %d1
-    move.w %d0, %d4                 | where it is going
-    move.w %d1, %d5
-    btst #0, %d7
-    beq 1f
-    addq.w #2, %d4
-    bra 4f
-1:  btst #1, %d7
-    beq 2f
-    subq.w #2, %d4
-    bra 4f
-2:  btst #2, %d7
-    beq 3f
-    addq.w #2, %d5
-    bra 4f
-3:  subq.w #2, %d5
-4:  cmp.w #2, %d4
-    blt 9f
-    cmp.w #29, %d4
-    bgt 9f
-    cmp.w #2, %d5
-    blt 9f
-    cmp.w #19, %d5
-    bgt 9f
-    moveq #3, %d6
-5:  move.w %d5, %d2                 | all four tiles there have to be floor
-    btst #1, %d6
-    beq 51f
-    addq.w #1, %d2
-51: move.w %d4, %d3
-    btst #0, %d6
-    beq 52f
-    addq.w #1, %d3
-52: bsr fetch_tile
-    bsr tile_blocks
-    tst.w %d0
-    bne 9f
-    dbra %d6, 5b
-
-    move.b #2, OFF_BLOCK_STATE(%a5)
-    clr.b OFF_BLOCK_PUSH(%a5)
-    cmpi.b #TRIGGER_PUSH_BLOCK, OFF_ROOM_TRIGGER(%a5)
-    bne 7f                          | any other room: the block only moves (the secret tune plays)
-    moveq #0, %d0                   | the shutters open, and the room is rebuilt
-    move.b OFF_ROOM_ID(%a5), %d0
-    bsr uw_open_shutters
-    bsr uw_redraw_room
-    bra 8f
-7:  sfx SFX_SECRET
-8:
-    moveq #0, %d0                   | then the block and the floor swap places
-    move.b OFF_BLOCK_X(%a5), %d0
-    lsr.w #3, %d0
-    moveq #0, %d1                   | uw_open_shutters answered in d1
-    move.b OFF_BLOCK_Y(%a5), %d1
-    sub.w #BLOCK_ROW_Y, %d1
-    lsr.w #3, %d1
-    lea OFF_UW_MAP(%a5), %a0
-    moveq #3, %d6
-6:  move.w %d1, %d2
-    btst #1, %d6
-    beq 61f
-    addq.w #1, %d2
-61: lsl.w #5, %d2
-    add.w %d0, %d2
-    btst #0, %d6
-    beq 62f
-    addq.w #1, %d2
-62: move.w %d5, %d3
-    btst #1, %d6
-    beq 63f
-    addq.w #1, %d3
-63: lsl.w #5, %d3
-    add.w %d4, %d3
-    btst #0, %d6
-    beq 64f
-    addq.w #1, %d3
-64: move.b 0(%a0, %d2.w), %d7
-    move.b 0(%a0, %d3.w), 0(%a0, %d2.w)
-    move.b %d7, 0(%a0, %d3.w)
-    dbra %d6, 6b
-    lsl.w #3, %d4
-    move.b %d4, OFF_BLOCK_X(%a5)
-    lsl.w #3, %d5
-    add.w #BLOCK_ROW_Y, %d5
-    move.b %d5, OFF_BLOCK_Y(%a5)
-    lea OFF_UW_MAP(%a5), %a0
-    movea.l OFF_BG_CUR(%a5), %a1
-    bsr uw_render_map
-    bsr show_background
-    clr.b OFF_ERASE_VALID(%a5)
-9:  movem.l (%sp)+, %d0-%d7/%a0-%a1
-    rts
+| The routines (block_setup, block_push_tick, block_update, block_slide, block_land, block_draw) are at the end of the
+| program, in bosses.s, where the code cluster has room; the near code calls them through the stubs of dmon.s.
 
 | d0.w = room id. Marks every shutter of the room open; d1.w = 1 if one changed.
 uw_open_shutters:

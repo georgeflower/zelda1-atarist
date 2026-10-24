@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 import build_assets  # noqa: E402
@@ -42,6 +43,21 @@ def _write_fake_rom(root: Path, blobs: dict[str, bytes]) -> None:
     (root / "ext" / "Original.nes").write_bytes(
         b"NES\x1a" + bytes([4, 0, 0x04]) + bytes(9) + trainer + bytes(prg_rom)
     )
+
+
+class LevelIncludeTests(unittest.TestCase):
+    def test_boss_room_and_stairs_use_separate_level_record_bytes(self) -> None:
+        level = SimpleNamespace(
+            level=5, start_room=0x65, start_y=0xDD, triforce_room=0x14,
+            map_col0=2, cellar_info=[b""], boss_room=0x15, stairs_first=120,
+        )
+        record = build_assets.level_include([level]).split("level_table:\n", 1)[1]
+        data = record.split("    .byte ", 1)[1].strip()
+        self.assertEqual(
+            [int(value.strip(), 0) for value in data.split(",")],
+            [0x65, 0xDD, 0x14, 2, 1, 0x15, 120, 0],
+        )
+        self.assertEqual(build_assets.LEVEL_RECORD_BYTES, 4 * len(build_assets.LEVEL_TABLES) + 8)
 
 
 class ExtractionTests(unittest.TestCase):
@@ -374,6 +390,16 @@ class RomAllDungeonsTests(unittest.TestCase):
             self.assertEqual(len(stored), count, level)
             self.assertIn(uw.triforce_room, stored, level)
             self.assertIn(uw.start_room, stored, level)
+
+    def test_levels_with_a_stairs_block_carry_the_four_stairs_tiles_in_their_bank(self) -> None:
+        # CheckSecretTriggerBlockStairs: trigger 5 (Levels 4, 5, 6, 7 and 9) puts tiles $70-$73 at ($D0, $60)
+        for level in range(1, 10):
+            uw = self.bundle.levels[level - 1]
+            if level in (4, 5, 6, 7, 9):
+                self.assertGreater(uw.stairs_first, 0, level)
+                self.assertEqual(uw.tile_nes[uw.stairs_first : uw.stairs_first + 4], bytes(range(0x70, 0x74)), level)
+            else:
+                self.assertEqual(uw.stairs_first, 0, level)
 
     STEP = (1, -1, 16, -16)
     OPPOSITE = (1, 0, 3, 2)

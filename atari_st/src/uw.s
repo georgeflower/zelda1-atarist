@@ -270,6 +270,9 @@ uw_person_begin:
     btst #UW_FLAG_PERSON, 0(%a2, %d0.w)
     bne 9f                              | he has given what he had, and is gone
     move.b #1, OFF_UW_PERSON(%a5)
+    clr.b OFF_PERSON_FIRE(%a5)          | a visit starts with the fires quiet
+    clr.b OFF_PERSON_FIRE_T(%a5)
+    clr.b (OFF_PERSON_FIRE_T + 1)(%a5)
     move.b #1, OFF_CAVE_TEXT_ON(%a5)
     move.w 14(%a1), OFF_CAVE_TEXT_IDXW(%a5)
     move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
@@ -525,7 +528,7 @@ uw_bake_person:
     movea.l %a2, %a1
     adda.l %d1, %a1
     move.w %d4, %d0
-    bsr draw_sprite
+    bsr draw_sprite_far
 9:  movem.l (%sp)+, %d0-%d4/%a0-%a2
     rts
 
@@ -1006,10 +1009,14 @@ check_warps:
     and.b #0x0f, %d0
     bne 8f
     move.b OFF_LINK_Y(%a5), %d0
-    and.b #0x0f, %d0
+    tst.b OFF_LEVEL(%a5)
+    beq 7f
+    cmp.b #UW_BOUND_UP, %d0         | the stairs a push block uncovers sit in the top row: the ROM lets Link rest on
+    beq 6f                          | $5D there (it stops him when he would cross the bound), the port stops him at the bound
+7:  and.b #0x0f, %d0
     cmp.b #0x0d, %d0
     bne 8f
-
+6:
     moveq #0, %d2
     move.b OFF_LINK_Y(%a5), %d2
     add.w #HOTSPOT_Y_OFFSET, %d2

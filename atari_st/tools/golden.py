@@ -57,6 +57,9 @@ DEATH = "260:=DYING=1"
 INV_OW = "300:=INV_BOMBS=4,300:=B_ITEM=1,300:=INV_BOOMERANG=1,300:=INV_CANDLE=1,300:=INV_RAFT=1,300:=INV_RING=1,300:=TRIFORCE_PIECES=5"
 INV_UW = "300:=INV_MAP=1,300:=INV_COMPASS=1,300:=INV_BOMBS=3,300:=B_ITEM=1,300:=UW_FLAGS.115=32,300:=UW_FLAGS.114=32,300:=UW_FLAGS.116=32,300:=UW_FLAGS.99=32,300:=UW_FLAGS.98=32,300:=UW_FLAGS.100=32,300:=UW_FLAGS.83=32,300:=UW_FLAGS.82=32,300:=UW_FLAGS.84=32,300:=UW_FLAGS.67=32,300:=UW_FLAGS.68=32,300:=UW_FLAGS.66=32,300:=UW_FLAGS.51=32,300:=UW_FLAGS.52=32,300:=UW_FLAGS.53=32,300:=UW_FLAGS.35=32,300:=UW_FLAGS.36=32"
 
+BLOCK_L1 = "300:=ENEMY_COUNT=0,330:=LINK_X=0x80,330:=LINK_Y=0x8d,331:+left"
+BLOCK_L5 = "300:=ENEMY_COUNT=0,330:=LINK_X=0x80,330:=LINK_Y=0x8d,331:+left"
+
 SCENES: dict[str, list[str]] = {
     # The title and the story (intro.s) run in the normal build, which `make` has built (the others are dev builds).
     "title": ["--vbls", "400"],
@@ -93,6 +96,8 @@ SCENES: dict[str, list[str]] = {
     "uw2_goriya_hit": ["--uw", "0x5e", "--level", "2", "--vbls", "366", "--keys",
                        "320:=LINK_X=60,320:=LINK_Y=157,320:=LINK_DIR=2"],
     "uw2_old_man": ["--uw", "0x1f", "--level", "2", "--vbls", "420"],
+    # a sword blow on the old man (person_hit) turns his two fires on Link: a fireball is on its way
+    "uw2_old_man_fire": ["--uw", "0x1f", "--level", "2", "--vbls", "520", "--keys", "440:+space,442:-space"],
     "uw3_crowd": ["--uw", "0x49", "--level", "3", "--vbls", "420"],
     "uw4_dark": ["--uw", "0x30", "--level", "4", "--vbls", "420"],
     "uw4_stash": ["--uw", "0x11", "--level", "4", "--vbls", "420"],
@@ -104,6 +109,11 @@ SCENES: dict[str, list[str]] = {
     "uw9_zelda": ["--uw", "0x32", "--level", "9", "--vbls", "420"],
     "uw1_magic_key_door": ["--uw", "0x73", "--level", "1", "--vbls", "500", "--keys", "190:=ITEMS.13=1,200:+up"],
     "uw5_bombs_man": ["--uw", "0x17", "--level", "5", "--vbls", "420"],
+    # The push block (combat.s block_slide / block_land): Link lines up at the right of Level 1's block, pushes, and the block
+    # slides left a pixel a frame (picture 358), lands and opens the shutters (392); Level 5's room $05 shows the stairs.
+    "uw1_block_slide": ["--uw", "0x42", "--level", "1", "--vbls", "358", "--keys", BLOCK_L1],
+    "uw1_block_landed": ["--uw", "0x42", "--level", "1", "--vbls", "392", "--keys", BLOCK_L1],
+    "uw5_block_stairs": ["--uw", "0x05", "--level", "5", "--vbls", "480", "--keys", BLOCK_L5],
     "uw9_credits_port": ["--uw", "0x32", "--level", "9", "--vbls", "3250", "--keys", "190:=HP_HALVES=40,190:=LINK_Y=0x95"],
     # The overworld's hidden spots (secrets.s). Enemies are cleared at frame 300 so nothing disturbs the poked-in Link.
     "ow_bomb_wall": ["--room", "0x01", "--vbls", "470", "--keys",

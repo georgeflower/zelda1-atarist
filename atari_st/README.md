@@ -149,8 +149,8 @@ Level 1 (underworld)
   start again
 - the old man in room `$41` stands between two flames and types out "EASTMOST
   PENNINSULA IS THE SECRET." while Link is held; Link cannot walk past him. The
-  speech comes from the original dungeon-people tables. The flames do not shoot
-  when he is hit. The "more bombs" man (Levels 5 and 7: 100 rupees for room for four
+  speech comes from the original dungeon-people tables. A sword blow on him
+  makes his two flames shoot fireballs at Link, as in the original. The "more bombs" man (Levels 5 and 7: 100 rupees for room for four
   more bombs) and the "life or money" man (a heart container or 50 rupees) are in
 - the wooden sword, the boomerang, the bow and the candle are held up with the item
   fanfare when taken: Link stands still with his arms raised and the item over his
@@ -264,9 +264,10 @@ Combat and items
   below it. Left and Right move the cursor over the B items Link owns, `Tab`
   closes it
 - push block (room `$42`): once the monsters are dead, stand against the
-  block, lined up, and push for 16 frames. It swaps places with the floor
-  beyond it and the room's shutters open for good (they no longer open when
-  the last monster dies)
+  block, lined up, and push for 16 frames. It slides 16 pixels, a pixel a
+  frame, and the room's shutters open for good (they no longer open when
+  the last monster dies). In the rooms with the stairs-type block (Levels 4 to 9) the
+  stairs show at the top right when it lands
 - pickups with their effects: keys, hearts, heart containers, rupees, bombs,
   and every item above, plus the map and the compass
 - the dungeon map in the corner of the ribbon: the level's rooms as grey boxes
@@ -328,8 +329,6 @@ Things that behave differently from the original, or are stand-ins:
 - most items cannot be found yet: the caves and shops that give the candle, the
   potions, rings, shield, recorder, food and rod are not ported (`K` and the
   harness's pokes stand in), and the recorder plays its tune without the whirlwind
-- the push block slides in one jump rather than visibly, and only the
-  trigger-4 kind (open the shutters) exists
 - `K` is a debug key standing in for the shops and secrets that give keys,
   bombs and the candle
 - overworld armos and gravestone ghinis are not ported (milestones M2 and M4 in `PLAN.md`); the hidden spots open, but
@@ -509,7 +508,7 @@ Notes on the ST implementation
   the program jumps into the wrong place. Level 2 hit it (three main-loop calls
   32 KB from their targets, a crash at start), so `tools/check_reach.py` now
   computes every distance from the assembler listing and fails the build on a bad
-  one. The code cluster is full: today the tightest reference has 86 bytes to
+  one. The code cluster is full: today the tightest reference has 230 bytes to
   spare. A module that has to call across the image goes through a `*_far` stub
   (`bra target`) in the middle of the image (`main.s`, before `.include "link.s"`).
   Tables, texts and sprite banks cost nothing, they go after `room_palette`.

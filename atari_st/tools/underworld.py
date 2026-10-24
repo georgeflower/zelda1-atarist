@@ -47,6 +47,8 @@ CELLAR_ARRAY_OFFSET = 0x6BB2 - B.LEVEL_INFO_BASE
 CELLAR_ARRAY_LENGTH = 10
 CELLAR_UNIQUE_IDS = (0x3E, 0x3F)   # tunnel, treasure room
 CELLAR_PALETTE_ROW = 2             # CellarAttrsTransferBuf makes every attribute $AA
+STAIRS_TILE = 0x70                 # the stairs a trigger-5 push block uncovers (four tiles, column-major)
+STAIRS_PALETTE_ROW = 2             # every room with such a block has attribute A and B = 2
 # room A, room B, position in the destination, item, item X, item Y, room id, kind
 CELLAR_INFO_BYTES = 8
 
@@ -69,6 +71,7 @@ class UwData:
     actors: object = None
     cellar_maps: tuple = ()   # UW_ROOM_BYTES row-major bank ids per cellar
     cellar_info: tuple = ()   # CELLAR_INFO_BYTES per cellar
+    stairs_first: int = 0     # bank id of the four stairs tiles ($70-$73, column-major) a trigger-5 push block uncovers; 0 = none
 
 
 MINIMAP_COLUMNS = 8
@@ -489,6 +492,13 @@ def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes
 
     cellar_maps, cellar_info = build_cellars(asm, info, attrs, bank_id)
 
+    # CheckSecretTriggerBlockStairs: pushing the block of a trigger-5 room puts the stairs tile ($70) at ($D0, $60). The four
+    # tiles go in as the last four bank entries, in palette row 2 like every room that has such a block.
+    stairs_first = 0
+    if any((attrs[5][room] & 7) == 5 and attrs_d[room] & 0x40 for room in stored):
+        stairs_first = len(bank_keys)
+        bank_keys.extend((tile, STAIRS_PALETTE_ROW) for tile in range(STAIRS_TILE, STAIRS_TILE + 4))
+
     if len(bank_keys) > 256:
         raise SystemExit(f"Level {level} needs {len(bank_keys)} tiles; a byte index allows 256")
 
@@ -517,4 +527,5 @@ def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes
         ),
         cellar_maps=tuple(cellar_maps),
         cellar_info=tuple(cellar_info),
+        stairs_first=stairs_first,
     )
