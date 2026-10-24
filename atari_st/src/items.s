@@ -12,7 +12,8 @@
     .equ B_FOOD, 6
     .equ B_POTION, 7
     .equ B_ROD, 8
-    .equ B_LAST, 8
+    .equ B_LETTER, 9                    | the letter, selected with the cursor on the potion's place (slot $F)
+    .equ B_LAST, 9
 
     .equ ARROW_FLY_SPEED, 192           | WieldWeapon: QSpeed $C0, three pixels a frame
     .equ MAGIC_FLY_SPEED, 160           | the rod's shot is slower: $A0
@@ -40,11 +41,12 @@ b_slots:
     .byte 6, 6, 0                       | food
     .byte 7, 7, 0                       | potion
     .byte 8, 8, 0                       | rod
+    .byte 15, 15, 0                     | the letter (b_item_owned has its own test)
     .align 2
 
 | The ribbon and inventory picture of each B code (hud_items order, tools/actors.py HUD_ITEM_IDS).
 b_icons:
-    .byte 0, 1, 2, 3, 6, 7, 8, 9, 11
+    .byte 0, 1, 2, 3, 6, 7, 8, 9, 11, 26
     .align 2
 
 | d0.w = B code. Returns d0.w = 1 when Link owns what it needs.
@@ -54,7 +56,14 @@ b_item_owned:
     bhi 8f
     tst.w %d0
     beq 8f
-    lea b_slots(%pc), %a0
+    cmp.w #B_LETTER, %d0
+    bne 0f
+    tst.b OFF_INV_LETTER(%a5)           | the letter, until a potion takes its place (CheckMissingItem)
+    beq 8f
+    tst.b OFF_INV_POTION(%a5)
+    bne 8f
+    bra 7f
+0:  lea b_slots(%pc), %a0
     move.w %d0, %d1
     add.w %d0, %d1
     add.w %d0, %d1

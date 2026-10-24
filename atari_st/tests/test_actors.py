@@ -152,9 +152,14 @@ class ActorTableTests(unittest.TestCase):
         slot_code = [codes.get(n.strip(), 0) if not n.strip().isdigit() else int(n) for n in raw.split(",")]
         self.assertEqual(len(code_slot), last + 1)
         self.assertEqual(len(slot_code), 9)
+        letter = codes["B_LETTER"]
         for code in range(1, last + 1):
+            if code == letter:
+                continue                                    # the letter sits where the potion would (menu_slot_code_of)
             self.assertIn(code, slot_code)
             self.assertEqual(slot_code[code_slot[code]], code)
+        self.assertEqual(code_slot[letter], code_slot[codes["B_POTION"]])
+        self.assertEqual(actors.HUD_ITEM_IDS[icons[letter]], 0x15)    # the letter's own picture
 
     def test_overworld_walkers_are_listed_with_their_data(self) -> None:
         for nes_type in actors.OVERWORLD_MONSTERS:

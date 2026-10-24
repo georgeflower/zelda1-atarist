@@ -717,6 +717,11 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   60 Hz (`$FF820A` bit 1 clear) every 6th VBL holds them (`MUS_SKIP`).
 - **B item** (`B_ITEM`, codes in the **Items** bullet above): `b_item_fix` keeps it on something owned. The **inventory screen**
   is the ROM's: Left/Right moves the cursor over the owned B items and the B box shows the choice. Opening it freezes everything.
+  The **letter** is a B item too (`B_LETTER` = 9, icon 26): it sits in the potion's place on the screen while there is no
+  potion (`menu_slot_code_of`, `b_item_owned`; CheckMissingItem), and the medicine woman is shown it by pressing B with it
+  selected (`cs_letter` in `caves.s`, as `UpdateCavePerson`'s `@UseLetter`), not with any other B item. Checked against the
+  ROM and found to need nothing: the heart containers stop at 16, and the Book of Magic and a beam range per sword are not
+  features of the game (the book only turns the rod's shot into flame, done; a sword beam is a fixed shot).
 - **Debug key K**: +1 key, +4 bombs (cap 8), candle. The owner wants it kept for now.
 
 ## 11. Asset pipeline facts
