@@ -6,7 +6,7 @@ This repository's full feature list, known gaps, roadmap, build notes and testin
 
 ## Status
 
-Done: the whole overworld with its monsters, caves, secrets and specials; all nine dungeons with their monsters and bosses, up to Ganon, Zelda's thanks and the credits; every item; the Tab inventory screen as in the original; the title, story, file select, death, continue and saving; the ROM's music and effects, at 50 and 60 Hz. Levels 1 and 2 have been played through; Levels 3 to 9 run in every room and have had limited testing by hand. What is left is in [`atari_st/PLAN.md`](atari_st/PLAN.md).
+Done: the whole overworld with its monsters, caves, secrets and specials; all nine dungeons with their monsters and bosses, up to Ganon, Zelda's thanks and the credits; every item; the Tab inventory screen as in the original; the title, story, file select, death, continue and saving, the scrolling credits wall; the ROM's music and effects, at 50 and 60 Hz. Levels 1 and 2 have been played through; Levels 3 to 9 run in every room and have had limited testing by hand. What is left is in [`atari_st/PLAN.md`](atari_st/PLAN.md).
 
 **You can already:**
 
@@ -22,7 +22,7 @@ Done: the whole overworld with its monsters, caves, secrets and specials; all ni
 - meet the old man in the first dungeon's room `$41` and read his hint
 - hear the music and sound effects, ripped from the ROM's own sound engine at build time: overworld, dungeon and Level 9 themes, the item and triforce fanfares, Link's death jingle, and effects for sword, boomerang, flame, bomb, stairs, pickups, hurt, the low-life beep, menu clicks and cave text
 
-**Not there yet:** the overworld minimap on the status bar, the credits wall. The Second Quest is deferred. The plan for all of it is `atari_st/PLAN.md`.
+**Not there yet:** the overworld minimap on the status bar. The Second Quest is deferred. The plan for all of it is `atari_st/PLAN.md`.
 
 ## Controls
 

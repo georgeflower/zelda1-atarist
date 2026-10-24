@@ -49,6 +49,7 @@ MENU_TO_REGISTER = "400:+return,410:-return,440:+return,450:-return"
 MENU_ZELDA = _taps(500, ["down", "down", "right", "right", "right", "space", "up", "up", "right", "space",
                          "down", "left", "left", "left", "left", "space", "up", "right", "right", "right", "space",
                          "left", "left", "left", "space"])
+ZELDA_WIN = "190:=HP_HALVES=40,190:=LINK_Y=0x95"     # Link at Zelda's, with the hearts of the last dungeon
 MENU_REGISTERED = f"{MENU_TO_REGISTER},{MENU_ZELDA},{_taps(610, ['tab', 'tab', 'tab'])},630:+return,632:-return"
 MENU_TO_ELIMINATION = f"{MENU_REGISTERED},{_taps(710, ['tab', 'tab'], 4)},720:+return,722:-return"
 
@@ -114,7 +115,13 @@ SCENES: dict[str, list[str]] = {
     "uw1_block_slide": ["--uw", "0x42", "--level", "1", "--vbls", "358", "--keys", BLOCK_L1],
     "uw1_block_landed": ["--uw", "0x42", "--level", "1", "--vbls", "392", "--keys", BLOCK_L1],
     "uw5_block_stairs": ["--uw", "0x05", "--level", "5", "--vbls", "480", "--keys", BLOCK_L5],
-    "uw9_credits_port": ["--uw", "0x32", "--level", "9", "--vbls", "3250", "--keys", "190:=HP_HALVES=40,190:=LINK_Y=0x95"],
+    # The credits wall (credits.s): Zelda's last words (1300), the wall going by (1600, 2000), the last screen with the ash
+    # and the Triforce of Power (3250), and Start there, back on the title (3100 with Start at 3000).
+    "uw9_zelda_words": ["--uw", "0x32", "--level", "9", "--vbls", "1300", "--keys", ZELDA_WIN],
+    "uw9_credits_start": ["--uw", "0x32", "--level", "9", "--vbls", "1600", "--keys", ZELDA_WIN],
+    "uw9_credits_wall": ["--uw", "0x32", "--level", "9", "--vbls", "2000", "--keys", ZELDA_WIN],
+    "uw9_credits_end": ["--uw", "0x32", "--level", "9", "--vbls", "3250", "--keys", ZELDA_WIN],
+    "uw9_credits_title": ["--uw", "0x32", "--level", "9", "--vbls", "3100", "--keys", ZELDA_WIN + ",3000:+return,3002:-return"],
     # The overworld's hidden spots (secrets.s). Enemies are cleared at frame 300 so nothing disturbs the poked-in Link.
     "ow_bomb_wall": ["--room", "0x01", "--vbls", "470", "--keys",
                      "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0x5d,300:=LINK_DIR=8,300:=INV_BOMBS=8,300:=B_ITEM=1,340:+ctrl,343:-ctrl"],

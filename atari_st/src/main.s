@@ -956,6 +956,7 @@ blit_rect_far:
     .include "menu.s"
     .include "bosses.s"
     .include "intro.s"
+    .include "credits.s"
     .include "filesel.s"
     .include "death.s"
     .include "save.s"
@@ -1065,6 +1066,12 @@ intro_sprites:
     .incbin "intro_sprites.bin"
 intro_spawns:
     .incbin "intro_spawns.bin"
+credits_tiles:
+    .incbin "credits_tiles.bin"
+credits_rows:
+    .incbin "credits_rows.bin"
+credits_map:
+    .incbin "credits_map.bin"
     | The file menu (tools/filesel.py).
     .align 2
 file_tiles:

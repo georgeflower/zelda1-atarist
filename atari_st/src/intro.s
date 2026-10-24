@@ -625,6 +625,8 @@ intro_draw_items:
 | Once a frame in game mode MODE_INTRO.
 update_intro:
     addq.w #1, OFF_INTRO_FRAME(%a5)
+    cmpi.b #INTRO_PHASE_CREDITS, OFF_INTRO_PHASE(%a5)
+    beq credits_update                  | the credits wall (credits.s)
     cmpi.b #INTRO_PHASE_MENU, OFF_INTRO_PHASE(%a5)
     bhs filesel_update                  | the file menu (filesel.s)
     bsr intro_check_start
