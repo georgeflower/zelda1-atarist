@@ -24,7 +24,8 @@
 | The bank (music_bank.bin):
 |     .w tracks, .w 0
 |     per track, 16 bytes: .l stream offset from the bank (0 = no data), .l loop offset in the stream,
-|                          .w frames, .w loop frame, .b kind (0 song, 1 voice A, 2 voice B), .b loops, .w 0
+|                          .w frames, .w loop frame, .b kind (0 song, 1 voice A, 2 voice B, 3 noise effect), .b loops,
+|                          .b 0, .b sample (a DPCM sample: its digidrum is not cut by the other contexts' drums)
 |     then the streams. The digidrum table is a separate file (music_drums).
 
     .equ PSG_SELECT, 0x00ff8800
@@ -49,6 +50,7 @@
     .equ MUSC_ID, 14            | .b track playing, MUS_NONE when idle
     .equ MUSC_LOOPS, 15         | .b
     .equ MUSC_REGS, 16          | 14 bytes: R0-R13 as last decoded
+    .equ MUSC_SAMPLE, 30        | .b the track is a DPCM sample
 
     .equ BANK_ENTRIES, 4
     .equ BANK_ENTRY_SHIFT, 4
@@ -58,6 +60,7 @@
     .equ BANK_LOOPFRAME, 10
     .equ BANK_KIND, 12
     .equ BANK_LOOPS, 13
+    .equ BANK_SAMPLE, 15
 
     .equ CTX_SONG, OFF_MUS_CTX
     .equ CTX_A, OFF_MUS_CTX + MUSC_SIZE
@@ -142,7 +145,7 @@ music_update:
     bra 9f
 4:  bsr music_stop
     bsr music_play
-9:
+9:  bsr music_roar_tick
     | The low-life beep: asked for every frame while Link has one heart or less, it starts again
     | whenever the voice-A effect slot is free (the original plays it when Tune0 is idle).
     move.b OFF_HP_HALVES(%a5), %d0
@@ -156,6 +159,44 @@ music_update:
     moveq #SFX_HEART_WARNING, %d0
     bsr music_play
 8:  movem.l (%sp)+, %d0-%d1
+    rts
+
+| The boss's ambient roar (CheckBossSoundEffectUW and the DMC's repeat flag): a dungeon room whose attribute E
+| names a roar - the boss's room and those around it - repeats that sample every $A0 frames, from the moment
+| Link has come in, for as long as the level's boss room has not been cleared. Rooms without a roar are quiet.
+    .equ ROAR_FRAMES, 160
+    .if SMP_ROAR_LOW <> SMP_ROAR_BIG + 1 || SMP_ROAR_WAIL <> SMP_ROAR_BIG + 2
+    .error "the three roars must follow each other in the bank"
+    .endif
+music_roar_tick:
+    movem.l %d0-%d1/%a0, -(%sp)
+    tst.b OFF_LEVEL(%a5)
+    bne 1f
+    move.b #0xff, OFF_ROAR_ROOM(%a5)    | out of the dungeons: the next one starts afresh
+    bra 9f
+1:  cmpi.b #MODE_PLAY, OFF_GAME_MODE(%a5)   | the room has been entered
+    bne 9f
+    move.b OFF_ROOM_ID(%a5), %d0
+    cmp.b OFF_ROAR_ROOM(%a5), %d0
+    beq 2f
+    move.b %d0, OFF_ROAR_ROOM(%a5)      | a new room: its roar sounds at once
+    clr.b OFF_ROAR_TIMER(%a5)
+2:  moveq #0, %d0
+    move.b OFF_ROOM_ROAR(%a5), %d0
+    beq 9f
+    tst.b OFF_ROAR_TIMER(%a5)
+    beq 3f
+    subq.b #1, OFF_ROAR_TIMER(%a5)
+    bra 9f
+3:  moveq #0, %d1
+    move.b OFF_UW_BOSS_ROOM(%a5), %d1
+    lea OFF_UW_FLAGS(%a5), %a0
+    btst #0, 0(%a0, %d1.w)
+    bne 9f                              | the boss is dead: the ambient roar is over
+    move.b #(ROAR_FRAMES - 1), OFF_ROAR_TIMER(%a5)    | counted down, then sounds again: a period of ROAR_FRAMES
+    add.b #(SMP_ROAR_BIG - 1), %d0
+    bsr music_play
+9:  movem.l (%sp)+, %d0-%d1/%a0
     rts
 
 | An event song (item fanfare, triforce, ...): it replaces the area music, and
@@ -203,7 +244,15 @@ music_play:
     lsl.w #5, %d2                   | MUSC_SIZE = 32
     lea CTX_SONG(%a5), %a0
     adda.w %d2, %a0
-    move.w %sr, %d3
+    cmp.w #3, %d1
+    bne 7f
+    tst.b MUSC_SAMPLE(%a0)
+    beq 7f
+    cmpi.b #MUS_NONE, MUSC_ID(%a0)
+    beq 7f
+    tst.b BANK_SAMPLE(%a1)
+    beq 9f                      | a running DPCM sample keeps the voice against a plain noise effect
+7:  move.w %sr, %d3
     ori.w #0x0700, %sr
     tst.w %d1
     bne 1f
@@ -218,6 +267,7 @@ music_play:
     move.w BANK_LOOPFRAME(%a1), MUSC_LOOPFRAME(%a0)
     move.b BANK_LOOPS(%a1), MUSC_LOOPS(%a0)
     move.b %d0, MUSC_ID(%a0)
+    move.b BANK_SAMPLE(%a1), MUSC_SAMPLE(%a0)
     move.w %d3, %sr
 9:  movem.l (%sp)+, %d1-%d3/%a0-%a3
     rts
@@ -225,6 +275,7 @@ music_play:
 | Mark the context at a0 idle and silent.
 music_ctx_end:
     move.b #MUS_NONE, MUSC_ID(%a0)
+    clr.b MUSC_SAMPLE(%a0)
     clr.b (MUSC_REGS + 8)(%a0)
     clr.b (MUSC_REGS + 9)(%a0)
     clr.b (MUSC_REGS + 10)(%a0)
@@ -292,7 +343,13 @@ music_step:
     or.w %d0, %d1
     btst #7, %d2
     beq 1f
-    move.b (%a0)+, OFF_MUS_TRIG(%a5)
+    move.b (%a0)+, %d3
+    tst.b (CTX_C + MUSC_SAMPLE)(%a5)
+    beq 6f
+    lea CTX_C(%a5), %a1
+    cmpa.l %a1, %a3
+    bne 1f                      | a sample's drum is not cut or stopped by the other contexts' drums
+6:  move.b %d3, OFF_MUS_TRIG(%a5)
 1:  lea MUSC_REGS(%a3), %a1
     moveq #13, %d2
 2:  lsr.w #1, %d1

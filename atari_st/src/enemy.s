@@ -86,10 +86,14 @@ uw_spawn:
     rol.b #1, %d3                   | bit 7 of the record: the room has a push block
     and.b #1, %d3
     move.b %d3, OFF_ROOM_BLOCK(%a5)
-    move.b 5(%a1), OFF_ROOM_UNSUPPORTED(%a5)
-    move.b 5(%a1), OFF_ROOM_DARK(%a5)
-    and.b #0x7f, OFF_ROOM_UNSUPPORTED(%a5)
+    move.b 5(%a1), %d2
+    move.b %d2, OFF_ROOM_DARK(%a5)
     and.b #0x80, OFF_ROOM_DARK(%a5)
+    move.b %d2, OFF_ROOM_UNSUPPORTED(%a5)
+    and.b #0x1f, OFF_ROOM_UNSUPPORTED(%a5)
+    lsr.b #5, %d2
+    and.b #3, %d2
+    move.b %d2, OFF_ROOM_ROAR(%a5)      | the boss roar the room can hear (music_roar_tick)
     bsr uw_setup_item
     bsr block_setup_f
     lea OFF_UW_FLAGS(%a5), %a2

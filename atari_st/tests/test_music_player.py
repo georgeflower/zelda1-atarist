@@ -192,8 +192,8 @@ class Cpu68k:
     def glob16(self, off_name: str, add: int = 0) -> int:
         return self.mem.r16(self.syms["globals"] + self.syms[off_name] + add)
 
-    def set_glob8(self, off_name: str, value: int) -> None:
-        self.mem.w8(self.syms["globals"] + self.syms[off_name], value)
+    def set_glob8(self, off_name: str, value: int, add: int = 0) -> None:
+        self.mem.w8(self.syms["globals"] + self.syms[off_name] + add, value)
 
     def ctx_id(self, ctx: int) -> int:
         return self.mem.r8(self.syms["globals"] + self.syms["OFF_MUS_CTX"] + 32 * ctx + 14)
@@ -470,6 +470,93 @@ class PlayerTests(unittest.TestCase):
         self.assertNotIn(9, psg)
         self.assertIn(8, psg)
 
+    def sample_bank(self, song_trig: dict[int, int], flag: bool = True) -> mp.Bank:
+        """The overworld song with its own drum triggers, and a 20-frame DPCM sample on SMP_ROAR_BIG."""
+        names = [n for n, _, _ in mp.TRACK_LIST]
+        regs, _ = random_frames(random.Random(5), 20)
+        trig = [song_trig.get(f, 0) for f in range(20)]
+        tracks = [mp.Track(n, k) for n, k, _ in mp.TRACK_LIST]
+        tracks[0] = make_track("MUS_OVERWORLD", mp.SONG, regs, trig, 0, True)
+        silent = [[0] * 13 + [0xFF] for _ in range(20)]
+        for r in silent:
+            r[7], r[10] = 0xFF, 1
+        stn = [0] * 20
+        stn[0] = (3 << 6) | 1
+        sample = make_track("SMP_ROAR_BIG", mp.OVERLAY_C, silent, stn)
+        sample.sample = flag
+        tracks[names.index("SMP_ROAR_BIG")] = sample
+        sword = [[0] * 13 + [0xFF] for _ in range(6)]
+        for r in sword:
+            r[6], r[7], r[10] = 7, 0xDF, 9
+        tracks[names.index("SFX_SWORD")] = make_track("SFX_SWORD", mp.OVERLAY_C, sword, [0] * 6)
+        return mp.Bank(tracks, self.bank.drums)
+
+    def test_a_dpcm_sample_is_not_cut_by_the_songs_drums_or_a_plain_noise_effect(self) -> None:
+        names = [n for n, _, _ in mp.TRACK_LIST]
+        smp, sword = names.index("SMP_ROAR_BIG"), names.index("SFX_SWORD")
+        song_trig = {3: 63, 6: (1 << 6) | 0}      # the song stops a drum on frame 3 and starts another on 6
+        for flagged in (True, False):
+            bank = self.sample_bank(song_trig, flagged)
+            c = Cpu68k(bank, bank.drums, self.engine)
+            self.addCleanup(c.close)
+            act = c.syms["ymdrum_code"] + 47
+            c.call("h_play", 0)
+            c.tick()
+            c.call("h_play", smp)
+            c.tick()                                  # the sample's frame 0 starts its drum on voice C
+            self.assertNotEqual(c.mem.r8(act), 0)
+            c.call("h_play", sword)
+            self.assertEqual(c.ctx_id(3), smp if flagged else sword,
+                             "a plain effect must not replace a running sample" if flagged else "an ordinary effect does")
+            for _ in range(8):                        # across the song's stop (3) and its next drum (6)
+                c.tick()
+            if flagged:
+                self.assertNotEqual(c.mem.r8(act), 0, "the song's trigger 63 must not stop the sample")
+
+    def test_a_sample_replaces_a_running_sample_and_a_sample_replaces_an_effect(self) -> None:
+        names = [n for n, _, _ in mp.TRACK_LIST]
+        smp, sword = names.index("SMP_ROAR_BIG"), names.index("SFX_SWORD")
+        bank = self.sample_bank({})
+        c = Cpu68k(bank, bank.drums, self.engine)
+        self.addCleanup(c.close)
+        c.call("h_play", sword)
+        c.tick()
+        c.call("h_play", smp)
+        self.assertEqual(c.ctx_id(3), smp)
+        c.tick()
+        c.call("h_play", smp)
+        self.assertEqual(c.ctx_id(3), smp)
+
+    def test_the_roar_repeats_every_160_frames_in_the_rooms_that_have_one(self) -> None:
+        names = [n for n, _, _ in mp.TRACK_LIST]
+        big = names.index("SMP_ROAR_BIG")
+        bank = self.sample_bank({})
+        c = Cpu68k(bank, bank.drums, self.engine)
+        self.addCleanup(c.close)
+        c.set_glob8("OFF_LEVEL", 1)
+        c.set_glob8("OFF_GAME_MODE", 0)
+        c.set_glob8("OFF_ROOM_ID", 0x35)
+        c.set_glob8("OFF_ROOM_ROAR", 1)
+        c.set_glob8("OFF_UW_BOSS_ROOM", 0x35)
+        starts = []
+        for frame in range(400):
+            c.call("h_update")
+            ctx = c.syms["globals"] + c.syms["OFF_MUS_CTX"] + 3 * 32
+            if c.ctx_id(3) == big and c.mem.r16(ctx + 4) == 0:      # a track that has not played a frame yet
+                starts.append(frame)
+            c.tick()
+        self.assertEqual(starts[:3], [0, 160, 320], "the roar sounds on entering and every $A0 frames")
+        # the boss room cleared (UW_FLAGS bit 0 of the boss room): no more roars
+        c.set_glob8("OFF_ROOM_ID", 0x10)               # a new room restarts the timer
+        c.set_glob8("OFF_UW_FLAGS", 1, 0x35)
+        c.call("h_update")
+        c.tick()
+        for _ in range(60):
+            c.tick()
+        before = c.ctx_id(3)
+        c.call("h_update")
+        self.assertEqual(c.ctx_id(3), before)
+
     def test_a_new_song_cuts_the_old_drum(self) -> None:
         regs, _ = random_frames(random.Random(4), 20)
         trig = [0] * 20
@@ -530,6 +617,21 @@ class BankBuildTests(unittest.TestCase):
                     self.assertEqual(row[7] & 0x24, 0x04 if row[10] else 0x24, track)
                     self.assertEqual((row[0], row[1], row[2], row[3], row[4], row[5]), (0,) * 6, track)
         self.assertTrue(next(t for t in bank.tracks if t.name == "MUS_DUNGEON").loops)
+        # the seven DPCM samples: a digidrum on voice C from frame 0, a track as long as the drum, flagged as a sample
+        smp = [t for t in bank.tracks if t.name.startswith("SMP_")]
+        self.assertEqual(len(smp), 7)
+        for t in smp:
+            self.assertTrue(t.sample, t.name)
+            self.assertEqual(t.kind, mp.OVERLAY_C)
+            regs, trig = mp.unpack_stream(t.stream, t.frames)
+            self.assertEqual(trig[0] >> 6, 3, t.name)                      # voice C
+            self.assertFalse(any(trig[1:]), t.name)
+            drum = bank.drums[trig[0] & 63]
+            self.assertGreaterEqual(t.frames * 9830.4 / 50, len(drum.pcm), t.name)
+            self.assertLess((t.frames - 2) * 9830.4 / 50, len(drum.pcm), t.name)   # one frame to spare after the drum
+            for row in regs:
+                self.assertEqual((row[7], row[10]), (0xFF, 1), t.name)    # voice C owned, no tone, no noise
+        self.assertFalse(any(t.sample for t in bank.tracks if not t.name.startswith("SMP_")))
         # every digidrum a trigger names exists
         for t in bank.tracks:
             _, trig = mp.unpack_stream(t.stream, t.frames)

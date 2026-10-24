@@ -139,6 +139,7 @@ enemy_behaviour:
 | walls and Aquamentus starts where the original puts him. d5 = monster.
 enemy_init_special:
     movem.l %d0-%d1/%a0, -(%sp)
+    bsr spawn_roar_f                    | a boss roars as it is placed (bosses.s)
     bsr enemy_behaviour
     cmp.w #BEH_WALLMASTER, %d0
     bne 1f

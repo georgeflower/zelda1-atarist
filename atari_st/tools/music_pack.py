@@ -63,6 +63,14 @@ TRACK_LIST: list[tuple[str, int, str]] = [
     ("SFX_FLAME", OVERLAY_C, "sfx_flame"),
     ("SFX_STAIRS", OVERLAY_C, "sfx_stairs"),
     ("SFX_BOMB_BLAST", OVERLAY_C, "sfx_bomb_blast"),
+    # The DPCM samples (SampleRequest): a digidrum on voice C, one track each
+    ("SMP_BEAM", OVERLAY_C, "smp_sword_beam"),
+    ("SMP_BOSS_HIT", OVERLAY_C, "smp_boss_hit"),
+    ("SMP_DOOR", OVERLAY_C, "smp_door"),
+    ("SMP_HURT", OVERLAY_C, "smp_link_hurt"),
+    ("SMP_ROAR_BIG", OVERLAY_C, "smp_roar_big"),
+    ("SMP_ROAR_LOW", OVERLAY_C, "smp_roar_low"),
+    ("SMP_ROAR_WAIL", OVERLAY_C, "smp_roar_wail"),
 ]
 OVERWORLD_ID = 0
 MAX_DRUMS = 62  # trigger code 63 stops a drum
@@ -177,6 +185,7 @@ class Track:
     loop_frame: int = 0
     loop_offset: int = 0
     loops: bool = False
+    sample: bool = False  # a DPCM sample: its digidrum may not be cut by the song's own drums
     note: str = ""
 
 
@@ -198,7 +207,7 @@ class Bank:
             else:
                 offset = 0
             head += struct.pack(
-                ">IIHHBBH", offset, t.loop_offset, t.frames, t.loop_frame, t.kind, 1 if t.loops else 0, 0
+                ">IIHHBBH", offset, t.loop_offset, t.frames, t.loop_frame, t.kind, 1 if t.loops else 0, 1 if t.sample else 0
             )
         return bytes(head) + bytes(body)
 
@@ -220,6 +229,23 @@ def _trim_tail(regs: list[list[int]], trig: list[int], voices: tuple[int, ...], 
     return n
 
 
+def sample_stream(pcm: bytes) -> "rip.GameTrack":
+    """A DPCM sample as a track: the drum starts on frame 0 and the track lasts as long as the drum does.
+
+    Voice C is the drum's. R10 stays non-zero and the mixer has voice C's tone and noise off, so the effect
+    owns the voice (music_merge) and the song's bass cannot buzz under the sample.
+    """
+    import nes_music_rip as rip
+
+    frames = -(-len(pcm) * 50 * 10 // int(rip.DRUM_RATE * 10)) + 1
+    regs = [[0] * 14 for _ in range(frames)]
+    for r in regs:
+        r[7], r[10], r[13] = 0xFF, 1, 0xFF
+    trig = [0] * frames
+    trig[0] = (3 << 6) | 0  # voice C, the track's only drum
+    return rip.GameTrack(regs, trig, [pcm], 0, False)
+
+
 def build_bank(
     prg: bytes | None,
     clock: str = "pal",
@@ -235,16 +261,21 @@ def build_bank(
     import nes_music_rip as rip  # imported late: needs py65 only when there is a ROM
 
     ripped = rip.rip_all(prg)
+    samples = rip.rip_samples(prg, clock)
     clk = rip.CPU_CLOCK[clock]
     drum_index: dict[Drum, int] = {d: i for i, d in enumerate(drums)}
     for track, (name, kind, stem) in zip(tracks, TRACK_LIST):
-        if kind == OVERLAY_C:
+        if stem in samples:
+            game = sample_stream(samples[stem])
+        elif kind == OVERLAY_C:
             game = rip.to_effect_stream(ripped[stem], clk, clock)
         else:
             game = rip.to_game_stream(ripped[stem], clk, clock, tri_volume)
         regs, trig = game.regs, list(game.trig)
         n = len(regs)
-        if kind == SONG and not game.looped:
+        if stem in samples:
+            track.sample = True  # runs as long as the drum does
+        elif kind == SONG and not game.looped:
             n = _trim_tail(regs, trig, (0, 1, 2), 2)
         elif kind == OVERLAY_C:
             n = _trim_tail(regs, trig, (2,), 1)  # the effect sounds on voice C's volume register (R10)

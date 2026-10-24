@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 import build_assets  # noqa: E402
@@ -42,6 +43,21 @@ def _write_fake_rom(root: Path, blobs: dict[str, bytes]) -> None:
     (root / "ext" / "Original.nes").write_bytes(
         b"NES\x1a" + bytes([4, 0, 0x04]) + bytes(9) + trainer + bytes(prg_rom)
     )
+
+
+class LevelIncludeTests(unittest.TestCase):
+    def test_boss_room_and_stairs_use_separate_level_record_bytes(self) -> None:
+        level = SimpleNamespace(
+            level=5, start_room=0x65, start_y=0xDD, triforce_room=0x14,
+            map_col0=2, cellar_info=[b""], boss_room=0x15, stairs_first=120,
+        )
+        record = build_assets.level_include([level]).split("level_table:\n", 1)[1]
+        data = record.split("    .byte ", 1)[1].strip()
+        self.assertEqual(
+            [int(value.strip(), 0) for value in data.split(",")],
+            [0x65, 0xDD, 0x14, 2, 1, 0x15, 120, 0],
+        )
+        self.assertEqual(build_assets.LEVEL_RECORD_BYTES, 4 * len(build_assets.LEVEL_TABLES) + 8)
 
 
 class ExtractionTests(unittest.TestCase):
@@ -464,7 +480,18 @@ class RomAllDungeonsTests(unittest.TestCase):
         for level in self.ROOMS:
             uw = self.bundle.levels[level - 1]
             for record in uw.actors.room_info:
-                self.assertEqual(record[5] & 0x7F, 0, (level, record.hex()))
+                self.assertEqual(record[5] & 0x1F, 0, (level, record.hex()))
+
+    def test_rooms_carry_the_boss_roar_of_attribute_e_in_bits_5_and_6(self) -> None:
+        roars = {}
+        for level in self.ROOMS:
+            uw = self.bundle.levels[level - 1]
+            roars[level] = sorted({(r[5] >> 5) & 3 for r in uw.actors.room_info})
+        self.assertIn(1, roars[1])      # Aquamentus' roar is heard around his room
+        self.assertIn(2, roars[2])      # Dodongo's
+        self.assertIn(3, roars[5])      # Digdogger's
+        self.assertEqual(self.bundle.levels[0].boss_room, 0x35)
+        self.assertEqual(self.bundle.levels[8].boss_room, 0x42)
 
 
 class RomLevelPaletteTests(unittest.TestCase):

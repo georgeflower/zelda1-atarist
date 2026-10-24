@@ -384,10 +384,12 @@ cs_hint:
     move.b #CS_SHOW, OFF_CAVE_STATE(%a5)
 9:  rts
 
-| The medicine woman is shown the letter by pressing B (the original: B with the letter selected).
+| The medicine woman is shown the letter by pressing B with the letter selected as the B item (inventory screen).
 cs_letter:
     cmpi.b #1, OFF_INV_LETTER(%a5)
     bne 8f
+    cmpi.b #B_LETTER, OFF_B_ITEM(%a5)
+    bne 8f                                      | the letter has to be the item on B
     lea OFF_KEY_STATES(%a5), %a0
     tst.b SCAN_CTRL(%a0)
     bne 1f

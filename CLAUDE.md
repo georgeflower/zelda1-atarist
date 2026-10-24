@@ -105,7 +105,7 @@ atari_st/                the port
 | `save.s` | `ZELDA.SAV` through GEMDOS (Fopen/Fread/Fcreate/Fwrite/Frename...): records of 640 bytes, the `save_fields` table, the secrets patch log replay, checksum (M10 c) |
 | `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level`, `debug_keys` (K) |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
-| `music.s` | music and sound effects replayed from the VBL hook: four register-stream contexts (song, effect over voice A, effect over voice B, noise effect over voice C) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`) |
+| `music.s` | music and sound effects replayed from the VBL hook: four register-stream contexts (song, effect over voice A, effect over voice B, noise effect or DPCM sample over voice C) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`); `music_roar_tick` repeats the boss's ambient roar |
 
 `atari_st/tools`:
 
@@ -128,7 +128,7 @@ atari_st/                the port
 | `compare_render.py`, `render_map.py` | diff the renderer against a Python render; render maps |
 | `ym_convert.py` | converts the player header into `music_engine.bin` (the digidrum engine) |
 | `music_pack.py` | packs every track ripped from the ROM (via `nes_music_rip.py`) into `music_bank.bin`, one shared `music_drum_table.bin` and `music_ids.inc`. Without the ROM or `py65` the bank is empty and the game silent |
-| `nes_music_rip.py` | runs the ROM's own sound engine (bank 0) in py65 and writes every song, jingle and sound effect as `.ym` (YM6, 50 Hz; noise drums or digidrums). Output is ROM-derived: `*.ym` is gitignored. `--list` shows the tracks |
+| `nes_music_rip.py` | runs the ROM's own sound engine (bank 0) in py65 and writes every song, jingle and sound effect as `.ym` (YM6, 50 Hz; noise drums or digidrums); `rip_samples` decodes the seven DPCM samples for the bank. Output is ROM-derived: `*.ym` is gitignored. `--list` shows the tracks |
 
 ## 4. The exact toolchain (this is how it is built and tested here)
 
@@ -517,7 +517,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   open them on clear), trigger-5 rooms lay the stairs (below), in `$22` the block just lands (secret tune): the stairs sit
   inside a ring of 8 blocks and the player pushes the left block up or down to open a gap. **Trigger 5**
   (`CheckSecretTriggerBlockStairs`): the stairs are the four tiles `$70`-`$73` (column-major) at tile column 26, row 4, i.e. ($D0,$60),
-  put into the map as the last four entries of the level's tile bank (`underworld.py`, `stairs_first`, byte 5 of the
+  put into the map as the last four entries of the level's tile bank (`underworld.py`, `stairs_first`, byte 6 of the
   level record, `OFF_UW_STAIRS_ID`; palette row 2) and walked onto for the cellar like any stairs. Link rests at Y `$5E` at the top wall (the
   ROM lets him rest at `$5D`), so `check_warps` takes `UW_BOUND_UP` as that row. Rooms with trigger 5: Level 4 `$32`, 5 `$05`,
   6 `$09` and `$3A`, 7 `$0D`, 9 `$05 $10 $30`.
@@ -596,7 +596,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `CreditsTextLines`, then "ATARI ST PORT / BY Q", "YOU ARE GREAT", "END OF / THE LEGEND OF ZELDA") are typed one after the other by
   `cave_talk` in the black room (`zelda_credit_pages`, `ENDING_CREDIT_n`), `ZELDA_CREDIT_WAIT` frames apart, the last stays (Esc quits; the
   original's scrolling wall, the ash pile and the Second Quest restart are not ported).
-  Silver Arrow and Red Ring are in cellars. `MUS_GANON` plays when Ganon appears and again when he burns. Not hooked: the boss roars. Checked in Hatari: Lanmola (all eight segments, room clears, item appears),
+  Silver Arrow and Red Ring are in cellars. `MUS_GANON` plays when Ganon appears and again when he burns. The boss roars are hooked (sound section). Checked in Hatari: Lanmola (all eight segments, room clears, item appears),
   Patra (the seven children, then the eye with one hit point left, room clears), the door man with all pieces (silent, shutters open)
   and without (his words), Ganon's and Zelda's scenes. Not checked: a human-speed fight with any of them.
 - **Blue goriya** (`$05`): throws whenever its timer reaches 0, no `$23`/`$77` roll (`goriya_ai` reads the NES type from `mon_table`).
@@ -712,12 +712,29 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   song until it ends (`MUS_FORCED`); `sfx` takes over voice A, B or (noise effects: sword, boomerang, flame,
   stairs, bomb blast, ripped from the Effect channel `$603`) voice C for its length and hands the voice
   back. `music_update` also repeats the low-life beep (`SFX_HEART_WARNING`, 6 frames of beep + the
-  original's pause) while `HP_HALVES` is 1-2. Track ids are in the generated `music_ids.inc`. Not hooked
-  yet: the boss roars, parry and magic (the title, game-over, Ganon, Zelda and ending songs are in),
-  the sea ambience, and the DPCM samples (never ripped). The streams are for 50 Hz; at
+  original's pause) while `HP_HALVES` is 1-2. Track ids are in the generated `music_ids.inc`. Every
+  sound the ROM requests is hooked (the title, game-over, Ganon, Zelda and ending songs, parry, magic and the
+  recorder included); the sea and waterfall have no sound in the ROM.
+  The ROM's seven DPCM samples (`SampleRequest`: sword beam, boss hit and death cry, door, Link hurt and the three
+  boss roars) are ripped by `nes_music_rip.py` (`rip_samples`: the DMC delta decoder at the PAL rate, averaged down
+  to 9830 Hz, set on the YM's volume steps with error diffusion) into the shared drum table (`SMP_*` tracks, about
+  40 KB) and played as a one-drum track on voice C: the bank entry's last byte marks a *sample*, and while one plays
+  (`MUSC_SAMPLE` of context C) the song's and the effects' drum triggers are held back and a plain noise effect does
+  not replace it. Hooks: `SMP_BEAM` (`beam_launch`), `SMP_HURT` (`hurt_link`), `SMP_DOOR` (a key door unlocked, the
+  shutters open), `SMP_BOSS_HIT` (`boss_hit_cry`: Aquamentus, Manhandla, Gohma, Gleeok heads, Patra and Ganon when
+  struck; `boss_death_cry`: Dodongo and Digdogger when they die), the roar of a boss as it is placed (`spawn_roar`,
+  `bosses.s`) and the ambient roar: the room record's byte 5 carries attribute E's sound index in bits 5-6
+  (`OFF_ROOM_ROAR`), and `music_roar_tick` repeats that roar every $A0 frames from the moment Link is in the room
+  until the level's boss room (`OFF_UW_BOSS_ROOM`, level_table byte 5) is cleared (`CheckBossSoundEffectUW`). The
+  ROM has no sea or waterfall sound. The streams are for 50 Hz; at
   60 Hz (`$FF820A` bit 1 clear) every 6th VBL holds them (`MUS_SKIP`).
 - **B item** (`B_ITEM`, codes in the **Items** bullet above): `b_item_fix` keeps it on something owned. The **inventory screen**
   is the ROM's: Left/Right moves the cursor over the owned B items and the B box shows the choice. Opening it freezes everything.
+  The **letter** is a B item too (`B_LETTER` = 9, icon 26): it sits in the potion's place on the screen while there is no
+  potion (`menu_slot_code_of`, `b_item_owned`; CheckMissingItem), and the medicine woman is shown it by pressing B with it
+  selected (`cs_letter` in `caves.s`, as `UpdateCavePerson`'s `@UseLetter`), not with any other B item. Checked against the
+  ROM and found to need nothing: the heart containers stop at 16, and the Book of Magic and a beam range per sword are not
+  features of the game (the book only turns the rod's shot into flame, done; a sword beam is a fixed shot).
 - **Debug key K**: +1 key, +4 bombs (cap 8), candle. The owner wants it kept for now.
 
 ## 11. Asset pipeline facts
@@ -810,7 +827,7 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the overworld map on the ribbon; the waterfall and the sea sound; the rest of the sound (boss music, DPCM); the Second Quest restart of the ending (M10). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the overworld map on the ribbon; the Second Quest restart of the ending (M10). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
 cloud. Level 2's Dodongo kill, Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
 Unmeasured: free memory on a 512 KB machine.
 

@@ -326,7 +326,8 @@
     .equ OFF_UW_TRIFORCE_ROOM, OFF_UWL_BYTES + 2
     .equ OFF_UW_MAP_COL0, OFF_UWL_BYTES + 3
     .equ OFF_UW_CELLARS, OFF_UWL_BYTES + 4
-    .equ OFF_UW_STAIRS_ID, OFF_UWL_BYTES + 5     | the first of the four stairs tiles in the level's bank (0 = none)
+    .equ OFF_UW_BOSS_ROOM, OFF_UWL_BYTES + 5
+    .equ OFF_UW_STAIRS_ID, OFF_UWL_BYTES + 6     | the first of the four stairs tiles in the level's bank (0 = none)
 
     | A Dodongo is two sprites wide: the second one's erase offsets, and Moldorm's chain fields.
     galign
@@ -481,5 +482,8 @@
     gvar BLOCK_TILES, 8          | its four tiles, then the four floor tiles it slides onto
     galign
     gvar BLOCK_SPRITE, 160       | the block's picture, grabbed from the clean room, drawn as effect slot 11 while it slides
+    gvar ROOM_ROAR, 1            | attribute E's sound index of this dungeon room: 0 none, 1-3 the boss roar it can hear
+    gvar ROAR_TIMER, 1           | frames until the ambient roar sounds again (SampleCounter)
+    gvar ROAR_ROOM, 1            | the room the roar timer was started in, $FF outside the dungeons
     galign
     .equ GLOBALS_BYTES, gvar_offset

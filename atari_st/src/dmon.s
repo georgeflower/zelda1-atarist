@@ -641,6 +641,9 @@ vire_hops:
     farstub boss_manhandla_init_f, manhandla_init
     farstub boss_manhandla_died_f, manhandla_died
     farstub boss_gohma_f, dmon_gohma
+    farstub spawn_roar_f, spawn_roar
+    farstub boss_hit_cry_f, boss_hit_cry
+    farstub boss_death_cry_f, boss_death_cry
     farstub boss_gohma_init_f, gohma_init
     farstub boss_gohma_died_f, gohma_died
     farstub boss_dig_f, dmon_dig

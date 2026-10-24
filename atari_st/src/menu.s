@@ -109,7 +109,7 @@ update_menu:
 
 | The slot of the cursor for each B code, and the B code of each slot (0 for the bow's own slot, which cannot be chosen).
 menu_code_slot:
-    .byte 0, 1, 0, 4, 2, 5, 6, 7, 8
+    .byte 0, 1, 0, 4, 2, 5, 6, 7, 8, 7    | the letter sits where the potion would
 menu_slot_code:
     .byte B_BOOMERANG, B_BOMB, B_BOW, 0, B_CANDLE, B_RECORDER, B_FOOD, B_POTION, B_ROD
     .align 2
@@ -140,14 +140,13 @@ menu_move:
     moveq #0, %d2
 3:  cmp.w #MENU_BOW_SLOT, %d2
     beq 5f
-    moveq #0, %d0
-    move.b (menu_slot_code, %pc, %d2.w), %d0
+    bsr menu_slot_code_of
     bsr b_item_owned
     tst.w %d0
     bne 4f
 5:  dbra %d3, 1b
     bra 9f                              | nothing else to choose
-4:  move.b (menu_slot_code, %pc, %d2.w), %d0
+4:  bsr menu_slot_code_of
     cmp.b OFF_B_ITEM(%a5), %d0
     beq 9f                              | only the one he had
     move.b %d0, OFF_B_ITEM(%a5)
@@ -156,6 +155,20 @@ menu_move:
     bsr menu_draw
 9:  movem.l (%sp)+, %d0-%d3/%a0
     rts
+
+| d2.w = a slot of the cursor. Returns d0.w = its B code (a0 is lost): the potion's place holds the letter while there is no potion.
+menu_slot_code_of:
+    lea menu_slot_code(%pc), %a0
+    moveq #0, %d0
+    move.b 0(%a0, %d2.w), %d0
+    cmp.w #B_POTION, %d0
+    bne 9f
+    tst.b OFF_INV_POTION(%a5)
+    bne 9f
+    tst.b OFF_INV_LETTER(%a5)
+    beq 9f
+    moveq #B_LETTER, %d0
+9:  rts
 
 menu_close:
     move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
@@ -514,7 +527,10 @@ menu_b_item:
     tst.b OFF_INV_BOOMERANG(%a5)
     bne 3f
     bra 9f
-1:  lea OFF_ITEMS(%a5), %a0
+1:  cmpi.b #B_LETTER, OFF_B_ITEM(%a5)
+    bne 11f
+    moveq #MENU_LETTER_SLOT, %d0        | the letter is slot $F, drawn where the potion would be
+11: lea OFF_ITEMS(%a5), %a0
     moveq #0, %d5
     move.b 0(%a0, %d0.w), %d5
     beq 9f
