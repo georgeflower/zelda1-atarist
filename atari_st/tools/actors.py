@@ -349,6 +349,7 @@ ITEM_COUNT = 0x24             # every item id of the game: bombs to the fairy
 ITEM_IDS = tuple(range(ITEM_COUNT)) + (LINK_LIFT_ID,)
 BOOMERANG_ITEM = 0x1D
 POWER_TRIFORCE_ID = 0x0E
+TRIFORCE_PIECE = 0x1B          # a level's triforce piece
 FIRE_ANIM_INDEX = 0x41
 # The status bar and inventory pictures, two 8x8 tiles each. menu.s and hud.s index them: 0-3 are the B item codes
 # of the first four B items (sword, bomb, boomerang, candle), then compass, map and bow, then the rest.
@@ -1041,7 +1042,8 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
     roar = (attr_e[room] >> 5) & 3                      # CheckBossSoundEffectUW: 0 none, 1 $10, 2 $20, 3 $40
     if unsupported > 0x1F:
         raise SystemExit(f"room {room:#x}: {unsupported} unsupported monsters leave no room for the roar bits")
-    record = bytearray([len(monsters), trigger, item_id, pos & 0xF0, (pos & 0x0F) << 4, unsupported | roar << 5 | dark])
+    item_x = (pos & 0xF0) - (8 if item_id == TRIFORCE_PIECE else 0)   # the ROM moves a triforce piece 8 pixels left (@StoreLocation), onto the room's middle
+    record = bytearray([len(monsters), trigger, item_id, item_x, (pos & 0x0F) << 4, unsupported | roar << 5 | dark])
     record.extend(monsters)
     record.extend([0xFF] * (ROOM_INFO_BYTES - 2 - len(record)))
     if person != NO_PERSON and not monsters:
