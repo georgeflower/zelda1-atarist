@@ -223,14 +223,15 @@ def parse_key_schedule(spec: str) -> dict[int, list[tuple[str, int]]]:
     return schedule
 
 
-def build_dev(project: Path, room: int | None, uw: int | None, level: int, cave: bool = False) -> Path:
+def build_dev(project: Path, room: int | None, uw: int | None, level: int, cave: bool = False, quest: int = 1) -> Path:
     """Build a PRG that starts where asked (the ZELDA_START_* switches of the Makefile) into build/dev, so the
     normal build is left alone."""
     out = project / "build" / "dev"
     env = dict(os.environ)
-    for name in ("ZELDA_START_ROOM", "ZELDA_START_UW", "ZELDA_START_LEVEL", "ZELDA_START_CAVE", "ZELDA_SKIP_INTRO"):
+    for name in ("ZELDA_START_ROOM", "ZELDA_START_UW", "ZELDA_START_LEVEL", "ZELDA_START_CAVE", "ZELDA_SKIP_INTRO", "ZELDA_QUEST"):
         env.pop(name, None)
     env["ZELDA_SKIP_INTRO"] = "1"           # a scene starts where it says, not at the title
+    env["ZELDA_QUEST"] = str(quest)
     if room is not None:
         env["ZELDA_START_ROOM"] = f"{room:#x}"
     if cave:
@@ -280,6 +281,7 @@ def main() -> None:
     parser.add_argument("--room", type=lambda v: int(v, 0), help="start on this overworld screen (a dev build in build/dev)")
     parser.add_argument("--uw", type=lambda v: int(v, 0), help="start in this dungeon room, with a sword (a dev build)")
     parser.add_argument("--level", type=int, default=1, help="the dungeon --uw means (default 1)")
+    parser.add_argument("--quest", type=int, default=1, choices=(1, 2), help="the quest a --room/--uw build plays (default 1)")
     parser.add_argument("--cave", action="store_true", help="with --room: start inside the cave behind that screen")
     parser.add_argument(
         "--trace",
@@ -296,7 +298,7 @@ def main() -> None:
     if not str(args.tos) or not args.tos.is_file():
         raise SystemExit("Pass --tos <tos.img> or set the TOS environment variable")
     if args.room is not None or args.uw is not None:
-        args.prg = build_dev(project, args.room, args.uw, args.level, args.cave)
+        args.prg = build_dev(project, args.room, args.uw, args.level, args.cave, args.quest)
 
     schedule = parse_key_schedule(args.keys)
     for key in (name.strip() for name in args.hold.split(",")):

@@ -777,13 +777,17 @@ uw_try_door:
     rts
 
 | Make dungeon d0.b (1 to LEVEL_COUNT) the current one: OFF_LEVEL, and the pointers to its tables and
-| its start room, start Y, triforce room, minimap column and cellar count from level_table (levels.inc).
+| its start room, start Y, triforce room, minimap column and cellar count from level_table (levels.inc): the
+| First Quest's dungeons are its records 0 to 8, the Second Quest's (OFF_QUEST) 9 to 17.
 uw_select_level:
     movem.l %d0-%d1/%a0-%a1, -(%sp)
     move.b %d0, OFF_LEVEL(%a5)
     and.w #0x00ff, %d0
     subq.w #1, %d0
-    mulu.w #LEVEL_RECORD_BYTES, %d0
+    tst.b OFF_QUEST(%a5)
+    beq 0f
+    add.w #LEVEL_COUNT, %d0
+0:  mulu.w #LEVEL_RECORD_BYTES, %d0
     ltab level_table, %a0
     adda.w %d0, %a0
     lea OFF_UWP_ROOM_INDEX(%a5), %a1

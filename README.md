@@ -1,6 +1,6 @@
 # The Legend of Zelda for Atari ST
 
-A native Atari ST port of The Legend of Zelda, built around aldonunez's Zelda 1 disassembly. It produces a stock TOS `.PRG` for a 512KB Atari ST (320x200, 16 colours) that runs in Hatari, and reads all of its graphics, room layouts, palettes and text from a ROM you supply yourself.
+A native Atari ST port of The Legend of Zelda, built around aldonunez's Zelda 1 disassembly. It produces a stock TOS `.PRG` for an Atari ST with 1 MB of RAM (320x200, 16 colours) that runs in Hatari, and reads all of its graphics, room layouts, palettes and text from a ROM you supply yourself.
 
 This repository's full feature list, known gaps, roadmap, build notes and testing details live in [`atari_st/README.md`](atari_st/README.md). The detailed implementation plan is in [`atari_st/PLAN.md`](atari_st/PLAN.md).
 
@@ -22,7 +22,7 @@ Done: the whole overworld with its monsters, caves, secrets and specials; all ni
 - meet the old man in the first dungeon's room `$41` and read his hint
 - hear the music and sound effects, ripped from the ROM's own sound engine at build time: overworld, dungeon and Level 9 themes, the item and triforce fanfares, Link's death jingle, and effects for sword, boomerang, flame, bomb, stairs, pickups, hurt, the low-life beep, menu clicks and cave text
 
-**Not there yet:** the Second Quest, which is deferred. The plan for all of it is `atari_st/PLAN.md`.
+**The Second Quest** is in: start a file named ZELDA (as in the original), or finish the game (the credits end by making the profile a Second Quest one). Its nine new dungeons, the changed overworld (hidden spots, the recorder's pond rooms, the whirlwind), the stronger ropes, the stalfos' sword shots, the black keese and the money-or-life shutters are all read from the ROM. Both quests live in one `.PRG` (about 700 KB), which fits a 720 KB disk together with `ZELDA.SAV`; it needs 1 MB of RAM. The plan for what is left is `atari_st/PLAN.md`.
 
 ## Controls
 

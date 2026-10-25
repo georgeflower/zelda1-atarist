@@ -1,9 +1,10 @@
 | The credits wall: the scroll that ends the game (Z_02.asm UpdateMode13WinGame_Sub3 and Sub4).
 |
-| After Zelda's last words the screen scrolls up one line every other frame, 600 lines (CreditsLastVscrollList), and the
-| wall of bricks with the staff in it goes by: "STAFF", the names, "ANOTHER QUEST WILL START FROM HERE.", "PRESS THE START
-| BUTTON." and the copyright. Then the black screen with the ash pile of Ganon and the Triforce of Power stays. Start
-| goes to the file menu with the profile reset, as the ROM does before its Second Quest (which is not in this port).
+| After Zelda's last words the screen scrolls up one line every other frame, 600 lines (CreditsLastVscrollList; 720 in the
+| Second Quest, whose credits are another strip, with the player's name and death count in it), and the wall of bricks
+| with the staff in it goes by: "STAFF", the names, "ANOTHER QUEST WILL START FROM HERE.", "PRESS THE START BUTTON." and
+| the copyright. Then the black screen with the ash pile of Ganon and the Triforce of Power stays. Start goes to the file
+| menu with the profile reset to a Second Quest one, as the ROM does (after a Second Quest it starts that again).
 |
 | It works like the story of the intro (intro.s): a ring of 200 lines holds the window, and a line of the strip
 | (tools/credits.py) is drawn into it for each line of scroll. The ending song is still playing when it begins: it is
@@ -25,6 +26,10 @@
 
     .equ INTRO_PHASE_CREDITS, 4
     .equ CREDITS_STEPS, 600
+    .equ CREDITS_STEPS2, 720              | the Second Quest's CreditsLastScreenList / CreditsLastVscrollList: 3 * 240
+    .equ CREDITS_NAME_CELL, 9             | the name's eight tiles in line $11, and the death count's three
+    .equ CREDITS_DEATH_CELL, 19
+    .equ CREDITS_GLYPHS, 0x30
     .equ CREDITS_START_WAIT, 0x40         | ObjTimer of Sub4: the player cannot skip ahead for $40 frames
     .equ CREDITS_ASH_X, 0x78
     .equ CREDITS_ASH_LINE, (0x88 + 1 - INTRO_WINDOW_TOP)    | sprites are drawn a line below their Y
@@ -55,7 +60,11 @@ credits_update:
     beq 90f
     bsr credits_step                    | the picture moves up a line, on every other frame
     addq.w #1, OFF_INTRO_STEP(%a5)
-    cmp.w #CREDITS_STEPS, OFF_INTRO_STEP(%a5)
+    move.w #CREDITS_STEPS, %d0
+    tst.b OFF_QUEST(%a5)
+    beq 3f
+    move.w #CREDITS_STEPS2, %d0
+3:  cmp.w OFF_INTRO_STEP(%a5), %d0
     bne 90f
     move.b #2, OFF_INTRO_SUB(%a5)       | and stops
     clr.w OFF_INTRO_TIMER(%a5)
@@ -92,7 +101,10 @@ credits_last_sprites:
 
 | The first window: the black room with what Zelda said, both screens, and the colours of the ending.
 credits_init:
-    bsr dbl_end_xf                     | what is on show stays on show; no hidden buffer of the game
+    tst.b OFF_QUEST(%a5)
+    beq 2f
+    bsr credits_name                    | the Second Quest's line with the player's name and death count
+2:  bsr dbl_end_xf                     | what is on show stays on show; no hidden buffer of the game
     bsr swap_screens_xf                | the intro's way with the buffers: SCREEN_PTR is the hidden one
     bsr intro_black
     bsr intro_clear_all
@@ -142,18 +154,27 @@ credits_step:
 | The 128 bytes of one line of the credits' strip: d1.w = the line, a1 = where it goes (a1 moves on). Rows past the
 | strip's last are blank.
 credits_line:
-    movem.l %d0-%d2/%a0/%a2, -(%sp)
+    movem.l %d0-%d3/%a0/%a2, -(%sp)
     move.w %d1, %d2
     lsr.w #3, %d2
+    tst.b OFF_QUEST(%a5)
+    bne 5f
     cmp.w #CREDITS_ROWS, %d2
     bhs 8f
-    move.w %d1, %d0
+    ltab credits_map, %a0
+    bra 6f
+5:  cmp.w #CREDITS_ROWS2, %d2
+    bhs 8f
+    ltab credits_map2, %a0
+6:  move.w %d1, %d0
     andi.w #7, %d0                      | the line in the tile
     add.w %d2, %d2
-    ltab credits_map, %a0
     move.w 0(%a0, %d2.w), %d2           | the row's offset in credits_rows
     ltab credits_rows, %a0
-    adda.w %d2, %a0
+    tst.b OFF_QUEST(%a5)
+    beq 4f
+    ltab credits_rows2, %a0
+4:  adda.w %d2, %a0
     ltab credits_tiles, %a2
     bsr intro_row_line
     bra 9f
@@ -161,7 +182,59 @@ credits_line:
     moveq #0, %d0
 7:  move.l %d0, (%a1)+
     dbra %d2, 7b
-9:  movem.l (%sp)+, %d0-%d2/%a0/%a2
+9:  movem.l (%sp)+, %d0-%d3/%a0/%a2
+    rts
+
+| The Second Quest's line $11 holds the player's name (eight tiles from cell 9) and death count (three from cell 19, leading
+| zeros blank), which the ROM puts in as it draws the line. The strip has the line blank; the cells of its row are patched here,
+| from glyphs of the name's colours (credits_glyphs: a tile offset for each NES code below $30).
+credits_name:
+    movem.l %d0-%d5/%a0-%a4, -(%sp)
+    ltab credits_map2, %a0
+    move.w (CREDITS_NAME_ROW * 2)(%a0), %d0
+    ltab credits_rows2, %a1
+    adda.w %d0, %a1                     | the row's 32 cells
+    ltab credits_glyphs, %a2
+    moveq #0, %d4
+    move.b OFF_PROFILE(%a5), %d4
+    move.w %d4, %d5
+    lsl.w #3, %d5
+    lea OFF_SLOT_NAMES(%a5), %a3
+    adda.w %d5, %a3
+    lea (CREDITS_NAME_CELL * 2)(%a1), %a4
+    moveq #7, %d1
+1:  moveq #0, %d0
+    move.b (%a3)+, %d0
+    cmp.w #CREDITS_GLYPHS, %d0
+    blo 2f
+    moveq #0x24, %d0                    | a tile the picture has no glyph for is a space
+2:  add.w %d0, %d0
+    move.w 0(%a2, %d0.w), (%a4)+
+    dbra %d1, 1b
+    lea OFF_SLOT_DEATHS(%a5), %a3       | FormatDecimalByte: three digits, leading zeros blank
+    moveq #0, %d0
+    move.b 0(%a3, %d4.w), %d0
+    divu.w #100, %d0
+    move.w %d0, %d2                     | hundreds
+    swap %d0
+    andi.l #0xFFFF, %d0
+    divu.w #10, %d0
+    move.w %d0, %d3                     | tens
+    swap %d0                            | ones
+    tst.w %d2
+    bne 3f
+    moveq #0x24, %d2
+    tst.w %d3
+    bne 3f
+    moveq #0x24, %d3
+3:  lea (CREDITS_DEATH_CELL * 2)(%a1), %a4
+    add.w %d2, %d2
+    move.w 0(%a2, %d2.w), (%a4)+
+    add.w %d3, %d3
+    move.w 0(%a2, %d3.w), (%a4)+
+    add.w %d0, %d0
+    move.w 0(%a2, %d0.w), (%a4)+
+    movem.l (%sp)+, %d0-%d5/%a0-%a4
     rts
 
 | Start on the last screen (UpdateMode13WinGame_Sub4): the ROM silences everything, turns the profile into a Second Quest one

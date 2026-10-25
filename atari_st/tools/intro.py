@@ -235,6 +235,9 @@ class IntroData:
     credits_tiles: bytes = b""
     credits_rows: bytes = b""
     credits_map: bytes = b""
+    credits_rows2: bytes = b""
+    credits_map2: bytes = b""
+    credits_glyphs: bytes = b""
     spawn_count: int = 0
     waves: list[int] = field(default_factory=list)                # first frame of the wave pairs
     crests: list[int] = field(default_factory=list)
@@ -596,6 +599,11 @@ def build(source_root: Path) -> IntroData:
     out.credits_tiles = wall["tiles"]
     out.credits_rows = wall["rows"]
     out.credits_map = wall["map"]
+    out.credits_rows2 = wall["rows2"]
+    out.credits_map2 = wall["map2"]
+    out.credits_glyphs = wall["glyphs"]
+    out.constants["CREDITS_ROWS2"] = wall["row_count2"]
+    out.constants["CREDITS_NAME_ROW"] = wall["name_row"]
     out.constants["CREDITS_FRAME_ASH"] = len(frames)
     out.constants["CREDITS_FRAME_TRIFORCE"] = len(frames) + wall["triforce_first"]
     out.constants["CREDITS_TRIFORCE_KIND"] = wall["triforce_kind"]
@@ -619,7 +627,9 @@ def write(out_dir: Path, data: IntroData) -> list[str]:
                        ("story_tiles", data.story_tiles), ("story_rows", data.story_rows),
                        ("story_map", data.story_map), ("intro_sprites", data.sprites),
                        ("intro_spawns", data.spawns), ("credits_tiles", data.credits_tiles),
-                       ("credits_rows", data.credits_rows), ("credits_map", data.credits_map)):
+                       ("credits_rows", data.credits_rows), ("credits_map", data.credits_map),
+                       ("credits_rows2", data.credits_rows2), ("credits_map2", data.credits_map2),
+                       ("credits_glyphs", data.credits_glyphs)):
         (out_dir / f"{name}.bin").write_bytes(blob)
     lines = ["", "| The title screen and the story (tools/intro.py)."]
     for name, value in sorted(data.constants.items()):

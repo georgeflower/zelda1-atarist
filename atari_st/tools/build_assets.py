@@ -46,6 +46,7 @@ OW_ROOM_COUNT = 128
 POND_CYCLE_COLORS = (0x12, 0x11, 0x22, 0x21, 0x31, 0x32, 0x33, 0x35, 0x34, 0x36, 0x37, 0x37)
 POND_PALETTE_ROW = 3                # the water's background palette row; its last colour is the one that cycles
 OW_EXTRA_BYTES = 16                 # after the 128 records of room_secrets: the pond's stairs, then the armos (see decode_overworld)
+OW_FLUTE_BYTES = 128                # after the extra bytes: per screen the stairs metatile the recorder reveals there, 0xFF = none
 POND_ROOM = 0x42                    # the Level 7 screen whose pond the recorder drains (FluteRoomSecretsOW)
 POND_STAIRS_SQUARE = 0x56           # row 5, column 6: RevealPondStairs puts them at ($60, $90)
 ARMOS_TILES = (0xC0, 0xC1, 0xC2, 0xC3)
@@ -439,7 +440,9 @@ class AssetBundle:
     cave_table: bytes = bytes(CAVE_TYPES * CAVE_RECORD_BYTES)   # one record per cave type (build_caves)
     cave_shortcuts: bytes = bytes(4)    # the four screens of the take-any-road caves
     ow_room_info: bytes = bytes(128 * 16)   # overworld screens: monster count, flags, monster indices (actors.py)
-    room_secrets: bytes = bytes(128 * OW_SECRET_BYTES + OW_EXTRA_BYTES)   # overworld screens: the hidden spot, if any (OW_SECRET_BYTES)
+    quest2_attrs_b: list[int] = None    # attribute B as the Second Quest has it (the dev start's dungeon entrance)
+    quest_patch: bytes = b"\xff\xff"          # what differs in the Second Quest's overworld (quest_patch)
+    room_secrets: bytes = bytes(128 * OW_SECRET_BYTES + OW_EXTRA_BYTES + OW_FLUTE_BYTES)   # overworld screens: the hidden spot, if any (OW_SECRET_BYTES)
     level_palettes: tuple = ()      # nine rows of 16 ST colours, one per dungeon (empty = reuse `palette`)
     intro: object | None = None     # the title, the story and the parade (tools/intro.py IntroData)
     menus: object | None = None     # the file menu: player select, register, elimination (tools/filesel.py MenuData)
@@ -520,8 +523,28 @@ def overworld_square_for_primary(primary: list[int], wanted: int) -> int:
     raise SystemExit(f"No overworld square has primary {wanted:#04x}")
 
 
+# UpdateMode2Load_Full, for the overworld in the Second Quest: attribute B of eight screens, then these bytes of A, D and F.
+QUEST2_OW_PATCHES_B_LABELS = ("LevelBlockAttrsBQ2ReplacementOffsets", "LevelBlockAttrsBQ2ReplacementValues")
+QUEST2_OW_PATCHES = (("d", 11, 0x7B), ("d", 60, 0x7B), ("d", 116, 0x5A), ("a", 60, 0x72), ("a", 116, 0x72),
+                     ("f", 60, 0x01), ("f", 116, 0x00))
+
+
+def quest2_overworld_block(source_root: Path, level_block: bytes) -> bytes:
+    """LevelBlockOW as the Second Quest has it in RAM: the ROM patches a few screens when it loads the overworld."""
+    asm = (source_root / "src" / "Z_06.asm").read_text(encoding="utf-8", errors="replace")
+    offsets = parse_asm_byte_table(asm, QUEST2_OW_PATCHES_B_LABELS[0])
+    values = parse_asm_byte_table(asm, QUEST2_OW_PATCHES_B_LABELS[1])
+    block = bytearray(level_block)
+    table = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5}
+    for offset, value in zip(offsets, values):
+        block[LEVEL_BLOCK_TABLE_SIZE * table["b"] + offset] = value
+    for name, offset, value in QUEST2_OW_PATCHES:
+        block[LEVEL_BLOCK_TABLE_SIZE * table[name] + offset] = value
+    return bytes(block)
+
+
 def decode_overworld(
-    source_root: Path, chr_tiles: list[list[list[int]]]
+    source_root: Path, chr_tiles: list[list[list[int]]], quest: int = 0, metatile_pool=None
 ) -> tuple[
     list[list[int]],
     list[tuple[int, tuple[int, int, int, int]]],
@@ -542,7 +565,13 @@ def decode_overworld(
     )
 
     layouts = require_binary(source_root, ROOM_LAYOUTS_OW_NAME)
+    # The 121 layouts are followed in the ROM by the three cave layouts, and the Second Quest's screens $0B and $3C name
+    # unique room $7B, which is the third of them (RoomLayoutOWCave2).
+    layouts += bytes(b for name in ("RoomLayoutOWCave0", "RoomLayoutOWCave1", "RoomLayoutOWCave2")
+                     for b in parse_asm_byte_table(asm_text, name))
     level_block = require_binary(source_root, LEVEL_BLOCK_OW_NAME)
+    if quest:
+        level_block = quest2_overworld_block(source_root, level_block)
     level_info = require_binary(source_root, LEVEL_INFO_OW_NAME)
 
     attrs_a = level_block[0:LEVEL_BLOCK_TABLE_SIZE]
@@ -555,8 +584,15 @@ def decode_overworld(
         LEVEL_INFO_PALETTE_OFFSET : LEVEL_INFO_PALETTE_OFFSET + PALETTE_ROWS * PALETTE_ROW_COLORS
     ]
 
-    metatile_ids: dict[tuple[int, tuple[int, int, int, int]], int] = {}
-    metatiles: list[tuple[int, tuple[int, int, int, int]]] = []
+    # The Second Quest's pass shares the First Quest's metatile pool (and only appends to it), so the ids of the
+    # First Quest's screens stay as they were.
+    metatile_ids, metatiles = metatile_pool if metatile_pool is not None else ({}, [])
+    # WieldFlute: the first room of FluteRoomSecretsOW reveals its secret in the First Quest and summons the whirlwind in
+    # the Second; the other ten the other way round. (Elsewhere the whirlwind comes.)
+    flute_list = parse_asm_byte_table((source_root / "src" / "Z_07.asm").read_text(encoding="utf-8", errors="replace"),
+                                      "FluteRoomSecretsOW")
+    flute_rooms = flute_list[1:] if quest else flute_list[:1]
+    flute = bytearray([0xFF]) * OW_FLUTE_BYTES
     rooms: list[list[int]] = []
     secrets = bytearray(OW_ROOM_COUNT * OW_SECRET_BYTES)
 
@@ -602,8 +638,8 @@ def decode_overworld(
         if found:
             col, row, marker = found[0]
             kind = marker_kind.get(marker, OW_SECRET_NONE)
-            quest = attrs_f[room_id] >> 6
-            if kind != OW_SECRET_NONE and quest != QUEST_SECOND_ONLY:
+            only = attrs_f[room_id] >> 6          # IsQuestSecretMismatch: 1 = this spot is the first quest's, 2 = the second's
+            if kind != OW_SECRET_NONE and only != (1 if quest else QUEST_SECOND_ONLY):
                 record = bytearray(OW_SECRET_BYTES)
                 record[0] = kind
                 record[1] = row * OW_ROOM_COLS + col
@@ -627,6 +663,10 @@ def decode_overworld(
 
         if room_id == POND_ROOM:
             pond_stairs = metatile_for(slot_at(POND_STAIRS_SQUARE & 15, POND_STAIRS_SQUARE >> 4), stairs_square)
+        if room_id in flute_rooms:
+            flute[room_id] = metatile_for(slot_at(POND_STAIRS_SQUARE & 15, POND_STAIRS_SQUARE >> 4), stairs_square)
+            if flute[room_id] == 0xFF:
+                raise SystemExit("The flute table's marker 0xFF is a metatile of the overworld")
         grid: list[int] = []
         for row in range(OW_ROOM_ROWS):
             for col in range(OW_ROOM_COLS):
@@ -652,6 +692,7 @@ def decode_overworld(
         raise SystemExit("Too many armos squares for the extra table")
     extra.extend(bytes(OW_EXTRA_BYTES - len(extra)))
     secrets.extend(extra)
+    secrets.extend(flute)
 
     if len(metatiles) > 256:
         raise SystemExit(f"Overworld needs {len(metatiles)} metatiles, which exceeds the 256 a byte index allows")
@@ -674,6 +715,41 @@ def decode_overworld(
         level_info[LEVEL_INFO_START_Y],
         bytes(secrets),
     )
+
+
+# The overworld tables the Second Quest changes, in the order of quest_tables (assets.inc). quest_apply (main.s) swaps the
+# bytes of quest_patch with the tables' when the quest of the game that starts is not the one they are in.
+QUEST_TABLES = ("room_maps", "room_attr_a", "room_attr_b", "room_attr_c", "room_attr_d", "room_attr_f", "ow_room_info",
+                "room_secrets")
+QUEST_PATCH_GAP = 6          # two changes closer than this share a run
+
+
+def quest_patch(first: dict[str, bytes], second: dict[str, bytes]) -> bytes:
+    """The Second Quest's overworld as a list of runs: table number, offset, byte count (even), then the Second Quest's
+    bytes. 0xFFFF ends the list. Swapping a run with the table puts the First Quest's bytes back where it came from."""
+    out = bytearray()
+    for number, name in enumerate(QUEST_TABLES):
+        one, two = first[name], second[name]
+        if len(one) != len(two):
+            raise SystemExit(f"{name} has another size in the Second Quest")
+        runs: list[list[int]] = []
+        for offset in range(len(one)):
+            if one[offset] == two[offset]:
+                continue
+            if runs and offset - runs[-1][1] < QUEST_PATCH_GAP:
+                runs[-1][1] = offset + 1
+            else:
+                runs.append([offset, offset + 1])
+        for start, end in runs:
+            if (end - start) & 1:
+                if end < len(one):
+                    end += 1
+                else:
+                    start -= 1
+            out.extend(number.to_bytes(2, "big") + start.to_bytes(2, "big") + (end - start).to_bytes(2, "big"))
+            out.extend(two[start:end])
+    out.extend(b"\xff\xff")
+    return bytes(out)
 
 
 def add_cave_palette_row(palette: PaletteMap, source_root: Path) -> PaletteMap:
@@ -812,7 +888,9 @@ def load_assets(source_root: Path) -> AssetBundle:
     bg_tiles = load_ow_background_tiles(source_root)
     sprite_tiles = load_ow_sprite_tiles(source_root)
     if bg_tiles is not None and sprite_tiles is not None:
-        rooms, metatiles, room_attrs_a, room_attrs_b, room_attrs_c, room_attrs_d, room_attrs_f, foe_counts, palette_bytes, start_room, start_y, room_secrets = decode_overworld(source_root, bg_tiles)
+        pool = ({}, [])
+        rooms, metatiles, room_attrs_a, room_attrs_b, room_attrs_c, room_attrs_d, room_attrs_f, foe_counts, palette_bytes, start_room, start_y, room_secrets = decode_overworld(source_root, bg_tiles, 0, pool)
+        second = decode_overworld(source_root, bg_tiles, 1, pool)       # the Second Quest's overworld: only its differences ship
         import underworld
         import intro as intro_module
         import filesel as filesel_module
@@ -832,17 +910,29 @@ def load_assets(source_root: Path) -> AssetBundle:
         uw_tiles = load_uw_background_tiles(source_root)
         levels = []
         text_base = len(cave_text)
-        for number in UW_LEVELS:
-            built = underworld.build_level(source_root, number, uw_tiles, palette_bytes, palette_map, sprite_tiles,
-                                           text_base=text_base)
-            text_base += len(built.actors.person_text)
-            levels.append(built)
+        for quest in (0, 1):                # the First Quest's nine dungeons, then the Second Quest's nine (level_table order)
+            for number in UW_LEVELS:
+                built = underworld.build_level(source_root, number, uw_tiles, palette_bytes, palette_map, sprite_tiles,
+                                               text_base=text_base, quest=quest)
+                text_base += len(built.actors.person_text)
+                levels.append(built)
         uw = levels[0]
         import actors
 
         ow_room_info = actors.overworld_room_info(
             source_root, room_attrs_a, room_attrs_c, room_attrs_d, room_attrs_f, foe_counts
         )
+        q2_rooms, _, q2_a, q2_b, q2_c, q2_d, q2_f, q2_foe, _, _, _, q2_secrets = second
+        q2_info = actors.overworld_room_info(source_root, q2_a, q2_c, q2_d, q2_f, q2_foe)
+        if q2_foe != foe_counts:
+            raise SystemExit("The Second Quest's overworld has other foe counts; quest_patch does not carry them")
+        quest_patch_bytes = quest_patch(
+            {"room_maps": bytes(v for room in rooms for v in room), "room_attr_a": bytes(room_attrs_a),
+             "room_attr_b": bytes(room_attrs_b), "room_attr_c": bytes(room_attrs_c), "room_attr_d": bytes(room_attrs_d),
+             "room_attr_f": bytes(room_attrs_f), "ow_room_info": ow_room_info, "room_secrets": room_secrets},
+            {"room_maps": bytes(v for room in q2_rooms for v in room), "room_attr_a": bytes(q2_a),
+             "room_attr_b": bytes(q2_b), "room_attr_c": bytes(q2_c), "room_attr_d": bytes(q2_d),
+             "room_attr_f": bytes(q2_f), "ow_room_info": q2_info, "room_secrets": q2_secrets})
         level_palettes = tuple(underworld.level_palettes(source_root, palette_bytes, palette_map))
         for built in levels:
             cave_text += built.actors.person_text   # the levels' old men speak from the same text, one after the other
@@ -864,6 +954,8 @@ def load_assets(source_root: Path) -> AssetBundle:
             level_palettes=level_palettes,
             ow_room_info=ow_room_info,
             room_secrets=room_secrets,
+            quest_patch=quest_patch_bytes,
+            quest2_attrs_b=list(q2_b),
             intro=intro_module.build(source_root),
             menus=filesel_module.build(source_root),
             gameover=gameover_module.build(source_root, palette_map, level_palettes, sprite_tiles),
@@ -1049,7 +1141,7 @@ def write_level(out_dir: Path, uw) -> None:
     """The tables of one dungeon, as uw<level>_*.bin (levels.inc links them into the image)."""
     import underworld
 
-    prefix = f"uw{uw.level}_"
+    prefix = f"uw{uw.key}_"
     (out_dir / f"{prefix}tiles.bin").write_bytes(uw.tile_bank)
     (out_dir / f"{prefix}tile_nes.bin").write_bytes(uw.tile_nes)
     quads, packed = underworld.pack_squares(list(uw.rooms) + list(uw.cellar_maps))
@@ -1082,11 +1174,11 @@ def level_include(levels) -> str:
     lines = ["| Generated by tools/build_assets.py -- do not edit.", "    .align 2"]
     for uw in levels:
         for name in LEVEL_TABLES:
-            lines.extend([f"uw{uw.level}_{name}:", f'    .incbin "uw{uw.level}_{name}.bin"', "    .align 2"])
+            lines.extend([f"uw{uw.key}_{name}:", f'    .incbin "uw{uw.key}_{name}.bin"', "    .align 2"])
     lines.append("level_table:")
     for uw in levels:
         for name in LEVEL_TABLES:
-            lines.append(f"    .long uw{uw.level}_{name} - table_anchor")
+            lines.append(f"    .long uw{uw.key}_{name} - table_anchor")
         lines.append(
             f"    .byte 0x{uw.start_room:02x}, 0x{uw.start_y:02x}, 0x{uw.triforce_room:02x}, {uw.map_col0}, "
             f"{len(uw.cellar_info)}, 0x{uw.boss_room:02x}, {uw.stairs_first}, 0"
@@ -1123,7 +1215,7 @@ def write_underworld(out_dir: Path, bundle_or_uw) -> None:
         write_level(out_dir, level)
     pool, art_tables = monster_pool(levels)
     for level, table in zip(levels, art_tables):
-        (out_dir / f"uw{level.level}_mon_art.bin").write_bytes(table)
+        (out_dir / f"uw{level.key}_mon_art.bin").write_bytes(table)
     (out_dir / "levels.inc").write_text(level_include(levels), encoding="utf-8")
     cells = bytearray()
     for direction in uw.door_cells:
@@ -1148,7 +1240,7 @@ def write_underworld(out_dir: Path, bundle_or_uw) -> None:
     (out_dir / "hud_items.bin").write_bytes(actors.hud_items)
 
 
-def underworld_equates(uw, level_count: int = 1) -> list[str]:
+def underworld_equates(uw, level_count: int = 1, record_count: int = 1) -> list[str]:
     import underworld
 
     left, right, up, down = underworld.UW_ROOM_BOUNDS
@@ -1166,7 +1258,8 @@ def underworld_equates(uw, level_count: int = 1) -> list[str]:
         f".equ UW_BOUND_RIGHT, 0x{right:02x}",
         f".equ UW_BOUND_UP, 0x{up:02x}",
         f".equ UW_BOUND_DOWN, 0x{down:02x}",
-        f".equ LEVEL_COUNT, {level_count}",
+        f".equ LEVEL_COUNT, {level_count}",         # dungeons: the numbers 1 to 9
+        f".equ LEVEL_RECORDS, {record_count}",     # records of level_table: those of the First Quest, then the Second Quest's
         f".equ LEVEL_RECORD_BYTES, {LEVEL_RECORD_BYTES}",
         f".equ MON_COUNT, {len(uw.actors.mon_table) // 8}",
         f".equ ITEM_COUNT, {len(uw.actors.item_sprites) // SPRITE_FRAME_BYTES}",
@@ -1178,6 +1271,10 @@ def underworld_equates(uw, level_count: int = 1) -> list[str]:
         f".equ MON_ZORA, {uw.actors.mon_index[0x11]}",
         f".equ MON_GEL, {uw.actors.mon_index[0x15]}",
         f".equ MON_RED_KEESE, {uw.actors.mon_index[0x1C]}",
+        f".equ MON_BLACK_KEESE, {uw.actors.mon_index[0x1D]}",
+        f".equ MON_STALFOS, {uw.actors.mon_index[0x2A]}",
+        f".equ MON_TRAP_INDEX, {uw.actors.mon_index[0x49]}",
+        f".equ MON_LANMOLA_INDEX, {uw.actors.mon_index[0x3A]}",
         f".equ MON_VIRE, {uw.actors.mon_index[0x12]}",
         f".equ MON_ZOL, {uw.actors.mon_index[0x13]}",
         f".equ MON_POLS, {uw.actors.mon_index[0x16]}",
@@ -1215,18 +1312,26 @@ def underworld_equates(uw, level_count: int = 1) -> list[str]:
         f".equ DEV_START_UW, {int(os.environ.get('ZELDA_START_UW', '0xFF'), 0)}",
         f".equ DEV_START_LEVEL, {int(os.environ.get('ZELDA_START_LEVEL', '1'), 0)}",
         f".equ DEV_START_CAVE, {int(os.environ.get('ZELDA_START_CAVE', '0'), 0)}",
+        f".equ DEV_QUEST, {dev_quest()}",       # ZELDA_QUEST=2 starts a development build in the Second Quest
         # The title and the story are for a game that is played: a build that starts somewhere on purpose skips them.
         f".equ DEV_SKIP_INTRO, {1 if any(os.environ.get(n) for n in DEV_START_VARS) else 0}",
     ]
 
 
-DEV_START_VARS = ("ZELDA_START_ROOM", "ZELDA_START_UW", "ZELDA_START_CAVE", "ZELDA_SKIP_INTRO")
+def dev_quest() -> int:
+    quest = int(os.environ.get("ZELDA_QUEST", "1"), 0)
+    if quest not in (1, 2):
+        raise SystemExit("ZELDA_QUEST is 1 (the First Quest) or 2 (the Second Quest)")
+    return quest - 1
+
+
+DEV_START_VARS = ("ZELDA_START_ROOM", "ZELDA_START_UW", "ZELDA_START_CAVE", "ZELDA_SKIP_INTRO", "ZELDA_QUEST")
 
 
 def dungeon_entrance(bundle: AssetBundle) -> int:
     """The overworld screen whose stairs lead into the level ZELDA_START_LEVEL (attribute B bits 2-7)."""
     level = int(os.environ.get("ZELDA_START_LEVEL", "1"), 0)
-    for room, attr in enumerate(bundle.room_attrs_b):
+    for room, attr in enumerate(bundle.quest2_attrs_b if dev_quest() else bundle.room_attrs_b):
         if (attr & 0xFC) < 0x40 and (attr & 0xFC) >> 2 == level:
             return room
     return 0x37
@@ -1234,7 +1339,7 @@ def dungeon_entrance(bundle: AssetBundle) -> int:
 
 def level_manifest(bundle: AssetBundle) -> str:
     return "\n".join(
-        f"uw{level.level}_room_count={len(level.rooms)}\nuw{level.level}_tile_count={len(level.tile_nes)}"
+        f"uw{level.key}_room_count={len(level.rooms)}\nuw{level.key}_tile_count={len(level.tile_nes)}"
         for level in (bundle.levels or (bundle.uw,))
     )
 
@@ -1245,6 +1350,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
     (out_dir / "link_sprites.bin").write_bytes(render_sprites(bundle))
     (out_dir / "ow_room_info.bin").write_bytes(bundle.ow_room_info)
     (out_dir / "room_secrets.bin").write_bytes(bundle.room_secrets)
+    (out_dir / "quest_patch.bin").write_bytes(bundle.quest_patch)
     (out_dir / "hud_tiles.bin").write_bytes(render_hud_tiles(bundle))
     # The big tables ship as binaries rather than .byte directives: 22KB of
     # assembler text is slow to assemble, and keeping .rodata compact matters
@@ -1317,7 +1423,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
         f".equ START_Y, 0x{bundle.start_y:02x}",
         f".equ START_DIR, 0x{LINK_START_DIR:02x}",
         "",
-        *underworld_equates(bundle.uw, len(bundle.levels) or 1),
+        *underworld_equates(bundle.uw, len({level.level for level in bundle.levels}) or 1, len(bundle.levels) or 1),
         f".equ ENDING_TEXT_THANKS, {len(bundle.cave_text) - len(ENDING_TEXTS)}",
         f".equ ENDING_TEXT_PEACE, {len(bundle.cave_text) - len(ENDING_TEXTS) + len(ENDING_THANKS_TEXT)}",
         f".equ DEV_START_ENTRANCE, 0x{dungeon_entrance(bundle):02x}",
@@ -1366,6 +1472,12 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
             format_bytes("room_attr_f", bundle.room_attrs_f),
             "",
             format_bytes("foe_counts", bundle.foe_counts),
+            "    .align 2",
+            "quest_tables:",
+            *(f"    .long {name} - table_anchor" for name in QUEST_TABLES),
+            "quest_patch:",
+            '    .incbin "quest_patch.bin"',
+            "    .align 2",
             "",
             format_bytes("item_slot", bundle.uw.actors.item_slot),
             "",
@@ -1389,7 +1501,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
             f"sprite_frame_bytes={SPRITE_FRAME_BYTES}",
             f"hud_tile_count={len(HUD_GLYPHS)}",
             f"hud_tile_bytes={HUD_TILE_BYTES}",
-            f"uw_levels={','.join(str(level.level) for level in (bundle.levels or (bundle.uw,)))}",
+            f"uw_levels={','.join(level.key for level in (bundle.levels or (bundle.uw,)))}",
             level_manifest(bundle),
             "output_format=Atari ST low-resolution planar 16x16 metatiles",
             "",
@@ -1437,7 +1549,7 @@ def verify_outputs(out_dir: Path) -> None:
         "hud_tiles.bin": int(manifest_values["hud_tile_count"]) * int(manifest_values["hud_tile_bytes"]),
         "metatile_tiles.bin": int(manifest_values["metatile_count"]) * 4,
         "room_maps.bin": int(manifest_values["room_count"]) * int(manifest_values["room_bytes"]),
-        "room_secrets.bin": int(manifest_values["room_count"]) * OW_SECRET_BYTES + OW_EXTRA_BYTES,
+        "room_secrets.bin": int(manifest_values["room_count"]) * OW_SECRET_BYTES + OW_EXTRA_BYTES + OW_FLUTE_BYTES,
         "cave_table.bin": CAVE_TYPES * CAVE_RECORD_BYTES,
         "cave_shortcuts.bin": 4,
         "uw_door_cells.bin": 4 * 12 * 2,

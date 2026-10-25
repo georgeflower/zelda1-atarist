@@ -72,6 +72,35 @@ class UwData:
     cellar_maps: tuple = ()   # UW_ROOM_BYTES row-major bank ids per cellar
     cellar_info: tuple = ()   # CELLAR_INFO_BYTES per cellar
     stairs_first: int = 0     # bank id of the four stairs tiles ($70-$73, column-major) a trigger-5 push block uncovers; 0 = none
+    quest: int = 0            # 0 the First Quest's dungeon, 1 the Second Quest's (LevelBlockUW*Q2 and the LevelInfo replacements)
+
+    @property
+    def key(self) -> str:
+        """What names the dungeon's tables: "3" for the First Quest's Level 3, "3q2" for the Second Quest's."""
+        return level_key(self.level, self.quest)
+
+
+def level_key(level: int, quest: int = 0) -> str:
+    return f"{level}q2" if quest else f"{level}"
+
+
+QUEST_INFO_FIRST = 0x6BA7 - B.LEVEL_INFO_BASE      # LevelInfo_ShortcutOrItemPosArray: where UpdateMode2Load_Full copies the replacements
+
+
+def level_info(source_root: Path, level: int, quest: int = 0) -> bytes:
+    """LevelInfoUW<level> as the game has it in RAM: in the Second Quest UpdateMode2Load_Full copies LevelInfoUWQ2Replacements<level>
+    (item positions, map rotation, start and triforce rooms, cellar array, boss room, map mask, the map's transfer buffer) over it."""
+    info = bytearray(B.require_binary(source_root, f"dat/LevelInfoUW{level}.dat"))
+    if quest:
+        asm = (source_root / "src" / "Z_06.asm").read_text(encoding="utf-8", errors="replace")
+        replacement = B.parse_asm_byte_table(asm, f"LevelInfoUWQ2Replacements{level}")
+        info[QUEST_INFO_FIRST : QUEST_INFO_FIRST + len(replacement)] = bytes(replacement)
+    return bytes(info)
+
+
+def level_block(source_root: Path, level: int, quest: int = 0) -> bytes:
+    name = ("UW1" if level <= 6 else "UW2") + ("Q2" if quest else "Q1")
+    return B.require_binary(source_root, f"dat/LevelBlock{name}.dat")
 
 
 MINIMAP_COLUMNS = 8
@@ -425,7 +454,7 @@ def build_cellars(asm: str, info: bytes, attrs, bank_id) -> tuple[list[bytes], l
 
 
 def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes, ow_map, ow_sprite_tiles=None,
-                text_base: int | None = None) -> UwData:
+                text_base: int | None = None, quest: int = 0) -> UwData:
     asm = (source_root / "src" / "Z_05.asm").read_text(encoding="utf-8", errors="replace")
     heap, starts = parse_heaps(asm)
     primary = B.parse_asm_byte_table(asm, "PrimarySquaresUW")
@@ -433,9 +462,8 @@ def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes
     faces = [B.parse_asm_byte_table(asm, label) for label in DOOR_FACE_LABELS]
     layouts = B.require_binary(source_root, UW_LAYOUTS_NAME)
 
-    quest_block = "UW1Q1" if level <= 6 else "UW2Q1"
-    block = B.require_binary(source_root, f"dat/LevelBlock{quest_block}.dat")
-    info = B.require_binary(source_root, f"dat/LevelInfoUW{level}.dat")
+    block = level_block(source_root, level, quest)
+    info = level_info(source_root, level, quest)
     size = B.LEVEL_BLOCK_TABLE_SIZE
     attrs = [block[i * size : (i + 1) * size] for i in range(6)]
     attrs_a, attrs_b, attrs_d = attrs[0], attrs[1], attrs[3]
@@ -528,4 +556,5 @@ def build_level(source_root: Path, level: int, bg_tiles, ow_palette_bytes: bytes
         cellar_maps=tuple(cellar_maps),
         cellar_info=tuple(cellar_info),
         stairs_first=stairs_first,
+        quest=quest,
     )

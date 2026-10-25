@@ -48,7 +48,7 @@ def _write_fake_rom(root: Path, blobs: dict[str, bytes]) -> None:
 class LevelIncludeTests(unittest.TestCase):
     def test_boss_room_and_stairs_use_separate_level_record_bytes(self) -> None:
         level = SimpleNamespace(
-            level=5, start_room=0x65, start_y=0xDD, triforce_room=0x14,
+            level=5, key="5", start_room=0x65, start_y=0xDD, triforce_room=0x14,
             map_col0=2, cellar_info=[b""], boss_room=0x15, stairs_first=120,
         )
         record = build_assets.level_include([level]).split("level_table:\n", 1)[1]
@@ -219,7 +219,7 @@ class RomOverworldTests(unittest.TestCase):
         records = {}
         data = self.bundle.room_secrets
         size = build_assets.OW_SECRET_BYTES
-        self.assertEqual(len(data), build_assets.OW_ROOM_COUNT * size + build_assets.OW_EXTRA_BYTES)
+        self.assertEqual(len(data), build_assets.OW_ROOM_COUNT * size + build_assets.OW_EXTRA_BYTES + build_assets.OW_FLUTE_BYTES)
         for room in range(build_assets.OW_ROOM_COUNT):
             record = data[room * size : (room + 1) * size]
             if record[0]:
@@ -268,7 +268,8 @@ class RomOverworldTests(unittest.TestCase):
 
     def _extra(self):
         data = self.bundle.room_secrets
-        return data[build_assets.OW_ROOM_COUNT * build_assets.OW_SECRET_BYTES:]
+        first = build_assets.OW_ROOM_COUNT * build_assets.OW_SECRET_BYTES
+        return data[first : first + build_assets.OW_EXTRA_BYTES]
 
     def test_the_extra_table_holds_the_pond_stairs_and_the_armos_squares(self) -> None:
         extra = self._extra()

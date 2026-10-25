@@ -262,6 +262,36 @@ save_world_replay:
 9:  movem.l (%sp)+, %d0-%d3/%a0
     rts
 
+| The overworld of the quest d0.b (0 First, 1 Second): OFF_QUEST says which game runs, and the tables the Second Quest changes
+| (quest_tables: the screens, their attributes, monsters and secrets) are swapped with quest_patch's bytes when they are in the
+| other quest's state; swapping twice puts everything back. Called while no hidden-spot change is in place (after
+| save_world_reset) and before the screen is drawn.
+quest_apply:
+    movem.l %d0-%d4/%a0-%a2, -(%sp)
+    move.b %d0, OFF_QUEST(%a5)
+    cmp.b OFF_QUEST_APPLIED(%a5), %d0
+    beq 9f
+    move.b %d0, OFF_QUEST_APPLIED(%a5)
+    ltab quest_patch, %a0
+    ltab quest_tables, %a1
+1:  move.w (%a0)+, %d1
+    bmi 9f                              | $FFFF ends the list
+    lsl.w #2, %d1
+    movea.l 0(%a1, %d1.w), %a2
+    adda.l %a6, %a2                     | the table
+    moveq #0, %d3
+    move.w (%a0)+, %d3
+    adda.l %d3, %a2                     | the run's place in it
+    move.w (%a0)+, %d4
+    subq.w #1, %d4
+2:  move.b (%a2), %d0
+    move.b (%a0), (%a2)+
+    move.b %d0, (%a0)+
+    dbra %d4, 2b
+    bra 1b
+9:  movem.l (%sp)+, %d0-%d4/%a0-%a2
+    rts
+
 | A new profile in slot d0.w: the game as it starts, in its record. (The variables are left cleared.)
 save_new_game:
     movem.l %d0/%a0-%a1, -(%sp)
@@ -279,14 +309,21 @@ save_new_game:
 
 | The game of the slot d0.w starts: its record goes into the variables, Link is at the start.
 save_load_game:
-    movem.l %d0/%a0-%a1, -(%sp)
+    movem.l %d0-%d1/%a0-%a1, -(%sp)
     bsr save_world_reset
+    lea OFF_SLOT_QUEST(%a5), %a0
+    moveq #0, %d1
+    move.b 0(%a0, %d0.w), %d1           | the profile's quest: the overworld is put in its state
+    move.l %d0, -(%sp)
+    move.l %d1, %d0
+    bsr quest_apply
+    move.l (%sp)+, %d0
     bsr save_rec_addr
     lea REC_STATE(%a0), %a1
     bsr save_fields_load
     bsr save_world_replay
     bsr game_reset_position
-    movem.l (%sp)+, %d0/%a0-%a1
+    movem.l (%sp)+, %d0-%d1/%a0-%a1
     rts
 
 | SAVE (UpdateModeDSave): the hearts are filled up to the containers, the menu's copy of the profile is brought up to

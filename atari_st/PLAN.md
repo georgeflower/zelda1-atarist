@@ -1,6 +1,6 @@
 # Zelda 1 for Atari ST - plan for all remaining work
 
-Status: **work in progress**. Scope decision: **First Quest only** for now; the Second Quest is deferred (M13). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged; PRs #4 to #56 have since implemented nearly all of it (version 0.37). Ticked boxes (`[x]`) in the work packages show what is done.
+Status: **work in progress**. Scope decision: **both quests**, in one 1 MB build (the Second Quest is M13, built; a 512 KB per-level loader may follow). Written against `georgeflower/zelda1-atarist` after PR #2 (Makefile dev-start stamp) was merged; PRs #4 to #56 have since implemented nearly all of it (version 0.37). Ticked boxes (`[x]`) in the work packages show what is done.
 
 How to read this: the plan is laid out in three parts. **Section 1 is what is left** (read this first). **Section 2 is the plan**: the order of work and the next step, with sections 3 to 12 as one work package each (checklist and acceptance test) and section 13 with the decisions, risks and checks still open. **Section 14 is what is done**: a summary, the status of every milestone and the merged PRs. The appendices hold the data tables, decoded from the PAL (Europe, Rev 1) ROM you supplied. That ROM has the same data layout as the disassembly in `src/` (start room `$77`, start Y `$8D`, same blob offsets), so the tables should apply to the NTSC ROM the build expects as well.
 
@@ -9,22 +9,22 @@ Where I could not confirm something from the disassembly or the ROM, the line sa
 ## 1. What is left
 
 Checked against the ROM's object, cave and sound tables (0.36): every monster, cave type and sound the First Quest uses is in the game. What is
-missing is small: the Second Quest (deferred) and a few options, plus checking all of it by playing. Ordered by how much it matters to someone playing.
+missing is small: a few options, the ropes' flashing colours in the Second Quest, and checking all of it by playing. Ordered by how much it matters to someone playing.
 
 ### 1.1 Open work, most important first
 
 | # | What | Why it is open | Where |
 |---|---|---|---|
 | 1 | **A thorough play-through of the full game**, especially of Levels 3 to 9, and of the Level 2 Moldorm segment deaths and the ringleader room | Built and checked with scripted Hatari input and limited human testing; bugs are expected | M6 to M9, section 9.4 |
-| 2 | **Memory on a 512 KB machine and speed on real hardware** (8 enemies plus shots at 8 MHz; a real PAL STFM at 50 Hz) | Unmeasured; Hatari only | M12, risks R2 to R4 |
-| 3 | **The Second Quest** (deferred by decision) | The credits end with the ROM's own steps (profile reset and saved, the file menu), but the new profile plays the First Quest again | M10 d, section 11.4 |
+| 2 | **A per-level loader for 512 KB machines, and speed on real hardware** (8 enemies plus shots at 8 MHz; a real PAL STFM at 50 Hz) | The PRG is about 700 KB with both quests, so the build needs 1 MB; unmeasured on hardware, Hatari only | M12, risks R2 to R4 |
+| 3 | **A play-through of the Second Quest** | Built from the ROM and checked screen by screen in Hatari (all 9 dungeons load, credits, overworld patch); not played through | M13 |
 | 5 | **Fidelity gaps by design:** the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once, not out of a cloud | Eight monster slots (`MAX_ENEMIES`); a refactor to raise it | risk R6 |
 | 6 | **Intro odds and ends:** "save and exit without dying" from the Tab menu (not in the original) | Optional | M10, sections 11.1 and 11.3 |
 | 7 | **Checks marked (verify)** against the ROM and the walkthroughs | Listed in section 13.3 | section 13.3 |
 
 ### 1.2 Deliberately deferred
 
-- **M13, the Second Quest**: different dungeon layouts, item places, entrances and Q2-tagged secrets. Decided not now (Q2 in section 13.1).
+- **M13, the Second Quest**: different dungeon layouts, item places, entrances and Q2-tagged secrets. **Built** (Q2 in section 13.1).
 - Anything that would need the NES hardware as it is (the PPU, the DPCM channel) rather than its data.
 
 ## 2. The plan
@@ -43,14 +43,14 @@ missing is small: the Second Quest (deferred) and a few options, plus checking a
 | M7 | Dungeon monsters (all underworld types) | M6 | XL | **done**: every type of Levels 1 to 9 (#24, #27, #29) |
 | M8 | Bosses | M7 | XL | Aquamentus, Dodongo, Moldorm (two worms of four), Manhandla, Gohma, Digdogger, Gleeok; Lanmola, Patra, Ganon and Zelda's scene done (#29; Ganon's music #30; checked in Hatari with scripted input, not played by a person) |
 | M9 | Levels 2 to 9 content, triforce sequence, map/compass minimap | M6, M7, M8 | XL | Levels 1 to 9 built (rooms, layout, items, monsters, bosses); only partly play-tested, see 9.3; the credits wall is in |
-| M10 | Title/story, file select, name entry, save, continue/death, ending | M5 | L | **done** (#39, #41, #42): title, story, parade, file select, name entry, elimination, death, continue/save/retry, `ZELDA.SAV`, the scrolling credits wall (0.38); the Second Quest restart is not ported |
+| M10 | Title/story, file select, name entry, save, continue/death, ending | M5 | L | **done** (#39, #41, #42): title, story, parade, file select, name entry, elimination, death, continue/save/retry, `ZELDA.SAV`, the scrolling credits wall (0.38); the Second Quest restart is ported with M13 |
 | M11 | Sound effects and music (player, bank and the Level 1 events done; the rest are hooks, see 12) | any | M | mostly done (#4 to #9, #30) |
 | M12 | Polish: PAL 50 Hz, performance, memory, unit tests, docs | all | M | PAL checked (#18); docs refreshed after #25; the rest open |
-| M13 | Deferred (decided: not now): Second Quest | all | L | deferred |
+| M13 | Second Quest | all | L | **done**: 18 dungeon records, `quest_patch` for the overworld, recorder rooms, rope/stalfos/black keese, trigger 6, the longer credits; not played through |
 
 ### 2.1 Next step
 
-Next step: the items at the top of section 1.1 in that order. First a thorough play-through of the full game (Levels 3 to 9 above all); then the memory check for a 512 KB machine (M12); then the Second Quest if it is wanted.
+Next step: the items at the top of section 1.1 in that order. First a thorough play-through of the full game (Levels 3 to 9 above all); then a play-through of the Second Quest; then a per-level loader if a 512 KB machine is wanted (M12).
 
 Reasoning: M1 went first because it was the bug you could see and it fixed the data model (secret objects per room, patched into the room maps) that M3, M4 and M9 reuse; M3 follows because every hidden spot, stair and cave of the overworld now leads to it. M6 comes before the monsters because every dungeon monster needs the room, door and palette machinery to be tested in place. M10 comes late because save files store the inventory, so the inventory must be final first.
 
@@ -65,7 +65,7 @@ Reasoning: M1 went first because it was the bug you could see and it fixed the d
   - *Tables* are free: `ltab` is a 32-bit anchor-relative load, and `lvtab`/`level_table` reach a dungeon's tables through pointers, so tables may sit anywhere in the image (`check_reach.py` still fails the build when a name an `ltab` uses is missing).
   - *Code* is not: `bsr`/`bra`/`Bcc` and `(label,%pc)` operands span a signed 16 bits, and **GNU as does not complain when they do not fit, it wraps** (verified with binutils 2.42 `as -m68000`, also for an explicit `.w`). Level 2 hit it: three main-loop calls to `draw_hud`, `update_menu` and `minimap_tick` sat 32,786 to 32,972 bytes from their target and the game died with a Line-F exception at start. `check_reach.py` now reads the assembler listing (`build/zelda_st.lst`), computes every branch and PC-relative distance against the linked symbols and fails the build on any that does not fit. After Levels 3-8: 876 references, the tightest with 479 bytes to spare (`bsr update_cave`); `bosses.s` and `dmon.s` reach main.s through `*_far` and `*_bf` stubs and `farstub` trampolines. The code is **full** in the 16-bit sense: the first 43 KB (code plus `.data`) is one cluster whose far ends cannot call each other directly.
   - The rule for new code: a module that would call across the image goes through a `*_far` stub (`bra target`) placed in the middle (`main.s`, before `.include "link.s"`), as `clear_erase_state_far`, `show_background_far`, `draw_hud_far`, `update_menu_far` and `minimap_tick_far` do. New code and data that nothing branches into (tables, text, sprite banks) go after `room_palette` in `.rodata` and cost nothing. The levels 3 to 9 monsters add code, so expect more stubs; the check tells you the moment one is needed.
-  - Memory: the PRG is 220 KB. Every run so far was in Hatari with 1 MB (`--memsize 1`); how much a 512 KB machine has left after the buffers `init_buffers` takes is **not measured** and should be before the release build (M12).
+  - Memory: the PRG is about 700 KB with both quests (the nine Second Quest dungeons are about 107 KB of tables). Every run so far was in Hatari with 1 MB (`--memsize 1`); the build does not fit 512 KB, and one 720 KB disk holds the PRG and `ZELDA.SAV`. The data is reached through pointers (`level_table`, `quest_tables`), so a per-level loader is the way to a 512 KB build (M12).
 - [x] **Golden frames.** `tools/screenshot.py` takes `--room` (overworld screen) and `--uw`/`--level` (dungeon room) and builds the matching dev PRG into `build/dev`, leaving the normal build alone; it prints a `FRAMEHASH` of the pixels and palette. `tools/golden.py` runs fifteen fixed scenes (overworld start and the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo, Moldorm, traps, goriyas and the old man, and from Levels 3 to 8 a crowded room, a dark room, a rupee stash, Grumble and a dark crowd) and compares the hashes with `tests/golden/frames.json`; `make check` runs it (skipped without Hatari, an EmuTOS image in `TOS`, and `ext/Original.nes`), `make golden-update` accepts new ones, `build/golden/*.png` shows the pictures. Hashes, not images, because the images are frames of Nintendo's artwork. Runs are deterministic (the same hash twice).
 - [x] Keep every table a unit test can recompute from the ROM, as the current tests do (standing rule; `dump_tables.py` and the golden frames add to it).
 
@@ -418,13 +418,13 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 ### 11.4 Winning
 
 - Music for this and the other screens is already in the bank (`MUS_TITLE`, `MUS_ZELDA`, `MUS_ENDING`, `MUS_GAMEOVER`, hook with `music_event`/`music_play`). Mode `$13`: curtain effect, Zelda's text box "THANKS LINK, YOU'RE THE HERO OF HYRULE...", Link and Zelda holding the triforces, "FINALLY PEACE RETURNS TO HYRULE. THIS ENDS THE STORY.", ash pile where Ganon was, credits (`DrawCredits`), then the game restarts the same slot as a Second Quest profile (`SwitchProfileToSecondQuest` clears world flags and sets the quest number).
-- [x] Credits (0.38): the scrolling wall of `DrawCredits` (`credits.s`, `tools/credits.py`), then the last screen with the ash pile and the flashing Triforce of Power; Start does the ROM's steps before its Second Quest (`SwitchProfileToSecondQuest` and mode D: the profile cleared of items and world flags, three hearts, the quest number 1, saved) and goes to the file menu with no title (`credits_to_menu`); the Second Quest itself is not ported, the slot plays the First Quest again. Zelda's last words are "FINALLY," and two lines at the ROM's places, a letter every 8 frames (`CAVE_TEXT_PEACE` in `cave_talk`). The port's own line, "PORTED TO ATARI ST BY Q", is on the title screen.
+- [x] Credits (0.38): the scrolling wall of `DrawCredits` (`credits.s`, `tools/credits.py`), then the last screen with the ash pile and the flashing Triforce of Power; Start does the ROM's steps before its Second Quest (`SwitchProfileToSecondQuest` and mode D: the profile cleared of items and world flags, three hearts, the quest number 1, saved) and goes to the file menu with no title (`credits_to_menu`); the slot then plays the Second Quest (after a Second Quest, again). The Second Quest's credits are a second strip (720 lines, `credits_rows2`/`credits_map2`) over the same tiles; `credits_name` writes the profile's name and death count into line `$11`. Zelda's last words are "FINALLY," and two lines at the ROM's places, a letter every 8 frames (`CAVE_TEXT_PEACE` in `cave_talk`). The port's own line, "PORTED TO ATARI ST BY Q", is on the title screen.
 
 ## 12. M11 Sound, M12 polish, M13 Second Quest
 
 - [ ] M11 sound: list every `SongRequest`, `Tune0Request`, `Tune1Request`, `SampleRequest` value in the disassembly; write a YM2149 version for each: title, overworld (done), underworld, boss, death, ending, secret found, item get, level end, low health beep, sword, beam, bomb, hurt, rupee, key, door, boss roar, Zora and water sounds. Use the existing `ym_convert.py` and `music/` player; two AY channels may be needed for effects over music. `tools/nes_music_rip.py` already records all 9 songs, 8 jingles and 7 sound effects from the ROM as `.ym` (noise drums or digidrums, PAL pitch); `tools/music_pack.py` packs them (plus the shipped overworld song) into the bank that `music.s` plays: area music follows the state (overworld, dungeon, level 9, caves silent) and item, triforce, hurt, death, bomb, kill, rupee, key, heart and shutter events are hooked, and so are the Effect-channel sounds (sword, boomerang, flame, stairs, bomb blast, ripped as noise on voice C), the low-life beep, the menu click and the cave text blips. Every request the ROM makes is hooked: the game-over, title, ending, Zelda and Ganon songs, the recorder, parry and magic, and the seven DPCM samples (`SampleRequest`), which `nes_music_rip.py` decodes from `PcmSamples` and `music_pack.py` plays as one-drum tracks on voice C: sword beam, Link hurt, door (key door unlocked, shutters open), boss hit and death cry, and the boss roars (once as the boss is placed, and every $A0 frames in the rooms whose attribute E names one while the boss room is not cleared). The sea and waterfall have no sound in the ROM. Not done: the door sound when shutters close behind Link.
-- [ ] M12 (PAL 50 Hz checked in #18; docs refreshed after #25; the rest open): PAL and speed (R2), performance of 8 enemies plus projectiles at 8 MHz, free memory on a 512 KB machine (R3), a docs refresh with each milestone (`README.md`s, `AGENTS.md`/`CLAUDE.md`, this file), a release build (stock TOS PRG).
-- [ ] M13 Second Quest (**deferred by your decision, not now**): the ROM contains `LevelBlockUW1Q2`/`UW2Q2` and the overworld patch (`PatchQ2Rooms` in `Z_06.asm`). Different dungeon layouts, item places, entrances and the Q2-tagged secrets in appendix A. Triggered by naming a profile ZELDA or by winning the game.
+- [ ] M12 (PAL 50 Hz checked in #18; docs refreshed after #25; the rest open): PAL and speed (R2), performance of 8 enemies plus projectiles at 8 MHz, a per-level loader for 512 KB machines (R3), a docs refresh with each milestone (`README.md`s, `AGENTS.md`/`CLAUDE.md`, this file), a release build (stock TOS PRG).
+- [x] M13 Second Quest (**built**; checked in Hatari, not played through; open: the ropes' flashing palette): the ROM contains `LevelBlockUW1Q2`/`UW2Q2` and the overworld patch (`PatchQ2Rooms` in `Z_06.asm`). Different dungeon layouts, item places, entrances and the Q2-tagged secrets in appendix A. Triggered by naming a profile ZELDA or by winning the game.
 
 ## 13. Risks, questions for you, and things to verify
 
@@ -433,7 +433,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 | # | Question | Decision |
 |---|---|---|
 | Q1 | "Fairy mother" | The two fairy fountains, J4 and D5 (section 6.4). |
-| Q2 | Second Quest | Not now. First Quest only; M13 is deferred. |
+| Q2 | Second Quest | Built (M13): one PRG with both quests, 1 MB of RAM, one 720 KB disk. |
 | Q3 | Start and Select keys | Return = Start, Tab = Select. |
 | Q4 | Where the Raft is | Down the stairs in Level 3 room `$69` (eight Darknuts), in stairs room `$0F`. Confirmed by the Zelda Dungeon Level 3 walkthrough and by the decoded data: room `$0F` has destinations A = B = `$69`. |
 | Q5 | Sixteenth heart | Eight dungeon hearts, four cave hearts (P3, M3, H5, L8) and one item on screen P6 (`$5F`) that needs the Stepladder: 13 containers, 16 hearts. Matches the Zelda Dungeon heart container page. |
@@ -446,7 +446,7 @@ Also tracked in the inventory (not items): rupees, keys, hearts and partial hear
 
 - **R1 Palettes.** Settled for the dungeons: slot-stable per-level palettes (section 3). The title and story screens still need their own rows when they are built.
 - **R2 PAL / 50 Hz.** Verified in a 50 Hz Hatari (section 3); a real PAL STFM is untried. The music is tuned for 50 Hz and skips one in six VBLs at 60 Hz.
-- **R3 Memory and addressing reach.** Tables are free (32-bit `ltab`, per-level pointers through `level_table`); **code is the limit**: 16-bit branches wrap silently in GNU as, the code cluster is full (the tightest reference had 86 bytes to spare after Level 2) and every cross-image call needs a `*_far` stub. `check_reach.py` fails the build on a wrap. Details in section 3. Free memory on a 512 KB machine is not measured.
+- **R3 Memory and addressing reach.** Tables are free (32-bit `ltab`, per-level pointers through `level_table`); **code is the limit**: 16-bit branches wrap silently in GNU as, the code cluster is full (the tightest reference had 86 bytes to spare after Level 2) and every cross-image call needs a `*_far` stub. `check_reach.py` fails the build on a wrap. Details in section 3. The build needs 1 MB (the PRG is about 700 KB); a per-level loader would bring it back to 512 KB.
 - **R4 Sprite budget.** 16x16 masked sprites with runtime shifting; Gleeok, Patra and Moldorm are multi-object bosses and can blow the frame budget at 8 MHz.
 - **R5 Copyright.** All ROM-derived data stays out of the repo. The dump tool and the generated tables here are for planning; commit the tool, not its output.
 - **R6 Monster slots.** `MAX_ENEMIES` is 8 (arrays indexed with an 8-bit displacement, stride-8 accesses in several places). A 10-segment Moldorm, Gleeok with its heads, Patra with its children and Level 7's three-Dodongo rooms do not fit as they are; the Moldorm is already two worms of four. Raising the limit means moving the per-monster arrays out of the front 128 bytes of the variable block and removing the stride-8 assumptions; decide before M8.
@@ -525,10 +525,10 @@ The five original requests are all met in the code: (1) the hidden bomb and fire
 | M4 Overworld specials | complete (the ROM has no waterfall or sea sound) |
 | M5 Items, inventory, HUD | complete |
 | M6, M7, M8, M9 Dungeons, monsters, bosses, content | complete for all nine levels, checked by script and by limited play; a thorough play-through is open |
-| M10 Title, file select, save, ending | complete except the Second Quest restart |
+| M10 Title, file select, save, ending | complete |
 | M11 Sound | complete: ROM music, effects and the seven DPCM samples (the sea and waterfall have no sound in the ROM) |
 | M12 Polish | PAL 50 Hz checked; docs kept current; memory and real-hardware checks open |
-| M13 Second Quest | deferred |
+| M13 Second Quest | complete except the ropes' flashing colours; not played through |
 
 ## Appendix: method
 
