@@ -396,7 +396,7 @@ time (no pre-shifted copies; only the bosses' narrow pieces are pre-shifted). A 
 ~8k cycles to draw and ~1.7k to erase, so a room of seven or more monsters needs two VBLs. `catch_up`
 (`main.s`, called after `FRAME_COUNTER` is incremented) sees from `FR_CLOCK` (`$462`) that two VBLs passed and runs
 `update_play` once more with `SKIP_DRAW` set (no erase, no draw, no present, boss pool cleared), so the game speed
-stays that of 60 Hz and only the picture runs at 30 Hz; at most one extra pass, never during scrolls or menus.
+stays that of 60 Hz and only the picture runs at 30 Hz; at most one extra pass, never during scrolls or menus. The two passes see consecutive `FRAME_COUNTER` values (the late pass runs with the value `main_loop` just made, the counter moves on before the real pass): when both saw the same value, a run of late frames (a sword beam's DPCM sample is enough) left the counter with one parity, so every "step on every other frame" monster doubled its speed or froze and the Aquamentus's fireballs (Y drift on even frames) fanned wrongly.
 `LATE_FRAMES` counts the passes (the harness prints it); `FRAME_COUNTER` ~ VBLs - 170 means the loop kept up.
 
 ## 8. Screen, coordinates, rendering
@@ -785,7 +785,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - Underworld: `LevelBlockUW1Q1.dat` (levels 1-6; levels 7-9 use `LevelBlockUW2Q1.dat`), `LevelInfoUW<N>.dat` per level, 6 tables x 128 (A,B = doors/palettes, C = monster list +
   count class, D = layout id & `$3F`, E = item & `$1F`, F = secret/position). Monster list id =
   `(C & $3F) | ($40 if D & $80)`; `foe_counts` give the group size; item position index =
-  `(F & $30) >> 4`.
+  `(F & $30) >> 4`. A triforce piece (item `$1B`) is put 8 pixels left of that X (`@StoreLocation` in `Z_05.asm`, `actors.TRIFORCE_PIECE`): the piece is two tiles wide, so it sits on the room's middle.
 - Mon table (`mon_table.bin`, 8 bytes/monster): nes type, hp, period, damage, drop row, flies,
   draw mode, behaviour. Monsters ported (`actors.MONSTER_TYPES`): `05`/`06` goriya (blue/red), `15` gel, `1B` keese, `28` rope, `2A`
   stalfos, `27` wallmaster, `3D` Aquamentus, `49` trap, `31`/`32` Dodongo, `41` Moldorm segment, and the overworld's `01`/`02` lynel,

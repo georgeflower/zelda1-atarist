@@ -330,6 +330,11 @@ main_loop:
 | A frame that took two VBLs (a room full of monsters costs more than one) would run the game at half speed. The
 | game runs its update once more without drawing anything, so the speed stays that of 60 Hz and only the picture
 | is shown at 30 Hz. At most one pass: a long pause (a room being built) is not caught up.
+| The two passes must see consecutive FRAME_COUNTER values: the late pass runs with the value main_loop has just
+| made, and the counter moves on before the real pass. (It used to move first, so both passes saw the same value and,
+| while every frame was late, the counter only ever had one parity: a monster that steps "every other frame" then
+| stepped on every pass or on none, the Aquamentus's fireballs fanned twice as fast or not at all. A sword beam
+| triggers it: its DPCM sample takes enough time from the main loop to make each frame late.)
 catch_up:
     movem.l %d0-%d1, -(%sp)
     move.l FR_CLOCK, %d0
@@ -343,10 +348,10 @@ catch_up:
     tst.b OFF_GAME_MODE(%a5)
     bne 9f
     move.b #1, OFF_SKIP_DRAW(%a5)
-    addq.w #1, OFF_FRAME_COUNTER(%a5)
     addq.w #1, OFF_LATE_FRAMES(%a5)
     bsr update_play
     clr.b OFF_SKIP_DRAW(%a5)
+    addq.w #1, OFF_FRAME_COUNTER(%a5)   | the real pass is the next frame of the game
 9:  movem.l (%sp)+, %d0-%d1
     rts
 
