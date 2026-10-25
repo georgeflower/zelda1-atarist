@@ -249,6 +249,10 @@ game_start:
 
 | Everything that sets the game up once the title is over (or at once, in a development build).
 begin_game:
+    .if DEV_SKIP_INTRO
+    moveq #DEV_QUEST, %d0               | a development build has no profile: its quest is a build setting
+    bsr quest_apply_far
+    .endif
     .if DEV_START_UW != 255
     | Development shortcut: start inside the level, with a sword and a key.
     moveq #DEV_START_LEVEL, %d0
@@ -955,6 +959,7 @@ owspec_init_far:
     bra owspec_init
 uw_person_update_far:
     bra uw_person_update
+    farstub quest_apply_far, quest_apply
     farstub update_death_far, update_death
     farstub death_begin_far, death_begin
 draw_link_far:
@@ -1089,6 +1094,12 @@ credits_rows:
     .incbin "credits_rows.bin"
 credits_map:
     .incbin "credits_map.bin"
+credits_rows2:
+    .incbin "credits_rows2.bin"
+credits_map2:
+    .incbin "credits_map2.bin"
+credits_glyphs:
+    .incbin "credits_glyphs.bin"
     | The file menu (tools/filesel.py).
     .align 2
 file_tiles:

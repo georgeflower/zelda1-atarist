@@ -497,5 +497,7 @@
     gvar LADDER_STATE, 1         | 1 laid down in front of Link, 2 he stands on it (ObjState of the ladder)
     gvar LADDER_ROOM, 1          | the room it was laid in
     gvar CAVE_TEXT_PEACE, 1      | cave_talk is typing the ending's last words: three lines placed as the ROM does, 8 frames a letter, no blip on spaces
+    gvar QUEST, 1                | the quest of the game that runs (QuestNumbers of its slot): 0 First, 1 Second; set by quest_apply
+    gvar QUEST_APPLIED, 1        | the quest the overworld's tables are in now (quest_apply swaps the Second Quest's differences in and out)
     galign
     .equ GLOBALS_BYTES, gvar_offset

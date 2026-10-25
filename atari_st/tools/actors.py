@@ -23,8 +23,8 @@ MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
                  # Levels 3 to 8, the ones that walk: red and blue darknuts, vire, zol, pols voice, like-like,
                  # the wizzrobes, bubbles and gibdos
                  0x0B, 0x0C, 0x12, 0x13, 0x16, 0x17, 0x23, 0x24, 0x2B, 0x30,
-                 # the red keese a vire leaves behind
-                 0x1C,
+                 # the red keese a vire leaves behind, and the black keese of the Second Quest's Level 4
+                 0x1C, 0x1D,
                  # Manhandla (one object per hand and a base)
                  0x3C,
                  # Gohma, blue and red, and the two pairs of legs the game puts down beside its eye (not ROM types)
@@ -84,7 +84,7 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
                   # a bubble at $40; the vire and gibdo at the default $20; pols voice, the like-like and
                   # the wizzrobes move by their own rules
                   0x0B: 2, 0x0C: PERIOD_PATTERN + 1, 0x12: 2, 0x13: PERIOD_PATTERN, 0x16: 2, 0x17: 2,
-                  0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1, 0x3C: 1, 0x33: 1, 0x34: 1, 0xFD: 1, 0xFC: 1,
+                  0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1, 0x1D: 1, 0x3C: 1, 0x33: 1, 0x34: 1, 0xFD: 1, 0xFC: 1,
                   0x38: 1, 0xFB: 1, 0x18: 1, 0x43: 1, 0x44: 1, 0x45: 1, 0xF9: 1, 0x46: 1, 0x3A: 1, 0x3B: 1,
                   0x47: 1, 0x48: 1, 0x25: 1, 0x26: 1, 0x3E: 1, 0x37: 1, 0x3F: 1,
                   # armos at quarter-speed $20; the whirlwind two pixels a frame and the fairy move themselves
@@ -109,7 +109,7 @@ MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2,
                   0x05: 2, 0x31: 2, 0x32: 2, 0x41: 1,
                   # ObjTypeToDamagePoints: darknuts $01 and $02, vire and zol $01, pols voice $02, like-like $01,
                   # blue wizzrobe $02 and red $01, a bubble none, gibdo $02
-                  0x0B: 2, 0x0C: 4, 0x12: 2, 0x13: 2, 0x16: 4, 0x17: 2, 0x23: 4, 0x24: 2, 0x2B: 0, 0x30: 4, 0x1C: 1,
+                  0x0B: 2, 0x0C: 4, 0x12: 2, 0x13: 2, 0x16: 4, 0x17: 2, 0x23: 4, 0x24: 2, 0x2B: 0, 0x30: 4, 0x1C: 1, 0x1D: 1,
                   # Manhandla $01
                   0x3C: 2,
                   # Gohma and its legs: two hearts
@@ -148,7 +148,7 @@ MONSTER_HURT = {
     0x2E: 0x00, 0x2F: 0x00,     # the whirlwind and the fairy take nothing
 }
 # Keese ignore walls and blocks and are only held in by the room edges.
-MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x47, 0x48, 0x25, 0x26, 0x3E, 0x2E, 0x2F, 0x1E, 0x22)
+MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x1D, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x47, 0x48, 0x25, 0x26, 0x3E, 0x2E, 0x2F, 0x1E, 0x22)
 
 # What the game does with a monster every frame, besides drawing it.
 (BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS,
@@ -180,7 +180,7 @@ MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIO
                       0x37: BEHAVIOUR_ZELDA, 0x3F: BEHAVIOUR_FIRE,
                       0x1E: BEHAVIOUR_ARMOS, 0x22: BEHAVIOUR_ARMOS, 0x2E: BEHAVIOUR_WHIRLWIND, 0x2F: BEHAVIOUR_FAIRY,
                       # the darknuts, gibdo, vire, zol and like-like walk like a stalfos (turn rate $80) or a gel
-                      0x13: BEHAVIOUR_GEL, 0x1C: BEHAVIOUR_KEESE}
+                      0x13: BEHAVIOUR_GEL, 0x1C: BEHAVIOUR_KEESE, 0x1D: BEHAVIOUR_KEESE}
 
 # How each monster is drawn: (sprite layout, images, mode). The layout says how
 # the two 8x16 halves of an image are put together; the mode tells the game
@@ -269,6 +269,7 @@ MONSTER_DRAW = {
     0x2B: ("wide", 4, MODE_BUBBLE),
     0x30: ("wide", 1, MODE_STALFOS),
     0x1C: ("mirror", 2, MODE_KEESE),
+    0x1D: ("mirror", 2, MODE_KEESE),
     0x3C: (("mirror", "mirror", "wide", "wide", "mirror", "mirror"), 8, MODE_MANHANDLA),
     0x33: ("mirror", 4, MODE_GOHMA),
     0x34: ("mirror", 4, MODE_GOHMA),

@@ -2192,7 +2192,12 @@ uw_check_clear:
     beq 9f                      | a blade trap (2) is not a monster to kill
     addq.w #1, %d1
     bra 1b
-2:  tst.b OFF_ROOM_TRIGGER(%a5)
+2:  cmpi.b #TRIGGER_MONEY_OR_LIFE, OFF_ROOM_TRIGGER(%a5)
+    bne 4f
+    move.b 0(%a0, %d0.w), %d1       | CheckSecretTriggerMoneyOrLife: the shutters wait until the man (or the stash) is gone
+    and.b #0x0c, %d1                | UW_FLAG_PERSON, the stash taken
+    beq 9f
+4:  tst.b OFF_ROOM_TRIGGER(%a5)
     cmpi.b #TRIGGER_PUSH_BLOCK, OFF_ROOM_TRIGGER(%a5)
     beq 3f                      | this room's shutters wait for the block
     bsr uw_open_shutters
@@ -2217,6 +2222,7 @@ uw_check_clear:
 | (the source while it slides).
     .equ TRIGGER_PUSH_BLOCK, 4
     .equ TRIGGER_RINGLEADER, 2
+    .equ TRIGGER_MONEY_OR_LIFE, 6
     .equ BLOCK_TILE, 0xb0
     .equ BLOCK_ROW_Y, 0x40          | the top of the play area, where tile row 0 starts
     .equ BLOCK_PUSH_FRAMES, 16

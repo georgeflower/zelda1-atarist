@@ -7,7 +7,7 @@ learn something new and durable, add it here.
 
 ## 1. What this is
 
-A native **Atari ST (STFM, 512 KB, 68000)** port of **The Legend of Zelda (NES,
+A native **Atari ST (STFM, 1 MB, 68000)** port of **The Legend of Zelda (NES,
 1986)**, written in 68000 assembly (GNU as syntax) and driven by a Python asset
 pipeline that reads graphics, rooms, palettes and text from a **ROM you supply
 yourself** (`ext/Original.nes`, gitignored, never committed). It produces a stock
@@ -20,8 +20,8 @@ boss Aquamentus and the triforce piece, and **Level 2 (the Moon)** to the Dodong
 its heart container and the triforce piece. **Levels 3 to 9** are built too (rooms,
 layouts, items, every monster and boss of those levels, up to Ganon and Zelda's thanks) but only partly play-tested.
 Every item of the original's inventory is in the game (found, bought or given as in the original). The title, the file menu, death, the
-continue question and saving to `ZELDA.SAV` are in; the rest (the Second Quest) is future work, see section 14
-and `atari_st/PLAN.md`.
+continue question and saving to `ZELDA.SAV` are in. **The Second Quest is in too** (section 10, "Second Quest"): one PRG of about 700 KB holds both quests, so
+the build needs 1 MB of RAM and fits one 720 KB disk with `ZELDA.SAV`; see section 14 and `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
 (`src/Z_00.asm` .. `Z_07.asm`, aldonunez's labelled NES disassembly). It is the
@@ -196,6 +196,8 @@ of its own): a build without `ext/Original.nes` stops with a message, and `build
 - `ZELDA_START_UW=0x74` starts inside a dungeon in room `$74`, with the sword
   (Link at X `$78`, Y `$8D`); `ZELDA_START_LEVEL=2` picks the dungeon (default 1).
 - `ZELDA_START_ROOM=0x37` starts in another overworld room.
+- `ZELDA_QUEST=2` makes the dev start a Second Quest one (`DEV_QUEST` in `assets.inc`; the dungeon records, the overworld patch and the dungeon
+  entrance follow); `screenshot.py --quest 2` does it for you. **Unset it too for the default build** (`DEV_QUEST, 0`).
 - They write `DEV_START_UW`/`DEV_START_LEVEL`/`DEV_START_ENTRANCE`/`START_ROOM_ID` into `build/generated/assets.inc`
   (`DEV_START_ENTRANCE` is the overworld screen of that level's stairs, where leaving comes out).
 - `screenshot.py --room 0x3c` / `--uw 0x0e --level 2` do this for you into `build/dev`, leaving `build/` alone.
@@ -203,9 +205,9 @@ of its own): a build without `ext/Original.nes` stops with a message, and `build
   (including unsetting them) regenerates the assets on the next `make`; no `touch`
   is needed. Any change to `actors.py`, `underworld.py`, etc. regenerates assets
   too, using **whatever env is set then**.
-- **Finish with a default build**: `unset ZELDA_START_UW ZELDA_START_ROOM ZELDA_START_LEVEL; make all`.
-  To confirm, `grep -E 'DEV_START_UW|START_ROOM_ID' build/generated/assets.inc`
-  should show `START_ROOM_ID, 0x77` and `DEV_START_UW, 255`; otherwise the owner's
+- **Finish with a default build**: `unset ZELDA_START_UW ZELDA_START_ROOM ZELDA_START_LEVEL ZELDA_QUEST; make all`.
+  To confirm, `grep -E 'DEV_START_UW|START_ROOM_ID|DEV_QUEST' build/generated/assets.inc`
+  should show `START_ROOM_ID, 0x77`, `DEV_START_UW, 255` and `DEV_QUEST, 0`; otherwise the owner's
   PRG starts in a dungeon.
 
 ## 5. Testing
@@ -720,7 +722,19 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `$FA`, the text lines of `CreditsTextLines.dat` placed by `CreditsPagesTextMasks`, colours from `CreditsAttrs`) for 76 calls, and keeps Zelda's last words in
   the first rows so they scroll off. The ROM's last screen stays: "ANOTHER QUEST WILL START FROM HERE." and the copyright, with the ash pile (Ganon's
   frame 11) and the Triforce of Power (item `$0E`, flashing every 8 frames) at ($78,$88) drawn as sprites. Start there does the ROM's steps before the Second Quest
-  (`credits_to_menu`: `SwitchProfileToSecondQuest` and mode D, the profile cleared (`save_fields_clear`), three hearts, eight bombs, quest 1, `save_store_game`) and goes to the file menu, not through the title (what `SkippedDemo` is for); the Second Quest itself is not ported.
+  (`credits_to_menu`: `SwitchProfileToSecondQuest` and mode D, the profile cleared (`save_fields_clear`), three hearts, eight bombs, quest 1, `save_store_game`) and goes to the file menu, not through the title (what `SkippedDemo` is for); the slot then plays the Second Quest. **Second Quest credits** (`OFF_QUEST` set): another strip (`credits.strip(root, 1)`, 120 rows, `credits_rows2`/`credits_map2`, the tile bank shared) scrolled for 720 steps (`CREDITS_STEPS2`: `CreditsLastScreenList`/`VscrollList` index 1), lines `$0C`-`$0F` skipped and `$10`-`$16` shown ("YOU ARE GREAT.", "END OF / THE LEGEND OF ZELDA 1", the copyright); line `$11` carries the name (cells 9-16) and death count (cells 19-21, leading blanks), which `credits_name` patches into the strip's row (`CREDITS_NAME_ROW`) from `credits_glyphs` (a tile offset per NES code below `$30`, in the row's palette). Attribute bytes colour a pair of tile rows per quarter (`colour_of_attr(attr, row)`: `$50` is palette 0 over palette 1).
+- **Second Quest** (`QUEST` in the variable block; `tools/underworld.py` `level_key`/`level_info`/`level_block`, `tools/build_assets.py` `LEVEL_RECORDS`, `quest_patch`, `QUEST_TABLES`; `save.s` `quest_apply`):
+  the quest of the game that runs is the profile's (`SLOT_QUEST`: 1 = Second; the name ZELDA, or the credits, make it). **Dungeons**: `level_table` has 18
+  records, levels 1-9 of the First Quest then 1-9 of the Second (`uw_select_level` skips `LEVEL_COUNT` (9) records when `QUEST` is set; tables are
+  `uw<key>_*.bin`, key `1`..`9`, `1q2`..`9q2`); a Second Quest dungeon is the level block `LevelBlockUW1Q2`/`UW2Q2` with the Q2 replacements of
+  `LevelInfoUW<N>` copied over the info at offset `$29` (`UpdateMode2Load_Full`: start and triforce rooms, item positions, map, cellars, boss room). **Overworld**:
+  the differences (attribute A/B/C/D/F bytes, `ow_room_info`, `room_secrets`, three screens of `room_maps`) are `quest_patch` (runs: table number, offset, count,
+  bytes; `$FFFF` ends); `quest_apply` swaps the runs with the RAM-resident tables, so applying it again undoes it; it runs after `save_world_reset` and before the
+  patch replay in `save_load_game`, and `QUEST_APPLIED` says which quest the tables are in. A `quest_apply` that is not needed is skipped. **Recorder**: the ROM's
+  first flute room is the whirlwind, the other ten the Second Quest's pond-style secrets (`FLUTE_TABLE`, `flute_stairs`, layout `$7B` is the fairy pond; ids of
+  Q2-only spots are gated by attribute F bits 6-7). **Monsters**: rope HP `$40` in Q2 (`ai.s`), stalfos shoot sword shots (`walker_fire`, `enemy.s`),
+  black keese (`$1D`, `MON_BLACK_KEESE`), trigger 6 `TRIGGER_MONEY_OR_LIFE` (`uw_check_clear` waits for the person/stash flags). The mon_table indices
+  `MON_TRAP_INDEX` and `MON_LANMOLA_INDEX` are generated, never typed (adding a monster shifted them once). Tests: `tests/test_quest2.py`; golden scenes `q2_*`.
 - **Music and sound**: YM2149 register streams (the MOD/XM->YM tool's game-kit format) replayed
   from a VBL hook (`music_vbl`, chains to TOS's handler). `music_update` (every frame) picks the
   area song from the state: overworld theme, dungeon theme (level 1-8), level 9 theme, silence in
@@ -845,12 +859,11 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9); the Second Quest (deferred). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9) and of the Second Quest (built from the ROM, checked screen by screen in Hatari); the Second Quest's rope palette (flashes every frame in the ROM, not drawn); a 512 KB build (needs a per-level loader). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
 cloud. Level 2's Dodongo (bomb and sword kill) has been played through by Göran and works well; the Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
-Unmeasured: free memory on a 512 KB machine.
+The PRG (about 700 KB) no longer fits a 512 KB machine.
 
-The full plan, with what is done and what is left, is `atari_st/PLAN.md`. Scope decision: First Quest only, the Second
-Quest is deferred. Its tables are decoded from a user-supplied ROM; do not commit the ROM.
+The full plan, with what is done and what is left, is `atari_st/PLAN.md`. Scope decision: both quests in one 1 MB build. All tables are decoded from a user-supplied ROM; do not commit the ROM.
 
 ## 15. Persistent notes also kept in the repo memory (VS Code agent memory)
 

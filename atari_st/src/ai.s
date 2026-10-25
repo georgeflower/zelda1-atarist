@@ -141,7 +141,13 @@ enemy_init_special:
     movem.l %d0-%d1/%a0, -(%sp)
     bsr spawn_roar_f                    | a boss roars as it is placed (bosses.s)
     bsr enemy_behaviour
-    cmp.w #BEH_WALLMASTER, %d0
+    cmp.w #BEH_ROPE, %d0
+    bne 0f
+    tst.b OFF_QUEST(%a5)
+    beq 9f
+    move.b #4, OFF_ENEMY_HP(%a5, %d5.w)     | InitRope: $40 hit points in the Second Quest, $10 in the first
+    bra 9f
+0:  cmp.w #BEH_WALLMASTER, %d0
     bne 1f
     clr.b OFF_ENEMY_X(%a5, %d5.w)
     clr.b OFF_ENEMY_Y(%a5, %d5.w)
@@ -172,8 +178,10 @@ enemy_init_special:
     lea OFF_ENEMY_SPEED(%a5), %a0   | a keese starts slow, at $1F, and picks up speed
     move.b #0x1f, 0(%a0, %d5.w)
     cmpi.b #MON_RED_KEESE, OFF_ENEMY_TYPE(%a5, %d5.w)
+    beq 52f
+    cmpi.b #MON_BLACK_KEESE, OFF_ENEMY_TYPE(%a5, %d5.w)
     bne 51f
-    move.b #0x7f, 0(%a0, %d5.w)     | a red one is quicker off the mark
+52: move.b #0x7f, 0(%a0, %d5.w)     | a red or black one is quicker off the mark
 51: lea OFF_ENEMY_FRAC(%a5), %a0
     clr.b 0(%a0, %d5.w)
     clr.b OFF_ENEMY_STATE(%a5, %d5.w)
@@ -666,6 +674,8 @@ walker_fire:
     move.w #ARROW_SPEED, %d2
     bra 4f
 3:  cmp.w #BEH_LYNEL, %d0
+    beq 31f
+    cmp.w #BEH_WANDER, %d0              | the Second Quest's stalfos shoots the same sword shot
     beq 31f
     cmp.w #BEH_WIZZROBE, %d0            | a wizzrobe's magic flies like the lynel's sword shot
     bne 4f

@@ -19,8 +19,6 @@ rand8:
     and.w #0xff, %d0
     rts
 
-    .equ MON_TRAP_INDEX, 7              | mon_table's blade trap (actors.MONSTER_TYPES: NES type $49)
-    .equ MON_LANMOLA_INDEX, 53          | the blue lanmola (NES type $3A)
 
 spawn_room_enemies:
     movem.l %d0-%d7/%a0-%a2, -(%sp)
@@ -675,8 +673,12 @@ update_enemies:
     bne 3f
 28: bsr wander_tick
     cmp.w #BEH_WANDER, %d7
-    beq 3f                      | stalfos do not shoot
-    bsr walker_shoot            | octoroks shoot rocks, moblins arrows
+    bne 280f
+    tst.b OFF_QUEST(%a5)
+    beq 3f                      | the First Quest's stalfos do not shoot
+    cmpi.b #MON_STALFOS, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 3f                      | in the Second Quest the stalfos does (UpdateStalfos); the other wanderers do not
+280: bsr walker_shoot            | octoroks shoot rocks, moblins arrows
     tst.w %d0
     bne 8f
 3:  moveq #0, %d1

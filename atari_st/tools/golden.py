@@ -61,6 +61,11 @@ INV_UW = "300:=INV_MAP=1,300:=INV_COMPASS=1,300:=INV_BOMBS=3,300:=B_ITEM=1,300:=
 BLOCK_L1 = "300:=ENEMY_COUNT=0,330:=LINK_X=0x80,330:=LINK_Y=0x8d,331:+left"
 BLOCK_L5 = "300:=ENEMY_COUNT=0,330:=LINK_X=0x80,330:=LINK_Y=0x8d,331:+left"
 
+# The Second Quest's credits, entered by hand: the credits phase of MODE_INTRO, the profile's name "LAN" and seven deaths.
+Q2_CREDITS = ("300:=GAME_MODE=4,300:=INTRO_PHASE=4,300:=INTRO_SUB=0,300:=QUEST=1,300:=SLOT_NAMES.0=21,300:=SLOT_NAMES.1=10,"
+              "300:=SLOT_NAMES.2=23,300:=SLOT_NAMES.3=36,300:=SLOT_NAMES.4=36,300:=SLOT_NAMES.5=36,300:=SLOT_NAMES.6=36,"
+              "300:=SLOT_NAMES.7=36,300:=SLOT_DEATHS.0=7")
+
 SCENES: dict[str, list[str]] = {
     # The title and the story (intro.s) run in the normal build, which `make` has built (the others are dev builds).
     "title": ["--vbls", "400"],
@@ -157,6 +162,15 @@ SCENES: dict[str, list[str]] = {
     "uw9_ganon_burst": ["--uw", "0x42", "--level", "9", "--vbls", "670", "--keys", GANON_ARROW],
     "uw9_ganon_ashes": ["--uw", "0x42", "--level", "9", "--vbls", "1100", "--keys", GANON_ARROW],
     "uw9_zelda_thanks": ["--uw", "0x32", "--level", "9", "--vbls", "800", "--keys", "190:=HP_HALVES=40,190:=LINK_Y=0x95"],
+    # The Second Quest (--quest 2 bakes ZELDA_QUEST into the dev build): its overworld differences, its first dungeon, the
+    # black keese of Level 4, and its credits (720 lines, the name and the death count of the profile in line $11).
+    "q2_ow_start": ["--room", "0x77", "--quest", "2", "--vbls", "420"],
+    "q2_ow_entrance_l2": ["--room", "0x3c", "--quest", "2", "--vbls", "420"],
+    "q2_uw1_start": ["--uw", "0x77", "--level", "1", "--quest", "2", "--vbls", "420"],
+    "q2_uw1_crowd": ["--uw", "0x78", "--level", "1", "--quest", "2", "--vbls", "420"],
+    "q2_uw4_black_keese": ["--uw", "0x22", "--level", "4", "--quest", "2", "--vbls", "420"],
+    "q2_credits_name": ["--room", "0x77", "--quest", "2", "--vbls", "1700", "--keys", Q2_CREDITS],
+    "q2_credits_end": ["--room", "0x77", "--quest", "2", "--vbls", "2400", "--keys", Q2_CREDITS],
     # Caves (caves.s): --cave starts inside the cave behind the screen; the keys poke rupees and walk to a ware.
     "cave_sword": ["--room", "0x77", "--cave", "--vbls", "420"],
     "cave_shop": ["--room", "0x25", "--cave", "--vbls", "420"],

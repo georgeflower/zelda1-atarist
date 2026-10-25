@@ -28,11 +28,19 @@ STRIP_ROWS = 104                      # the window's last line at the end of the
 FIRST_ROWS = 30                       # the page the scroll starts in (nametable 0)
 DRAWN_ROWS = 76                       # DrawCredits calls made in the 600 pixels of scroll, one more than needed
 SCROLL_PIXELS = 600                   # the first quest's CreditsLastScreenList / CreditsLastVscrollList: 2 * 240 + $78
+SCROLL_PIXELS_2 = 720                 # the second quest's: 3 * 240 + 0
+DRAWN_ROWS_2 = 91
+STRIP_ROWS_2 = 120                    # the window's last line at the end of the scroll is row 117
+NAME_LINE = 0x11                      # the line with the player's name and death count (Second Quest only)
+NAME_CELL = 9                         # the name's eight tiles start here, the death count's three at DEATH_CELL
+DEATH_CELL = 19
+GLYPHS = 0x30                         # tile codes the name can use (the board's letters, digits and punctuation)
 WALL_TILE = 0xFA
 BLANK_TILE = 0x24
 WALL_LEFT = 3                         # DynTileBuf+6 is the fourth cell of the row, +31 the 29th
 WALL_RIGHT = 28
 FIRST_QUEST_LINES = 0x10              # lines from here on are for the Second Quest
+SECOND_QUEST_SKIPPED = range(0x0C, 0x10)       # and these are for the First Quest
 LINES_TOTAL = 0x17
 ENDING_PALETTE_ROWS = (0x0F, 0x22, 0x10, 0x00, 0x0F, 0x2A, 0x10, 0x00)       # EndingPaletteTransferBuf: $3F08..$3F0F
 ENDING_SPRITE_ROW = (0x0F, 0x27, 0x06, 0x16)                                  # and $3F1C..$3F1F
@@ -86,16 +94,24 @@ def credit_lines(source_root: Path) -> list[tuple[int, list[int]]]:
     return out
 
 
-def draw_credits(source_root: Path) -> list[tuple[int, list[int], int]]:
-    """DrawCredits called DRAWN_ROWS times: (CreditsRow, the row's 32 tiles, the colour of its middle cells)."""
+def line_shown(index: int, quest: int) -> bool:
+    if quest == 0:
+        return index < FIRST_QUEST_LINES
+    return index not in SECOND_QUEST_SKIPPED
+
+
+def draw_credits(source_root: Path, quest: int = 0) -> list[tuple[int, list[int], int, int]]:
+    """DrawCredits called DRAWN_ROWS times: (CreditsRow, the row's 32 tiles, the colour of its middle cells, the text line
+    drawn on it or -1)."""
     asm2 = I._asm(source_root, "Z_02.asm")
     attrs = I.table(asm2, "CreditsAttrs")
     masks = I.table(asm2, "CreditsPagesTextMasks")
     lines = credit_lines(source_root)
     row, page, vline, line_index = 0, 0, 0, 0
     out = []
-    for _ in range(DRAWN_ROWS):
+    for _ in range(DRAWN_ROWS_2 if quest else DRAWN_ROWS):
         tiles = [BLANK_TILE] * CELLS
+        drawn_line = -1
         if row == 1 or row == 0x2E:
             for column in range(WALL_LEFT, WALL_RIGHT + 1):
                 tiles[column] = WALL_TILE
@@ -103,43 +119,46 @@ def draw_credits(source_root: Path) -> list[tuple[int, list[int], int]]:
             tiles[WALL_LEFT] = tiles[WALL_RIGHT] = WALL_TILE
         has_text = (masks[page] << (vline + 1)) & 0x100
         if has_text and line_index < LINES_TOTAL:
-            if line_index < FIRST_QUEST_LINES:
+            if line_shown(line_index, quest):
                 first, codes = lines[line_index]
                 tiles[first : first + len(codes)] = codes
+                drawn_line = line_index
             line_index += 1
         vline += 1
         if vline == (6 if page & 3 == 3 else 8):
             vline = 0
             page = page + 1 if page + 1 < 12 else 0
         # The attribute record is sent on every fourth row: the same colour over the six middle blocks, 0 at both ends.
-        colour = attrs[row >> 2] if row % 4 == 0 else None
-        out.append((row, tiles, colour))
+        colour = attrs[row >> 2] if row % 4 == 0 and (row >> 2) < len(attrs) else None
+        out.append((row, tiles, colour, drawn_line))
         row += 1
         if row & 0x1F >= 0x1E:
             row += 2
     return out
 
 
-def colour_of_attr(attr: int) -> int:
-    """The palette a whole attribute row of AA, FF, 55 or 00 gives its middle cells; anything mixed is not in the ROM's
-    credits (CreditsAttrs), so it is refused."""
-    palette = attr & 3
-    if attr != palette * 0x55:
-        raise SystemExit(f"CreditsAttrs byte {attr:#04x} colours its quarters differently")
-    return palette
+def colour_of_attr(attr: int, row: int = 0) -> int:
+    """The palette the attribute byte gives the middle cells of tile row `row` (the byte covers four rows: its top pair of
+    quarters is for the first two, its bottom pair for the last two). The ROM's credits colour the two quarters of a pair
+    alike (CreditsAttrs); anything else is refused."""
+    shift = ((row >> 1) & 1) * 4
+    left, right = (attr >> shift) & 3, (attr >> (shift + 2)) & 3
+    if left != right:
+        raise SystemExit(f"CreditsAttrs byte {attr:#04x} colours the two sides of a row differently")
+    return left
 
 
-def strip(source_root: Path):
+def strip(source_root: Path, quest: int = 0):
     """The strip's rows of (tile, palette row) cells."""
-    drawn = draw_credits(source_root)
+    drawn = draw_credits(source_root, quest)
     asm2 = I._asm(source_root, "Z_02.asm")
     attrs = I.table(asm2, "CreditsAttrs")
     rows: dict[int, list[tuple[int, int]]] = {}
     for strip_row in range(FIRST_ROWS):
         rows[strip_row] = [(BLANK_TILE, 0)] * CELLS
-    for call, (credits_row, tiles, _) in enumerate(drawn):
+    for call, (credits_row, tiles, _, _) in enumerate(drawn):
         # One call is one nametable row, the nametables taking turns below the first page: strip row 30 + call.
-        palette = colour_of_attr(attrs[credits_row >> 2]) if credits_row <= 0x2E else 0     # past the wall the rows are blank
+        palette = colour_of_attr(attrs[credits_row >> 2], credits_row) if credits_row >> 2 < len(attrs) else 0
         rows[FIRST_ROWS + call] = [(tiles[c], 0 if c < 4 or c >= 28 else palette) for c in range(CELLS)]
     for line, column, text in PEACE_LINES:
         codes = nes_codes(text)
@@ -147,7 +166,16 @@ def strip(source_root: Path):
         for n, code in enumerate(codes):
             cells[column + n] = (code, 0)
         rows[line] = cells
-    return [rows.get(n, [(BLANK_TILE, 0)] * CELLS) for n in range(STRIP_ROWS)]
+    return [rows.get(n, [(BLANK_TILE, 0)] * CELLS) for n in range(STRIP_ROWS_2 if quest else STRIP_ROWS)]
+
+
+def name_row(source_root: Path) -> tuple[int, int]:
+    """(strip row, palette row) of the Second Quest's line with the player's name and death count."""
+    for call, (credits_row, _, _, line) in enumerate(draw_credits(source_root, 1)):
+        if line == NAME_LINE:
+            attrs = I.table(I._asm(source_root, "Z_02.asm"), "CreditsAttrs")
+            return FIRST_ROWS + call, colour_of_attr(attrs[credits_row >> 2], credits_row)
+    raise SystemExit("The Second Quest's credits do not reach the name line")
 
 
 def sprite_frames(source_root: Path, palette: B.PaletteMap) -> tuple[list[bytes], int, int]:
@@ -168,16 +196,25 @@ def build(source_root: Path) -> dict:
     bg_tiles, _ = pattern_tables(source_root)
     palette = B.build_palette_map(palette32(source_root))
     cells = strip(source_root)
+    cells2 = strip(source_root, 1)
     bank = I.TileBank()
     rows, mapping = I.build_story_tables(cells, bg_tiles, palette, bank)
+    rows2, mapping2 = I.build_story_tables(cells2, bg_tiles, palette, bank)
+    name_strip_row, name_colour = name_row(source_root)
+    glyphs = I.words(bank.add(I.cell_pixels(bg_tiles, palette, code, name_colour)) for code in range(GLYPHS))
     frames, kind, first = sprite_frames(source_root, palette)
     return {
         "palette": list(palette.st_colors),
         "tiles": bank.blob(),
         "rows": rows,
         "map": mapping,
+        "rows2": rows2,
+        "map2": mapping2,
+        "glyphs": glyphs,
+        "name_row": name_strip_row,
         "frames": frames,
         "triforce_kind": kind,
         "triforce_first": first,
         "row_count": len(cells),
+        "row_count2": len(cells2),
     }

@@ -23,7 +23,8 @@
     .equ MODE_FAIRY, 36
     .equ ARMOS_FADE, 0x3f               | frames an armos takes to rise
     .equ BRACELET_ITEM, 0x14
-    .equ POND_ROOM, 0x42
+    .equ POND_ROOM, 0x42                | the First Quest's pond (quest_patch makes the other ten the Second Quest's)
+    .equ FLUTE_TABLE, (128 * SECRET_BYTES + 16)   | in room_secrets after the extra bytes: per screen the stairs the recorder reveals, $FF none
     .equ FAIRY_X, 0x78
     .equ FAIRY_Y, 0x7d
     .equ SECRET_RECORDS, (128 * SECRET_BYTES)   | where the extra table of room_secrets starts (build_assets OW_EXTRA_BYTES)
@@ -678,14 +679,28 @@ owspec_recorder:
     movem.l %d0-%d1, -(%sp)
     cmpi.b #MODE_PLAY, OFF_GAME_MODE(%a5)
     bne 9f
-    cmpi.b #POND_ROOM, OFF_ROOM_ID(%a5)
-    bne 1f
+    bsr flute_stairs
+    cmp.w #0x00ff, %d0
+    beq 1f
     tst.b OFF_POND_CYCLE(%a5)
     bne 9f
     move.b #1, OFF_POND_CYCLE(%a5)              | InitFluteSecret
     bra 9f
 1:  bsr owspec_summon
 9:  movem.l (%sp)+, %d0-%d1
+    rts
+
+| d0.w = the metatile of the stairs the recorder reveals in this screen, $FF where it summons the whirlwind (WieldFlute:
+| FluteRoomSecretsOW, and which of its rooms depends on the quest; the table is room_secrets', patched by quest_apply).
+flute_stairs:
+    movem.l %d1/%a0, -(%sp)
+    ltab room_secrets, %a0
+    adda.w #FLUTE_TABLE, %a0
+    moveq #0, %d1
+    move.b OFF_ROOM_ID(%a5), %d1
+    moveq #0, %d0
+    move.b 0(%a0, %d1.w), %d0
+    movem.l (%sp)+, %d1/%a0
     rts
 
 | SummonWhirlwind. TeleportingLevelIndex steps the way Link faces (right or up forward, left or down back); the
@@ -838,8 +853,9 @@ whirl_update:
 | at the tenth step the water can be walked on, at the eleventh the stairs show.
 pond_update:
     movem.l %d0-%d2/%a0, -(%sp)
-    cmpi.b #POND_ROOM, OFF_ROOM_ID(%a5)
-    bne 9f
+    bsr flute_stairs
+    cmp.w #0x00ff, %d0
+    beq 9f
     move.b OFF_POND_CYCLE(%a5), %d0
     beq 9f
     cmp.b #0x0c, %d0
@@ -864,7 +880,9 @@ pond_update:
     bne 9f
     move.b #1, OFF_POND_WALK(%a5)
     bra 9f
-5:  moveq #0, %d0                               | RevealPondStairs: ($60, $90)
+5:  bsr flute_stairs                            | RevealPondStairs: ($60, $90)
+    move.l %d0, %d2                             | the metatile of the stairs in this screen's palette
+    moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
     lea OFF_OW_KILLS(%a5), %a0
     bset #SECRET_FOUND, 0(%a0, %d0.w)
@@ -872,8 +890,6 @@ pond_update:
     adda.w #SECRET_RECORDS, %a0
     moveq #0, %d1
     move.b 1(%a0), %d1
-    moveq #0, %d2
-    move.b (%a0), %d2
     bsr ow_set_square
     bsr ow_secret_redraw
     sfx SFX_SECRET
