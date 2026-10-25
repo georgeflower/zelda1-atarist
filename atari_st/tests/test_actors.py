@@ -204,6 +204,16 @@ class ActorTableTests(unittest.TestCase):
         self.assertIn("MON_TRAP_INDEX, {uw.actors.mon_index[0x49]}", builder)
         self.assertIn("MON_LANMOLA_INDEX, {uw.actors.mon_index[0x3A]}", builder)
 
+    def test_the_rope_has_its_two_walk_frames_in_every_sprite_palette_row(self) -> None:
+        # the Second Quest's rope flashes through the four rows a frame (UpdateRope: attribute = FrameCounter & 3); enemy.s picks
+        # image = walk frame + 2 * row, and the First Quest's red row stays what the rope always had
+        _, images, mode = actors.MONSTER_DRAW[0x28]
+        self.assertEqual((images, mode), (2 * actors.ROPE_PALETTES, actors.MODE_ROPE))
+        self.assertIn(actors.MODE_ROPE, actors.FRAME_MODES)
+        source = (Path(__file__).resolve().parents[1] / "src" / "enemy.s").read_text(encoding="utf-8")
+        self.assertEqual(int(re.search(r"\.equ ROPE_RED_ROW,\s*(\d+)", source).group(1)), actors.ROPE_RED_ROW)
+        self.assertEqual(actors.ROPE_PALETTES, 4)
+
     def test_armos_whirlwind_and_fairy_are_listed_but_only_the_armos_has_art_on_the_screens(self) -> None:
         for nes_type, behaviour, mode in ((0x1E, actors.BEHAVIOUR_ARMOS, actors.MODE_ARMOS),
                                           (0x2E, actors.BEHAVIOUR_WHIRLWIND, None),

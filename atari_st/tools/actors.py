@@ -225,13 +225,15 @@ MODE_PATRA_CHILD = 33  # a child: two images, not drawn until it has come out
 MODE_GANON = 34        # 21 images (ten pictures blue, ten brown, the ashes; each stored plain and mirrored), drawn by the boss sprite pool
 MODE_ARMOS = 35        # four images: front and back, each in two steps (owspec.s armos_frame)
 MODE_FAIRY = 36        # two images: wings up and down
-FRAME_MODES = (MODE_ARMOS, MODE_FAIRY, MODE_PATRA, MODE_PATRA_CHILD, MODE_GANON, MODE_MANHANDLA, MODE_GOHMA, MODE_GOHMA_LEG, MODE_DIGDOGGER, MODE_DIGBIG, MODE_GLEEOK, MODE_GLEEOK_HEAD, MODE_LANMOLA, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
+ROPE_PALETTES = 4      # the rope: two walk frames in each of the four sprite palette rows, image = frame + 2 * row (the Second Quest flashes through them)
+ROPE_RED_ROW = 2       # UpdateRope: Anim_SetSpriteDescriptorAttributes with the red sprite palette
+FRAME_MODES = (MODE_ROPE, MODE_ARMOS, MODE_FAIRY, MODE_PATRA, MODE_PATRA_CHILD, MODE_GANON, MODE_MANHANDLA, MODE_GOHMA, MODE_GOHMA_LEG, MODE_DIGDOGGER, MODE_DIGBIG, MODE_GLEEOK, MODE_GLEEOK_HEAD, MODE_LANMOLA, MODE_TEKTITE, MODE_LEEVER, MODE_ZORA, MODE_PEAHAT, MODE_GHINI, MODE_BOULDER, MODE_DODONGO,
                MODE_DARKNUT, MODE_VIRE, MODE_ZOL, MODE_LIKELIKE, MODE_WIZZROBE, MODE_BUBBLE)
 MONSTER_DRAW = {
     0x06: ("wide", 4, MODE_WALKER),
     0x15: ("narrow", 2, MODE_GEL),
     0x1B: ("mirror", 2, MODE_KEESE),
-    0x28: ("wide", 2, MODE_ROPE),
+    0x28: ("wide", 2 * ROPE_PALETTES, MODE_ROPE),
     0x2A: ("wide", 1, MODE_STALFOS),
     0x27: ("wide", 2, MODE_WALLMASTER),
     0x3D: ("wide", 1, MODE_BOSS),
@@ -766,9 +768,10 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         else:
             images = []
             for image in range(image_count if mode in FRAME_MODES else MONSTER_IMAGES):
-                frame = min(image, image_count - 1)
+                frame = (image & 1) if mode == MODE_ROPE else min(image, image_count - 1)
                 tile = heap[base + (0 if mode == MODE_BUBBLE else frame)]
-                row = B.LINK_PALETTE_ROW + (image if mode == MODE_BUBBLE else attr_heap[base + frame] & 3)
+                row = B.LINK_PALETTE_ROW + (image if mode == MODE_BUBBLE else image >> 1 if mode == MODE_ROPE
+                                            else attr_heap[base + frame] & 3)
                 if nes_type in MONSTER_TILE_ROW:
                     override_tile, override_row = MONSTER_TILE_ROW[nes_type]
                     tile = tile if override_tile is None else override_tile
