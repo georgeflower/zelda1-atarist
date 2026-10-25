@@ -104,7 +104,8 @@ credits_init:
     tst.b OFF_QUEST(%a5)
     beq 2f
     bsr credits_name                    | the Second Quest's line with the player's name and death count
-2:  bsr dbl_end_xf                     | what is on show stays on show; no hidden buffer of the game
+2:  bsr credits_save                    | the win is on the disk before the first line scrolls
+    bsr dbl_end_xf                     | what is on show stays on show; no hidden buffer of the game
     bsr swap_screens_xf                | the intro's way with the buffers: SCREEN_PTR is the hidden one
     bsr intro_black
     bsr intro_clear_all
@@ -244,6 +245,18 @@ credits_name:
 credits_to_menu:
     bsr music_stop_xf
     clr.b OFF_MUS_FORCED(%a5)
+    bsr credits_save                    | (done when the credits began; again, in case a development build skipped it)
+    lea OFF_SLOT_ACTIVE(%a5), %a0       | the two options are always on (a development build never read the file)
+    move.b #1, 3(%a0)
+    move.b #1, 4(%a0)
+    moveq #FILE_SELECT, %d0
+    bra filesel_begin
+
+| The game is won: the profile becomes a Second Quest one (SwitchProfileToSecondQuest: the world flags and the items cleared,
+| three hearts, eight bombs, quest number 1) and goes to ZELDA.SAV. The ROM saves when Start is pressed (mode D); here it is
+| done as the credits begin, so that quitting during them (or a crash) cannot lose the win. The credits themselves read
+| OFF_QUEST (the quest that was played), the name and the death count, none of which this changes.
+credits_save:
     bsr save_world_reset                | the screens as the ROM made them
     bsr save_fields_clear               | the items and the flags of the world
     move.b #3, OFF_HEART_CONTAINERS(%a5)
@@ -252,9 +265,4 @@ credits_to_menu:
     move.b OFF_PROFILE(%a5), %d0
     lea OFF_SLOT_QUEST(%a5), %a0
     move.b #1, 0(%a0, %d0.w)
-    bsr save_store_game                 | the hearts filled, the record written (a slot that is not in use is left alone)
-    lea OFF_SLOT_ACTIVE(%a5), %a0       | the two options are always on (a development build never read the file)
-    move.b #1, 3(%a0)
-    move.b #1, 4(%a0)
-    moveq #FILE_SELECT, %d0
-    bra filesel_begin
+    bra save_store_game                 | the hearts filled, the record written (a slot that is not in use is left alone)

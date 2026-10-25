@@ -20,6 +20,8 @@ rand8:
     rts
 
 
+    .equ ROPE_RED_ROW, 2          | the sprite palette row of a rope in the First Quest (images are frame + 2 * row)
+
 spawn_room_enemies:
     movem.l %d0-%d7/%a0-%a2, -(%sp)
     bsr clear_enemies
@@ -1141,6 +1143,13 @@ draw_enemies:
 12: move.w %d4, %d1             | rope: walk frame, flipped to face left
     lsr.w #3, %d1
     and.w #1, %d1
+    moveq #ROPE_RED_ROW, %d6    | its picture is in the red palette row; in the Second Quest UpdateRope draws it in the
+    tst.b OFF_QUEST(%a5)        | row FrameCounter & 3 instead, so it flashes through all four, a row every frame
+    beq 121f
+    move.w %d4, %d6
+    and.w #3, %d6
+121: add.w %d6, %d6
+    add.w %d6, %d1              | the image: walk frame + 2 * palette row
     moveq #0, %d2
     move.b OFF_ENEMY_DIR(%a5, %d3.w), %d2
     btst #1, %d2

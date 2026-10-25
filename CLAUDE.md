@@ -30,10 +30,9 @@ damage, tile id, table), read it from there rather than guessing.
 
 ## 1.1 Versions
 
-The port has versions `0.NN` (current: **0.36**, file `VERSION`), one per milestone, with a line in `CHANGELOG.md` and a git tag on
-the commit that finishes it. A big change (a dungeon, a mechanic family, a package of `atari_st/PLAN.md`) takes the next number; fixes
-and docs ride along. When you finish one: bump `VERSION`, the "Version" line of `README.md`, the status line of `atari_st/PLAN.md`
-and add the `CHANGELOG.md` entry, in the same PR; tag it after the merge. The next step is named in `atari_st/PLAN.md` section 1 (what is left) and 2.1.
+The repository carries **no version numbers**: no `VERSION` file, no `CHANGELOG.md`, no version line in the docs. Göran tags releases himself,
+so do not add any of these or bump anything when you finish a milestone; the next step is named in `atari_st/PLAN.md` section 1 (what is left)
+and 2.1.
 
 ## 2. References and links (provided by the project owner - treat as truth)
 
@@ -721,8 +720,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   frame (`CreditsLastVscrollList`), a line of the strip per step into the ring. `credits.py` replays `DrawCredits` (a row of tiles per 8 pixels, brick wall tile
   `$FA`, the text lines of `CreditsTextLines.dat` placed by `CreditsPagesTextMasks`, colours from `CreditsAttrs`) for 76 calls, and keeps Zelda's last words in
   the first rows so they scroll off. The ROM's last screen stays: "ANOTHER QUEST WILL START FROM HERE." and the copyright, with the ash pile (Ganon's
-  frame 11) and the Triforce of Power (item `$0E`, flashing every 8 frames) at ($78,$88) drawn as sprites. Start there does the ROM's steps before the Second Quest
-  (`credits_to_menu`: `SwitchProfileToSecondQuest` and mode D, the profile cleared (`save_fields_clear`), three hearts, eight bombs, quest 1, `save_store_game`) and goes to the file menu, not through the title (what `SkippedDemo` is for); the slot then plays the Second Quest. **Second Quest credits** (`OFF_QUEST` set): another strip (`credits.strip(root, 1)`, 120 rows, `credits_rows2`/`credits_map2`, the tile bank shared) scrolled for 720 steps (`CREDITS_STEPS2`: `CreditsLastScreenList`/`VscrollList` index 1), lines `$0C`-`$0F` skipped and `$10`-`$16` shown ("YOU ARE GREAT.", "END OF / THE LEGEND OF ZELDA 1", the copyright); line `$11` carries the name (cells 9-16) and death count (cells 19-21, leading blanks), which `credits_name` patches into the strip's row (`CREDITS_NAME_ROW`) from `credits_glyphs` (a tile offset per NES code below `$30`, in the row's palette). Attribute bytes colour a pair of tile rows per quarter (`colour_of_attr(attr, row)`: `$50` is palette 0 over palette 1).
+  frame 11) and the Triforce of Power (item `$0E`, flashing every 8 frames) at ($78,$88) drawn as sprites. Winning saves the game: `credits_save` (the ROM's steps before the Second Quest: `SwitchProfileToSecondQuest` and mode D, the profile cleared (`save_fields_clear`), three hearts, eight bombs, quest 1, `save_store_game` into `ZELDA.SAV`) runs when the credits begin (the ROM saves on Start; here quitting during the credits cannot lose the win), and Start on the last screen goes to the player select (`credits_to_menu` -> `filesel_begin(FILE_SELECT)`), not through the title (what `SkippedDemo` is for), with the sword beside the profile; the slot then plays the Second Quest. **Second Quest credits** (`OFF_QUEST` set): another strip (`credits.strip(root, 1)`, 120 rows, `credits_rows2`/`credits_map2`, the tile bank shared) scrolled for 720 steps (`CREDITS_STEPS2`: `CreditsLastScreenList`/`VscrollList` index 1), lines `$0C`-`$0F` skipped and `$10`-`$16` shown ("YOU ARE GREAT.", "END OF / THE LEGEND OF ZELDA 1", the copyright); line `$11` carries the name (cells 9-16) and death count (cells 19-21, leading blanks), which `credits_name` patches into the strip's row (`CREDITS_NAME_ROW`) from `credits_glyphs` (a tile offset per NES code below `$30`, in the row's palette). Attribute bytes colour a pair of tile rows per quarter (`colour_of_attr(attr, row)`: `$50` is palette 0 over palette 1).
 - **Second Quest** (`QUEST` in the variable block; `tools/underworld.py` `level_key`/`level_info`/`level_block`, `tools/build_assets.py` `LEVEL_RECORDS`, `quest_patch`, `QUEST_TABLES`; `save.s` `quest_apply`):
   the quest of the game that runs is the profile's (`SLOT_QUEST`: 1 = Second; the name ZELDA, or the credits, make it). **Dungeons**: `level_table` has 18
   records, levels 1-9 of the First Quest then 1-9 of the Second (`uw_select_level` skips `LEVEL_COUNT` (9) records when `QUEST` is set; tables are
@@ -732,7 +730,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   bytes; `$FFFF` ends); `quest_apply` swaps the runs with the RAM-resident tables, so applying it again undoes it; it runs after `save_world_reset` and before the
   patch replay in `save_load_game`, and `QUEST_APPLIED` says which quest the tables are in. A `quest_apply` that is not needed is skipped. **Recorder**: the ROM's
   first flute room is the whirlwind, the other ten the Second Quest's pond-style secrets (`FLUTE_TABLE`, `flute_stairs`, layout `$7B` is the fairy pond; ids of
-  Q2-only spots are gated by attribute F bits 6-7). **Monsters**: rope HP `$40` in Q2 (`ai.s`), stalfos shoot sword shots (`walker_fire`, `enemy.s`),
+  Q2-only spots are gated by attribute F bits 6-7). **Monsters**: rope HP `$40` in Q2 (`ai.s`) and its colours flash a sprite palette row every frame (the rope's art has two walk frames in each of the four rows, image = frame + 2 * row; `enemy.s` draws row `ROPE_RED_ROW` in Q1 and `FrameCounter & 3` in Q2), stalfos shoot sword shots (`walker_fire`, `enemy.s`),
   black keese (`$1D`, `MON_BLACK_KEESE`), trigger 6 `TRIGGER_MONEY_OR_LIFE` (`uw_check_clear` waits for the person/stash flags). The mon_table indices
   `MON_TRAP_INDEX` and `MON_LANMOLA_INDEX` are generated, never typed (adding a monster shifted them once). Tests: `tests/test_quest2.py`; golden scenes `q2_*`.
 - **Music and sound**: YM2149 register streams (the MOD/XM->YM tool's game-kit format) replayed
@@ -859,7 +857,7 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9) and of the Second Quest (built from the ROM, checked screen by screen in Hatari); the Second Quest's rope palette (flashes every frame in the ROM, not drawn); a 512 KB build (needs a per-level loader). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9) and of the Second Quest (built from the ROM, checked screen by screen in Hatari); a 512 KB build (needs a per-level loader). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
 cloud. Level 2's Dodongo (bomb and sword kill) has been played through by Göran and works well; the Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
 The PRG (about 700 KB) no longer fits a 512 KB machine.
 

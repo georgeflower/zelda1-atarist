@@ -128,6 +128,10 @@ SCENES: dict[str, list[str]] = {
     "uw9_credits_start": ["--uw", "0x32", "--level", "9", "--vbls", "1600", "--keys", ZELDA_WIN],
     "uw9_credits_wall": ["--uw", "0x32", "--level", "9", "--vbls", "2000", "--keys", ZELDA_WIN],
     "uw9_credits_end": ["--uw", "0x32", "--level", "9", "--vbls", "3250", "--keys", ZELDA_WIN],
+    # Winning the game saves the profile as a Second Quest one before the credits scroll, and Start brings the player select
+    # back with the sword beside the name (a profile registered in the menu, then the credits entered by hand).
+    "credits_win_select": ["--vbls", "3000", "--keys",
+                           f"{MENU_REGISTERED},710:+return,712:-return,850:=GAME_MODE=4,850:=INTRO_PHASE=4,850:=INTRO_SUB=0,850:=QUEST=0,2700:+return,2702:-return"],
     "uw9_credits_menu": ["--uw", "0x32", "--level", "9", "--vbls", "3600", "--keys", ZELDA_WIN + ",3450:+return,3452:-return"],
     # The overworld's hidden spots (secrets.s). Enemies are cleared at frame 300 so nothing disturbs the poked-in Link.
     "ow_bomb_wall": ["--room", "0x01", "--vbls", "470", "--keys",

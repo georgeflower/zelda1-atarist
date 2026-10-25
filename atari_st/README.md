@@ -129,7 +129,7 @@ The Second Quest
 - chosen as the ROM does: a file named ZELDA starts it (the file menu shows the sword beside such a profile), and finishing the game makes the profile one; `ZELDA.SAV` keeps the quest of each profile
 - the dungeons: the ROM's `LevelBlockUW1Q2`/`UW2Q2` and the Q2 replacements of each `LevelInfo` (start and triforce rooms, items, cellars, the map), nine more records of the level table (`1q2` .. `9q2`, 18 in all)
 - the overworld: the differences are a patch (`quest_patch`, about 700 bytes: screens, attributes, monster lists, hidden spots) that `quest_apply` swaps into the RAM-resident tables when a profile of the other quest is loaded, and swaps back; the recorder opens the other quest's pond screens (`FLUTE_TABLE`; the first one is the whirlwind's)
-- the monsters: ropes have `$40` hit points in Quest 2, stalfos throw sword shots, black keese (`$1D`) fly in Level 4's room `$22`, and trigger 6's shutters stay shut until the money-or-life man (or the rupee stash) has been dealt with
+- the monsters: ropes have `$40` hit points in Quest 2 and flash through the four sprite palettes, a new one every frame, stalfos throw sword shots, black keese (`$1D`) fly in Level 4's room `$22`, and trigger 6's shutters stay shut until the money-or-life man (or the rupee stash) has been dealt with
 - the credits: a second strip of 720 lines sharing the first one's tiles; the player's name and death count are written into its line `$11` as the scroll begins
 
 Level 1 (underworld)
@@ -208,7 +208,7 @@ Level 9 (Death Mountain)
   turns him brown, a silver arrow into a brown Ganon kills him, he burns to ashes and the Triforce of Power lies there
 - Zelda (room `$32`) and the four fires that guard her: stand level with her (X `$70`..`$80`, Y `$95`) and the scene
   runs: the Zelda fanfare, the curtain, her thanks typed out, the two triforce pieces over Link and Zelda while the
-  backdrop flashes, then the closing words ("FINALLY," and two lines, placed and timed as the ROM does). Then the credits wall of the ROM scrolls up (a line every other frame, 600 lines: the bricks, the staff, "ANOTHER QUEST WILL START FROM HERE.", the copyright; after the Second Quest 720 lines, ending with "YOU ARE GREAT.", the player's name and death count, "END OF THE LEGEND OF ZELDA 1"), and stops on the black screen with the ash pile and the flashing Triforce of Power. Start, after a moment, does what the ROM does before its Second Quest: the profile is reset (items and world cleared, three hearts), saved as a Second Quest profile, and the file menu comes up with no title in between (after a Second Quest it starts that again, as the ROM does); Esc quits. The title carries a small line, "PORTED TO ATARI ST BY Q".
+  backdrop flashes, then the closing words ("FINALLY," and two lines, placed and timed as the ROM does). Then the credits wall of the ROM scrolls up (a line every other frame, 600 lines: the bricks, the staff, "ANOTHER QUEST WILL START FROM HERE.", the copyright; after the Second Quest 720 lines, ending with "YOU ARE GREAT.", the player's name and death count, "END OF THE LEGEND OF ZELDA 1"), and stops on the black screen with the ash pile and the flashing Triforce of Power. The win is saved as the credits begin (the profile is reset as the ROM does before its Second Quest: items and world cleared, three hearts, quest 2, written to `ZELDA.SAV`), so quitting during them loses nothing. Start, after a moment, brings up the player select with no title in between (after a Second Quest it starts that again, as the ROM does); Esc quits. The title carries a small line, "PORTED TO ATARI ST BY Q".
 
 Levels 3 to 8 (underworld)
 
@@ -342,7 +342,6 @@ Things that behave differently from the original, or are stand-ins:
   the Moldorm's segment deaths and the ringleader room were checked by reading
   the code against the ROM and by loading every room in Hatari, but not played through
 - `K` is a debug key that gives keys, bombs and the candle; the game has no use for it any more but it stays for testing
-- the Second Quest: the ropes' flashing colours (the ROM cycles their palette every frame in Quest 2) are not drawn, they keep the First Quest's colours
 - the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed
 - the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
   it back so the tempo stays right
