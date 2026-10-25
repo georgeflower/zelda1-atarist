@@ -1,58 +1,46 @@
 # The Legend of Zelda for Atari ST
 
-A native Atari ST port of The Legend of Zelda, built around aldonunez's Zelda 1 disassembly. It produces a stock TOS `.PRG` for an Atari ST with 1 MB of RAM (320x200, 16 colours) that runs in Hatari, and reads all of its graphics, room layouts, palettes and text from a ROM you supply yourself.
+A port of Zelda 1 to the Atari ST. It's written in 68000 assembly and runs as a normal TOS `.PRG` on an ST with 1 MB of RAM (320x200, 16 colours). I run it in Hatari.
 
-This repository's full feature list, known gaps, roadmap, build notes and testing details live in [`atari_st/README.md`](atari_st/README.md). The detailed implementation plan is in [`atari_st/PLAN.md`](atari_st/PLAN.md).
+There is no game data in this repo. You have to bring your own ROM and put it in `ext/Original.nes`. The graphics, rooms, music and texts are all read from it when you build. The ROM is gitignored and should never be committed.
+
+I'm making this together with an AI (Claude, from Anthropic). I decide what to build and what to fix, Claude writes most of the code and the tools. The behaviour follows aldonunez's disassembly of the original, which is in `src/`.
 
 ## Status
 
-Done: the whole overworld with its monsters, caves, secrets and specials; all nine dungeons with their monsters and bosses, up to Ganon, Zelda's thanks and the credits; every item; the Tab inventory screen as in the original; the title, story, file select, death, continue and saving, the scrolling credits wall; the ROM's music and effects, at 50 and 60 Hz. Levels 1 and 2 have been played through; Levels 3 to 9 run in every room and have had limited testing by hand. What is left is in [`atari_st/PLAN.md`](atari_st/PLAN.md).
+Work in progress. Both quests are in: the whole overworld, all nine dungeons up to Ganon and Zelda, every item, title and story, file select, death and continue, saving to `ZELDA.SAV`, the credits and the music. Expect bugs. There is a short list of what is left in [`atari_st/PLAN.md`](atari_st/PLAN.md).
 
-**You can already:**
-
-- walk all 128 overworld screens with the original movement and collision, and scroll between them
-- fight the overworld's octoroks, moblins, lynels, tektites, leevers, zoras, peahats, ghinis and boulders, with their shots, edge spawns and kill history
-- go into the caves: the old man and the wooden sword, shops, hints, the money game, the medicine woman and the letter, the take-any-road stairs
-- bomb the overworld's rock walls, burn its trees (with the candle), push its gravestones and bracelet rocks (they slide) and wake its armos: the hidden stairs and caves open, with their old men, shops, hints and money games
-- explore Levels 1 to 9 (entered from the overworld's dungeon stairs, for instance `$37` and `$3C`): locked doors, bombable and false walls, shutters, push blocks, stairs and cellars, the map, the compass and the minimap, and the old men's hints
-- fight stalfos, keese, gels, ropes, goriyas (red and blue), darknuts, vires, zols, pols voice, like-likes, wizzrobes, gibdos, bubbles, wallmasters, blade traps, Aquamentus, the Dodongo (feed it bombs), the Moldorm, Manhandla, Gohma, Digdogger and Gleeok with the sword and its beam, bombs, the boomerang (also the magic one), the candle, the bow and arrows and the magic rod, and pick up the drops (hearts, rupees, bombs, the clock, the fairy)
-- use everything the original's inventory holds in the code: white and magical swords, potions, food, the recorder, the rings and the magic shield, found and bought as in the original
-- open the inventory screen, laid out exactly as the original's (B-item box, items, triforce pieces), and choose the B item
-- find the map and the compass and read the dungeon minimap on the ribbon (the overworld has its grey map there too), and the sheet map of the rooms you have visited on the inventory screen
-- meet the old man in the first dungeon's room `$41` and read his hint
-- hear the music and sound effects, ripped from the ROM's own sound engine at build time: overworld, dungeon and Level 9 themes, the item and triforce fanfares, Link's death jingle, and effects for sword, boomerang, flame, bomb, stairs, pickups, hurt, the low-life beep, menu clicks and cave text
-
-**The Second Quest** is in: start a file named ZELDA (as in the original), or finish the game (the credits end by making the profile a Second Quest one). Its nine new dungeons, the changed overworld (hidden spots, the recorder's pond rooms, the whirlwind), the stronger ropes, the stalfos' sword shots, the black keese and the money-or-life shutters are all read from the ROM. Both quests live in one `.PRG` (about 700 KB), which fits a 720 KB disk together with `ZELDA.SAV`; it needs 1 MB of RAM. The plan for what is left is `atari_st/PLAN.md`.
+The Second Quest starts when you make a file called ZELDA (like the original), or when you finish the game. Both quests are in one `.PRG` of about 700 KB, so you need 1 MB of RAM. It fits on a 720 KB disk together with the save file.
 
 ## Controls
 
 | Key | Action |
 | --- | --- |
 | arrow keys, `W` `A` `S` `D`, joystick | walk |
-| `Space`, joystick fire | the sword (A) |
-| `Ctrl` or `Alternate` | the B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
-| `Tab` | inventory screen (Left/Right choose the B item) |
+| `Space`, joystick fire | sword (A) |
+| `Ctrl` or `Alternate` | B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
+| `Tab` | inventory screen (Left/Right to choose the B item) |
 | `K` | debug: a key, four bombs and the candle |
 | `Esc` | quit |
 
-## Project layout
-
-- `atari_st/` - the Atari ST port: 68000 source, the ROM-to-ST asset pipeline, tests and a headless Hatari test harness. Its [`README.md`](atari_st/README.md) has the full feature list, known gaps and roadmap
-- `src/` - the original Zelda 1 disassembly, kept as the reference for the port
-- `ext/` - where you put your own ROM image; it is gitignored
-- `AGENTS.md` / `CLAUDE.md` - the briefing for contributors and AI assistants: exact toolchain, testing, references, code conventions
-
 ## Build
 
-From the repository root (the build runs in WSL or Linux; there is no native Windows make):
+The build runs in Linux or WSL (there is no native Windows make). From the repository root:
 
 ```sh
 make -C atari_st all
 make -C atari_st check
 ```
 
-See [`atari_st/README.md`](atari_st/README.md) for prerequisites, Hatari launch and the test harness.
+`atari_st/README.md` has what you need to install, how to start it in Hatari and how the tests work.
+
+## Layout
+
+- `atari_st/` - the port: 68000 source, the tools that turn the ROM into ST data, tests and a headless Hatari harness
+- `src/` - the original Zelda 1 disassembly, used as the reference
+- `ext/` - where your ROM goes (gitignored)
+- `AGENTS.md` / `CLAUDE.md` - notes for AI assistants working on the project (same file twice)
 
 ## Credits
 
-Built from aldonunez’s labelled Zelda 1 disassembly and camthesaxman’s zeldasource, cross-checked against the zeldadungeon.net walkthrough, with the graphics, rooms and music read from a ROM you supply yourself.
+Based on aldonunez's labelled Zelda 1 disassembly and camthesaxman's zeldasource. The zeldadungeon.net walkthrough was used for checking levels and items. Zelda is Nintendo's; this is a fan project and has nothing to do with them.

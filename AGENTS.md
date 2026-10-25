@@ -14,14 +14,10 @@ yourself** (`ext/Original.nes`, gitignored, never committed). It produces a stoc
 TOS `ZELDAST.PRG` that runs in Hatari (and should on real hardware): 320x200,
 16 colours, 4-plane interleaved.
 
-Current scope: the whole overworld is walkable (128 screens) with its monsters, hidden spots, specials, caves and shops,
-**Level 1 (the Eagle)** is playable to the
-boss Aquamentus and the triforce piece, and **Level 2 (the Moon)** to the Dodongo,
-its heart container and the triforce piece. **Levels 3 to 9** are built too (rooms,
-layouts, items, every monster and boss of those levels, up to Ganon and Zelda's thanks) but only partly play-tested.
-Every item of the original's inventory is in the game (found, bought or given as in the original). The title, the file menu, death, the
-continue question and saving to `ZELDA.SAV` are in. **The Second Quest is in too** (section 10, "Second Quest"): one PRG of about 700 KB holds both quests, so
-the build needs 1 MB of RAM and fits one 720 KB disk with `ZELDA.SAV`; see section 14 and `atari_st/PLAN.md`.
+Current scope: the whole overworld (128 screens) with its monsters, hidden spots, specials, caves and shops; all nine dungeons of the First Quest
+and all nine of the Second Quest, with their monsters and bosses, up to Ganon, Zelda's thanks and the credits; every item of the original's
+inventory; the title, the file menu, death, the continue question and saving to `ZELDA.SAV`. One PRG of about 700 KB holds both quests, so
+the build needs 1 MB of RAM and fits one 720 KB disk with `ZELDA.SAV`. What is left is in `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
 (`src/Z_00.asm` .. `Z_07.asm`, aldonunez's labelled NES disassembly). It is the
@@ -31,8 +27,7 @@ damage, tile id, table), read it from there rather than guessing.
 ## 1.1 Versions
 
 The repository carries **no version numbers**: no `VERSION` file, no `CHANGELOG.md`, no version line in the docs. Göran tags releases himself,
-so do not add any of these or bump anything when you finish a milestone; the next step is named in `atari_st/PLAN.md` section 1 (what is left)
-and 2.1.
+so do not add any of these or bump anything when you finish a milestone; what is left is in `atari_st/PLAN.md`.
 
 ## 2. References and links (provided by the project owner - treat as truth)
 
@@ -54,8 +49,7 @@ and 2.1.
   `level-9-death-mountain`. Item/sword info:
   <https://www.zeldadungeon.net/wiki/Sword_>.
 - Hatari emulator: <https://hatari-emu.org> (version used: **2.6.1**).
-- The owner tests `ZELDAST.PRG` (sometimes renamed) in Hatari, and sends
-  screenshots/videos with red marks. Overworld start = room `$77`, X `$78`, Y `$8D`
+- The owner sends screenshots and videos with the problems marked. Overworld start = room `$77`, X `$78`, Y `$8D`
   (ROM LevelInfo); the port starts there too (`HOME_X`/`HOME_Y` = `START_X`/`START_Y`, facing up).
 - The owner wants **fidelity to the original source** for behaviour, and
   Atari-appropriate controls. They iterate by playing, reporting gaps.
@@ -67,11 +61,12 @@ build.ps1, util.ps1      PowerShell helpers from the original disassembly projec
 README.md                short project overview (+ controls)
 AGENTS.md / CLAUDE.md    this briefing
 src/                     ORIGINAL NES disassembly (Z_00..Z_07.asm, *.inc, bins.xml, dat/)
-ext/Original.nes         your ROM (gitignored), 131088 bytes; built and tested with The Legend of Zelda (Europe) (Rev 1)
+ext/Original.nes         your ROM (gitignored), 131088 bytes; built with The Legend of Zelda (Europe) (Rev 1)
 atari_st/                the port
   Makefile               build: assets -> as -> ld -> objcopy -> PRG
   link.ld                linker script: .text, .data, then .rodata, single flat section
-  README.md              user-facing docs: features, known gaps, roadmap, notes
+  README.md              short docs: status, controls, build, tools, notes
+  PLAN.md                what is left, plus the ROM data tables as an appendix
   src/*.s                68000 code (one assembly unit, main.s .includes the rest)
   tools/*.py             asset pipeline, PRG packer, Hatari screenshot harness
   tests/*.py             unittest suites (about 200 tests); tests/golden/frames.json = golden frame hashes
@@ -267,7 +262,6 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
   `build/shots/hatari.log`. `music_write` always writes R0..R12 in order from one `pc` (R13 only
   with an envelope shape), the digidrum engine writes the drum's volume register from another;
   group by `pc` and compare frames with `music_pack.unpack_stream` of `build/generated/music_bank.bin`.
-  Verified this way: 745 overworld frames, 659 dungeon frames, a bomb effect overlay, digidrum samples.
 - `--trace cpu_exception,...`: Hatari trace flags; look for faults whose PC is in
   RAM (app bug) versus ROM `$fcxxxx-$feffff` (TOS internal, harmless; e.g. the
   blitter probe bus error at `$fc0ee2`).
@@ -574,10 +568,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   and `boss_misc_update` collects them (`UW_FLAGS` bit 2). Grumble (`GRUMBLE_ON`): blocks the doorway tile until fed (food
   on his tile), then `UW_FLAGS` bit 1. Gleeok's body is baked into the room (`uw_bake_boss`, `GLEEOK_GONE` after death);
   necks and heads come from the boss pool, one segment per neck when there are four necks (`GLEEOK_SEGS`). The "more bombs" and "life or money" men are
-  ported (see Dungeon people below). Checked in Hatari with scripted input (`--keys`, monsters poked in front of Link's sword):
-  the second Digdogger (recorder, one little one, its death, the heart container and taking it), the stash gone for good after
-  leaving and coming back, Pols Voice and Vire moving. Not checked: the first Digdogger's three little ones, a Vire dying into keese,
-  scrolling between dark rooms (the maze-like rooms need the ladder or bombs to leave from the start spot).
+  ported (see Dungeon people below).
   **Keys and moats**: a locked door (types 5, 6) opens with a key, and the magic key (`INV_MAGIC_KEY`) opens it without using one up
   (the HUD shows "XA" for it); Level 9 has 16 locked doors and 4 keys, it is the magic key's level (`test_every_room...` in
   `test_build_assets.py` replays the doors of all levels). The moat (NES tile `$F4`) always blocks (`tile_blocks`); the ladder
@@ -604,9 +595,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   by `cave_talk` (the texts are appended to `cave_text.bin`, `ENDING_TEXT_THANKS`/`ENDING_TEXT_PEACE` in `assets.inc`; the last words are three lines, "FINALLY," first, placed at the ROM's addresses `$22AC $22E4 $2346` = screen rows 16, 18, 21 and typed a letter every 8 frames with no blip on spaces: `CAVE_TEXT_PEACE`, `zelda_say_peace`), the two
   triforce pieces with the flashing backdrop (`MUS_ENDING` after it) and the closing words. Scene 8 waits `ZELDA_CREDIT_WAIT` frames and hands over to the credits wall (`credits_begin`, scene 9 = taken over): see
   **Credits wall** in the intro section. The Second Quest restart is not ported.
-  Silver Arrow and Red Ring are in cellars. `MUS_GANON` plays when Ganon appears and again when he burns. The boss roars are hooked (sound section). Checked in Hatari: Lanmola (all eight segments, room clears, item appears),
-  Patra (the seven children, then the eye with one hit point left, room clears), the door man with all pieces (silent, shutters open)
-  and without (his words), Ganon's and Zelda's scenes. Not checked: a human-speed fight with any of them.
+  Silver Arrow and Red Ring are in cellars. `MUS_GANON` plays when Ganon appears and again when he burns. The boss roars are hooked (sound section).
 - **Blue goriya** (`$05`): throws whenever its timer reaches 0, no `$23`/`$77` roll (`goriya_ai` reads the NES type from `mon_table`).
 - **A goriya's boomerang** (`proj_*` kinds `PK_BOOMERANG`, `PK_RETURNING` in `ai.s`; ROM `UpdateArrowOrBoomerang`): flies out at 2.5 px/frame
   for 33 frames. It hurts Link (a heart) or is parried (the small shield is enough: Link idle and facing it, `CheckLinkCollision`) only
@@ -617,7 +606,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **Walking speeds** (`ROM_QSPEED` in `tools/actors.py`, held to `MONSTER_PERIOD` by `test_walking_speeds_are_the_roms_q_speeds`): a
   q-speed is a 64th of a pixel a frame: `$20` lynels, moblins, goriyas, slow octoroks, red darknuts, stalfos, gibdos, vires (a pixel every
   other frame), `$28` blue darknuts (5 in 8 frames), `$30` fast octoroks (6 in 8, `step_patterns` in `enemy.s`), `$18` zols (3 in 8), `$40`
-  gels and bubbles; a rope charges at `$60`. Armos and flying ghinis do not walk: they use the flying state machine (below). Speeds are per frame: a 50 Hz display plays at the PAL NES's pace, a 60 Hz one at NTSC pace (PLAN.md Q7).
+  gels and bubbles; a rope charges at `$60`. Armos and flying ghinis do not walk: they use the flying state machine (below). Speeds are per frame: a 50 Hz display plays at the PAL NES's pace, a 60 Hz one at NTSC pace.
   **Ringleader** (`TRIGGER_RINGLEADER`, `uw_check_clear`): when slot 0 is dead, kill the others and open the shutters.
 - **Dodongo** (`$32`, `BEH_DODONGO`, `MODE_DODONGO`; ROM `UpdateDodongo`): a wanderer (turn rate `$20`) whose X is shifted by `$10` when it
   does not face left (it is two sprites wide: `draw_dodongo`, second erase offsets `ENEMY_ERASE2_OFFSETS`). State 0 walks, 1 is
@@ -686,8 +675,8 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   HUD draw) calls `death_begin` and switches to `MODE_DEATH`. Phases (`DEATH_PHASE`, equates `DPH_*`): blink (33 frames), remap, spin, fade, grey Link
   and spark, wait, GAME OVER (text from `death_text`). The remap is the ROM's red world done on the ST's single palette: every pixel of the playfield
   goes to slot 13, 14 or 15 (`death_maps`, one row per palette: black stays, the other colours by lightness) four lines a frame
-  (`DEATH_LINES`, boolean evaluation of the planes per 16 pixels, `death_remap_lines`), then those three slots get the ROM's colours (`death_colours`) and fade;
-  checked pixel for pixel against `death_maps` in Hatari. Slots 13-15 are in no level used by the HUD, Link or items. Afterwards the death count of
+  (`DEATH_LINES`, boolean evaluation of the planes per 16 pixels, `death_remap_lines`), then those three slots get the ROM's colours (`death_colours`) and fade.
+  Slots 13-15 are in no level used by the HUD, Link or items. Afterwards the death count of
   `OFF_PROFILE` goes up (cap $FF), the three screen buffers are put in the menu arrangement and `filesel_begin(FILE_CONTINUE)` asks: CONTINUE
   (`death_continue`: three hearts, `game_reset_position`, overworld start via `enter_room`, a dungeon via `uw_warp_to_start`, items kept), SAVE
   (`save_store_game`: full hearts, the record is written) or RETRY (`death_retry`: `save_load_game` of the stored profile, then `death_restart` at the overworld start or the level's entrance; no file menu). The chosen word flashes
@@ -762,8 +751,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   is the ROM's: Left/Right moves the cursor over the owned B items and the B box shows the choice. Opening it freezes everything.
   The **letter** is a B item too (`B_LETTER` = 9, icon 26): it sits in the potion's place on the screen while there is no
   potion (`menu_slot_code_of`, `b_item_owned`; CheckMissingItem), and the medicine woman is shown it by pressing B with it
-  selected (`cs_letter` in `caves.s`, as `UpdateCavePerson`'s `@UseLetter`), not with any other B item. Checked against the
-  ROM and found to need nothing: the heart containers stop at 16, and the Book of Magic and a beam range per sword are not
+  selected (`cs_letter` in `caves.s`, as `UpdateCavePerson`'s `@UseLetter`), not with any other B item. The heart containers stop at 16, and the Book of Magic and a beam range per sword are not
   features of the game (the book only turns the rod's shot into flame, done; a sword beam is a fixed shot).
 - **Debug key K**: +1 key, +4 bombs (cap 8), candle. The owner wants it kept for now.
 
@@ -857,11 +845,8 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-Open items (user-visible gaps): a play-through of Levels 3-9 (M6-M9) and of the Second Quest (built from the ROM, checked screen by screen in Hatari); a 512 KB build (needs a per-level loader). The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
-cloud. Level 2's Dodongo (bomb and sword kill) has been played through by Göran and works well; the Moldorm segment deaths and ringleader room are verified by reading and loading, not by play-through.
-The PRG (about 700 KB) no longer fits a 512 KB machine.
-
-The full plan, with what is done and what is left, is `atari_st/PLAN.md`. Scope decision: both quests in one 1 MB build. All tables are decoded from a user-supplied ROM; do not commit the ROM.
+What is left (details in `atari_st/PLAN.md`): more play-testing, a per-level loader for 512 KB machines and a run on real hardware. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+cloud. The PRG (about 700 KB) no longer fits a 512 KB machine. Scope decision: both quests in one 1 MB build. All tables are decoded from a user-supplied ROM; do not commit the ROM.
 
 ## 15. Persistent notes also kept in the repo memory (VS Code agent memory)
 
