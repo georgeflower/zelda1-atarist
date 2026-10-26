@@ -1,365 +1,84 @@
 Atari STFM / Hatari port
 ========================
 
-A native Atari ST port of The Legend of Zelda, built on top of aldonunez's NES
-disassembly in `src/`. It runs as a stock TOS `.PRG` on a 1 MB ST in 320x200
-sixteen-colour mode, and reads all of its graphics, room layouts, palettes and
-text out of a ROM you supply yourself.
+A port of The Legend of Zelda to the Atari ST, written in 68000 assembly on top of aldonunez's NES
+disassembly in `src/`. It runs as a normal TOS `.PRG` on an ST with 1 MB in 320x200, 16 colours.
+All graphics, rooms, palettes, music and text are read from a ROM you supply yourself, nothing is
+drawn or made up separately.
 
-Status: both quests. The First Quest is played through in Level 1 and 2 and run in every room of Levels 3 to 9. You can walk
-the whole overworld, fight its monsters, use its caves, shops and hidden spots, and play all nine dungeons up to Ganon,
-Zelda's thanks and the scrolling credits, with the title, file select, death, continue and saving. Levels 3 to 9 have had limited
-testing by hand. The Second Quest (see "The Second Quest" below) was built from the ROM's own tables and checked in Hatari
-screen by screen, not played through.
+It's made together with an AI (Claude, from Anthropic). I decide what to build and fix, Claude
+writes most of the code and the tools.
 
-The program is one `.PRG` of about 700 KB holding both quests (the data is reached through pointers, so a per-level loader
-could later bring it under 512 KB). It needs a 1 MB machine and fits a 720 KB disk with `ZELDA.SAV`.
+Status
+------
+
+Work in progress, expect bugs. Both quests are in: the whole overworld, all nine dungeons up to
+Ganon and Zelda, every item, title and story, file select, death and continue, saving, the credits
+and the music. The list of what is left is in [`PLAN.md`](PLAN.md).
+
+Everything is one `.PRG` of about 700 KB (both quests), so it needs 1 MB of RAM. It fits on a
+720 KB disk together with `ZELDA.SAV`.
 
 How to play
 -----------
 
 | Key | Action |
 | --- | --- |
-| arrow keys, `W` `A` `S` `D` or the joystick | walk (in 8-pixel grid steps, like the original) |
-| `Space`, joystick fire | the sword, the NES A button (once you have it) |
+| arrow keys, `W` `A` `S` `D` or the joystick | walk (in 8-pixel steps, like the original) |
+| `Space`, joystick fire | the sword (A) |
 | `Ctrl` or `Alternate` | the B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
-| `Tab` | the inventory screen: Left and Right choose the B item, `Tab` goes back |
-| `K` | debug: one key, four bombs and the candle |
+| `Tab` | the inventory screen (Left/Right choose the B item, `Tab` goes back) |
+| `K` | debug: a key, four bombs and the candle |
 | `T` | debug: show the room id on the ribbon, `RM-37` (`CL-xx` in a cellar); press again to hide it |
 | `Esc` | quit |
 
-The two item boxes on the ribbon show what each button holds: the sword under
-A (wooden, white or magical, as you earn it) and the chosen B item under B. The
-boomerang is in Level 1 (room `$44`, in the goriyas' room), the magic boomerang
-in Level 2 (room `$4F`); the candle, potions, rings and the like are bought in the shops and found in the caves,
-as in the original (`K` is a debug shortcut).
+The game starts on the title screen. Press Return, pick a player and make a name. Call it ZELDA
+to play the Second Quest, like in the original. The game saves to `ZELDA.SAV` in the current
+directory.
 
-A typical run:
+What is in it
+-------------
 
-1. The game opens on the first overworld screen, just below a cave. Walk up
-   into it, wait for the old man to finish speaking, and take the wooden
-   sword. Walk out through the bottom doorway.
-2. Walk to the Level 1 entrance (overworld room `$37`) and go down the stairs.
-   Level 2's entrance is on overworld room `$3C`.
-3. In the dungeon, kill the monsters with the sword (and its beam while your
-   hearts are full), pick up keys, open locked doors, bomb the bombable walls,
-   and step on the staircase in room `$22` to reach the cellar with the bow.
-4. Leave the dungeon by walking off the bottom of its first room, or fight
-   on: Aquamentus is in room `$35` and the triforce piece in room `$36`.
+- the overworld, all 128 screens, with its monsters, caves, shops, hidden spots, mazes, raft,
+  ladder, recorder and fairy ponds
+- all nine dungeons of the First Quest and all nine of the Second Quest, with their monsters and
+  bosses, doors, keys, push blocks, cellars, dark rooms, map and compass
+- every item of the original and the Tab inventory screen laid out like the original
+- title, story, file select, name entry, death, continue and save, Zelda's thanks and the credits
+- music and sound effects, ripped from the ROM's own sound engine when you build (YM2149), at 50
+  and 60 Hz
+- double buffering, 16x16 sprites shifted at run time, IKBD keyboard and joystick input
 
-Implemented
------------
+Known differences from the original
+-----------------------------------
 
-Platform and rendering
-
-- native Motorola 68000 program emitted as a TOS `.PRG`, VBL-paced for STFM
-  timing
-- 16x16 masked sprites shifted at run time; one shared ST palette covers every
-  NES background and sprite palette row
-- double-buffered play frames with per-sprite erase from a clean background
-  copy, so busy rooms neither flicker nor lose Link; scrolls and caves draw
-  straight to the visible screen
-- keyboard input through an IKBD interrupt that queues every byte, so no key
-  release is ever missed
-- YM2149 music and sound effects from a VBL hook: the NES original overworld theme, the ROM's
-  dungeon and Level 9 themes, event fanfares and effects laid over the
-  music (digidrums included): sword, boomerang, flame, bomb, stairs, pickups, hurt,
-  the ROM's DPCM samples (sword beam, door, Link's cry, boss cries and roars),
-  the low-life beep and the menu and cave-text clicks. Everything is ripped from
-  `ext/Original.nes` at build time with the ROM's own sound engine; without `py65` the game is silent
-- status ribbon: hearts (with halves), rupee, key and bomb counters, in the
-  original glyphs, and the B and A item boxes
-- the IKBD joystick (either port) can walk Link and fire the sword
-
-Overworld
-
-- all 128 screens decoded from the original data: room layouts, 16x16 squares,
-  per-area palette
-- Link's movement follows the original: 8-pixel grid steps, the collision
-  hotspot and the walkable-tile exception list, the two-column test on
-  vertical moves, and the original screen-edge coordinates
-- 16-pixel stepped scrolling between screens in all four directions
-- cave entry and exit. All twenty kinds of cave are built from the ROM's
-  tables: the old man and his sword, "take any one", the white and magic
-  sword (five and twelve hearts), take-any-road with its three stairs, the
-  letter, the medicine woman (she wakes when B shows her the letter), paid
-  hints, the money making game, the door repair charge, the shops with their
-  prices and the moblins' free rupees. What was given stays gone; rupees
-  are paid out and taken one at a time with the little blip
-- the game starts where the original puts Link (X $78, Y $8D, facing up); dying refills the hearts and
-  returns Link there
-- octoroks, moblins and lynels walk on the screens where the original puts them
-  and shoot as in the original (rocks, arrows, the lynel's sword shot; the
-  sword parries rocks and arrows); the monsters of a screen stand in a spawn
-  cloud for a moment before they move (octoroks longer), screens with edge
-  spawns bring them in from the border one at a time instead, and monsters you kill stay dead for a few screens (the
-  original's room history); tektites, leevers, zoras, peahats, ghinis, boulders, armos and the flying ghinis of the
-  gravestones are in too (next list)
-
-Overworld monsters
-
-- octoroks (red, blue, slow, fast), moblins and lynels, tektites (the jump
-  physics of the original), leevers (they burrow up and down), zoras and their
-  fireballs, peahats, ghinis and the boulder screens, each on the screens where
-  the original puts them. The shots (rock, arrow, sword shot) parry and bounce
-  as in the original, screens with edge spawns bring the monsters in from the
-  border, and killed monsters stay dead for a few screens (the room history)
-- armos wake when Link pushes against one (twelve screens, seven of which hide stairs, one the power bracelet) and fly
-  at him in eight directions like the original's `UpdateArmos`, which is the flying ghini's routine; touching any
-  gravestone lets a flying ghini out of it (it fades in for `$3F` frames and dies with the screen's ghini)
-
-Hidden spots (overworld)
-
-- the 43 spots of the First Quest, from the ROM's marker squares: 22 rock walls that a
-  bomb opens (the cloud has to open within 16 pixels of the wall), 16 trees that a
-  candle's (or the book's) flame burns into stairs, 4 rocks that need the power bracelet
-  and 1 gravestone, which Link pushes straight up or down while standing level with
-  them; the stairs they uncover are where the ROM puts them (attribute F bits 4-5)
-- the secret tune plays, the spot becomes a cave entrance or stairs and works like any
-  other (`check_warps`); the screens are patched in place (`room_maps` is in RAM) and
-  `room_secrets` says what to patch. Found secrets stay open (room flag bit 7); a
-  pushed rock or gravestone is back when Link returns, as in the original (the stairs
-  under the rock stay, those under the gravestone do not)
-- the pushed stone slides one square in 32 frames, as in the original: the spot turns to
-  floor at once, the stone is drawn moving, blocks Link while it goes, and the stairs and
-  the tune come when it lands
-- the second quest's spots (attribute F bits 6-7) are the Second Quest's own: with quest 2 running they are placed as in the ROM, with quest 1 they are scenery
-
-
-The Second Quest
-- chosen as the ROM does: a file named ZELDA starts it (the file menu shows the sword beside such a profile), and finishing the game makes the profile one; `ZELDA.SAV` keeps the quest of each profile
-- the dungeons: the ROM's `LevelBlockUW1Q2`/`UW2Q2` and the Q2 replacements of each `LevelInfo` (start and triforce rooms, items, cellars, the map), nine more records of the level table (`1q2` .. `9q2`, 18 in all)
-- the overworld: the differences are a patch (`quest_patch`, about 700 bytes: screens, attributes, monster lists, hidden spots) that `quest_apply` swaps into the RAM-resident tables when a profile of the other quest is loaded, and swaps back; the recorder opens the other quest's pond screens (`FLUTE_TABLE`; the first one is the whirlwind's)
-- the monsters: ropes have `$40` hit points in Quest 2 and flash through the four sprite palettes, a new one every frame, stalfos throw sword shots, black keese (`$1D`) fly in Level 4's room `$22`, and trigger 6's shutters stay shut until the money-or-life man (or the rupee stash) has been dealt with
-- the credits: a second strip of 720 lines sharing the first one's tiles; the player's name and death count are written into its line `$11` as the scroll begins
-
-Level 1 (underworld)
-
-- the 17 rooms reachable from the start room, rebuilt from the original room
-  layout routines (walls, doors, floor), with the original collision
-- doors: open doorways, locked doors (cost a key), bombable walls (open with a
-  bomb), false walls (walk through), and shutters that stay shut until the
-  room's monsters are dead. A door that has been opened stays open from both
-  sides
-- the staircase room (`$22`) and the cellar below it, rebuilt from the
-  original cellar layout, with the bow on the floor and four keese
-- monsters spawned from the original room data: stalfos, keese, gels, ropes,
-  goriya, wallmasters and Aquamentus, drawn from the original art with their
-  own animation rules and hit points, and biting for their original damage
-- goriyas that line up with Link turn to face him and throw boomerangs that
-  fly out, hurt him, and come back; ropes charge once they are level with him;
-  wallmasters come out of the walls when Link stands against them and carry
-  him back to the level's first room; Aquamentus paces his end of room `$35`
-  and breathes three fanned fireballs. Killing him reveals the heart container
-- walking monsters keep to the 16-pixel lanes of the room: they only turn on a
-  square boundary and look at the whole square ahead, so they never overlap
-  blocks. They turn as the original does: stalfos work their way toward Link,
-  goriyas face him only when he is within $51 pixels and then throw on a
-  2-in-256 roll each frame, ropes turn to a free side now and then, and gels
-  cross a square at a pixel a frame and rest at its edge. Keese fly over everything instead, in eight directions: they speed
-  up, then chase Link or wander for a few turns, slow to a stop, rest, and
-  start again
-- the old man in room `$41` stands between two flames and types out "EASTMOST
-  PENNINSULA IS THE SECRET." while Link is held; Link cannot walk past him. The
-  speech comes from the original dungeon-people tables. A sword blow on him
-  makes his two flames shoot fireballs at Link, as in the original. The "more bombs" man (Levels 5 and 7: 100 rupees for room for four
-  more bombs) and the "life or money" man (a heart container or 50 rupees) are in
-- the wooden sword, the boomerang, the bow and the candle are held up with the item
-  fanfare when taken: Link stands still with his arms raised and the item over his
-  head for about two seconds, and the monsters wait
-- the triforce piece ends the level as in the original: Link holds it up, the screen
-  flashes, his hearts fill one by one, a curtain closes the room, and he is back at
-  the entrance on the overworld
-- the room's items appear on the floor (a trigger-7 room's item appears when
-  the monsters are dead) and stay collected
-
-Level 2 (underworld)
-
-- the 18 rooms reachable from the start room `$7D`, with their items and
-  secrets from the ROM: the compass (`$6F`), the map (`$5F`), bombs, keys, five
-  rupees, the magic boomerang (`$4F`), the heart container (`$0E`) and the
-  triforce piece (`$0D`); the old man in `$1F` ("DODONGO DISLIKES SMOKE.");
-  the cellar rooms; the level's own palette
-- the dungeon is chosen through `level_table`: the tables of every level are
-  built by the asset pipeline (`UW_LEVELS` in the Makefile and `build_assets.py`,
-  kept equal by a test) and `uw_select_level` points the engine at them, so the
-  next dungeon is data
-- new monsters from the ROM: the blue goriya (throws boomerangs whenever its
-  timer runs out), the **Dodongo** (walks lanes; swallows a lit bomb at its
-  mouth and bloats, two bombs kill it; a bomb cloud near it stuns it for $20
-  frames and the sword kills a stunned one, leaving a bomb), the **Moldorm**
-  (worms of segments: the head steers toward Link or wanders, eight turns at a
-  time, and every segment takes the heading of the one before it; a killed
-  segment comes back once and the tail is removed instead, the head dies for
-  good), blade traps (four or six to a room) and the keese that share
-  their room, and the ringleader room (kill the leader and the rest go with it
-  and the shutters open)
-- stairs between the overworld and the level work both ways: Level 2 is entered
-  from screen `$3C` and leaves back to it
-
-Level 9 (Death Mountain)
-
-- 57 rooms, the ten-entry cellar array (Silver Arrow and Red Ring are in cellars), the old men, and the man at the
-  door who lets Link through only with all eight triforce pieces
-- Lanmola (blue and red): two worms of four segments that uncoil from the left of the room, the head choosing a new
-  way at every square and turning toward Link half the time (ROM `UpdateLamnola`; the original has ten segments)
-- Patra (both kinds): an eye with seven children (eight in the original) that come out one at a time and orbit it;
-  only the sword hurts them, the eye is proof until the children are gone
-- Ganon: Link holds the Triforce of Courage up in the dark room, then Ganon hides, teleports and throws fire; the sword
-  turns him brown, a silver arrow into a brown Ganon kills him, he burns to ashes and the Triforce of Power lies there
-- Zelda (room `$32`) and the four fires that guard her: stand level with her (X `$70`..`$80`, Y `$95`) and the scene
-  runs: the Zelda fanfare, the curtain, her thanks typed out, the two triforce pieces over Link and Zelda while the
-  backdrop flashes, then the closing words ("FINALLY," and two lines, placed and timed as the ROM does). Then the credits wall of the ROM scrolls up (a line every other frame, 600 lines: the bricks, the staff, "ANOTHER QUEST WILL START FROM HERE.", the copyright; after the Second Quest 720 lines, ending with "YOU ARE GREAT.", the player's name and death count, "END OF THE LEGEND OF ZELDA 1"), and stops on the black screen with the ash pile and the flashing Triforce of Power. The win is saved as the credits begin (the profile is reset as the ROM does before its Second Quest: items and world cleared, three hearts, quest 2, written to `ZELDA.SAV`), so quitting during them loses nothing. Start, after a moment, brings up the player select with no title in between (after a Second Quest it starts that again, as the ROM does); Esc quits. The title carries a small line, "PORTED TO ATARI ST BY Q".
-
-Levels 3 to 8 (underworld)
-
-- every room of the six dungeons, with its doors, items, secrets and palette, from the ROM
-  tables; the dungeons are entered from the overworld by the level number of the stairs
-- monsters: red and blue darknuts (a head-on sword blow is turned aside), gibdos, zols and
-  vires (a blow that does not kill leaves two gels or two keese), pols voice (hops, an arrow
-  kills it), like-likes (swallow Link and the magic shield), wizzrobes (red and blue),
-  bubbles (stop the sword for a while)
-- bosses: Manhandla (four hands that speed up), Gohma (blue and red; arrows at the open
-  eye), Digdogger (the recorder splits it) and Gleeok (one to four necks; the body is baked
-  into the room, necks and heads are drawn from a pool of pre-shifted pieces)
-- rupee stash rooms, Grumble (fed with food to open the way) and dark rooms (black until
-  the candle is used)
-- rooms with seven or more monsters take two VBLs to draw: the game then runs its update
-  once more without drawing, so the speed stays that of 60 Hz and only the picture drops to
-  30 Hz (`catch_up`)
-
-Combat and items
-
-- sword: drawn from the original tiles in its four phases, and it only cuts
-  while fully out; killed monsters roll the original drop table (hearts,
-  rupees, bombs, the clock and the fairy) with its kill counter:
-  ten kills without being hurt guarantee a drop, a bomb if the tenth was a
-  bomb kill, five rupees otherwise. Drops flicker, wait about half a second
-  before they can be taken, and vanish after about eight
-- sword beam: with full hearts only, the third phase of a
-  swing fires a beam that flashes through the four sprite palettes until it
-  leaves the room's bounds or hits a monster, and then spreads out as the original's spark
-  (it flies over trees, stones and walls: the ROM's `MoveShot` looks at the room's bounds only)
-- bombs: 48 frames of fuse, then a 36-frame cloud (four sprites, three puffs
-  that swap sides every frame): for the first 24 the screen flashes grey twice
-  and every monster near it takes four hits' worth of damage, at the start of
-  the last 12 a bombable wall opens. A bomb stays in the room it was dropped in
-- blade traps (room `$22`): four of them wait in the corners until Link is
-  level with them, fly at him as far as the middle of the room, and creep home;
-  they hurt for a whole heart and nothing hurts them
-- the cave bonfires flicker, turning round every six frames
-- boomerang: thrown the way Link faces from 16 pixels ahead, it flies three
-  pixels a frame for about 49 pixels (or until a wall), sparks, hangs about
-  for 16 frames and comes back; one at a time. A monster it touches is
-  stunned for 160 frames (it freezes and does no harm), or killed outright
-  if it has no hit points to speak of (keese, gels); it also picks up items.
-  Traps and Aquamentus ignore it
-- blue candle: a flame 16 pixels ahead that creeps another 16 pixels, stands
-  for 63 frames and burns the monsters it touches; once in each room
-- the rest of Link's items, from the ROM's Items block (`items.s`, tables
-  generated from `ItemIdToSlot` and `ItemIdToDescriptor`): the white and the
-  magical sword (one, two and four hits' worth, with their own swing art and
-  A box); the bow, which spends a rupee per arrow (silver arrows hit for double);
-  the magic rod, which swings and fires a magic shot (with the book the shot
-  becomes a flame at a wall); the red candle (as often as you like); the magic
-  boomerang (longer reach); the potion (the hearts refill, one half heart every
-  21 frames, while Link stands still); food (monsters that chase Link chase it
-  instead for $FF frames); the recorder (plays its tune; the whirlwind is not
-  in); the blue and red rings (damage halved or quartered, Link recoloured);
-  the magic shield (parries fireballs and sword shots); the clock (freezes the
-  monsters until the screen changes, and nothing can hurt Link meanwhile); the
-  fairy (three hearts); the clock and fairy are also drops
-- inventory screen (`Tab`): freezes the game and shows the original's
-  submenu, built from the ROM (`tools/submenu.py`): the B-item box ("USE B
-  BUTTON FOR THIS"), the items box with the flashing cursor, the passive items,
-  and the triforce frame (overworld) or the compass, map and the sheet map of
-  the rooms visited so far with Link's green dot (dungeons); the status bar sits
-  below it. Left and Right move the cursor over the B items Link owns, `Tab`
-  closes it
-- push block (room `$42`): once the monsters are dead, stand against the
-  block, lined up, and push for 16 frames. It slides 16 pixels, a pixel a
-  frame, and the room's shutters open for good (they no longer open when
-  the last monster dies). In the rooms with the stairs-type block (Levels 4 to 9) the
-  stairs show at the top right when it lands
-- pickups with their effects: keys, hearts, heart containers, rupees, bombs,
-  and every item above, plus the map and the compass
-- the dungeon map in the corner of the ribbon: the level's rooms as grey boxes
-  once you have the map, a green box where Link is, and with the compass the
-  triforce room flashing until you take the piece
-- the overworld map in the same corner: the ROM's grey box of the 16x8 screens (two by three pixels each) with a green dot on
-  the one Link is in
-- Link is invincible and blinks for about 0.8 seconds after being hurt (the
-  original's $18 timer ticks every second frame), and is knocked back 32
-  pixels; monsters are knocked back up to 64 pixels when the sword hits them
-  and are invincible for about half a second. Aquamentus and the keese are
-  never knocked back
-
-- death and what follows (`death.s`): when the hearts run out the monsters and the music stop, Link blinks, the picture turns
-  red a few lines at a time (the ROM's red world, done by moving the pixels to three spare colours), Link spins, the world
-  fades to black through the ROM's four steps, a grey Link is left and goes in a spark, and GAME OVER shows with its song.
-  Then comes the question of the original: CONTINUE (Up, Down or Tab move the heart, Return or Space takes it; the word
-  flashes first) starts again at the overworld's start, or at the first room of the dungeon, with three hearts and what
-  Link carries; SAVE stores the game in the profile and goes to the file menu; RETRY reloads the profile as it was last stored and starts at
-  the overworld's start or the dungeon's entrance, without the file menu. Each death adds one to the profile's count
-- saved games (`save.s`): `ZELDA.SAV`, three profiles of 640 bytes with a checksum, is read through GEMDOS from the
-  current directory when the program starts and written (as `ZELDA.TMP`, then renamed over the old file) when a name is
-  registered or deleted and when SAVE is chosen. It holds the name, hearts, deaths, items, counters, the rooms visited and
-  the hidden spots found, so a loaded game finds its opened walls and burnt trees open. A file that is missing, of
-  the wrong size or that does not add up is ignored and the three profiles are free
-
-Tooling
-
-- asset pipeline from the ROM to ST data (see below); every picture, room, text and sound is read from
-  the ROM, nothing is drawn or recreated separately, and a build without the ROM stops with a message
-- `tools/dump_tables.py` writes the ROM tables the port is built from (all
-  overworld screens, every room of the nine dungeons, the monster lists) as JSON
-  and Markdown under `build/dump`
-- `tools/check_reach.py`, run after every link, fails the build when a table
-  name is missing or when a branch or PC-relative operand does not fit 16 bits
-  (GNU as wraps those silently); see "Notes on the ST implementation"
-- golden frames: `tools/golden.py` runs twenty fixed scenes in Hatari and compares a
-  hash of each screen with `tests/golden/frames.json` (see Testing)
-- unit tests for the asset pipeline, and for the music packer and the 68000 music
-  player (run on `machine68k`, every track checked frame by frame)
-- headless Hatari harness that captures the framebuffer to a PNG, drives
-  scripted key input, and can poke variables; `--hd-file ZELDA.SAV=file` puts a file on the emulated drive first
-  (`tools/savefile.py` makes or reads one)
-
-Known gaps
-----------
-
-Things that behave differently from the original, or are stand-ins:
-
-- Levels 3 to 9 were checked by loading every room in Hatari, by scripted runs (the second
-  Digdogger and its heart container, Lanmola, Patra, a stash left and re-entered, the door
-  man, the magic key on a locked door, the ladder over a moat) and by a test that replays every
-  level's doors; nobody has played them through at human speed. Not checked: the first
-  Digdogger's three little ones, a Vire dying into keese, scrolling between dark rooms. The
-  ladder over a dungeon moat is drawn, as in the original: it is put down in front of Link
-  and he can cross it along its direction only
-- the Moldorm is two worms of four segments, not one of ten, because the engine
-  has eight monster slots; the Dodongo and the Moldorm leave no death cloud
-- Level 2's Dodongo (bomb and sword kill) has been played through and works well;
-  the Moldorm's segment deaths and the ringleader room were checked by reading
-  the code against the ROM and by loading every room in Hatari, but not played through
-- `K` is a debug key that gives keys, bombs and the candle; the game has no use for it any more but it stays for testing
-- the game follows the display: 50 Hz (PAL) plays at the PAL NES's speed, checked in Hatari with no dropped frames; 60 Hz runs the game at NTSC speed
-- the song is written for 50 Hz; on a 60 Hz display every sixth frame holds
-  it back so the tempo stays right
-- the death sequence, the continue question and `ZELDA.SAV` were run in Hatari with scripted input (also with a file made
-  outside the game); nobody has played them on a real machine, where the disk write is the part to watch
-- all runs so far were in Hatari with 1 MB; the program no longer fits 512 KB (the PRG alone is about 700 KB)
+- the Moldorm is two worms of four segments instead of one of ten (the engine has eight monster
+  slots), and the Dodongo and the Moldorm leave no death cloud
+- the dungeons' monsters appear at once instead of coming out of a spawn cloud
+- `K` is a debug key, it is not in the original
+- the song is written for 50 Hz; on a 60 Hz display every sixth frame holds it back so the tempo
+  stays right
+- it does not fit in 512 KB (the `.PRG` alone is about 700 KB)
 
 Roadmap
 -------
 
-The detailed plan, with the data tables behind it, is in [`PLAN.md`](PLAN.md).
+What is left is in [`PLAN.md`](PLAN.md), short: more play-testing, a per-level loader for 512 KB
+machines and running it on a real ST.
 
-Next, in the order of `PLAN.md`
+Tools
+-----
 
-1. a play-through of Levels 3 to 9 (M6 to M9)
-2. a play-through of the Second Quest
-3. a check on real STFM timing, a per-level loader for 512 KB machines (M12)
+- the asset pipeline from the ROM to ST data (below); a build without the ROM stops with a message
+- `tools/dump_tables.py` writes the ROM tables the port is built from (screens, rooms, monster
+  lists) as JSON and Markdown under `build/dump`
+- `tools/check_reach.py` runs after every link and fails the build when a table name is missing or
+  a branch doesn't fit 16 bits (GNU as wraps those silently, see the notes at the end)
+- `tools/golden.py` runs fixed scenes in Hatari and compares a hash of each screen with
+  `tests/golden/frames.json`
+- unit tests for the pipeline and the music player
+- a headless Hatari harness (`tools/screenshot.py`) that takes screenshots, presses keys and pokes
+  variables; `--hd-file ZELDA.SAV=file` puts a file on the emulated drive first
 
 Prerequisites
 -------------
@@ -396,7 +115,7 @@ Outputs:
 Supplying the game data
 -----------------------
 
-Put a 131,088-byte iNES ROM image at `ext/Original.nes` (the port is built and tested with *The Legend of
+Put a 131,088-byte iNES ROM image at `ext/Original.nes` (the port is built with *The Legend of
 Zelda (Europe) (Rev 1)*, SHA-1 `4a29a5157f1948b2b8c25978ce6d9ff7a3c14708`; the disassembly in `src/` describes the
 (U) PRG0/PRG1 images). The build reads
 it through `src/bins.xml`, whose offsets are relative to the start of PRG ROM
@@ -421,7 +140,7 @@ The asset pipeline
 - **collision**: emits the four raw NES tile indices behind each square, which
   is what lets the engine apply `GetCollidableTile`'s rules at 8-pixel
   resolution without storing a tile grid per room
-- **underworld**: rebuilds each level's rooms (`UW_LEVELS`: 1 and 2 so far) from
+- **underworld**: rebuilds each level's rooms (`UW_LEVELS`, all nine levels of both quests) from
   the original layout routines (`tools/underworld.py`), including doors, the
   cellars and the level's palette, as 32x22 tile maps over a shared tile bank,
   and writes `levels.inc` with one table set per level and `level_table`
@@ -474,7 +193,7 @@ that room of that dungeon: the harness builds a matching dev PRG into `build/dev
 (the `ZELDA_START_ROOM`, `ZELDA_START_UW` and `ZELDA_START_LEVEL` switches of the
 Makefile bake the start into a build; finish with a plain `make all`).
 
-The golden frames are ten such scenes (`tools/golden.py`): each prints a hash of
+The golden frames are a set of fixed scenes (`tools/golden.py`): each prints a hash of
 the pixels and palette, and `tests/golden/frames.json` holds the expected ones.
 The hashes are stored instead of pictures because the pictures would be frames of
 Nintendo's artwork; `build/golden/*.png` shows a run. `make golden-update` accepts
@@ -508,8 +227,7 @@ Notes on the ST implementation
   the program jumps into the wrong place. Level 2 hit it (three main-loop calls
   32 KB from their targets, a crash at start), so `tools/check_reach.py` now
   computes every distance from the assembler listing and fails the build on a bad
-  one. The code cluster is full: today the tightest reference has 230 bytes to
-  spare. A module that has to call across the image goes through a `*_far` stub
+  one. The code cluster is nearly full. A module that has to call across the image goes through a `*_far` stub
   (`bra target`) in the middle of the image (`main.s`, before `.include "link.s"`).
   Tables, texts and sprite banks cost nothing, they go after `room_palette`.
 - Scroll steps are 16 pixels, exactly one bitplane word, so every copy stays
