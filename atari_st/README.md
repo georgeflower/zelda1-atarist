@@ -25,6 +25,7 @@ How to play
 | `Ctrl` or `Alternate` | the B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
 | `Tab` | the inventory screen: Left and Right choose the B item, `Tab` goes back |
 | `K` | debug: one key, four bombs and the candle |
+| `T` | debug: show the room id on the ribbon, `RM-37` (`CL-xx` in a cellar); press again to hide it |
 | `Esc` | quit |
 
 The two item boxes on the ribbon show what each button holds: the sword under

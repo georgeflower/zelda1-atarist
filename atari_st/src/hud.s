@@ -56,6 +56,7 @@ draw_hud:
     bsr draw_hud_boxes
     bsr draw_minimap
     bsr draw_hud_level
+    bsr draw_hud_debug
     movem.l (%sp)+, %d0-%d4
     rts
 
@@ -90,6 +91,51 @@ draw_hud_level:
     blo 1b
     movem.l (%sp)+, %d0-%d4/%a0-%a1
     rts
+
+| T (debug_room_toggle): "RM-37" on the ribbon's top row, left of LIFE, with the room Link is in; "CL-7F" with the cellar's
+| own id while he is down one. Blanks when it is off.
+    .equ HUD_DEBUG_COL, 19
+    .equ HUD_DEBUG_ROW, 0
+draw_hud_debug:
+    movem.l %d0-%d4/%a0-%a1, -(%sp)
+    ltab text_glyphs, %a1
+    moveq #0, %d3
+    move.b OFF_ROOM_ID(%a5), %d3
+    lea debug_room_text(%pc), %a0
+    tst.b OFF_IN_CELLAR(%a5)
+    beq 1f
+    move.b OFF_CELLAR_ROOM(%a5), %d3
+    lea debug_cellar_text(%pc), %a0
+1:  moveq #0, %d4
+2:  moveq #0x24, %d0                    | off: a space
+    tst.b OFF_DEBUG_ROOM(%a5)
+    beq 5f
+    cmp.w #3, %d4
+    blo 6f
+    move.w %d3, %d0                     | the two hex digits are NES codes 0-15
+    cmp.w #3, %d4
+    bne 7f
+    lsr.w #4, %d0
+7:  and.w #15, %d0
+    bra 5f
+6:  move.b 0(%a0, %d4.w), %d0
+5:  and.w #0x3f, %d0
+    move.b 0(%a1, %d0.w), %d0
+    move.w %d4, %d1
+    add.w #HUD_DEBUG_COL, %d1
+    moveq #HUD_DEBUG_ROW, %d2
+    bsr draw_hud_tile
+    addq.w #1, %d4
+    cmp.w #5, %d4
+    blo 2b
+    movem.l (%sp)+, %d0-%d4/%a0-%a1
+    rts
+
+debug_room_text:
+    .byte 0x1B, 0x16, 0x2F                     | R M -
+debug_cellar_text:
+    .byte 0x0C, 0x15, 0x2F                     | C L -
+    .align 2
 
 level_text:
     .byte 0x15, 0x0E, 0x1F, 0x0E, 0x15, 0x2F, 0x00     | L E V E L - and the digit's place
@@ -530,7 +576,13 @@ minimap_tick:
     or.b %d1, %d0               | the flash phase
     bra 3f
 2:  or.w #8, %d0
-3:  cmp.w OFF_MINIMAP_SIG(%a5), %d0
+3:  tst.b OFF_DEBUG_ROOM(%a5)             | the room id text is part of what the ribbon shows
+    beq 5f
+    or.w #0x20, %d0
+    tst.b OFF_IN_CELLAR(%a5)
+    beq 5f
+    or.w #0x40, %d0
+5:  cmp.w OFF_MINIMAP_SIG(%a5), %d0
     beq 9f
     move.w %d0, OFF_MINIMAP_SIG(%a5)
     move.b #1, OFF_HUD_DIRTY(%a5)

@@ -10,9 +10,11 @@
     .equ DOORWAY_LANE_Y, 0x8d       | where a horizontal doorway sits
     .equ DOORWAY_SLACK, 6
     .equ SCAN_K, 0x25
+    .equ SCAN_T, 0x14
 
 | Temporary: K hands out a key, bombs and the candle, until every source of them exists.
 debug_keys:
+    bsr debug_room_toggle
     movem.l %d0/%a0, -(%sp)
     lea OFF_KEY_STATES(%a5), %a0
     tst.b SCAN_K(%a0)
@@ -32,6 +34,22 @@ debug_keys:
     bra 9f
 2:  clr.b OFF_K_HELD(%a5)
 9:  movem.l (%sp)+, %d0/%a0
+    rts
+
+| T switches the room id on the ribbon on and off (edge triggered, like K).
+debug_room_toggle:
+    move.l %a0, -(%sp)
+    lea OFF_KEY_STATES(%a5), %a0
+    tst.b SCAN_T(%a0)
+    beq 2f
+    tst.b OFF_T_HELD(%a5)
+    bne 9f
+    move.b #1, OFF_T_HELD(%a5)
+    eori.b #1, OFF_DEBUG_ROOM(%a5)
+    move.b #1, OFF_HUD_DIRTY(%a5)
+    bra 9f
+2:  clr.b OFF_T_HELD(%a5)
+9:  movea.l (%sp)+, %a0
     rts
 
 | A room is stored as 16x11 squares, each a number into the level's quad table (four bank ids: top-left,
