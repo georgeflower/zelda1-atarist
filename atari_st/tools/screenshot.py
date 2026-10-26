@@ -41,6 +41,7 @@ SCANCODES = {
     "s": 0x1F,
     "d": 0x20,
     "k": 0x25,
+    "t": 0x14,
     "b": 0x30,
     "space": 0x39,
     "tab": 0x0F,

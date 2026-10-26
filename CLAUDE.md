@@ -100,7 +100,7 @@ atari_st/                the port
 | `filesel.s` | the file menu (mode 1, E, F inside `MODE_INTRO` phase 2): player select, name board, elimination, and the continue question after a death (`FILE_CONTINUE`); the slots (`SLOT_*`) |
 | `death.s` | Link's death (`MODE_DEATH`, game mode $11): blink, the red-world remap, spin, fade, grey Link and spark, GAME OVER, then the continue question; also `game_reset_position`, `death_continue/save/retry` (M10 c) |
 | `save.s` | `ZELDA.SAV` through GEMDOS (Fopen/Fread/Fcreate/Fwrite/Frename...): records of 640 bytes, the `save_fields` table, the secrets patch log replay, checksum (M10 c) |
-| `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level`, `debug_keys` (K) |
+| `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level`, `debug_keys` (K, T room id) |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
 | `music.s` | music and sound effects replayed from the VBL hook: four register-stream contexts (song, effect over voice A, effect over voice B, noise effect or DPCM sample over voice C) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`); `music_roar_tick` repeats the boss's ambient roar |
 
@@ -439,8 +439,8 @@ stays that of 60 Hz and only the picture runs at 30 Hz; at most one extra pass, 
   direction pressed this frame wins, else the current one is kept while held.
 - **Controls**: arrows / `W A S D` / joystick walk; **`Space` or joystick fire =
   sword (A)**; **`Ctrl` or `Alternate` = B item** (bombs / boomerang / candle, edge
-  triggered); **`Tab` = inventory screen**; `K` debug; `Esc` quit. Scancodes: Space
-  `$39`, Ctrl `$1D`, Alt `$38`, Tab `$0F`, K `$25`, Esc `$01`.
+  triggered); **`Tab` = inventory screen**; `K` debug; `T` debug room id (`DEBUG_ROOM`, drawn by `draw_hud_debug` at ribbon col 19; edge-triggered via `T_HELD`); `Esc` quit. Scancodes: Space
+  `$39`, Ctrl `$1D`, Alt `$38`, Tab `$0F`, K `$25`, T `$14`, Esc `$01`.
 
 ## 10. Gameplay systems and the original numbers they follow
 

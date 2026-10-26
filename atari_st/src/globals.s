@@ -499,5 +499,7 @@
     gvar CAVE_TEXT_PEACE, 1      | cave_talk is typing the ending's last words: three lines placed as the ROM does, 8 frames a letter, no blip on spaces
     gvar QUEST, 1                | the quest of the game that runs (QuestNumbers of its slot): 0 First, 1 Second; set by quest_apply
     gvar QUEST_APPLIED, 1        | the quest the overworld's tables are in now (quest_apply swaps the Second Quest's differences in and out)
+    gvar DEBUG_ROOM, 1           | T toggles it: the ribbon shows the room id (RM-xx, or CL-xx in a cellar)
+    gvar T_HELD, 1               | T was down last frame (edge trigger)
     galign
     .equ GLOBALS_BYTES, gvar_offset

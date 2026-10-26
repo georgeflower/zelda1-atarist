@@ -29,6 +29,7 @@ How to play
 | `Ctrl` or `Alternate` | the B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
 | `Tab` | the inventory screen (Left/Right choose the B item, `Tab` goes back) |
 | `K` | debug: a key, four bombs and the candle |
+| `T` | debug: show the room id on the ribbon, `RM-37` (`CL-xx` in a cellar); press again to hide it |
 | `Esc` | quit |
 
 The game starts on the title screen. Press Return, pick a player and make a name. Call it ZELDA
