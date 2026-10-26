@@ -458,3 +458,18 @@ class SwordTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DodongoBombCountTests(unittest.TestCase):
+    def test_bomb_count_is_not_kept_in_a_variable_the_walker_clears(self) -> None:
+        """The Dodongo's swallowed bombs (ROM Dodongo_ObjBombHits) must outlive its walks. They once lived in ENEMY_WANT,
+        which wander_tick clears at every square boundary, so only two bombs swallowed without a step between them
+        killed it and the player needed five or six."""
+        source = (Path(__file__).resolve().parents[1] / "src" / "ai.s").read_text(encoding="utf-8")
+        start = source.index("dodongo_ai:")
+        end = source.index("dodongo_waits:")
+        body = source[start:end]
+        self.assertNotIn("OFF_ENEMY_WANT", body)
+        self.assertIn("OFF_ENEMY_BOMBS", body)
+        wander = source[source.index("wander_tick:"):source.index("goriya_ai:")]
+        self.assertIn("clr.b 8(%a0, %d5.w)", wander)   # the reason the count needs a variable of its own

@@ -501,5 +501,6 @@
     gvar QUEST_APPLIED, 1        | the quest the overworld's tables are in now (quest_apply swaps the Second Quest's differences in and out)
     gvar DEBUG_ROOM, 1           | T toggles it: the ribbon shows the room id (RM-xx, or CL-xx in a cellar)
     gvar T_HELD, 1               | T was down last frame (edge trigger)
+    gvar ENEMY_BOMBS, 8          | the bombs a Dodongo has swallowed (Dodongo_ObjBombHits); not ENEMY_WANT, which wander_tick clears
     galign
     .equ GLOBALS_BYTES, gvar_offset

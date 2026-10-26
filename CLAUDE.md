@@ -224,7 +224,7 @@ writing). They cover the asset pipeline and tables; the 68000 music player is th
 reach-check listing parser.
 
 ### Golden frames (`tools/golden.py`, `tests/golden/frames.json`)
-Thirty-two fixed scenes (overworld start, the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo,
+Thirty-three fixed scenes (overworld start, the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo,
 Moldorm, traps, goriyas, old man, and Levels 3-8: a crowded room, a dark room, a rupee stash, Grumble, a dark crowd; Level 9: a Lanmola room, a Patra room, Ganon's room, Zelda's room and Zelda's thanks) are run through `screenshot.py` (dev builds in `build/dev` via `--room`/`--uw`/`--level`) and
 the `FRAMEHASH` (SHA-256 of pixel indices plus palette) is compared with the stored one. **Hashes, not images**: the frames are
 Nintendo's artwork, so the tests keep no images. (Screenshots are not kept in the repository; the owner has a zip of the early ones.) Runs are deterministic. After a change that moves pixels on purpose: look at
@@ -623,7 +623,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   does not face left (it is two sprites wide: `draw_dodongo`, second erase offsets `ENEMY_ERASE2_OFFSETS`). State 0 walks, 1 is
   bloated, 2 is stunned. It eats a ticking bomb that reaches its mouth (`dodongo_bomb_tick`, limits per direction) and dies after two; a
   bomb cloud in range stuns it for `$20` frames, the sword kills a stunned one (`dodongo_sword`) and it leaves a bomb; otherwise hits do
-  nothing. Pictures `dodongo_images`/`dodongo_flips` (palette row 3, the bloated ones are mirror layout).
+  nothing. The bombs it has swallowed are counted in `ENEMY_BOMBS` (the ROM's `Dodongo_ObjBombHits`); they must not live in `ENEMY_WANT`, which `wander_tick` clears at every square boundary (that once made it need five or six bombs). Pictures `dodongo_images`/`dodongo_flips` (palette row 3, the bloated ones are mirror layout).
 - **Moldorm** (`$41`, `BEH_MOLDORM`; ROM `Moldorm_*`, `Flyer_*`): the ROM has ten segments; **this port has two worms of four** (the engine has
   eight monster slots; `MOLDORM_SEGMENTS` in `ai.s` is per worm, `actors.MOLDORM_SEGMENTS = 8` in total, expanded in `_room_info`). The head
   (slot & 3 = 3) steers (`moldorm_steer`: chase or wander states 2/3, eight turns `$10` frames apart, then `Flyer_MoldormDecideState` rand >= `$40` =
