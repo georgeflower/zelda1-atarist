@@ -213,7 +213,7 @@ enemy_init_special:
     clr.b OFF_ENEMY_STATE(%a5, %d5.w)
     clr.b OFF_ENEMY_STEP(%a5, %d5.w)
     clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
-    lea OFF_ENEMY_WANT(%a5), %a0
+    lea OFF_ENEMY_BOMBS(%a5), %a0
     clr.b 0(%a0, %d5.w)             | no bombs swallowed yet
     bra 9f
 71: cmp.w #BEH_MOLDORM, %d0
@@ -2188,7 +2188,7 @@ boom_collide:
 | ------------------------------------------------------------------ Dodongo
 | UpdateDodongo. A Dodongo is two squares long when it goes sideways (its X is the left end); nothing
 | but a bomb touches it. ENEMY_STATE: 0 walking, 1 bloated (it swallowed a bomb), 2 stunned (a bomb blew up
-| beside it). ENEMY_STEP is the bloated substate, ENEMY_TIMER the wait in it (and in the stun), ENEMY_WANT
+| beside it). ENEMY_STEP is the bloated substate, ENEMY_TIMER the wait in it (and in the stun), ENEMY_BOMBS
 | the bombs it has swallowed. A bomb that is ticking beside its mouth is eaten; two of those finish it. A
 | bomb's cloud next to it stuns it for $20 frames, and the sword kills a stunned one (and it leaves a bomb).
     .equ DODONGO_STUN_FRAMES, 0x20
@@ -2236,13 +2236,13 @@ dodongo_ai:
     tst.b %d1
     bne 26f
     clr.b OFF_BOMB_TIMER(%a5)               | the swallowed bomb is gone
-    lea OFF_ENEMY_WANT(%a5), %a0
+    lea OFF_ENEMY_BOMBS(%a5), %a0
     addq.b #1, 0(%a0, %d5.w)
     bra 26f
 25: addq.b #1, OFF_ENEMY_STEP(%a5, %d5.w)   | on to the next substate
     cmpi.b #2, OFF_ENEMY_STEP(%a5, %d5.w)
     blo 26f
-    lea OFF_ENEMY_WANT(%a5), %a0
+    lea OFF_ENEMY_BOMBS(%a5), %a0
     cmpi.b #DODONGO_BOMBS_TO_DIE, 0(%a0, %d5.w)
     bhs 26f
     move.b #4, OFF_ENEMY_STEP(%a5, %d5.w)   | one bomb is not enough: it walks again

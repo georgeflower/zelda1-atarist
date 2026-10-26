@@ -66,6 +66,10 @@ Q2_CREDITS = ("300:=GAME_MODE=4,300:=INTRO_PHASE=4,300:=INTRO_SUB=0,300:=QUEST=1
               "300:=SLOT_NAMES.2=23,300:=SLOT_NAMES.3=36,300:=SLOT_NAMES.4=36,300:=SLOT_NAMES.5=36,300:=SLOT_NAMES.6=36,"
               "300:=SLOT_NAMES.7=36,300:=SLOT_DEATHS.0=7")
 
+# A bomb at the Dodongo's mouth at frame 300 (it faces down), and another at 430 with the Dodongo put facing right with its mouth on it.
+DODONGO_TWO_BOMBS = ("300:=BOMB_X=0x30,300:=BOMB_Y=0xb8,300:=BOMB_TIMER=48,"
+                     "430:=ENEMY_X.0=0x61,430:=ENEMY_Y.0=0xad,430:=ENEMY_DIR.0=1,430:=BOMB_X=0x71,430:=BOMB_Y=0xad,430:=BOMB_TIMER=48")
+
 SCENES: dict[str, list[str]] = {
     # The title and the story (intro.s) run in the normal build, which `make` has built (the others are dev builds).
     "title": ["--vbls", "400"],
@@ -93,6 +97,8 @@ SCENES: dict[str, list[str]] = {
     "uw1_aquamentus": ["--uw", "0x35", "--level", "1", "--vbls", "420"],
     "uw2_start": ["--uw", "0x7d", "--level", "2", "--vbls", "420"],
     "uw2_dodongo": ["--uw", "0x0e", "--level", "2", "--vbls", "420"],
+    # Two bombs swallowed with a walk in between (the count must survive the walk): the Dodongo is dead and has left a drop.
+    "uw2_dodongo_two_bombs": ["--uw", "0x0e", "--level", "2", "--vbls", "620", "--keys", DODONGO_TWO_BOMBS],
     "uw2_moldorm": ["--uw", "0x3e", "--level", "2", "--vbls", "420"],
     "uw2_traps": ["--uw", "0x3f", "--level", "2", "--vbls", "420"],
     "uw2_goriyas": ["--uw", "0x5e", "--level", "2", "--vbls", "420"],
