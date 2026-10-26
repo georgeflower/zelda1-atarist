@@ -526,6 +526,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   level record, `OFF_UW_STAIRS_ID`; palette row 2) and walked onto for the cellar like any stairs. Link rests at Y `$5E` at the top wall (the
   ROM lets him rest at `$5D`), so `check_warps` takes `UW_BOUND_UP` as that row. Rooms with trigger 5: Level 4 `$32`, 5 `$05`,
   6 `$09` and `$3A`, 7 `$0D`, 9 `$05 $10 $30`.
+- **Level 3's Raft stairs** (room `$69`, the stairs at ($D0,$90), cellar `$0F`): Level 3's `LevelInfo_CellarRoomIdArray` is empty, and the ROM still finds the cellar because `CheckWarps` loops over the array without a bound and reads on into the level info until a room has the current room as destination A or B (`$0F` at info offset `$7C`, A and B both `$69`). `underworld.cellar_rooms(info, attrs_d, attrs_a, attrs_b, start)` repeats that scan, after the listed cellars, so `build_cellars` and `level_rooms` see it; it finds nothing extra in any other level or quest.
 - **Triforce ending** (`UpdateMode12EndLevel_Full`; `ending_update` in combat.s, phases in `ENDING_PHASE`):
   taking item `$1B` records the level's piece (`TRIFORCE_PIECES`, bit level-1), starts the end-level song and hides
   monsters; 1 Link holds it up for 48 frames (his arms-up picture is item picture `$3F`, tile `$78`, drawn
