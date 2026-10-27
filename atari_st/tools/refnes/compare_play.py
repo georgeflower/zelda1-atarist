@@ -172,7 +172,7 @@ def compare_idle(rom, port, out):
                 if not pb or typ in HOPPING:
                     continue
                 a, b = sum(ra) / len(ra), sum(pb) / len(pb)
-                if max(a, b) > 0.05 and (a == 0 or b == 0 or not 0.6 <= a / b <= 1.6):
+                if max(a, b) > 0.15 and (a == 0 or b == 0 or not 0.6 <= a / b <= 1.6):      # below that a monster only stands (a red wizzrobe's reappearing counts a few pixels)
                     problems.append(f"type {typ:#04x}: ROM {a:.2f} px/frame (mean of {len(ra)}), port {b:.2f} (mean of {len(pb)})")
             out.append((key, name, problems, {"types": sorted({t for t, _, _ in rs.values()})}, {}))
 
