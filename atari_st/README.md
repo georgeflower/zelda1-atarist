@@ -80,49 +80,30 @@ Tools
 - a headless Hatari harness (`tools/screenshot.py`) that takes screenshots, presses keys and pokes
   variables; `--hd-file ZELDA.SAV=file` puts a file on the emulated drive first
 
-Prerequisites
--------------
+Building
+--------
 
-- Python 3
-- GNU m68k binutils with `m68k-linux-gnu-as`, `ld`, and `objcopy`
-- Hatari (or another TOS-compatible emulator) for execution; EmuTOS 1.4 (512k) and
-  TOS 1.04 both boot the game
-- optional: `pip install py65` and your ROM for the full sound bank,
-  `pip install machine68k` for the music player tests
-
-Example Debian/Ubuntu packages:
+Step-by-step instructions (Linux, Windows with WSL, Windows with VS Code, with and without the
+ROM, and how to start the game in Hatari) are in the [root README](../README.md#build). In short,
+from the repository root:
 
 ```sh
-sudo apt-get install python3 binutils-m68k-linux-gnu hatari
+make -C atari_st all      # needs the ROM at ext/Original.nes, writes atari_st/build/ZELDAST.PRG
+make -C atari_st check    # unit tests, manifest check, PRG header check, golden frames
 ```
 
-Build commands
---------------
+Needed: Python 3, `make`, GNU m68k binutils (`m68k-linux-gnu-as`, `ld`, `objcopy`, `nm`). Optional:
+`py65` (the sound bank), `machine68k` (music player tests), Hatari with a TOS image (running, golden
+frames). Outputs: `build/zelda_st.elf`, `build/zelda_st.bin`, `build/ZELDAST.PRG`.
 
-From the repository root:
-
-```sh
-make -C atari_st all
-make -C atari_st check
-```
-
-Outputs:
-
-- `atari_st/build/zelda_st.elf`
-- `atari_st/build/zelda_st.bin`
-- `atari_st/build/ZELDAST.PRG`
-
-Supplying the game data
------------------------
-
-Put a 131,088-byte iNES ROM image at `ext/Original.nes` (the port is built with *The Legend of
-Zelda (Europe) (Rev 1)*, SHA-1 `4a29a5157f1948b2b8c25978ce6d9ff7a3c14708`; the disassembly in `src/` describes the
-(U) PRG0/PRG1 images). The build reads
-it through `src/bins.xml`, whose offsets are relative to the start of PRG ROM
-because Zelda uses CHR-RAM and stores its graphics inside PRG. `ext/` and
-`*.nes` are both gitignored, so the ROM never enters version control.
-
-Without it `tools/build_assets.py` (and so `make`) stops with an error: there is no stand-in art.
+The ROM is a 131,088-byte iNES image, *The Legend of Zelda (Europe) (Rev 1)*, SHA-1
+`4a29a5157f1948b2b8c25978ce6d9ff7a3c14708`, at `ext/Original.nes` (the disassembly in `src/`
+describes the (U) PRG0/PRG1 images). The build reads it through `src/bins.xml`, whose offsets are
+relative to the start of PRG ROM because Zelda uses CHR-RAM and stores its graphics inside PRG.
+`ext/` and `*.nes` are gitignored, so the ROM never enters version control. Without it
+`tools/build_assets.py` (and so `make`) stops with an error: there is no stand-in art. The unit
+tests still run (`python3 -m unittest discover -s atari_st/tests`), those that need the ROM are
+skipped.
 
 The asset pipeline
 ------------------
