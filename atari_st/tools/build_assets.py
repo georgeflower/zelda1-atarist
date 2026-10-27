@@ -1315,6 +1315,7 @@ def underworld_equates(uw, level_count: int = 1, record_count: int = 1) -> list[
         f".equ DEV_START_UW, {int(os.environ.get('ZELDA_START_UW', '0xFF'), 0)}",
         f".equ DEV_START_LEVEL, {int(os.environ.get('ZELDA_START_LEVEL', '1'), 0)}",
         f".equ DEV_START_CAVE, {int(os.environ.get('ZELDA_START_CAVE', '0'), 0)}",
+        f".equ DEV_AUTOPLAY, {2 if os.environ.get('ZELDA_AUTOPLAY') == 'idle' else 1 if os.environ.get('ZELDA_AUTOPLAY') else 0}",   # a scripted player (src/autoplay.s), for the audit
         f".equ DEV_QUEST, {dev_quest()}",       # ZELDA_QUEST=2 starts a development build in the Second Quest
         # The title and the story are for a game that is played: a build that starts somewhere on purpose skips them.
         f".equ DEV_SKIP_INTRO, {1 if any(os.environ.get(n) for n in DEV_START_VARS) else 0}",
@@ -1328,7 +1329,7 @@ def dev_quest() -> int:
     return quest - 1
 
 
-DEV_START_VARS = ("ZELDA_START_ROOM", "ZELDA_START_UW", "ZELDA_START_CAVE", "ZELDA_SKIP_INTRO", "ZELDA_QUEST")
+DEV_START_VARS = ("ZELDA_START_ROOM", "ZELDA_START_UW", "ZELDA_START_CAVE", "ZELDA_SKIP_INTRO", "ZELDA_QUEST", "ZELDA_AUTOPLAY")
 
 
 def dungeon_entrance(bundle: AssetBundle) -> int:

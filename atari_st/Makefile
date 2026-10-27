@@ -11,7 +11,7 @@ FORCE_DEV_STAMP:
 
 $(DEV_STAMP): FORCE_DEV_STAMP
 	@mkdir -p $(BUILD_DIR)
-	@printf '%s|%s|%s|%s|%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' '$(ZELDA_START_LEVEL)' '$(ZELDA_START_CAVE)' '$(ZELDA_SKIP_INTRO)' '$(ZELDA_QUEST)' | cmp -s - $@ 2>/dev/null || printf '%s|%s|%s|%s|%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' '$(ZELDA_START_LEVEL)' '$(ZELDA_START_CAVE)' '$(ZELDA_SKIP_INTRO)' '$(ZELDA_QUEST)' > $@
+	@printf '%s|%s|%s|%s|%s|%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' '$(ZELDA_START_LEVEL)' '$(ZELDA_START_CAVE)' '$(ZELDA_SKIP_INTRO)' '$(ZELDA_QUEST)' '$(ZELDA_AUTOPLAY)' | cmp -s - $@ 2>/dev/null || printf '%s|%s|%s|%s|%s|%s|%s\n' '$(ZELDA_START_UW)' '$(ZELDA_START_ROOM)' '$(ZELDA_START_LEVEL)' '$(ZELDA_START_CAVE)' '$(ZELDA_SKIP_INTRO)' '$(ZELDA_QUEST)' '$(ZELDA_AUTOPLAY)' > $@
 SRC_DIR := src
 TOOLS_DIR := tools
 ASSET_INPUTS := $(ROOT_DIR)/src/bins.xml $(ROOT_DIR)/src/Z_05.asm $(ROOT_DIR)/src/Z_06.asm \
