@@ -21,8 +21,8 @@ MONSTER_TYPES = (0x06, 0x15, 0x1B, 0x28, 0x2A, 0x27, 0x3D, 0x49,
                  # Level 2: the blue goriya, the two Dodongos and Moldorm
                  0x05, 0x31, 0x32, 0x41,
                  # Levels 3 to 8, the ones that walk: red and blue darknuts, vire, zol, pols voice, like-like,
-                 # the wizzrobes, bubbles and gibdos
-                 0x0B, 0x0C, 0x12, 0x13, 0x16, 0x17, 0x23, 0x24, 0x2B, 0x30,
+                 # the wizzrobes, bubbles (flashing, blue and red) and gibdos
+                 0x0B, 0x0C, 0x12, 0x13, 0x16, 0x17, 0x23, 0x24, 0x2B, 0x2C, 0x2D, 0x30,
                  # the red keese a vire leaves behind, and the black keese of the Second Quest's Level 4
                  0x1C, 0x1D,
                  # Manhandla (one object per hand and a base)
@@ -84,7 +84,7 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
                   # a bubble at $40; the vire and gibdo at the default $20; pols voice, the like-like and
                   # the wizzrobes move by their own rules
                   0x0B: 2, 0x0C: PERIOD_PATTERN + 1, 0x12: 2, 0x13: PERIOD_PATTERN, 0x16: 2, 0x17: 2,
-                  0x23: 1, 0x24: 1, 0x2B: 1, 0x30: 2, 0x1C: 1, 0x1D: 1, 0x3C: 1, 0x33: 1, 0x34: 1, 0xFD: 1, 0xFC: 1,
+                  0x23: 1, 0x24: 1, 0x2B: 1, 0x2C: 1, 0x2D: 1, 0x30: 2, 0x1C: 1, 0x1D: 1, 0x3C: 1, 0x33: 1, 0x34: 1, 0xFD: 1, 0xFC: 1,
                   0x38: 1, 0xFB: 1, 0x18: 1, 0x43: 1, 0x44: 1, 0x45: 1, 0xF9: 1, 0x46: 1, 0x3A: 1, 0x3B: 1,
                   0x47: 1, 0x48: 1, 0x25: 1, 0x26: 1, 0x3E: 1, 0x37: 1, 0x3F: 1,
                   # armos at quarter-speed $20; the whirlwind two pixels a frame and the fairy move themselves
@@ -96,7 +96,7 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
 # The armos and the flying ghini are no walkers: they fly like a peahat (UpdateArmos is UpdateFlyingGhini) and speed up to $A0.
 ROM_QSPEED = {0x01: 0x20, 0x02: 0x20, 0x03: 0x20, 0x04: 0x20, 0x05: 0x20, 0x06: 0x20,
               0x07: 0x20, 0x08: 0x30, 0x09: 0x20, 0x0A: 0x30, 0x0B: 0x20, 0x0C: 0x28,
-              0x12: 0x20, 0x13: 0x18, 0x15: 0x40, 0x28: 0x20, 0x2A: 0x20, 0x2B: 0x40, 0x30: 0x20,
+              0x12: 0x20, 0x13: 0x18, 0x15: 0x40, 0x28: 0x20, 0x2A: 0x20, 0x2B: 0x40, 0x2C: 0x40, 0x2D: 0x40, 0x30: 0x20,
               }
 # Half-hearts of damage on contact (ObjTypeToDamagePoints: $80 is half a heart).
 MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2, 0x49: 2,
@@ -109,7 +109,7 @@ MONSTER_DAMAGE = {0x06: 1, 0x15: 1, 0x1B: 1, 0x28: 1, 0x2A: 1, 0x27: 1, 0x3D: 2,
                   0x05: 2, 0x31: 2, 0x32: 2, 0x41: 1,
                   # ObjTypeToDamagePoints: darknuts $01 and $02, vire and zol $01, pols voice $02, like-like $01,
                   # blue wizzrobe $02 and red $01, a bubble none, gibdo $02
-                  0x0B: 2, 0x0C: 4, 0x12: 2, 0x13: 2, 0x16: 4, 0x17: 2, 0x23: 4, 0x24: 2, 0x2B: 0, 0x30: 4, 0x1C: 1, 0x1D: 1,
+                  0x0B: 2, 0x0C: 4, 0x12: 2, 0x13: 2, 0x16: 4, 0x17: 2, 0x23: 4, 0x24: 2, 0x2B: 0, 0x2C: 0, 0x2D: 0, 0x30: 4, 0x1C: 1, 0x1D: 1,
                   # Manhandla $01
                   0x3C: 2,
                   # Gohma and its legs: two hearts
@@ -169,7 +169,7 @@ MONSTER_BEHAVIOUR = {0x28: BEHAVIOUR_ROPE, 0x06: BEHAVIOUR_GORIYA, 0x1B: BEHAVIO
                       0x21: BEHAVIOUR_GHINI, 0x20: BEHAVIOUR_BOULDER, 0x1F: BEHAVIOUR_BOULDER_SET,
                       0x05: BEHAVIOUR_GORIYA, 0x31: BEHAVIOUR_DODONGO, 0x32: BEHAVIOUR_DODONGO,
                       0x41: BEHAVIOUR_MOLDORM, 0x16: BEHAVIOUR_POLS, 0x23: BEHAVIOUR_WIZZROBE,
-                      0x24: BEHAVIOUR_WIZZROBE, 0x2B: BEHAVIOUR_BUBBLE, 0x3C: BEHAVIOUR_MANHANDLA,
+                      0x24: BEHAVIOUR_WIZZROBE, 0x2B: BEHAVIOUR_BUBBLE, 0x2C: BEHAVIOUR_BUBBLE, 0x2D: BEHAVIOUR_BUBBLE, 0x3C: BEHAVIOUR_MANHANDLA,
                       0x33: BEHAVIOUR_GOHMA, 0x34: BEHAVIOUR_GOHMA, 0xFD: BEHAVIOUR_GOHMA, 0xFC: BEHAVIOUR_GOHMA,
                       0x38: BEHAVIOUR_DIGDOGGER, 0xFB: BEHAVIOUR_DIGDOGGER, 0x18: BEHAVIOUR_DIGDOGGER,
                       0x43: BEHAVIOUR_GLEEOK, 0x44: BEHAVIOUR_GLEEOK, 0x45: BEHAVIOUR_GLEEOK,
@@ -269,6 +269,8 @@ MONSTER_DRAW = {
     0x23: (("wide", "wide", "mirror", "mirror"), 4, MODE_WIZZROBE),
     0x24: (("wide", "wide", "mirror", "mirror"), 4, MODE_WIZZROBE),
     0x2B: ("wide", 4, MODE_BUBBLE),
+    0x2C: ("wide", 4, MODE_BUBBLE),         # the blue bubble: UpdateBubble draws it in palette row 1
+    0x2D: ("wide", 4, MODE_BUBBLE),         # the red one in row 2; the flashing $2B cycles through all four
     0x30: ("wide", 1, MODE_STALFOS),
     0x1C: ("mirror", 2, MODE_KEESE),
     0x1D: ("mirror", 2, MODE_KEESE),
@@ -997,7 +999,7 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
         count = 1
     types = [list_id] * count if 0 < list_id < 0x62 else []
     if list_id >= 0x62 and list_id - 0x62 < len(lists):
-        types = [t for t in lists[list_id - 0x62][:count] if t]     # a mixed group; empty slots belong to the traps
+        types = [t for t in listed_types(lists, list_id, count) if t]     # a mixed group; empty slots belong to the traps
     expanded = []
     for t in types:
         if t in (0x49, 0x4A):
@@ -1149,6 +1151,14 @@ def overworld_monster_lists(source_root: Path) -> list[list[int]]:
     return [list(blob[a:b]) for a, b in zip(starts, ends)]
 
 
+def listed_types(lists: list[list[int]], list_id: int, count: int) -> list[int]:
+    """The first `count` bytes of list `list_id` as InitMode_EnterRoom reads them: straight on through ObjLists, so a count longer
+    than the list takes the first types of the next one (list $68 has five entries and the screens $38 and $49 want six)."""
+    flat = [t for one in lists for t in one]
+    start = sum(len(one) for one in lists[:list_id - 0x62])
+    return flat[start:start + count]
+
+
 def overworld_room_types(lists, attr_c: int, attr_d: int, foe_counts) -> list[int]:
     """The NES monster types RoomObjCount x ObjType holds for a screen (before the room history trims them)."""
     list_id = (attr_c & 0x3F) | (0x40 if attr_d & 0x80 else 0)
@@ -1159,7 +1169,7 @@ def overworld_room_types(lists, attr_c: int, attr_d: int, foe_counts) -> list[in
         return []
     if list_id < 0x62:
         return [list_id] * count
-    return lists[list_id - 0x62][:count]
+    return listed_types(lists, list_id, count)
 
 
 def overworld_room_info(source_root: Path, attrs_a, attrs_c, attrs_d, attrs_f, foe_counts) -> bytes:

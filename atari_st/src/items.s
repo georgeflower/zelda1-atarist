@@ -435,6 +435,7 @@ heart_fill_update:
     cmp.b OFF_HP_HALVES(%a5), %d0
     bhi 1f
     clr.b OFF_HEART_FILL(%a5)           | full: play on
+    clr.b OFF_SWORD_LOCK(%a5)           | World_FillHearts also clears SwordBlocked
     clr.b OFF_LINK_HELD(%a5)
     clr.b OFF_HP_FRAC(%a5)
     bra 8f

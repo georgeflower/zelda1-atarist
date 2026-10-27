@@ -249,6 +249,7 @@ game_start:
 
 | Everything that sets the game up once the title is over (or at once, in a development build).
 begin_game:
+    clr.b OFF_SWORD_LOCK(%a5)           | UpdateMode1Menu_Sub1: a chosen slot starts with SwordBlocked 0
     .if DEV_SKIP_INTRO
     moveq #DEV_QUEST, %d0               | a development build has no profile: its quest is a build setting
     bsr quest_apply_far
