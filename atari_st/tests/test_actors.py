@@ -522,3 +522,30 @@ class DodongoBombCountTests(unittest.TestCase):
         self.assertIn("OFF_ENEMY_BOMBS", body)
         wander = source[source.index("wander_tick:"):source.index("goriya_ai:")]
         self.assertIn("clr.b 8(%a0, %d5.w)", wander)   # the reason the count needs a variable of its own
+
+
+@unittest.skipUnless(HAS_ROM, "needs ext/Original.nes")
+class RoomItemCarrierTests(unittest.TestCase):
+    """MoveAndDrawRoomItem: a like-like, stalfos or gibdo that is the first monster of a room carries its item along."""
+
+    CARRIER_ROOMS = {(1, 0x33): 0x2A, (1, 0x74): 0x2A, (5, 0x65): 0x30, (5, 0x66): 0x30, (7, 0x5A): 0x2A, (7, 0x6D): 0x2A}
+
+    def record(self, level: int, room: int) -> bytes:
+        gen = ROM_ROOT / "atari_st" / "build" / "generated"
+        index = (gen / f"uw{level}_room_index.bin").read_bytes()
+        info = (gen / f"uw{level}_room_info.bin").read_bytes()
+        return info[index[room] * 16:(index[room] + 1) * 16]
+
+    def test_the_rooms_the_rom_audit_found_have_a_carrier_first_and_an_item(self) -> None:
+        for (level, room), nes_type in self.CARRIER_ROOMS.items():
+            record = self.record(level, room)
+            self.assertEqual(record[6], actors.MONSTER_TYPES.index(nes_type), f"level {level} room {room:02X}")
+            self.assertNotEqual(record[2], 0xFF, f"level {level} room {room:02X} has an item")
+
+    def test_the_follow_routine_handles_exactly_the_rom_carriers(self) -> None:
+        source = (Path(__file__).resolve().parents[1] / "src" / "combat.s").read_text(encoding="utf-8")
+        body = source[source.index("room_item_follow:"):source.index("item_pickup:")]
+        for monster in ("MON_LIKELIKE", "MON_STALFOS", "MON_GIBDO"):
+            self.assertIn(monster, body)
+        self.assertIn("OFF_ITEM_ACTIVE", body)
+

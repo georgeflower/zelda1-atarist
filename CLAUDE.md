@@ -570,6 +570,9 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   on his tile), then `UW_FLAGS` bit 1. Gleeok's body is baked into the room (`uw_bake_boss`, `GLEEOK_GONE` after death);
   necks and heads come from the boss pool, one segment per neck when there are four necks (`GLEEOK_SEGS`). The "more bombs" and "life or money" men are
   ported (see Dungeon people below).
+  **Room item carried** (`MoveAndDrawRoomItem`, `room_item_follow`): while the room's item lies on the floor (`ITEM_ACTIVE` 2) and the first monster is alive and
+  a like-like, a stalfos or a gibdo, the item takes that monster's X and Y every frame (First Quest rooms: Level 1 `$33 $74`, Level 5 `$65 $66`, Level 7 `$5A $6D`); a hidden
+  item does not move, and when the monster dies the item stays where it fell.
   **Bubbles** (`UpdateBubble`, `dmon_contact`): `$2B` flashes through all four palette rows and keeps Link's sword from swinging for 160 frames
   (`SWORD_BLOCK`); the Second Quest's `$2C` (blue, row 1) clears `SWORD_LOCK` and `$2D` (red, row 2) sets it, with no end of its own. Only a blue bubble, a
   full refill of hearts (`heart_fill_update`) or starting a game, a life or a loaded save frees the sword again (the ROM's `SwordBlocked`). All three ghost through weapons and never count as monsters.
