@@ -322,20 +322,38 @@ def reachable_rooms(start: int, attrs_a: bytes, attrs_b: bytes) -> list[int]:
     return sorted(seen)
 
 
-def cellar_rooms(info: bytes, attrs_d: bytes) -> list[int]:
-    """The ids LevelInfo_CellarRoomIdArray lists that really are cellars (tunnel $3E or treasure room $3F)."""
+def cellar_rooms(info: bytes, attrs_d: bytes, attrs_a: bytes | None = None, attrs_b: bytes | None = None,
+                 start: int | None = None) -> list[int]:
+    """The cellars of a level: the ids LevelInfo_CellarRoomIdArray lists that really are cellars (tunnel $3E or treasure room $3F).
+
+    Given the door attributes and the start room it also follows the ROM past the end of the array. Taking a stairs square
+    (`CheckWarps`) loops `X = 0, 1, ...` over `LevelInfo_CellarRoomIdArray` until the room it finds there has the current room as
+    destination A or B, and the array is only six long: a level whose array has nothing for the room goes on reading whatever
+    follows it in the level info. Level 3 relies on this: its array is empty, and the scan finds `$0F` (the raft's room, with
+    A and B both `$69`) 72 bytes on, so the stairs of room `$69` lead to the Raft. Such cellars are appended after the listed ones,
+    which is the order the ROM finds them in."""
     listed = info[CELLAR_ARRAY_OFFSET : CELLAR_ARRAY_OFFSET + CELLAR_ARRAY_LENGTH]
-    return [room for room in dict.fromkeys(listed) if room < 128 and (attrs_d[room] & 0x3F) in CELLAR_UNIQUE_IDS]
+    cellars = [room for room in dict.fromkeys(listed) if room < 128 and (attrs_d[room] & 0x3F) in CELLAR_UNIQUE_IDS]
+    if attrs_a is None or attrs_b is None or start is None:
+        return cellars
+    for room in _level_grid(start, cellars, attrs_a, attrs_b):
+        if room in cellars:
+            continue
+        if any(room in (attrs_a[c], attrs_b[c]) for c in cellars):
+            continue                                        # the listed cellars already answer for this room
+        for index in range(CELLAR_ARRAY_OFFSET, len(info)):
+            found = info[index]
+            if found >= 128:
+                continue
+            if room in (attrs_a[found], attrs_b[found]):
+                if (attrs_d[found] & 0x3F) in CELLAR_UNIQUE_IDS and found not in cellars:
+                    cellars.append(found)
+                break
+    return cellars
 
 
-def level_rooms(start: int, info: bytes, attrs_a: bytes, attrs_b: bytes, attrs_d: bytes) -> list[int]:
-    """Every room of a dungeon: those reachable through doors from the start room, and those that tunnels lead to.
-
-    A tunnel ($3E) is a cellar whose attributes A and B are the rooms its two stairs come out in; levels 4 to 9
-    have rooms that can only be reached that way (the triforce room of Levels 6 to 8 does). The cellar ids
-    themselves are not rooms of the grid, so they are left out.
-    """
-    cellars = cellar_rooms(info, attrs_d)
+def _level_grid(start: int, cellars: list[int], attrs_a: bytes, attrs_b: bytes) -> set[int]:
+    """The rooms reached from the start by doors and through the given cellars, the cellars themselves not counted."""
     seen = set(reachable_rooms(start, attrs_a, attrs_b))
     changed = True
     while changed:
@@ -348,7 +366,18 @@ def level_rooms(start: int, info: bytes, attrs_a: bytes, attrs_b: bytes, attrs_d
                 if room not in seen:
                     seen.update(reachable_rooms(room, attrs_a, attrs_b))
                     changed = True
-    return sorted(seen - set(cellars))
+    return seen - set(cellars)
+
+
+def level_rooms(start: int, info: bytes, attrs_a: bytes, attrs_b: bytes, attrs_d: bytes) -> list[int]:
+    """Every room of a dungeon: those reachable through doors from the start room, and those that tunnels lead to.
+
+    A tunnel ($3E) is a cellar whose attributes A and B are the rooms its two stairs come out in; levels 4 to 9
+    have rooms that can only be reached that way (the triforce room of Levels 6 to 8 does). The cellar ids
+    themselves are not rooms of the grid, so they are left out.
+    """
+    cellars = cellar_rooms(info, attrs_d, attrs_a, attrs_b, start)
+    return sorted(_level_grid(start, cellars, attrs_a, attrs_b))
 
 
 # Palette rows of the shared overworld table whose slots no level may repurpose: Link's own row
@@ -429,10 +458,7 @@ def build_cellars(asm: str, info: bytes, attrs, bank_id) -> tuple[list[bytes], l
 
     maps: list[bytes] = []
     records: list[bytes] = []
-    listed = info[CELLAR_ARRAY_OFFSET : CELLAR_ARRAY_OFFSET + CELLAR_ARRAY_LENGTH]
-    for room in dict.fromkeys(listed):
-        if room >= 128 or (attrs_d[room] & 0x3F) not in CELLAR_UNIQUE_IDS:
-            continue
+    for room in cellar_rooms(info, attrs_d, attrs_a, attrs_b, info[B.LEVEL_INFO_START_ROOM_ID]):
         kind = attrs_d[room] & 1
         columns = [B.decode_column(heap, 0, d & 0x0F) for d in layouts[kind]]
         grid = bytearray(UW_ROOM_BYTES)

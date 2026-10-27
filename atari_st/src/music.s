@@ -190,7 +190,7 @@ music_roar_tick:
     bra 9f
 3:  moveq #0, %d1
     move.b OFF_UW_BOSS_ROOM(%a5), %d1
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     btst #0, 0(%a0, %d1.w)
     bne 9f                              | the boss is dead: the ambient roar is over
     move.b #(ROAR_FRAMES - 1), OFF_ROAR_TIMER(%a5)    | counted down, then sounds again: a period of ROAR_FRAMES

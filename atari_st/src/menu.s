@@ -370,7 +370,7 @@ menu_sheet_map:
     sub.w %d5, %d1
     btst %d1, 0(%a1, %d4.w)
     beq 8f
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     btst #UW_FLAG_VISITED, 0(%a0, %d3.w)
     beq 8f
     moveq #0, %d1
@@ -378,7 +378,7 @@ menu_sheet_map:
     cmp.b #0xff, %d1
     beq 8f
     mulu.w #UW_DOOR_RECORD_BYTES, %d1
-    lea OFF_UW_OPEN(%a5), %a0
+    uwlea OPEN, %a0
     moveq #0, %d7
     move.b 0(%a0, %d3.w), %d7           | the doors opened for good
     lea 0(%a4, %d1.l), %a0              | the room's four door types: E, W, S, N

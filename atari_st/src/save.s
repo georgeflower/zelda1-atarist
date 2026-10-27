@@ -1,8 +1,10 @@
 | The saved games: ZELDA.SAV, read by GEMDOS when the program starts and written when something about a profile changes
 | (a name is registered, a profile is deleted, the player chooses SAVE after a death).
 |
-| The file is a header (the letters ZSAV, the version, a checksum of everything after it) and three records of 640 bytes, one
-| for each profile: what the file menu shows of it (active, deaths, quest, ring, the hearts value and the partial heart,
+| The file is a header (the letters ZSAV, the version, a checksum of everything after it), three records of 640 bytes, one
+| for each profile, and three of 256 bytes after them, one for each profile too: the world flags of Levels 7 to 9 (the ROM keeps
+| one set of flags for Levels 1 to 6 and another for 7 to 9: UW_OPEN_B and UW_FLAGS_B). A file of version 1 has no such
+| records; it is still read, with those flags empty. A record holds: what the file menu shows of it (active, deaths, quest, ring, the hearts value and the partial heart,
 | the name) and the state of the game as the ROM keeps it in its Items block and world flags, which is the items, the
 | counters, the flags of the 128 overworld screens and of the 128 rooms of the dungeons, and the list of the changes
 | that secrets have made to the overworld's screens (secrets.s), so that a loaded game finds them open.
@@ -16,8 +18,12 @@
     .equ SAVE_RECS, 3
     .equ SAVE_REC_BYTES, 640
     .equ SAVE_HEADER_BYTES, 8
-    .equ SAVE_FILE_BYTES, 1928
-    .equ SAVE_VERSION, 1
+    .equ SAVE_EXT_BYTES, 256
+    .equ SAVE_OLD_BYTES, 1928               | version 1: the header and the three records
+    .equ SAVE_EXT_OFFSET, 1928              | where the three records of Levels 7-9's flags start
+    .equ SAVE_FILE_BYTES, 2696
+    .equ SAVE_VERSION, 2
+    .equ SAVE_OLD_VERSION, 1
     .equ SAVE_MAGIC, 0x5a534156             | "ZSAV"
     .equ SAVE_SEED, 0x5a5a
     .equ REC_ACTIVE, 0
@@ -36,8 +42,17 @@
     .equ GEMDOS_FDELETE, 0x41
     .equ GEMDOS_FRENAME, 0x56
 
-    .if SAVE_FILE_BYTES != (SAVE_HEADER_BYTES + SAVE_RECS * SAVE_REC_BYTES)
-    .error "SAVE_FILE_BYTES is the header and the three records"
+    .if SAVE_OLD_BYTES != (SAVE_HEADER_BYTES + SAVE_RECS * SAVE_REC_BYTES)
+    .error "SAVE_OLD_BYTES is the header and the three records"
+    .endif
+    .if SAVE_EXT_OFFSET != SAVE_OLD_BYTES
+    .error "the flags of Levels 7-9 follow the records"
+    .endif
+    .if SAVE_FILE_BYTES != (SAVE_EXT_OFFSET + SAVE_RECS * SAVE_EXT_BYTES)
+    .error "SAVE_FILE_BYTES is the header, the three records and the three flag records"
+    .endif
+    .if OFF_UW_FLAGS_B != (OFF_UW_OPEN_B + 128) || SAVE_EXT_BYTES != 256
+    .error "a flag record is UW_OPEN_B then UW_FLAGS_B"
     .endif
     .if GLOBALS_BYTES > 32767
     .error "save_fields reaches the variables by a signed 16-bit offset"
@@ -62,6 +77,38 @@ save_rec_addr:
     lea (OFF_SAVE_FILE + SAVE_HEADER_BYTES)(%a5), %a0
     adda.l %d0, %a0
     move.l (%sp)+, %d0
+    rts
+
+| d0.w = a slot: a0 = its record of the flags of Levels 7-9.
+save_ext_addr:
+    move.l %d0, -(%sp)
+    andi.l #0xffff, %d0
+    lsl.l #8, %d0                       | SAVE_EXT_BYTES
+    lea (OFF_SAVE_FILE + SAVE_EXT_OFFSET)(%a5), %a0
+    adda.l %d0, %a0
+    move.l (%sp)+, %d0
+    rts
+
+| The flags of Levels 7-9 (UW_OPEN_B, UW_FLAGS_B) into the slot d0.w's flag record ...
+save_ext_store:
+    movem.l %d1/%a0-%a1, -(%sp)
+    bsr save_ext_addr
+    lea OFF_UW_OPEN_B(%a5), %a1
+    move.w #(SAVE_EXT_BYTES - 1), %d1
+1:  move.b (%a1)+, (%a0)+
+    dbra %d1, 1b
+    movem.l (%sp)+, %d1/%a0-%a1
+    rts
+
+| ... and back.
+save_ext_load:
+    movem.l %d1/%a0-%a1, -(%sp)
+    bsr save_ext_addr
+    lea OFF_UW_OPEN_B(%a5), %a1
+    move.w #(SAVE_EXT_BYTES - 1), %d1
+1:  move.b (%a0)+, (%a1)+
+    dbra %d1, 1b
+    movem.l (%sp)+, %d1/%a0-%a1
     rts
 
 | The slot d0.w as the menu has it goes into its record.
@@ -141,6 +188,10 @@ save_delete:
     move.w #(SAVE_REC_BYTES / 2 - 1), %d1
 1:  clr.w (%a0)+
     dbra %d1, 1b
+    bsr save_ext_addr
+    move.w #(SAVE_EXT_BYTES - 1), %d1
+2:  clr.b (%a0)+
+    dbra %d1, 2b
     movem.l (%sp)+, %d0/%d1/%a0
     rts
 
@@ -218,7 +269,11 @@ save_fields_clear:
 2:  clr.b (%a1)+
     dbra %d1, 2b
     bra 1b
-9:  movem.l (%sp)+, %d0-%d1/%a0-%a1
+9:  lea OFF_UW_OPEN_B(%a5), %a1         | and the flags of Levels 7-9
+    move.w #(SAVE_EXT_BYTES - 1), %d1
+3:  clr.b (%a1)+
+    dbra %d1, 3b
+    movem.l (%sp)+, %d0-%d1/%a0-%a1
     rts
 
 | The changes secrets made to the overworld's screens go back, last first: the maps are as the ROM made them.
@@ -304,6 +359,7 @@ save_new_game:
     bsr save_rec_addr
     lea REC_STATE(%a0), %a1
     bsr save_fields_store
+    bsr save_ext_store
     movem.l (%sp)+, %d0/%a0-%a1
     rts
 
@@ -321,6 +377,7 @@ save_load_game:
     bsr save_rec_addr
     lea REC_STATE(%a0), %a1
     bsr save_fields_load
+    bsr save_ext_load
     bsr save_world_replay
     bsr game_reset_position
     movem.l (%sp)+, %d0-%d1/%a0-%a1
@@ -357,16 +414,16 @@ save_store_game:
     bsr save_rec_addr
     lea REC_STATE(%a0), %a1
     bsr save_fields_store
+    bsr save_ext_store
     bsr save_write
 9:  movem.l (%sp)+, %d0-%d2/%a0-%a1
     rts
 
 | ------------------------------------------------------------------------------------------------------------- disk
-| The checksum of the records, in d0.w.
+| The checksum of everything after the header, in d0.w. d1.w = the number of 16-bit words, less one.
 save_checksum:
     movem.l %d1/%a0, -(%sp)
     lea (OFF_SAVE_FILE + SAVE_HEADER_BYTES)(%a5), %a0
-    move.w #((SAVE_FILE_BYTES - SAVE_HEADER_BYTES) / 2 - 1), %d1
     move.w #SAVE_SEED, %d0
 1:  add.w (%a0)+, %d0
     dbra %d1, 1b
@@ -397,12 +454,27 @@ save_read:
     move.w #GEMDOS_FCLOSE, -(%sp)
     trap #1
     addq.l #4, %sp
-    cmp.l #SAVE_FILE_BYTES, %d4
-    bne 8f
     cmpi.l #SAVE_MAGIC, OFF_SAVE_FILE(%a5)
     bne 8f
-    cmpi.w #SAVE_VERSION, (OFF_SAVE_FILE + 4)(%a5)
+    cmp.l #SAVE_FILE_BYTES, %d4
+    beq 4f
+    cmp.l #SAVE_OLD_BYTES, %d4          | a file of version 1: the records only, no flags yet for Levels 7-9
     bne 8f
+    cmpi.w #SAVE_OLD_VERSION, (OFF_SAVE_FILE + 4)(%a5)
+    bne 8f
+    move.w #((SAVE_OLD_BYTES - SAVE_HEADER_BYTES) / 2 - 1), %d1
+    bsr save_checksum
+    cmp.w (OFF_SAVE_FILE + 6)(%a5), %d0
+    bne 8f
+    lea (OFF_SAVE_FILE + SAVE_EXT_OFFSET)(%a5), %a0
+    move.w #(SAVE_RECS * SAVE_EXT_BYTES - 1), %d1
+3:  clr.b (%a0)+
+    dbra %d1, 3b
+    moveq #1, %d5
+    bra 8f
+4:  cmpi.w #SAVE_VERSION, (OFF_SAVE_FILE + 4)(%a5)
+    bne 8f
+    move.w #((SAVE_FILE_BYTES - SAVE_HEADER_BYTES) / 2 - 1), %d1
     bsr save_checksum
     cmp.w (OFF_SAVE_FILE + 6)(%a5), %d0
     bne 8f
@@ -422,6 +494,7 @@ save_write:
     movem.l %d0-%d5/%a0-%a2, -(%sp)
     move.l #SAVE_MAGIC, OFF_SAVE_FILE(%a5)
     move.w #SAVE_VERSION, (OFF_SAVE_FILE + 4)(%a5)
+    move.w #((SAVE_FILE_BYTES - SAVE_HEADER_BYTES) / 2 - 1), %d1
     bsr save_checksum
     move.w %d0, (OFF_SAVE_FILE + 6)(%a5)
     clr.w -(%sp)                        | an ordinary file

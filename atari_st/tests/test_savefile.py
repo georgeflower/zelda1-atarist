@@ -16,7 +16,8 @@ class SaveFileLayout(unittest.TestCase):
 
     def test_the_constants_are_those_of_save_s(self):
         for name, value in [("SAVE_RECS", S.RECORDS), ("SAVE_REC_BYTES", S.RECORD_BYTES), ("SAVE_HEADER_BYTES", S.HEADER_BYTES),
-                            ("SAVE_FILE_BYTES", S.FILE_BYTES), ("SAVE_VERSION", S.VERSION), ("SAVE_SEED", S.SEED),
+                            ("SAVE_FILE_BYTES", S.FILE_BYTES), ("SAVE_OLD_BYTES", S.OLD_BYTES),
+                            ("SAVE_EXT_BYTES", S.EXT_BYTES), ("SAVE_OLD_VERSION", S.OLD_VERSION), ("SAVE_EXT_OFFSET", S.OLD_BYTES), ("SAVE_VERSION", S.VERSION), ("SAVE_SEED", S.SEED),
                             ("SAVE_MAGIC", struct.unpack(">I", S.MAGIC)[0]), ("REC_STATE", S.STATE_OFFSET)]:
             self.assertEqual(self.src[name], value, name)
 
@@ -71,8 +72,30 @@ class SaveFileModel(unittest.TestCase):
         broken[0] = ord("X")
         self.assertIsNone(S.parse(bytes(broken)))              # the letters
         broken = bytearray(good)
-        broken[5] = 2
+        broken[5] = 3
         self.assertIsNone(S.parse(bytes(broken)))              # the version
+
+    def test_the_flags_of_levels_7_to_9_round_trip(self):
+        ext = [bytes([i + 1]) * S.EXT_BYTES for i in range(S.RECORDS)]
+        records, back = S.parse_all(S.make_file([S.make_record()], ext))
+        self.assertEqual(back, ext)
+        broken = bytearray(S.make_file([S.make_record()], ext))
+        broken[S.OLD_BYTES + 5] ^= 1
+        self.assertIsNone(S.parse(bytes(broken)))              # the checksum covers them
+
+    def test_a_file_of_version_1_is_still_read_with_empty_flags(self):
+        old = S.make_file([S.make_record("LINK", deaths=2)], old=True)
+        self.assertEqual(len(old), S.OLD_BYTES)
+        records, ext = S.parse_all(old)
+        self.assertEqual(records[0][1], 2)
+        self.assertEqual(ext, [bytes(S.EXT_BYTES)] * S.RECORDS)
+        self.assertIsNone(S.parse(old[:-2]))
+        wrong = bytearray(S.make_file([S.make_record()]))[:S.OLD_BYTES]
+        self.assertIsNone(S.parse(bytes(wrong)))               # version 2 needs its flags
+
+    def test_the_flag_records_are_the_two_world_flag_tables(self):
+        gvars = self.src["gvars"] if hasattr(self, "src") else S.from_sources()["gvars"]
+        self.assertEqual(gvars["UW_OPEN_B"] + gvars["UW_FLAGS_B"], S.EXT_BYTES)
 
     def test_the_checksum_wraps_at_sixteen_bits(self):
         self.assertEqual(S.checksum(b"\xff\xff" * 3), (S.SEED + 3 * 0xFFFF) & 0xFFFF)

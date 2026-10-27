@@ -999,7 +999,7 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
         count = 1
     types = [list_id] * count if 0 < list_id < 0x62 else []
     if list_id >= 0x62 and list_id - 0x62 < len(lists):
-        types = [t for t in lists[list_id - 0x62][:count] if t]     # a mixed group; empty slots belong to the traps
+        types = [t for t in listed_types(lists, list_id, count) if t]     # a mixed group; empty slots belong to the traps
     expanded = []
     for t in types:
         if t in (0x49, 0x4A):
@@ -1151,6 +1151,14 @@ def overworld_monster_lists(source_root: Path) -> list[list[int]]:
     return [list(blob[a:b]) for a, b in zip(starts, ends)]
 
 
+def listed_types(lists: list[list[int]], list_id: int, count: int) -> list[int]:
+    """The first `count` bytes of list `list_id` as InitMode_EnterRoom reads them: straight on through ObjLists, so a count longer
+    than the list takes the first types of the next one (list $68 has five entries and the screens $38 and $49 want six)."""
+    flat = [t for one in lists for t in one]
+    start = sum(len(one) for one in lists[:list_id - 0x62])
+    return flat[start:start + count]
+
+
 def overworld_room_types(lists, attr_c: int, attr_d: int, foe_counts) -> list[int]:
     """The NES monster types RoomObjCount x ObjType holds for a screen (before the room history trims them)."""
     list_id = (attr_c & 0x3F) | (0x40 if attr_d & 0x80 else 0)
@@ -1161,7 +1169,7 @@ def overworld_room_types(lists, attr_c: int, attr_d: int, foe_counts) -> list[in
         return []
     if list_id < 0x62:
         return [list_id] * count
-    return lists[list_id - 0x62][:count]
+    return listed_types(lists, list_id, count)
 
 
 def overworld_room_info(source_root: Path, attrs_a, attrs_c, attrs_d, attrs_f, foe_counts) -> bytes:
