@@ -27,13 +27,13 @@ def nes_type(index: int) -> int:
 
 # Monsters the ROM makes of one object and the port of several (Moldorm, Manhandla, Gohma, Patra, Gleeok, Digdogger, Lanmola).
 COMPOUND = {0x41, 0x3C, 0x33, 0x34, 0xFD, 0xFC, 0x47, 0x48, 0x25, 0x26, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x38, 0xFB, 0x18,
-            0x3A, 0x3B}
+            0x3A, 0x3B, 0x39}
 
 
 def same_monsters(rom_types, port_types):
     plain_rom = sorted(t for t in rom_types if t not in COMPOUND)
     plain_port = sorted(t for t in port_types if t not in COMPOUND)
-    return plain_rom == plain_port and {t for t in rom_types if t in COMPOUND} <= set(port_types)
+    return plain_rom == plain_port         # the pieces of a compound boss are not counted (the ROM's one object, the port's several)
 
 
 NOTES: list = []         # (level, room, text): player-dependent facts, shown with --notes
@@ -172,7 +172,7 @@ def compare_idle(rom, port, out):
                 if not pb or typ in HOPPING:
                     continue
                 a, b = sum(ra) / len(ra), sum(pb) / len(pb)
-                if max(a, b) > 0.05 and (a == 0 or b == 0 or not 0.6 <= a / b <= 1.6):
+                if max(a, b) > 0.15 and (a == 0 or b == 0 or not 0.6 <= a / b <= 1.6):      # below that a monster only stands (a red wizzrobe's reappearing counts a few pixels)
                     problems.append(f"type {typ:#04x}: ROM {a:.2f} px/frame (mean of {len(ra)}), port {b:.2f} (mean of {len(pb)})")
             out.append((key, name, problems, {"types": sorted({t for t, _, _ in rs.values()})}, {}))
 

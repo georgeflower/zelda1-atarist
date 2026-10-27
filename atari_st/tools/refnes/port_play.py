@@ -69,7 +69,9 @@ def play_room(args, quest: int, level: int, room: int, layout: dict[str, int]):
             "mon": [[i, b("ENEMY_TYPE", i), b("ENEMY_X", i), b("ENEMY_Y", i), b("ENEMY_ACTIVE", i), b("ENEMY_CLOUD", i),
                      b("ENEMY_HP", i)] for i in range(count)],
             "items": [[b("ITEM_ACTIVE", i), b("ITEM_ID", i), b("ITEM_X", i), b("ITEM_Y", i)] for i in range(3)],
-            "open": b("UW_OPEN", room), "flags": b("UW_FLAGS", room), "keys": b("INV_KEYS"),
+            # Levels 7-9 keep their world flags in the second set (UW_BLOCK = UW_B_DELTA, see globals.s)
+            "open": b("UW_OPEN_B" if level >= 7 else "UW_OPEN", room), "flags": b("UW_FLAGS_B" if level >= 7 else "UW_FLAGS", room),
+            "keys": b("INV_KEYS"),
             "kills": b("ROOM_KILLS"), "block": b("BLOCK_STATE"),
         })
     return samples
