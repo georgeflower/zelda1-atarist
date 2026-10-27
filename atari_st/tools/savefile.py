@@ -2,7 +2,9 @@
 """ZELDA.SAV, the saved games (src/save.s), as a Python model: build a file, read one, and check it.
 
 The file is a header of eight bytes (the letters ZSAV, the version, a checksum of everything after the header: the sum
-of its 16-bit words plus a seed) and three records of 640 bytes, one per profile. A record starts with what the file
+of its 16-bit words plus a seed) three records of 640 bytes, one per profile, and three of 256 bytes, the world flags of Levels 7 to 9 (UW_OPEN_B and
+UW_FLAGS_B; the ROM keeps one set of flags for Levels 1-6 and another for 7-9). A file of version 1 has no such records and
+is still read. A record starts with what the file
 menu shows (active, deaths, quest, ring, the hearts value and the partial heart, the eight tiles of the name) and goes on
 with the state of the game, laid out by the `save_fields` table of save.s.
 
@@ -20,12 +22,15 @@ from pathlib import Path
 SRC = Path(__file__).resolve().parents[1] / "src"
 
 MAGIC = b"ZSAV"
-VERSION = 1
+VERSION = 2
+OLD_VERSION = 1
 SEED = 0x5A5A
 RECORDS = 3
 HEADER_BYTES = 8
 RECORD_BYTES = 640
-FILE_BYTES = HEADER_BYTES + RECORDS * RECORD_BYTES
+EXT_BYTES = 256
+OLD_BYTES = HEADER_BYTES + RECORDS * RECORD_BYTES
+FILE_BYTES = OLD_BYTES + RECORDS * EXT_BYTES
 STATE_OFFSET = 16
 NAME_TILE_SPACE = 0x24
 # the layout of the state, as in save.s `save_fields`: (variable, bytes)
@@ -36,7 +41,7 @@ PATCH_MAX = 48
 
 
 def checksum(body: bytes) -> int:
-    """What save_checksum computes over the three records."""
+    """What save_checksum computes over everything after the header."""
     total = SEED
     for (word,) in struct.iter_unpack(">H", body):
         total = (total + word) & 0xFFFF
@@ -73,24 +78,48 @@ def make_record(name: str = "ZELDA", deaths: int = 0, hearts: int = 0x22, partia
     return record
 
 
-def make_file(records: list[bytes] | None = None) -> bytes:
+def make_file(records: list[bytes] | None = None, ext: list[bytes] | None = None, old: bool = False) -> bytes:
+    """A file; `ext` gives the flags of Levels 7-9 per profile (zero by default); `old` makes a file of version 1."""
     records = list(records or [])
     records += [bytes(RECORD_BYTES)] * (RECORDS - len(records))
+    ext = list(ext or [])
+    ext += [bytes(EXT_BYTES)] * (RECORDS - len(ext))
     body = b"".join(bytes(r) for r in records)
     if len(body) != RECORDS * RECORD_BYTES:
         raise ValueError("a record is 640 bytes")
+    if any(len(e) != EXT_BYTES for e in ext):
+        raise ValueError("a flag record is 256 bytes")
+    if old:
+        return MAGIC + struct.pack(">HH", OLD_VERSION, checksum(body)) + body
+    body += b"".join(bytes(e) for e in ext)
     return MAGIC + struct.pack(">HH", VERSION, checksum(body)) + body
+
+
+def parse_all(data: bytes) -> tuple[list[bytes], list[bytes]] | None:
+    """(records, flag records), or None for what save_read takes as no file. A file of version 1 gives empty flags."""
+    if data[:4] != MAGIC or len(data) < HEADER_BYTES:
+        return None
+    version, total = struct.unpack(">HH", data[4:8])
+    body = data[HEADER_BYTES:]
+    if version == VERSION and len(data) == FILE_BYTES:
+        pass
+    elif version == OLD_VERSION and len(data) == OLD_BYTES:
+        pass
+    else:
+        return None
+    if total != checksum(body):
+        return None
+    records = [body[i * RECORD_BYTES:(i + 1) * RECORD_BYTES] for i in range(RECORDS)]
+    if version == OLD_VERSION:
+        return records, [bytes(EXT_BYTES)] * RECORDS
+    base = RECORDS * RECORD_BYTES
+    return records, [body[base + i * EXT_BYTES:base + (i + 1) * EXT_BYTES] for i in range(RECORDS)]
 
 
 def parse(data: bytes) -> list[bytes] | None:
     """The records, or None for what save_read takes as no file."""
-    if len(data) != FILE_BYTES or data[:4] != MAGIC:
-        return None
-    version, total = struct.unpack(">HH", data[4:8])
-    body = data[HEADER_BYTES:]
-    if version != VERSION or total != checksum(body):
-        return None
-    return [body[i * RECORD_BYTES:(i + 1) * RECORD_BYTES] for i in range(RECORDS)]
+    both = parse_all(data)
+    return both[0] if both else None
 
 
 def from_sources() -> dict[str, int]:

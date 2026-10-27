@@ -466,7 +466,7 @@
     gvar DEATH_LINE, 2         | the lines of the playfield that are red
     gvar DEATH_W, 64           | for each colour slot, the two pixel masks that say where it goes (W0 then W1)
     gvar PATCHES, 192          | room, square, the metatile that was there and the one that is: 48 of them
-    gvar SAVE_FILE, 1928       | ZELDA.SAV as it is on the disk: 8 bytes of header, three records of 640
+    gvar SAVE_FILE, 2696       | ZELDA.SAV as it is on the disk: 8 bytes of header, three records of 640, three of 256 (the flags of Levels 7-9)
     gvar FAIRY_STATE, 3        | a dropped fairy's flight (ControlFairyFlight), one per item slot: 0 speeding up, 1 deciding, 3 wandering
     gvar FAIRY_SPEED, 3
     gvar FAIRY_FRAC, 3
@@ -503,4 +503,19 @@
     gvar T_HELD, 1               | T was down last frame (edge trigger)
     gvar ENEMY_BOMBS, 8          | the bombs a Dodongo has swallowed (Dodongo_ObjBombHits); not ENEMY_WANT, which wander_tick clears
     galign
+    gvar UW_BLOCK, 2             | what to add to the address of UW_OPEN / UW_FLAGS: 0 in Levels 1-6, UW_B_DELTA in Levels 7-9
+    gvar UW_OPEN_B, 128          | doors opened in the rooms of Levels 7-9 (the ROM keeps one set of world flags for Levels 1-6, another
+    gvar UW_FLAGS_B, 128         | for 7-9, LevelInfo_WorldFlagsAddr: every room id exists in both groups, so the two must not be mixed)
+    galign
     .equ GLOBALS_BYTES, gvar_offset
+
+| The world flags of the dungeon Link is in: UW_OPEN and UW_FLAGS belong to Levels 1-6, the two arrays at the end to Levels 7-9, the
+| same distance from them both (uw_select_level sets UW_BLOCK). uwlea OPEN, %a0 / uwlea FLAGS, %a0 leaves the flags alone.
+    .equ UW_B_DELTA, OFF_UW_OPEN_B - OFF_UW_OPEN
+    .if (OFF_UW_FLAGS_B - OFF_UW_FLAGS) != UW_B_DELTA
+    .error "UW_OPEN_B and UW_FLAGS_B must lie as far from UW_OPEN and UW_FLAGS as each other"
+    .endif
+    .macro uwlea name, reg
+    lea OFF_UW_\name(%a5), \reg
+    adda.w OFF_UW_BLOCK(%a5), \reg
+    .endm

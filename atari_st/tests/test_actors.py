@@ -460,6 +460,37 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class CellarOverrunTests(unittest.TestCase):
+    @unittest.skipUnless(HAS_ROM, "needs ext/Original.nes")
+    def test_level_3_stairs_lead_to_the_raft_room(self):
+        """Level 3's cellar array is empty, but CheckWarps goes on reading past it and finds $0F (A and B both $69) 72 bytes on:
+        the raft's cellar, below the stairs of room $69. The port has to build that cellar like a listed one."""
+        import underworld as U
+        blk = U.level_block(ROM_ROOT, 3)
+        info = U.level_info(ROM_ROOT, 3)
+        a, b, d = blk[0:128], blk[128:256], blk[384:512]
+        e = blk[512:640]
+        self.assertEqual(U.cellar_rooms(info, d), [])                         # the listed array has nothing
+        cellars = U.cellar_rooms(info, d, a, b, info[B.LEVEL_INFO_START_ROOM_ID])
+        self.assertEqual(cellars, [0x0F])
+        self.assertEqual((a[0x0F], b[0x0F]), (0x69, 0x69))
+        self.assertEqual(e[0x0F] & 0x1F, 0x0C)                                # the Raft
+        self.assertNotIn(0x0F, U.level_rooms(info[B.LEVEL_INFO_START_ROOM_ID], info, a, b, d))
+
+    @unittest.skipUnless(HAS_ROM, "needs ext/Original.nes")
+    def test_the_other_levels_keep_the_cellars_their_arrays_list(self):
+        import underworld as U
+        for quest in (0, 1):
+            for level in range(1, 10):
+                if (quest, level) == (0, 3):
+                    continue
+                blk = U.level_block(ROM_ROOT, level, quest)
+                info = U.level_info(ROM_ROOT, level, quest)
+                a, b, d = blk[0:128], blk[128:256], blk[384:512]
+                self.assertEqual(U.cellar_rooms(info, d, a, b, info[B.LEVEL_INFO_START_ROOM_ID]), U.cellar_rooms(info, d),
+                                 f"quest {quest + 1} level {level}")
+
+
 class DodongoBombCountTests(unittest.TestCase):
     def test_bomb_count_is_not_kept_in_a_variable_the_walker_clears(self) -> None:
         """The Dodongo's swallowed bombs (ROM Dodongo_ObjBombHits) must outlive its walks. They once lived in ENEMY_WANT,

@@ -90,7 +90,7 @@ uw_build_map:
     movea.l %a0, %a1
     bsr uw_unpack_room
 
-    lea OFF_UW_OPEN(%a5), %a1
+    uwlea OPEN, %a1
     moveq #0, %d7
     move.b 0(%a1, %d0.w), %d7       | doors opened for good
     move.b %d1, %d5
@@ -227,7 +227,7 @@ uw_render_current:
 uw_mark_visited:
     movem.l %d0/%a0, -(%sp)
     andi.w #0x7f, %d0
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     bset #UW_FLAG_VISITED, 0(%a0, %d0.w)
     movem.l (%sp)+, %d0/%a0
     rts
@@ -284,7 +284,7 @@ uw_commit_next:
 | The record's byte 13 says what else the man does (see the wares below).
 uw_person_begin:
     movem.l %d1/%a2, -(%sp)
-    lea OFF_UW_FLAGS(%a5), %a2
+    uwlea FLAGS, %a2
     btst #UW_FLAG_PERSON, 0(%a2, %d0.w)
     bne 9f                              | he has given what he had, and is gone
     move.b #1, OFF_UW_PERSON(%a5)
@@ -340,7 +340,7 @@ uw_person_update:
     bne 90f
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     bset #UW_FLAG_PERSON, 0(%a0, %d0.w)
     clr.b OFF_UW_PERSON(%a5)
     clr.b OFF_UW_PERSON_KIND(%a5)
@@ -526,7 +526,7 @@ uw_wipe:
 | Paint the old man into the room just drawn. d0.w = room id, a1 = the buffer it went to.
 uw_bake_person:
     movem.l %d0-%d4/%a0-%a2, -(%sp)
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     btst #UW_FLAG_PERSON, 0(%a0, %d0.w)
     bne 9f                              | he gave what he had: not in this room any more
     movea.l %a1, %a2
@@ -614,7 +614,7 @@ uw_bake_boss:
     beq 2f
     movea.l %a2, %a1
     bsr boss_grumble_bake_f
-2:  lea OFF_UW_FLAGS(%a5), %a0
+2:  uwlea FLAGS, %a0
     btst #0, 0(%a0, %d0.w)
     bne 9f                              | the room is won
     move.b %d0, %d1
@@ -654,7 +654,7 @@ uw_redraw_room:
 | of the room on its other side, so it is still open when Link comes back.
 uw_open_door_pair:
     movem.l %d0-%d4/%a0-%a2, -(%sp)
-    lea OFF_UW_OPEN(%a5), %a2
+    uwlea OPEN, %a2
     bset %d2, 0(%a2, %d0.w)
     move.w %d0, %d3
     moveq #1, %d4
@@ -758,7 +758,7 @@ uw_try_door:
     beq 9f                          | open doorway
     cmpi.b #DOOR_SHUTTER, %d6
     bne 21f
-    lea OFF_UW_OPEN(%a5), %a2
+    uwlea OPEN, %a2
     btst %d2, 0(%a2, %d0.w)         | shut until the room is cleared
     bne 9f
     bra 8f
@@ -766,7 +766,7 @@ uw_try_door:
     beq 8f                          | a solid wall
     cmpi.b #4, %d6
     blo 9f                          | a false wall can be walked through
-    lea OFF_UW_OPEN(%a5), %a2
+    uwlea OPEN, %a2
     move.b 0(%a2, %d0.w), %d5
     btst %d2, %d5
     bne 9f                          | already opened
@@ -800,6 +800,11 @@ uw_try_door:
 uw_select_level:
     movem.l %d0-%d1/%a0-%a1, -(%sp)
     move.b %d0, OFF_LEVEL(%a5)
+    clr.w OFF_UW_BLOCK(%a5)             | Levels 1-6 share one set of world flags, 7-9 another (LevelInfo_WorldFlagsAddr)
+    cmp.b #7, %d0
+    blo 5f
+    move.w #UW_B_DELTA, OFF_UW_BLOCK(%a5)
+5:
     and.w #0x00ff, %d0
     subq.w #1, %d0
     tst.b OFF_QUEST(%a5)
@@ -971,7 +976,7 @@ uw_enter_cellar:
     adda.w %d1, %a0
     cmpi.b #0xff, 3(%a0)
     beq 9f
-    lea OFF_UW_FLAGS(%a5), %a2
+    uwlea FLAGS, %a2
     moveq #0, %d1
     move.b 6(%a0), %d1
     btst #1, 0(%a2, %d1.w)
