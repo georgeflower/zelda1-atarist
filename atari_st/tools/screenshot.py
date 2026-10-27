@@ -224,13 +224,16 @@ def parse_key_schedule(spec: str) -> dict[int, list[tuple[str, int]]]:
     return schedule
 
 
-def build_dev(project: Path, room: int | None, uw: int | None, level: int, cave: bool = False, quest: int = 1) -> Path:
+def build_dev(project: Path, room: int | None, uw: int | None, level: int, cave: bool = False, quest: int = 1,
+              autoplay: bool | str = False, name: str = "dev") -> Path:
     """Build a PRG that starts where asked (the ZELDA_START_* switches of the Makefile) into build/dev, so the
     normal build is left alone."""
-    out = project / "build" / "dev"
+    out = project / "build" / name
     env = dict(os.environ)
-    for name in ("ZELDA_START_ROOM", "ZELDA_START_UW", "ZELDA_START_LEVEL", "ZELDA_START_CAVE", "ZELDA_SKIP_INTRO", "ZELDA_QUEST"):
-        env.pop(name, None)
+    for var in ("ZELDA_START_ROOM", "ZELDA_START_UW", "ZELDA_START_LEVEL", "ZELDA_START_CAVE", "ZELDA_SKIP_INTRO", "ZELDA_QUEST", "ZELDA_AUTOPLAY"):
+        env.pop(var, None)
+    if autoplay:
+        env["ZELDA_AUTOPLAY"] = "idle" if autoplay == "idle" else "1"      # the scripted player of src/autoplay.s
     env["ZELDA_SKIP_INTRO"] = "1"           # a scene starts where it says, not at the title
     env["ZELDA_QUEST"] = str(quest)
     if room is not None:

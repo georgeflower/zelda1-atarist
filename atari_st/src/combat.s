@@ -2222,9 +2222,12 @@ uw_check_clear:
     move.b 0(%a0, %d0.w), %d1       | CheckSecretTriggerMoneyOrLife: the shutters wait until the man (or the stash) is gone
     and.b #0x0c, %d1                | UW_FLAG_PERSON, the stash taken
     beq 9f
-4:  tst.b OFF_ROOM_TRIGGER(%a5)
-    cmpi.b #TRIGGER_PUSH_BLOCK, OFF_ROOM_TRIGGER(%a5)
+4:  move.b OFF_ROOM_TRIGGER(%a5), %d1
+    beq 3f                      | CheckSecretTriggerNone: a room with no secret never triggers its shutters, whatever dies in it
+    cmp.b #TRIGGER_PUSH_BLOCK, %d1
     beq 3f                      | this room's shutters wait for the block
+    cmp.b #TRIGGER_BLOCK_STAIRS, %d1
+    beq 3f                      | and a block that lays stairs does not open them (CheckSecretTriggerBlockStairs)
     bsr uw_open_shutters
     tst.w %d1
     beq 3f
@@ -2246,6 +2249,7 @@ uw_check_clear:
 | room's shutters open for good and a trigger-5 room shows its stairs. BLOCK_X/Y are the origin of its top-left tile
 | (the source while it slides).
     .equ TRIGGER_PUSH_BLOCK, 4
+    .equ TRIGGER_BLOCK_STAIRS, 5
     .equ TRIGGER_RINGLEADER, 2
     .equ TRIGGER_MONEY_OR_LIFE, 6
     .equ BLOCK_TILE, 0xb0

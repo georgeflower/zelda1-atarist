@@ -269,6 +269,9 @@ begin_game:
     move.b #DEV_START_UW, OFF_ROOM_ID(%a5)
     move.b #0x78, OFF_LINK_X(%a5)
     move.b #0x8d, OFF_LINK_Y(%a5)
+    .if DEV_AUTOPLAY
+    move.b #UW_BOUND_DOWN, OFF_LINK_Y(%a5)   | the audit's player comes in at the bottom door (where the port puts Link after a door), as in the ROM
+    .endif
     move.b #1, OFF_HAS_SWORD(%a5)
     move.b #DEV_START_ENTRANCE, OFF_CAVE_SOURCE_ROOM(%a5)   | the level's entrance, where leaving comes out
     .endif
@@ -285,6 +288,9 @@ main_loop:
     bsr palette_sync
     bsr poll_keyboard
     bsr debug_keys_far
+    .if DEV_AUTOPLAY
+    bsr autoplay_far
+    .endif
     bsr music_update
     tst.b OFF_EXIT_REQUESTED(%a5)
     bne exit_program
@@ -908,6 +914,10 @@ cave_talk_far:
     bra cave_talk
 debug_keys_far:
     bra debug_keys
+    .if DEV_AUTOPLAY
+autoplay_far:
+    bra autoplay
+    .endif
 update_scroll_far:
     bra update_scroll
 update_cave_far:
@@ -978,6 +988,7 @@ erase_sprite_far:
 blit_rect_far:
     bra blit_rect
 
+    .include "autoplay.s"           | (dev builds only) right behind the far stubs, where the 16-bit reach is
     .include "link.s"
     .include "uw.s"
     .include "secrets.s"
