@@ -179,6 +179,24 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(actors.overworld_room_types(lists, 0x07 | (1 << 6), 0x00, foe_counts), [0x07] * 4)
         self.assertEqual(actors.overworld_room_types(lists, 0x00, 0x00, foe_counts), [])
 
+    def test_a_count_longer_than_its_list_reads_on_into_the_next_list(self) -> None:
+        # ObjLists is read straight on: list $68 has five entries, the screens $38 and $49 (foe count 6) take the next list's first one
+        lists = [[0x09, 0x08, 0x08, 0x08, 0x08], [0x08, 0x07, 0x08, 0x07]]       # $68 and $69
+        self.assertEqual(actors.listed_types(lists, 0x62, 6), [0x09, 0x08, 0x08, 0x08, 0x08, 0x08])
+        self.assertEqual(actors.listed_types(lists, 0x63, 4), [0x08, 0x07, 0x08, 0x07])
+        self.assertEqual(actors.listed_types(lists, 0x62, 5), lists[0])
+
+    @unittest.skipUnless(HAS_ROM, "needs the ROM")
+    def test_screens_38_and_49_have_six_octoroks_as_in_the_rom(self) -> None:
+        block = B.require_binary(ROM_ROOT, B.LEVEL_BLOCK_OW_NAME)
+        info = B.require_binary(ROM_ROOT, B.LEVEL_INFO_OW_NAME)
+        foe = list(info[B.LEVEL_INFO_FOE_COUNTS:B.LEVEL_INFO_FOE_COUNTS + 4])
+        size = B.LEVEL_BLOCK_TABLE_SIZE
+        lists = actors.overworld_monster_lists(ROM_ROOT)
+        for room in (0x38, 0x49):
+            types = actors.overworld_room_types(lists, block[2 * size + room], block[3 * size + room], foe)
+            self.assertEqual(sorted(types), [0x08] * 5 + [0x09])
+
     def test_the_movers_are_listed_with_their_behaviours_and_damage(self) -> None:
         for nes_type, behaviour in ((0x0D, actors.BEHAVIOUR_TEKTITE), (0x0E, actors.BEHAVIOUR_TEKTITE),
                                     (0x0F, actors.BEHAVIOUR_LEEVER), (0x10, actors.BEHAVIOUR_LEEVER),
