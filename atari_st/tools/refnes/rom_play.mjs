@@ -91,6 +91,7 @@ function press(z, held, want) {
 
 function playRoom(z, room) {
   z.wr(0x657, 3);                                   // the magic sword
+  z.wr(0x84, 0xBD);                                 // inside the door, where the game's walk-in ends (and where the port puts Link)
   const initial = objs(z);
   const targets = initial.filter(o => !NO_TARGET.has(o.type) && o.slot < 12).map(o => o.slot);
   const tilesBefore = tiles(z);
@@ -100,13 +101,23 @@ function playRoom(z, room) {
   const items = [];
   let frame = 0;
   const doorsAt0 = z.rd(0xEE);
+  const hits = {};                                  // per target slot: its first hit points and every drop of them
+  const lastHp = {};
   for (; frame < FRAMES; frame++) {
     z.wr(0x4F0, 0xF0);                              // Link cannot be hurt
     if (z.rd(0x12) !== 5) break;                    // left the room
     const want = clearedAt === null && !IDLE ? player(z, targets, frame) : {dir: null, a: false};
     press(z, held, want);
     z.run(1);
-    if (frame % SAMPLE === 0) samples.push({f: frame, o: objs(z).map(o => [o.slot, o.type, o.x, o.y, o.state])});
+    for (const slot of targets) {
+      const hp = z.rd(0x485 + slot), type = z.rd(0x34F + slot);
+      if (type === 0) continue;
+      const h = hits[slot] || (hits[slot] = {type, hp0: null, drops: []});
+      if (h.hp0 === null && hp > 0) { h.hp0 = hp; lastHp[slot] = hp; }
+      if (lastHp[slot] !== undefined && hp < lastHp[slot] && hp < 0x80) { h.drops.push([frame, lastHp[slot] - hp]); }
+      if (lastHp[slot] !== undefined) lastHp[slot] = hp;
+    }
+    if (frame % SAMPLE === 0) samples.push({f: frame, l: [z.rd(0x70), z.rd(0x84), z.rd(0x98)], o: objs(z).map(o => [o.slot, o.type, o.x, o.y, o.state])});
     if (!IDLE && clearedAt === null && targets.length && targets.every(s => z.rd(0x34F + s) === 0 || z.rd(0x34F + s) !== initial.find(o => o.slot === s).type)) clearedAt = frame;
     if (clearedAt !== null && frame >= clearedAt + 90) break;
   }
@@ -116,7 +127,7 @@ function playRoom(z, room) {
   const changed = [];
   for (let i = 0; i < tilesAfter.length; i++) if (tilesAfter[i] !== tilesBefore[i]) changed.push(i);
   return {
-    room, frames: frame, cleared: clearedAt, targets, initial, samples, after,
+    room, frames: frame, cleared: clearedAt, targets, initial, samples, hits, after,
     doors0: doorsAt0, doors: z.rd(0xEE), roomItem: {id: z.rd(0xAB), state: z.rd(0xAC + 19), x: z.rd(0x70 + 19), y: z.rd(0x84 + 19)},
     tilesChanged: changed.length, tilesChangedAt: changed.slice(0, 64),
     linkRoom: z.rd(0xEB), mode: z.rd(0x12),
