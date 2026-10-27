@@ -507,6 +507,7 @@
     gvar UW_BLOCK, 2             | what to add to the address of UW_OPEN / UW_FLAGS: 0 in Levels 1-6, UW_B_DELTA in Levels 7-9
     gvar UW_OPEN_B, 128          | doors opened in the rooms of Levels 7-9 (the ROM keeps one set of world flags for Levels 1-6, another
     gvar UW_FLAGS_B, 128         | for 7-9, LevelInfo_WorldFlagsAddr: every room id exists in both groups, so the two must not be mixed)
+    gvar PICKUP_DROPS, 1         | set while the boomerang takes items: the room's own item is not for it
     galign
     .equ GLOBALS_BYTES, gvar_offset
 

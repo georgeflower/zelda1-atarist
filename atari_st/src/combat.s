@@ -1799,6 +1799,14 @@ room_item_follow:
     move.b OFF_ENEMY_Y(%a5), OFF_ITEM_Y(%a5)
 9:  rts
 
+| The boomerang takes items as Link would (UpdateItem's ItemTakerObjSlots), but only the dropped ones: the room's own item
+| (slot $13, the raft, the bow, a key...) goes through TryTakeRoomItem, which looks at Link alone.
+item_pickup_boomerang:
+    move.b #1, OFF_PICKUP_DROPS(%a5)
+    bsr item_pickup
+    clr.b OFF_PICKUP_DROPS(%a5)
+    rts
+
 item_pickup:
     movem.l %d0-%d4/%a0, -(%sp)
     moveq #0, %d3
@@ -1810,6 +1818,11 @@ item_pickup:
     beq 8f
     cmp.b #ITEM_FOOD_STATE, %d0
     beq 8f
+    cmp.b #2, %d0
+    bne 11f
+    tst.b OFF_PICKUP_DROPS(%a5)
+    bne 8f                      | the room item is Link's alone
+11:
     cmp.b #1, %d0
     bne 10f
     lea OFF_ITEM_LIFE(%a5), %a0
