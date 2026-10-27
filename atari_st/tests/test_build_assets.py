@@ -495,6 +495,7 @@ class RomAllDungeonsTests(unittest.TestCase):
         self.assertEqual(self.bundle.levels[8].boss_room, 0x42)
 
 
+@unittest.skipUnless((ROM_ROOT / "ext" / "Original.nes").exists(), "needs ext/Original.nes")
 class RomLevelPaletteTests(unittest.TestCase):
     """Risk R1: every dungeon must fit the 16 ST colours without disturbing what is baked once for all modes."""
 
