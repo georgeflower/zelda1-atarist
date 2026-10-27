@@ -118,6 +118,9 @@ function playRoom(z, room) {
       if (lastHp[slot] !== undefined && hp < lastHp[slot] && hp < 0x80) { h.drops.push([frame, lastHp[slot] - hp]); }
       if (lastHp[slot] !== undefined) lastHp[slot] = hp;
     }
+    if (frame === 4) {                              // a boss that is several objects (Manhandla's hands, Gohma, Patra...) makes the rest in its first updates
+      for (const o of objs(z)) if (!NO_TARGET.has(o.type) && o.slot < 12 && !targets.includes(o.slot)) { targets.push(o.slot); initial.push(o); }
+    }
     if (frame % SAMPLE === 0) samples.push({f: frame, l: [z.rd(0x70), z.rd(0x84), z.rd(0x98)], o: objs(z).map(o => [o.slot, o.type, o.x, o.y, o.state])});
     if (!IDLE && clearedAt === null && targets.length && targets.every(s => z.rd(0x34F + s) === 0 || z.rd(0x34F + s) !== initial.find(o => o.slot === s).type)) clearedAt = frame;
     if (clearedAt !== null && frame >= clearedAt + AFTER) break;   // long enough for a boss's death and the shutters
