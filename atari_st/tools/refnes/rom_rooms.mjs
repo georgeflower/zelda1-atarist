@@ -23,9 +23,9 @@ function loadLevel(z, level) {
 }
 
 // Enter a room the way the game does after loading a level: game mode 3 (the unfurl) lays out RoomId, mode 4 makes its objects.
-function enterRoom(z, room) {
-  // The unfurl lays out the level's start room, so make the room asked for the start room (LevelInfo $2F) before it runs.
-  z.wr(0x6B7E + START_ROOM_OFFSET, room);
+function enterRoom(z, room, setStart) {
+  // (Not for the overworld unless asked: there it spawns extra monsters.) The unfurl lays out the level's start room, so make the room asked for the start room (LevelInfo $2F) before it runs.
+  if (setStart) z.wr(0x6B7E + START_ROOM_OFFSET, room);
   z.wr(0xEB, room); z.wr(0x12, 3); z.wr(0x13, 0); z.wr(0x11, 0);
   for (let i = 0; i < 900; i++) {
     z.run(1);
@@ -75,7 +75,7 @@ for (const quest of quests) {
     const rooms = [];
     for (let room = 0; room < 128; room++) {
       restore(base, snap);
-      if (!enterRoom(base, room)) { rooms.push({room, ok: false}); continue; }
+      if (!enterRoom(base, room, level > 0 || args.includes("--set-start"))) { rooms.push({room, ok: false}); continue; }
       rooms.push(describe(base, room));
     }
     result[`q${quest}_l${level}`] = {quest, level, rooms, quest_byte: base.rd(0x62D + base.rd(0x16))};
