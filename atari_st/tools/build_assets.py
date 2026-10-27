@@ -1273,6 +1273,7 @@ def underworld_equates(uw, level_count: int = 1, record_count: int = 1) -> list[
         f".equ MON_RED_KEESE, {uw.actors.mon_index[0x1C]}",
         f".equ MON_BLACK_KEESE, {uw.actors.mon_index[0x1D]}",
         f".equ MON_STALFOS, {uw.actors.mon_index[0x2A]}",
+        f".equ MON_GIBDO, {uw.actors.mon_index[0x30]}",
         f".equ MON_TRAP_INDEX, {uw.actors.mon_index[0x49]}",
         f".equ MON_LANMOLA_INDEX, {uw.actors.mon_index[0x3A]}",
         f".equ MON_VIRE, {uw.actors.mon_index[0x12]}",

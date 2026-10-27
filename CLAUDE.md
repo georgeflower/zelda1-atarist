@@ -569,6 +569,9 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   on his tile), then `UW_FLAGS` bit 1. Gleeok's body is baked into the room (`uw_bake_boss`, `GLEEOK_GONE` after death);
   necks and heads come from the boss pool, one segment per neck when there are four necks (`GLEEOK_SEGS`). The "more bombs" and "life or money" men are
   ported (see Dungeon people below).
+  **Room item carried** (`MoveAndDrawRoomItem`, `room_item_follow`): while the room's item lies on the floor (`ITEM_ACTIVE` 2) and the first monster is alive and
+  a like-like, a stalfos or a gibdo, the item takes that monster's X and Y every frame (First Quest rooms: Level 1 `$33 $74`, Level 5 `$65 $66`, Level 7 `$5A $6D`); a hidden
+  item does not move, and when the monster dies the item stays where it fell.
   **Keys and moats**: a locked door (types 5, 6) opens with a key, and the magic key (`INV_MAGIC_KEY`) opens it without using one up
   (the HUD shows "XA" for it); Level 9 has 16 locked doors and 4 keys, it is the magic key's level (`test_every_room...` in
   `test_build_assets.py` replays the doors of all levels). The moat (NES tile `$F4`) always blocks (`tile_blocks`); the ladder

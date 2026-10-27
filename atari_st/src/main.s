@@ -805,6 +805,7 @@ update_play:
     bsr boss_misc_f
     bsr chase_target_update
     bsr update_enemies
+    bsr room_item_follow
     bsr update_combat
     bsr update_projectiles
     tst.b OFF_SKIP_DRAW(%a5)

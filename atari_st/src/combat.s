@@ -1774,6 +1774,29 @@ uw_setup_item:
 9:  movem.l (%sp)+, %d1-%d2/%a0
     rts
 
+| MoveAndDrawRoomItem: while the room's item lies on the floor and the first monster is a like-like, a stalfos or a
+| gibdo, the item rides along with it (AnimateRoomItemOnMonster puts it where object 1 is). A hidden item does not
+| move, and once the monster is dead the item stays where it fell. Called every frame after the monsters have moved.
+room_item_follow:
+    cmpi.b #2, OFF_ITEM_ACTIVE(%a5)     | the room's item, visible and not taken
+    bne 9f
+    tst.b OFF_ENEMY_ACTIVE(%a5)         | the first monster is alive
+    beq 9f
+    tst.b OFF_LEVEL(%a5)
+    beq 9f                              | the overworld has no such carriers
+    tst.b OFF_IN_CELLAR(%a5)
+    bne 9f
+    move.b OFF_ENEMY_TYPE(%a5), %d0
+    cmp.b #MON_LIKELIKE, %d0
+    beq 1f
+    cmp.b #MON_STALFOS, %d0
+    beq 1f
+    cmp.b #MON_GIBDO, %d0
+    bne 9f
+1:  move.b OFF_ENEMY_X(%a5), OFF_ITEM_X(%a5)
+    move.b OFF_ENEMY_Y(%a5), OFF_ITEM_Y(%a5)
+9:  rts
+
 item_pickup:
     movem.l %d0-%d4/%a0, -(%sp)
     moveq #0, %d3

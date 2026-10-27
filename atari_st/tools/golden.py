@@ -95,6 +95,8 @@ SCENES: dict[str, list[str]] = {
     "ow_entrance_l2": ["--room", "0x3c", "--vbls", "420"],
     "uw1_start": ["--uw", "0x73", "--level", "1", "--vbls", "420"],
     "uw1_aquamentus": ["--uw", "0x35", "--level", "1", "--vbls", "420"],
+    # the key of room $33 rides on its first stalfos (MoveAndDrawRoomItem): put the stalfos somewhere and the key is there too
+    "uw1_item_carrier": ["--uw", "0x33", "--level", "1", "--vbls", "302", "--keys", "300:=ENEMY_X.0=0x90,300:=ENEMY_Y.0=0x6d"],
     "uw2_start": ["--uw", "0x7d", "--level", "2", "--vbls", "420"],
     "uw2_dodongo": ["--uw", "0x0e", "--level", "2", "--vbls", "420"],
     # Two bombs swallowed with a walk in between (the count must survive the walk): the Dodongo is dead and has left a drop.
