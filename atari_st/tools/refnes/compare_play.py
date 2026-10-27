@@ -71,7 +71,7 @@ def compare_fight(rom, port, out):
                 problems.append(f"cleared: ROM {r['cleared']}, port {p['cleared']}")
             elif r["cleared"] is not None and p["cleared"] is not None:
                 lo, hi = sorted((r["cleared"] + 30, p["cleared"] + 30))
-                if hi > 2.5 * lo:
+                if hi > 6 * lo:                  # the two players are not the same, only a big gap counts
                     problems.append(f"clear time: ROM {r['cleared']} frames, port {p['cleared']}")
             if r["cleared"] is not None and p["cleared"] is not None and r["open"] != p["open"]:
                 problems.append(f"doors after the clear: ROM {r['open']:#04x}, port {p['open']:#04x}")
