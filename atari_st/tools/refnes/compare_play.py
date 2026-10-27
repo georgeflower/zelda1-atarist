@@ -18,7 +18,7 @@ HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parents[1]
 MON_TABLE = (PROJECT / "build" / "generated" / "mon_table.bin")
 # Types that are never a target of the player (autoplay.s / rom_play.mjs): bubbles and the blade traps.
-NO_TARGET = {0x2B, 0x2C, 0x2D, 0x49, 0x4A}
+NO_TARGET = {0x2B, 0x2C, 0x2D, 0x49, 0x4A} | set(range(0x68, 0x70))     # (0x68..: the ROM's push block object)
 
 
 def nes_type(index: int) -> int:

@@ -269,6 +269,9 @@ begin_game:
     move.b #DEV_START_UW, OFF_ROOM_ID(%a5)
     move.b #0x78, OFF_LINK_X(%a5)
     move.b #0x8d, OFF_LINK_Y(%a5)
+    .if DEV_AUTOPLAY
+    move.b #0xcd, OFF_LINK_Y(%a5)       | the audit's player comes in at the bottom door, as in the ROM, so the monsters are placed from there
+    .endif
     move.b #1, OFF_HAS_SWORD(%a5)
     move.b #DEV_START_ENTRANCE, OFF_CAVE_SOURCE_ROOM(%a5)   | the level's entrance, where leaving comes out
     .endif

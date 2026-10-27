@@ -3,8 +3,8 @@
 //
 //   node rom_play.mjs [out.json] [--quest 1|2] [--level N] [--rooms 0x74,0x73] [--frames 1500]
 //
-// The player (the same policy as the port's autoplay) is invincible, holds the magic sword, stands at the middle of the room
-// and then walks at the nearest monster and swings when it is in reach. It never uses a second item, so rooms that need
+// The player (the same policy as the port's autoplay) is invincible, holds the magic sword and walks
+// in from the bottom door at the nearest monster and swings when it is in reach. It comes in at the bottom door like in play (the port's autoplay build starts Link there too: the monsters are placed away from him). It never uses a second item, so rooms that need
 // bombs, the recorder or food stay uncleared on both sides, which is itself a fact to compare.
 import {newGame, BTN} from "./nes.mjs";
 import fs from "fs";
@@ -58,7 +58,7 @@ const tiles = (z) => {
 };
 
 // Types the player does not try to kill: bubbles, blade traps, statues and the like, and shots.
-const NO_TARGET = new Set([0x2B, 0x2C, 0x2D, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67]);
+const NO_TARGET = new Set([0x2B, 0x2C, 0x2D, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F]);
 
 // One frame of the player. Returns the buttons it holds.
 function player(z, targets, frame) {
@@ -91,7 +91,6 @@ function press(z, held, want) {
 
 function playRoom(z, room) {
   z.wr(0x657, 3);                                   // the magic sword
-  z.wr(0x70, 0x78); z.wr(0x84, 0x8D);               // the middle of the room, like the port's dev start
   const initial = objs(z);
   const targets = initial.filter(o => !NO_TARGET.has(o.type) && o.slot < 12).map(o => o.slot);
   const tilesBefore = tiles(z);
