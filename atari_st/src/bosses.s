@@ -123,7 +123,7 @@ boss_death_cry:
 | Red: ENEMY_STATE counts down every frame; $C0-$FF it fades in, $80-$BF it is solid (and shoots at $B0), $40-$7F
 | fades out, $00-$3F it is gone. At $FF it picks a new square around Link and a new heading.
 |
-| d5 = monster. Returns d0.w = 0: the caller does not move it.
+| d5 = monster. Returns d0.w = 1: it has moved itself, the caller does not move it.
 dmon_wizzrobe:
     movem.l %d1-%d4/%d6/%a0, -(%sp)
     lea OFF_ENEMY_GHOST(%a5), %a0
@@ -237,7 +237,7 @@ dmon_wizzrobe:
 91: lea OFF_ENEMY_GHOST(%a5), %a0
     move.b #(GHOST_NOHIT + GHOST_NOHARM), 0(%a0, %d5.w)
 90: movem.l (%sp)+, %d1-%d4/%d6/%a0
-    moveq #0, %d0
+    moveq #1, %d0                       | it has moved itself (a 0 would let the walkers' step push it on as well)
     rts
 
 red_dirs:
