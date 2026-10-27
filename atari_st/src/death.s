@@ -481,6 +481,7 @@ death_continue:
     bsr game_reset_position
     move.b (%sp)+, %d0                  | the level he died in
 death_restart:
+    clr.b OFF_SWORD_LOCK(%a5)           | a new life starts with a free sword
     move.b %d0, OFF_LEVEL(%a5)
     move.b %d0, OFF_PAL_LEVEL(%a5)
     bsr intro_leave

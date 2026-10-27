@@ -215,8 +215,18 @@ dmon_contact:
     cmpi.b #0xff, %d2
     beq 8f
     cmp.b #MON_BUBBLE, %d2
-    bne 1f
+    bne 3f
     move.b #SWORD_BLOCK_FRAMES, OFF_SWORD_BLOCK(%a5)   | the sword stops working for a while
+    moveq #1, %d0
+    bra 9f
+3:  cmp.b #MON_BUBBLE_BLUE, %d2                 | UpdateBubble: SwordBlocked = type - $2C, so blue frees the sword...
+    bne 4f
+    clr.b OFF_SWORD_LOCK(%a5)
+    moveq #1, %d0
+    bra 9f
+4:  cmp.b #MON_BUBBLE_RED, %d2
+    bne 1f
+    move.b #1, OFF_SWORD_LOCK(%a5)              | ...and red locks it, with no end of its own
     moveq #1, %d0
     bra 9f
 1:  cmp.b #MON_LIKELIKE, %d2
@@ -561,8 +571,15 @@ dmon_frame:
 50: bsr boss_wizzrobe_frame_f             | a wizzrobe
     bra 99f
 
-60: move.w %d4, %d1                     | a bubble: a new palette row every frame
+60: move.w %d4, %d1                     | a bubble: a new palette row every frame...
     and.w #3, %d1
+    cmpi.b #MON_BUBBLE_BLUE, OFF_ENEMY_TYPE(%a5, %d3.w)
+    bne 61f
+    moveq #1, %d1                       | ...but the blue one stays in row 1
+    bra 99f
+61: cmpi.b #MON_BUBBLE_RED, OFF_ENEMY_TYPE(%a5, %d3.w)
+    bne 99f
+    moveq #2, %d1                       | and the red one in row 2
     bra 99f
 
 70: lea OFF_ENEMY_ANIMF(%a5), %a0       | a Manhandla piece: ANIMF holds the picture of its animation

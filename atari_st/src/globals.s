@@ -502,6 +502,7 @@
     gvar DEBUG_ROOM, 1           | T toggles it: the ribbon shows the room id (RM-xx, or CL-xx in a cellar)
     gvar T_HELD, 1               | T was down last frame (edge trigger)
     gvar ENEMY_BOMBS, 8          | the bombs a Dodongo has swallowed (Dodongo_ObjBombHits); not ENEMY_WANT, which wander_tick clears
+    gvar SWORD_LOCK, 1           | SwordBlocked: a red bubble ($2D) has locked the sword until a blue one ($2C) or a full refill of hearts frees it
     galign
     gvar UW_BLOCK, 2             | what to add to the address of UW_OPEN / UW_FLAGS: 0 in Levels 1-6, UW_B_DELTA in Levels 7-9
     gvar UW_OPEN_B, 128          | doors opened in the rooms of Levels 7-9 (the ROM keeps one set of world flags for Levels 1-6, another

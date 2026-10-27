@@ -570,6 +570,9 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   on his tile), then `UW_FLAGS` bit 1. Gleeok's body is baked into the room (`uw_bake_boss`, `GLEEOK_GONE` after death);
   necks and heads come from the boss pool, one segment per neck when there are four necks (`GLEEOK_SEGS`). The "more bombs" and "life or money" men are
   ported (see Dungeon people below).
+  **Bubbles** (`UpdateBubble`, `dmon_contact`): `$2B` flashes through all four palette rows and keeps Link's sword from swinging for 160 frames
+  (`SWORD_BLOCK`); the Second Quest's `$2C` (blue, row 1) clears `SWORD_LOCK` and `$2D` (red, row 2) sets it, with no end of its own. Only a blue bubble, a
+  full refill of hearts (`heart_fill_update`) or starting a game, a life or a loaded save frees the sword again (the ROM's `SwordBlocked`). All three ghost through weapons and never count as monsters.
   **Keys and moats**: a locked door (types 5, 6) opens with a key, and the magic key (`INV_MAGIC_KEY`) opens it without using one up
   (the HUD shows "XA" for it); Level 9 has 16 locked doors and 4 keys, it is the magic key's level (`test_every_room...` in
   `test_build_assets.py` replays the doors of all levels). The moat (NES tile `$F4`) always blocks (`tile_blocks`); the ladder
