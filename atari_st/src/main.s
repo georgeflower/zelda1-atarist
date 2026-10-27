@@ -252,7 +252,7 @@ begin_game:
     clr.b OFF_SWORD_LOCK(%a5)           | UpdateMode1Menu_Sub1: a chosen slot starts with SwordBlocked 0
     .if DEV_SKIP_INTRO
     moveq #DEV_QUEST, %d0               | a development build has no profile: its quest is a build setting
-    bsr quest_apply_far
+    bsr quest_apply_mid
     .endif
     .if DEV_START_UW != 255
     | Development shortcut: start inside the level, with a sword and a key.
@@ -884,6 +884,8 @@ set_video_base_far:
     bra set_video_base
 begin_game_far:
     bra begin_game
+quest_apply_mid:                        | the dev start's call, which the far stub itself is out of reach of
+    bra quest_apply_far
 music_event_far:
     bra music_event
 music_stop_far:
