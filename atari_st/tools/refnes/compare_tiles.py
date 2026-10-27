@@ -3,7 +3,7 @@
 
     python3 compare_tiles.py [rom_full.json] [--level N] [--quest N] [-v]
 
-The port keeps each room as a 32x22 grid of bank ids (uw<N>_rooms.bin) and `uw<N>_tile_nes.bin` says which NES tile each is;
+The port keeps each room as 16x11 squares of quad numbers (uw<N>_rooms.bin, 4 bank ids per quad in uw<N>_quads.bin) and `uw<N>_tile_nes.bin` says which NES tile each is;
 the doors are drawn closed (the state a room is entered in). Prints the rooms that differ and where.
 """
 from __future__ import annotations
@@ -18,10 +18,16 @@ OUT = HERE.parent.parent / "build" / "refnes"
 COLS, ROWS = 32, 22
 
 
-def port_room(key: str, index: int, rooms: bytes, tile_nes: bytes) -> list[list[int]]:
-    base = index * COLS * ROWS
-    grid = rooms[base:base + COLS * ROWS]
-    return [[tile_nes[grid[r * COLS + c]] for c in range(COLS)] for r in range(ROWS)]
+def port_room(index: int, rooms: bytes, quads: bytes, tile_nes: bytes) -> list[list[int]]:
+    """Unpack the 16x11 squares of a stored room: each is a quad number, a quad being 4 bank ids (TL, TR, BL, BR)."""
+    packed = rooms[index * 176:(index + 1) * 176]
+    grid = [[0] * COLS for _ in range(ROWS)]
+    for sy in range(11):
+        for sx in range(16):
+            q = packed[sy * 16 + sx] * 4
+            for k, (dy, dx) in enumerate(((0, 0), (0, 1), (1, 0), (1, 1))):
+                grid[2 * sy + dy][2 * sx + dx] = tile_nes[quads[q + k]]
+    return grid
 
 
 def main() -> None:
@@ -42,12 +48,13 @@ def main() -> None:
         index = (GEN / f"uw{name}_room_index.bin").read_bytes()
         rooms = (GEN / f"uw{name}_rooms.bin").read_bytes()
         tile_nes = (GEN / f"uw{name}_tile_nes.bin").read_bytes()
+        quads = (GEN / f"uw{name}_quads.bin").read_bytes()
         bad = []
         for r in data["rooms"]:
             if not r.get("ok") or index[r["room"]] == 0xFF:
                 continue
             want = [[int(row[i * 2:i * 2 + 2], 16) for i in range(COLS)] for row in r["tiles"]]
-            have = port_room(name, index[r["room"]], rooms, tile_nes)
+            have = port_room(index[r["room"]], rooms, quads, tile_nes)
             diff = [(c, y, want[y][c], have[y][c]) for y in range(ROWS) for c in range(COLS) if want[y][c] != have[y][c]]
             if diff:
                 bad.append((r["room"], diff, r["doors"]))

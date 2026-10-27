@@ -11,6 +11,7 @@ const out = args.find((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1].st
 const quests = opt("--quest") ? [Number(opt("--quest"))] : [1, 2];
 const levels = opt("--level") !== null ? [Number(opt("--level"))] : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+const START_ROOM_OFFSET = 47;
 const ATTR_BASE = 0x687E, ATTR_SIZE = 0x80;
 const snapshot = (z) => JSON.stringify(z.nes.toJSON());
 const restore = (z, s) => z.nes.fromJSON(JSON.parse(s));
@@ -23,6 +24,8 @@ function loadLevel(z, level) {
 
 // Enter a room the way the game does after loading a level: game mode 3 (the unfurl) lays out RoomId, mode 4 makes its objects.
 function enterRoom(z, room) {
+  // The unfurl lays out the level's start room, so make the room asked for the start room (LevelInfo $2F) before it runs.
+  z.wr(0x6B7E + START_ROOM_OFFSET, room);
   z.wr(0xEB, room); z.wr(0x12, 3); z.wr(0x13, 0); z.wr(0x11, 0);
   for (let i = 0; i < 900; i++) {
     z.run(1);
