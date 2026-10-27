@@ -83,7 +83,9 @@ sword_input:
     tst.b OFF_HAS_SWORD(%a5)
     beq 9f
     tst.b OFF_SWORD_BLOCK(%a5)
-    bne 9f                      | a bubble has touched it
+    bne 9f                      | a flashing bubble has touched it
+    tst.b OFF_SWORD_LOCK(%a5)
+    bne 9f                      | a red bubble has locked it
     tst.b OFF_ATTACK(%a5)
     bne 9f
     tst.b OFF_GAME_MODE(%a5)

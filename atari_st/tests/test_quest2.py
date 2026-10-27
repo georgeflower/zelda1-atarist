@@ -112,6 +112,23 @@ class SecondQuestDungeonTests(test_build_assets.RomAllDungeonsTests):
     def test_black_keese_are_in_the_monster_table(self) -> None:
         self.assertIn(0x1D, self.bundle.levels[0].actors.mon_index)
 
+    def test_the_blue_and_red_bubbles_of_the_second_quest_are_monsters(self) -> None:
+        import actors
+        for nes_type in (0x2B, 0x2C, 0x2D):
+            self.assertIn(nes_type, actors.MONSTER_TYPES)
+            self.assertEqual(actors.MONSTER_BEHAVIOUR[nes_type], actors.BEHAVIOUR_BUBBLE)
+            self.assertEqual(actors.MONSTER_DAMAGE[nes_type], 0)
+            self.assertEqual(actors.ROM_QSPEED[nes_type], 0x40)
+
+    def test_level_4s_second_quest_room_12_has_three_red_bubbles(self) -> None:
+        import actors
+        gen = ROM_ROOT / "atari_st" / "build" / "generated"
+        index = (gen / "uw4q2_room_index.bin").read_bytes()
+        info = (gen / "uw4q2_room_info.bin").read_bytes()
+        record = info[index[0x12] * 16:(index[0x12] + 1) * 16]
+        self.assertEqual(record[0], 3)
+        self.assertEqual({record[6 + i] for i in range(3)}, {actors.MONSTER_TYPES.index(0x2D)})
+
 
 @unittest.skipUnless(HAS_ROM, "needs the ROM")
 class SecondQuestCreditsTests(unittest.TestCase):

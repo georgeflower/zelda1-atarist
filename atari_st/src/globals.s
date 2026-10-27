@@ -502,5 +502,6 @@
     gvar DEBUG_ROOM, 1           | T toggles it: the ribbon shows the room id (RM-xx, or CL-xx in a cellar)
     gvar T_HELD, 1               | T was down last frame (edge trigger)
     gvar ENEMY_BOMBS, 8          | the bombs a Dodongo has swallowed (Dodongo_ObjBombHits); not ENEMY_WANT, which wander_tick clears
+    gvar SWORD_LOCK, 1           | SwordBlocked: a red bubble ($2D) has locked the sword until a blue one ($2C) or a full refill of hearts frees it
     galign
     .equ GLOBALS_BYTES, gvar_offset

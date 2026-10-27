@@ -1280,6 +1280,8 @@ def underworld_equates(uw, level_count: int = 1, record_count: int = 1) -> list[
         f".equ MON_POLS, {uw.actors.mon_index[0x16]}",
         f".equ MON_LIKELIKE, {uw.actors.mon_index[0x17]}",
         f".equ MON_BUBBLE, {uw.actors.mon_index[0x2B]}",
+        f".equ MON_BUBBLE_BLUE, {uw.actors.mon_index[0x2C]}",
+        f".equ MON_BUBBLE_RED, {uw.actors.mon_index[0x2D]}",
         f".equ MON_GOHMA_BLUE, {uw.actors.mon_index[0x33]}",
         f".equ MON_GOHMA_RED, {uw.actors.mon_index[0x34]}",
         f".equ MON_GOHMA_LEG_BLUE, {uw.actors.mon_index[0xFD]}",
