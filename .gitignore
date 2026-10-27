@@ -12,3 +12,4 @@ ext/
 obj/
 __pycache__/
 SCREENSHOTS/
+node_modules/
