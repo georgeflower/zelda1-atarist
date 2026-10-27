@@ -18,11 +18,22 @@ HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parents[1]
 MON_TABLE = (PROJECT / "build" / "generated" / "mon_table.bin")
 # Types that are never a target of the player (autoplay.s / rom_play.mjs): bubbles and the blade traps.
-NO_TARGET = {0x2B, 0x2C, 0x2D, 0x49, 0x4A} | set(range(0x68, 0x70))     # (0x68..: the ROM's push block object)
+NO_TARGET = {0x2B, 0x2C, 0x2D, 0x35, 0x36, 0x49, 0x4A} | set(range(0x68, 0x70))     # (0x68..: the ROM's push block object)
 
 
 def nes_type(index: int) -> int:
     return MON_TABLE.read_bytes()[index * 8]
+
+
+# Monsters the ROM makes of one object and the port of several (Moldorm, Manhandla, Gohma, Patra, Gleeok, Digdogger, Lanmola).
+COMPOUND = {0x41, 0x3C, 0x33, 0x34, 0xFD, 0xFC, 0x47, 0x48, 0x25, 0x26, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x38, 0xFB, 0x18,
+            0x3A, 0x3B}
+
+
+def same_monsters(rom_types, port_types):
+    plain_rom = sorted(t for t in rom_types if t not in COMPOUND)
+    plain_port = sorted(t for t in port_types if t not in COMPOUND)
+    return plain_rom == plain_port and {t for t in rom_types if t in COMPOUND} <= set(port_types)
 
 
 def port_targets(sample):
@@ -41,7 +52,7 @@ def fight_facts_port(samples):
             break
     last = samples[-1]
     if cleared is not None:                       # the state a short while after the clear, like the ROM's run
-        after = [s for s in samples if s["frame"] >= cleared + 90]
+        after = [s for s in samples if s["frame"] >= cleared + 240]
         last = after[0] if after else samples[-1]
     return {"targets": sorted(nes_type(m[1]) for m in port_targets(first)), "cleared": cleared, "open": last["open"],
             "item": last["items"][0], "keys": last["keys"], "frame": last["frame"], "room": last["room"], "mode": last["mode"]}
@@ -65,7 +76,7 @@ def compare_fight(rom, port, out):
                 continue
             r, p = fight_facts_rom(info), fight_facts_port(prooms[name])
             problems = []
-            if r["targets"] != p["targets"]:
+            if not same_monsters(r["targets"], p["targets"]):
                 problems.append(f"monsters {r['targets']} (ROM) vs {p['targets']} (port)")
             if (r["cleared"] is None) != (p["cleared"] is None):
                 problems.append(f"cleared: ROM {r['cleared']}, port {p['cleared']}")
@@ -76,6 +87,10 @@ def compare_fight(rom, port, out):
             if r["cleared"] is not None and p["cleared"] is not None and r["open"] != p["open"]:
                 problems.append(f"doors after the clear: ROM {r['open']:#04x}, port {p['open']:#04x}")
             out.append((key, name, problems, r, p))
+
+
+# Random fliers and the vire, whose hops move its position in the ROM and are only drawn in the port: no speed to compare.
+HOPPING = {0x1B, 0x1C, 0x1D, 0x12, 0x13, 0x15, 0x16, 0x17, 0x1A}
 
 
 def idle_speeds_rom(info):
@@ -122,13 +137,20 @@ def compare_idle(rom, port, out):
             rs, rsp = idle_speeds_rom(info)
             ps, psp = idle_speeds_port(prooms[name])
             problems = []
-            for (slot, typ), values in sorted(rsp.items()):
-                pv = psp.get((slot, typ))
-                if not pv or len(values) < 5 or len(pv) < 5:
+            rtype, ptype = {}, {}
+            for (slot, typ), values in rsp.items():
+                if len(values) >= 5:
+                    rtype.setdefault(typ, []).append(sum(values) / len(values) / 10)
+            for (slot, typ), values in psp.items():
+                if len(values) >= 5:
+                    ptype.setdefault(typ, []).append(sum(values) / len(values) / 10)
+            for typ, ra in sorted(rtype.items()):
+                pb = ptype.get(typ)
+                if not pb or typ in HOPPING:
                     continue
-                a, b = sum(values) / len(values) / 10, sum(pv) / len(pv) / 10
+                a, b = sum(ra) / len(ra), sum(pb) / len(pb)
                 if max(a, b) > 0.05 and (a == 0 or b == 0 or not 0.6 <= a / b <= 1.6):
-                    problems.append(f"slot {slot} type {typ:#04x}: ROM {a:.2f} px/frame, port {b:.2f}")
+                    problems.append(f"type {typ:#04x}: ROM {a:.2f} px/frame (mean of {len(ra)}), port {b:.2f} (mean of {len(pb)})")
             out.append((key, name, problems, {"types": sorted({t for t, _, _ in rs.values()})}, {}))
 
 

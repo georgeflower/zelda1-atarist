@@ -18,6 +18,7 @@ const levels = opt("--level") !== null ? opt("--level").split(",").map(Number) :
 const wanted = opt("--rooms") ? opt("--rooms").split(",").map(Number) : null;
 const FRAMES = Number(opt("--frames", 1500));
 const IDLE = args.includes("--idle");   // the player stands still (and cannot be hurt): to watch the monsters
+const AFTER = 240;                 // frames to play on after the room is cleared
 const SAMPLE = 10;                 // frames between two samples of the monsters
 
 const START_ROOM_OFFSET = 47;
@@ -119,7 +120,7 @@ function playRoom(z, room) {
     }
     if (frame % SAMPLE === 0) samples.push({f: frame, l: [z.rd(0x70), z.rd(0x84), z.rd(0x98)], o: objs(z).map(o => [o.slot, o.type, o.x, o.y, o.state])});
     if (!IDLE && clearedAt === null && targets.length && targets.every(s => z.rd(0x34F + s) === 0 || z.rd(0x34F + s) !== initial.find(o => o.slot === s).type)) clearedAt = frame;
-    if (clearedAt !== null && frame >= clearedAt + 90) break;
+    if (clearedAt !== null && frame >= clearedAt + AFTER) break;   // long enough for a boss's death and the shutters
   }
   for (const b of [...held]) { z.nes.buttonUp(1, BTN[b]); }
   const after = objs(z);
