@@ -96,7 +96,7 @@ uw_spawn:
     move.b %d2, OFF_ROOM_ROAR(%a5)      | the boss roar the room can hear (music_roar_tick)
     bsr uw_setup_item
     bsr block_setup_f
-    lea OFF_UW_FLAGS(%a5), %a2
+    uwlea FLAGS, %a2
     btst #0, 0(%a2, %d0.w)
     beq spawn_from_record
     moveq #0, %d2                   | cleared: only the recurring ones come back, the blade traps and the lanmolas

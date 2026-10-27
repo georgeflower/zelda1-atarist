@@ -692,14 +692,16 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `OFF_PROFILE` goes up (cap $FF), the three screen buffers are put in the menu arrangement and `filesel_begin(FILE_CONTINUE)` asks: CONTINUE
   (`death_continue`: three hearts, `game_reset_position`, overworld start via `enter_room`, a dungeon via `uw_warp_to_start`, items kept), SAVE
   (`save_store_game`: full hearts, the record is written) or RETRY (`death_retry`: `save_load_game` of the stored profile, then `death_restart` at the overworld start or the level's entrance; no file menu). The chosen word flashes
-  `FILE_FLASH_FRAMES` (64). `ZELDA.SAV` (`SAVE_FILE` in the variable block, 1928 bytes = 8 of header: `ZSAV`, version word, checksum word, then three
-  records of 640): a record is the menu's data (active, deaths, quest, ring, hearts, 8 name tiles) and, from offset 16, the fields of the `save_fields`
+  `FILE_FLASH_FRAMES` (64). `ZELDA.SAV` (`SAVE_FILE` in the variable block, 2696 bytes = 8 of header: `ZSAV`, version word (2), checksum word, then three
+  records of 640, then three of 256: the world flags of Levels 7-9, `UW_OPEN_B` + `UW_FLAGS_B`; a version-1 file of 1928 bytes, without them, is still read and
+  gets empty ones): a record is the menu's data (active, deaths, quest, ring, hearts, 8 name tiles) and, from offset 16, the fields of the `save_fields`
   table (the Items block, rupees, keys, containers, HP, bombs, B item, triforce, map, compass, whirlwind index, the secrets patch log, `OW_KILLS`,
   `UW_OPEN`, `UW_FLAGS`; 620 bytes). The overworld's permanent hidden-spot changes are logged by `ow_set_square` (`PATCHES`, 48 entries: room, square,
   old, new) and undone/replayed by `save_world_reset`/`save_world_replay` on a load; `ow_set_square_raw` is the unlogged one. GEMDOS is called with `trap #1`
   (keep values across traps in d3-d5); a write goes to `ZELDA.TMP` and is renamed over the old file. `save_init` (from `intro_start`) reads it; a file of the wrong
   size, letters, version or checksum counts as none. The file is in the current directory, so the harness needs `--hd-file ZELDA.SAV=path` to start from one
   (it wipes `build/shots/hd` every run). `tools/savefile.py` is the Python model; `tests/test_savefile.py` keeps it equal to `save.s`.
+  **Two sets of dungeon world flags** (like the ROM's `LevelInfo_WorldFlagsAddr`, `$6FF` for Levels 1-6 and `$77F` for 7-9, each group having its own copy of every room id): `UW_OPEN`/`UW_FLAGS` serve Levels 1-6, `UW_OPEN_B`/`UW_FLAGS_B` Levels 7-9; `uw_select_level` sets `UW_BLOCK` (0 or `UW_B_DELTA`) and every access takes the address through the `uwlea` macro (globals.s), so a room cleared in Level 2 is not cleared in Level 8 (Level 8's Manhandla room `$7D` was empty because Level 2's `$7D` had been cleared).
 - **Title and story** (`intro.s`, `tools/intro.py`, game mode `MODE_INTRO`): the game starts here unless it is a development build
   (`ZELDA_START_ROOM/UW/CAVE` or `ZELDA_SKIP_INTRO` set, `DEV_SKIP_INTRO`), and `begin_game` (main.s) is what Start runs. Everything is read from the
   ROM at build time: the pictures are the nametable transfer streams `GameTitleTransferBuf` and `StoryTileAttrTransferBuf` replayed on a model of the

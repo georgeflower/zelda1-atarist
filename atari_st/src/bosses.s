@@ -3077,7 +3077,7 @@ boss_room_init:
     movem.l %d0-%d2/%a0, -(%sp)
     clr.b OFF_GRUMBLE_ON(%a5)
     move.b 1(%a1), %d1
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     btst #5, %d1
     beq 1f
     btst #1, 0(%a0, %d0.w)
@@ -3108,7 +3108,7 @@ stash_mask_for:
     move.w OFF_STASH_MASK(%a5), %d1
     bra 9f
 1:  move.w #0x3ff, %d1
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     btst #2, 0(%a0, %d0.w)
     beq 9f
     moveq #0, %d1
@@ -3153,7 +3153,7 @@ stash_bake:
 | d0.w = room, a1 = the buffer it has just been drawn into: Grumble, unless he has been fed.
 grumble_bake:
     movem.l %d0-%d7/%a0-%a3, -(%sp)
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     btst #1, 0(%a0, %d0.w)
     bne 9f
     movea.l %a1, %a3
@@ -3212,7 +3212,7 @@ boss_misc_update:
     clr.b OFF_INV_FOOD(%a5)
     clr.b OFF_GRUMBLE_ON(%a5)
     move.b #1, OFF_HUD_DIRTY(%a5)
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     bset #1, 0(%a0, %d0.w)
     sfx SFX_SECRET
     bsr uw_redraw_room_bf
@@ -3248,7 +3248,7 @@ boss_misc_update:
     bhs 8f
     bclr %d6, %d7                       | Link has it
     move.w %d7, OFF_STASH_MASK(%a5)
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     bset #2, 0(%a0, %d0.w)
     moveq #ITEM_RUPEE, %d0
     bsr take_item_bf
@@ -3379,7 +3379,7 @@ block_push_tick:
     move.b %d1, %d5                 | the way he pushes
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     btst #0, 0(%a0, %d0.w)
     beq 9f                          | the monsters are not all dead
     moveq #0, %d2                   | Link, then the block

@@ -301,7 +301,7 @@ Combat and items
   flashes first) starts again at the overworld's start, or at the first room of the dungeon, with three hearts and what
   Link carries; SAVE stores the game in the profile and goes to the file menu; RETRY reloads the profile as it was last stored and starts at
   the overworld's start or the dungeon's entrance, without the file menu. Each death adds one to the profile's count
-- saved games (`save.s`): `ZELDA.SAV`, three profiles of 640 bytes with a checksum, is read through GEMDOS from the
+- saved games (`save.s`): `ZELDA.SAV`, three profiles of 640 bytes (and three of 256 with the flags of Levels 7-9) with a checksum, is read through GEMDOS from the
   current directory when the program starts and written (as `ZELDA.TMP`, then renamed over the old file) when a name is
   registered or deleted and when SAVE is chosen. It holds the name, hearts, deaths, items, counters, the rooms visited and
   the hidden spots found, so a loaded game finds its opened walls and burnt trees open. A file that is missing, of

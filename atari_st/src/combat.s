@@ -1517,7 +1517,7 @@ bomb_open_wall:
     adda.l %d3, %a1
     cmpi.b #BOMB_DOOR_TYPE, 0(%a1, %d6.w)
     bne 9f
-    lea OFF_UW_OPEN(%a5), %a2
+    uwlea OPEN, %a2
     btst %d6, 0(%a2, %d0.w)
     bne 9f
     move.w %d6, %d2
@@ -1756,7 +1756,7 @@ uw_setup_item:
     movem.l %d1-%d2/%a0, -(%sp)
     cmpi.b #0xff, 2(%a1)
     beq 9f
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     moveq #0, %d1
     move.b 0(%a0, %d0.w), %d1
     btst #1, %d1
@@ -1820,7 +1820,7 @@ item_pickup:
     tst.b OFF_IN_CELLAR(%a5)
     beq 5f
     move.b OFF_CELLAR_ROOM(%a5), %d1
-5:  lea OFF_UW_FLAGS(%a5), %a0
+5:  uwlea FLAGS, %a0
     moveq #1, %d0
     tst.b OFF_LEVEL(%a5)
     bne 6f
@@ -2167,7 +2167,7 @@ uw_check_clear:
     movem.l %d0-%d1/%a0, -(%sp)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
-    lea OFF_UW_FLAGS(%a5), %a0
+    uwlea FLAGS, %a0
     btst #0, 0(%a0, %d0.w)
     bne 9f
     cmpi.b #TRIGGER_RINGLEADER, OFF_ROOM_TRIGGER(%a5)
@@ -2242,7 +2242,7 @@ uw_open_shutters:
     mulu.w #UW_DOOR_RECORD_BYTES, %d2
     lvtab DOORS, %a1
     adda.l %d2, %a1
-    lea OFF_UW_OPEN(%a5), %a2
+    uwlea OPEN, %a2
     moveq #3, %d2
 1:  cmpi.b #DOOR_SHUTTER, 0(%a1, %d2.w)
     bne 2f
