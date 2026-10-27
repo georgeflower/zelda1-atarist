@@ -169,6 +169,11 @@ SCENES: dict[str, list[str]] = {
                         "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,260:+right"],
     "uw6_ladder_across": ["--uw", "0x19", "--level", "6", "--vbls", "310", "--keys",
                           "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,260:+right"],
+    # The ladder carries Link one square: Level 4's moat in room $21 is two squares thick, and he stops on the ladder (as in the ROM).
+    "uw4_ladder_two_wide": ["--uw", "0x21", "--level", "4", "--vbls", "330", "--keys",
+                            "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,250:=LINK_X=0x50,250:=LINK_Y=0x5D,250:=LINK_DIR=4,260:+down"],
+    # Sprite palette row 3 is the level's own: the Zols of Level 4 are black with gold eyes.
+    "uw4_zols": ["--uw", "0x32", "--level", "4", "--vbls", "260"],
     # Ganon: brown after the sword, then a silver arrow. He burns solid, the ashes stay under the Triforce of Power.
     "uw9_ganon_brown": ["--uw", "0x42", "--level", "9", "--vbls", "515", "--keys", GANON_ARROW],
     "uw9_ganon_burst": ["--uw", "0x42", "--level", "9", "--vbls", "670", "--keys", GANON_ARROW],

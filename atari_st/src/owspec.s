@@ -178,14 +178,39 @@ uw_ladder_ok:
     beq 9f
     cmp.w #UW_MOAT, %d5
     bne 9f
-    movem.l %d1-%d2/%a0, -(%sp)
+    movem.l %d1-%d3/%a0, -(%sp)
     tst.b OFF_LADDER_SHOWN(%a5)
     beq 2f
-    move.b OFF_LADDER_DIR(%a5), %d2     | a ladder is down: he may walk along its line
+    move.b OFF_LADDER_DIR(%a5), %d2     | a ladder is down: he may walk along its line, but only up to it
     eor.b %d1, %d2
     and.b #DIR_VERTICAL, %d2
-    beq 8f                              | (both vertical or both horizontal) the same axis
-    bra 7f
+    bne 7f                              | (not the same axis)
+    | CheckLadder: moving on without a look at the tiles is for a Link that has not reached the ladder; once he is on it
+    | (distance 0) or past it, the moat blocks like any other, so the ladder carries him one square and no further.
+    moveq #0, %d2
+    moveq #0, %d3
+    move.b %d1, %d0
+    and.b #DIR_VERTICAL, %d0
+    beq 15f
+    move.b OFF_LINK_Y(%a5), %d3
+    addq.w #3, %d3
+    move.b (OFF_ITEM_Y + RAFT_SLOT)(%a5), %d2
+    sub.w %d3, %d2                      | the ladder's Y less his: > 0 below him, < 0 above
+    btst #3, %d1
+    bne 14f
+    bra 16f                             | down: the ladder must lie below
+14: neg.w %d2                           | up: the ladder must lie above
+    bra 16f
+15: move.b OFF_LINK_X(%a5), %d3
+    move.b (OFF_ITEM_X + RAFT_SLOT)(%a5), %d2
+    sub.w %d3, %d2                      | the ladder's X less his
+    btst #1, %d1
+    beq 16f
+    neg.w %d2                           | left: the ladder must lie to the left
+16: moveq #1, %d0                       | (blocked again unless it is still ahead)
+    tst.w %d2
+    ble 7f
+    bra 8f
 2:  tst.b OFF_FOOD_TIMER(%a5)
     bne 7f                              | (the food has the slot)
     moveq #0, %d2                       | which of the four: up, down, left, right
@@ -213,9 +238,9 @@ uw_ladder_ok:
     move.b #1, OFF_LADDER_SHOWN(%a5)
     move.b OFF_ROOM_ID(%a5), OFF_LADDER_ROOM(%a5)
 8:  moveq #0, %d0
-    movem.l (%sp)+, %d1-%d2/%a0
+    movem.l (%sp)+, %d1-%d3/%a0
     rts
-7:  movem.l (%sp)+, %d1-%d2/%a0
+7:  movem.l (%sp)+, %d1-%d3/%a0
 9:  rts
 
 | Once a frame in a dungeon: the ladder is put away when the rules say so (CheckLadder).

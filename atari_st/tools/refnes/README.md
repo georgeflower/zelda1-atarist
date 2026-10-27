@@ -22,3 +22,8 @@ The player is invincible, holds the magic sword, comes in at the bottom door, wa
 - `run_phase2.sh LEVEL [QUEST]`: one dungeon, fight then idle, ROM then port.
 
 It found two things in the port that the per-room tables could not show: the wizzrobes were moved twice, and shutters opened in rooms whose trigger never opens them.
+
+## Small probes
+
+- `ladder_test.mjs LEVEL ROOM X Y DIR [FRAMES]`: puts Link in a room of the ROM with the ladder and walks him one way; prints the moat and where he stops (on the ladder's square: it carries him one square, never two).
+- `zol_colour.mjs LEVEL ROOM TYPE`: the palette on screen and the colours of a monster in the ROM, and a picture (`PPM=file.ppm`). Sprite palette row 3 is each dungeon's own, which is why a Zol is black in Level 4.

@@ -385,6 +385,7 @@ def level_rooms(start: int, info: bytes, attrs_a: bytes, attrs_b: bytes, attrs_d
 PROTECTED_ROWS = (B.LINK_PALETTE_ROW, B.CAVE_WALL_ROW, B.HUD_TEXT_ROW, B.HUD_ACCENT_ROW)
 # Slots the 68000 code names directly: the minimap colours (MM_* in hud.s; tests keep the two in step).
 PROTECTED_SLOTS = (1, 2, 4, 7, 9)
+SPRITE_ROW3 = 7            # the fourth sprite palette row: the one whose three colours each level chooses itself
 
 
 def palette_lookup(ow_palette: bytes, ow_map: "B.PaletteMap", uw_palette: bytes):
@@ -405,8 +406,15 @@ def palette_lookup(ow_palette: bytes, ow_map: "B.PaletteMap", uw_palette: bytes)
             known[nes] = ow_map.table[row][pixel]
             slot_colour[ow_map.table[row][pixel]] = nes
 
+    # Sprite palette row 3 is the level's own on the NES (a Zol, a Gel, a Dodongo, Gleeok, Digdogger wear it), while the
+    # monsters are baked once for every level by the overworld's row 3, so those three slots simply hold the level's three
+    # colours while it is shown (the overworld's colours there are not needed inside a dungeon).
+    sprite3 = SPRITE_ROW3
+    forced = {ow_map.table[sprite3][pixel]: uw_palette[sprite3 * 4 + pixel] for pixel in range(1, B.PALETTE_ROW_COLORS)}
     wanted = [uw_palette[0]]
     for row in range(B.PALETTE_ROWS):
+        if row == sprite3:
+            continue
         wanted.extend(uw_palette[row * 4 + pixel] for pixel in range(1, B.PALETTE_ROW_COLORS))
     wanted = list(dict.fromkeys(wanted))
     if uw_palette[0] != ow_palette[0]:
@@ -414,12 +422,22 @@ def palette_lookup(ow_palette: bytes, ow_map: "B.PaletteMap", uw_palette: bytes)
 
     protected = {ow_map.table[row][pixel] for row in PROTECTED_ROWS if row < len(ow_map.table)
                  for pixel in range(B.PALETTE_ROW_COLORS)} | set(PROTECTED_SLOTS)
+    for slot, colour in forced.items():
+        if slot in protected and slot_colour[slot] != colour:
+            raise SystemExit(f"Sprite row 3 slot {slot} is needed elsewhere")
+    protected |= set(forced)
+    for colour in wanted:
+        if colour in known and known[colour] in forced and forced[known[colour]] != colour:
+            raise SystemExit(f"Level colour {colour:#04x} sits in a slot sprite row 3 needs")
     sprite_slots = {ow_map.table[row][pixel] for row in range(4, 8) for pixel in range(B.PALETTE_ROW_COLORS)}
     keep = {known[nes] for nes in wanted if nes in known}
     spare = sorted((slot for slot in slot_colour if slot not in keep and slot not in protected),
                    key=lambda slot: (slot in sprite_slots, slot))
 
     slot_of = {nes: known[nes] for nes in wanted if nes in known}
+    for slot, colour in forced.items():
+        if colour in wanted and colour not in slot_of:
+            slot_of[colour] = slot                   # a colour the background shares with sprite row 3 is in its slot already
     st_colors = list(ow_map.st_colors)
     for nes in wanted:
         if nes in slot_of:
@@ -430,8 +448,13 @@ def palette_lookup(ow_palette: bytes, ow_map: "B.PaletteMap", uw_palette: bytes)
         slot_of[nes] = slot
         st_colors[slot] = B.nes_color_to_st(nes)
 
+    for slot, colour in forced.items():
+        st_colors[slot] = B.nes_color_to_st(colour)
     table = []
     for row in range(B.PALETTE_ROWS):
+        if row == sprite3:
+            table.append(tuple(ow_map.table[sprite3]))
+            continue
         table.append(tuple(slot_of[uw_palette[0] if pixel == 0 else uw_palette[row * 4 + pixel]]
                            for pixel in range(B.PALETTE_ROW_COLORS)))
     return table, tuple(st_colors)

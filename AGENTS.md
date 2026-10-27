@@ -220,8 +220,8 @@ writing). They cover the asset pipeline and tables; the 68000 music player is th
 reach-check listing parser.
 
 ### Golden frames (`tools/golden.py`, `tests/golden/frames.json`)
-Thirty-three fixed scenes (overworld start, the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo,
-Moldorm, traps, goriyas, old man, and Levels 3-8: a crowded room, a dark room, a rupee stash, Grumble, a dark crowd; Level 9: a Lanmola room, a Patra room, Ganon's room, Zelda's room and Zelda's thanks) are run through `screenshot.py` (dev builds in `build/dev` via `--room`/`--uw`/`--level`) and
+Thirty-five fixed scenes (overworld start, the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo,
+Moldorm, traps, goriyas, old man, and Levels 3-8: a crowded room, a dark room, a rupee stash, Grumble, a dark crowd; Level 9: a Lanmola room, a Patra room, Ganon's room, Zelda's room and Zelda's thanks; Level 4's Zols and the ladder stopping on a two-square moat) are run through `screenshot.py` (dev builds in `build/dev` via `--room`/`--uw`/`--level`) and
 the `FRAMEHASH` (SHA-256 of pixel indices plus palette) is compared with the stored one. **Hashes, not images**: the frames are
 Nintendo's artwork, so the tests keep no images. (Screenshots are not kept in the repository; the owner has a zip of the early ones.) Runs are deterministic. After a change that moves pixels on purpose: look at
 `build/golden/<scene>.png`, then `make golden-update` and commit `frames.json`. `make check` runs it and skips quietly without
@@ -415,6 +415,7 @@ stays that of 60 Hz and only the picture runs at 30 Hz; at most one extra pass, 
   by slot number. `underworld.palette_lookup` builds a level's table; `palette_sync` (video.s, each frame) loads the one for
   `OFF_LEVEL`; code that restores the colours after a flash calls `cur_palette` (a0 = current table). A level's monsters must be
   baked with the level's own rows when its dungeon is added.
+- **Sprite palette row 3 is the level's own** (the NES dungeons give it three colours each: a Zol is black with gold eyes in Level 4, green in Level 3): the monsters are baked once with the overworld's row 3, which sits in slots 13-15, so `underworld.palette_lookup` puts the level's three row-3 colours into those slots while the level is shown (`SPRITE_ROW3`; a colour the background shares with it uses the slot, no extra art).
 - Sprites: 16x16, 4 planes + 1 mask word, **160 bytes** (`SPRITE_FRAME_BYTES`). Narrow
   NES items (8 wide) are centred in the 16 px frame. `draw_sprite` (a0 frame, a1
   dest, d0 shift), `erase_at` restores from `BG_CUR` (the clean room).
@@ -579,7 +580,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `test_build_assets.py` replays the doors of all levels). The moat (NES tile `$F4`) always blocks (`tile_blocks`); the ladder
   (`uw_ladder_ok`/`uw_ladder_update` in owspec.s, as `CheckLadder`) is put down in item slot 2 (`RAFT_SLOT`, `ITEM_LIFTED`, drawn by
   `draw_items`) at Link + (up 0,-5; down 0,+19; left -16,+3; right +16,+3), `LADDER_DIR/STATE/ROOM`. `link_collide` lets Link pass the moat
-  only along the ladder's axis; it is stashed again (and when the room changes) as `CheckLadder` does. The overworld ladder is still the
+  only along the ladder's axis, and only while the ladder is still ahead of him: on the ladder's square the moat blocks again, so it carries him one square (as in the ROM: a moat two squares thick is not crossed); it is stashed again (and when the room changes) as `CheckLadder` does. The overworld ladder is still the
   older square-snapped approximation. Moat rooms that cut doors off from each other: Level 4 `$01 $21 $30`,
   5 `$46 $66`, 6 `$19 $1A`, 7 `$18 $49 $5A`, 9 `$23 $40 $56 $65`.
 - **Level 9** (`UW_LEVELS := 1 2 3 4 5 6 7 8 9`; the monsters live in `bosses.s`, the dungeon people and the door man in `uw.s`): 57 rooms,
