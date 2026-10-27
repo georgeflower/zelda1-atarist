@@ -491,7 +491,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   (8-way: the held keys, a diagonal moves both axes; else Link's facing; `OFF_HELD_DIRS`)
   for 49 px (limit `$31`) or until the room's edge stops it (`MoveShot` -> `BoundByRoom`: walls and water never do; in caves the cave bounds), 3-frame spark, slow phase (1 px/frame, `$10`
   frames), then returns to Link (the edge only stops it while flying out: in the slow phase it stays put and the phase still runs out); one at a time; stun `ObjStunTimer` `$10` = 160 frames;
-  kills monsters with HP 0 (gel, keese; hit box `CheckMonsterBoomerangOrFoodCollision`: the monster's middle +8,+8 within $A of the boomerang's +4,+8); picks up items; traps/boss ignore it. Art:
+  kills monsters with HP 0 (gel, keese; hit box `CheckMonsterBoomerangOrFoodCollision`: the monster's middle +8,+8 within $A of the boomerang's +4,+8); picks up dropped items, never the room's own item (raft, bow, key...: `TryTakeRoomItem` looks at Link alone, `item_pickup_boomerang`); traps/boss ignore it. Art:
   item slot `$1D` tiles `$36,$38,$3A` + spark `$3C`, spin cycle `{0,1,2,1,0,1,2,1}` with
   flips. Stunned monsters do nothing and do no contact damage (`ENEMY_STUN`).
 - **Holding an item up** (`TakeItem` with `ItemLiftTimer`, `lift_begin` / `lift_update` in combat.s, `LIFT_TIMER`): the wooden sword, the

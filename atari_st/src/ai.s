@@ -2178,7 +2178,7 @@ boom_collide:
     move.b OFF_LINK_Y(%a5), %d4
     move.b %d2, OFF_LINK_X(%a5)
     move.b %d3, OFF_LINK_Y(%a5)
-    bsr item_pickup
+    bsr item_pickup_boomerang
     move.b %d1, OFF_LINK_X(%a5)
     move.b %d4, OFF_LINK_Y(%a5)
     move.w %d6, %d0
