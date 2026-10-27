@@ -58,8 +58,8 @@ const tiles = (z) => {
   return t;
 };
 
-// Types the player does not try to kill: bubbles, blade traps, statues and the like, and shots.
-const NO_TARGET = new Set([0x2B, 0x2C, 0x2D, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F]);
+// Types the player does not try to kill: bubbles, the rupee stash, Grumble, blade traps, statues and the like, and shots.
+const NO_TARGET = new Set([0x2B, 0x2C, 0x2D, 0x35, 0x36, 0x40, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F]);
 
 // One frame of the player. Returns the buttons it holds.
 function player(z, targets, frame) {
@@ -121,7 +121,7 @@ function playRoom(z, room) {
     if (frame === 4) {                              // a boss that is several objects (Manhandla's hands, Gohma, Patra...) makes the rest in its first updates
       for (const o of objs(z)) if (!NO_TARGET.has(o.type) && o.slot < 12 && !targets.includes(o.slot)) { targets.push(o.slot); initial.push(o); }
     }
-    if (frame % SAMPLE === 0) samples.push({f: frame, l: [z.rd(0x70), z.rd(0x84), z.rd(0x98)], o: objs(z).map(o => [o.slot, o.type, o.x, o.y, o.state])});
+    if (frame % SAMPLE === 0) samples.push({f: frame, l: [z.rd(0x70), z.rd(0x84), z.rd(0x98)], i: [z.rd(0x34F + 19), z.rd(0x70 + 19), z.rd(0x84 + 19), z.rd(0xAC + 19), z.rd(0xAB)], o: objs(z).map(o => [o.slot, o.type, o.x, o.y, o.state])});
     if (!IDLE && clearedAt === null && targets.length && targets.every(s => z.rd(0x34F + s) === 0 || z.rd(0x34F + s) !== initial.find(o => o.slot === s).type)) clearedAt = frame;
     if (clearedAt !== null && frame >= clearedAt + AFTER) break;   // long enough for a boss's death and the shutters
   }

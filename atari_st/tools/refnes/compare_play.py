@@ -18,7 +18,7 @@ HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parents[1]
 MON_TABLE = (PROJECT / "build" / "generated" / "mon_table.bin")
 # Types that are never a target of the player (autoplay.s / rom_play.mjs): bubbles and the blade traps.
-NO_TARGET = {0x2B, 0x2C, 0x2D, 0x35, 0x36, 0x49, 0x4A} | set(range(0x68, 0x70))     # (0x68..: the ROM's push block object)
+NO_TARGET = {0x2B, 0x2C, 0x2D, 0x35, 0x36, 0x40, 0x49, 0x4A} | set(range(0x68, 0x70))     # (0x68..: the ROM's push block object)
 
 
 def nes_type(index: int) -> int:
@@ -34,6 +34,21 @@ def same_monsters(rom_types, port_types):
     plain_rom = sorted(t for t in rom_types if t not in COMPOUND)
     plain_port = sorted(t for t in port_types if t not in COMPOUND)
     return plain_rom == plain_port and {t for t in rom_types if t in COMPOUND} <= set(port_types)
+
+
+NOTES: list = []         # (level, room, text): player-dependent facts, shown with --notes
+STUCK_FRAMES = 300       # the simple player is stuck on a block: Link did not move for this long before the end
+
+
+def stuck_port(samples):
+    tail = [s for s in samples if s["frame"] >= samples[-1]["frame"] - STUCK_FRAMES]
+    return len(tail) > 5 and len({tuple(s["link"]) for s in tail}) == 1
+
+
+def stuck_rom(info):
+    samples = info["samples"]
+    tail = [s for s in samples if s["f"] >= samples[-1]["f"] - STUCK_FRAMES]
+    return len(tail) > 5 and len({tuple(s["l"][:2]) for s in tail}) == 1
 
 
 def port_targets(sample):
@@ -59,7 +74,7 @@ def fight_facts_port(samples):
 
 
 def fight_facts_rom(info):
-    initial = [o for o in info["initial"] if o["slot"] in info["targets"]]
+    initial = [o for o in info["initial"] if o["slot"] in info["targets"] and o["type"] not in NO_TARGET]
     return {"targets": sorted(o["type"] for o in initial), "cleared": info["cleared"], "open": info["doors"],
             "item": info["roomItem"], "tiles": info["tilesChanged"], "frame": info["frames"], "room": info["linkRoom"],
             "mode": info["mode"]}
@@ -75,18 +90,26 @@ def compare_fight(rom, port, out):
             if name not in prooms:
                 continue
             r, p = fight_facts_rom(info), fight_facts_port(prooms[name])
-            problems = []
+            problems, notes = [], []          # notes: how the simple player fared (it can be stuck on a block); problems: the game
             if not same_monsters(r["targets"], p["targets"]):
                 problems.append(f"monsters {r['targets']} (ROM) vs {p['targets']} (port)")
             if (r["cleared"] is None) != (p["cleared"] is None):
-                problems.append(f"cleared: ROM {r['cleared']}, port {p['cleared']}")
+                stuck = stuck_rom(info) if r["cleared"] is None else stuck_port(prooms[name])
+                if not stuck:        # a player stuck on a block says nothing about the game
+                    notes.append(f"cleared: ROM {r['cleared']}, port {p['cleared']}")
             elif r["cleared"] is not None and p["cleared"] is not None:
                 lo, hi = sorted((r["cleared"] + 30, p["cleared"] + 30))
                 if hi > 6 * lo:                  # the two players are not the same, only a big gap counts
-                    problems.append(f"clear time: ROM {r['cleared']} frames, port {p['cleared']}")
+                    notes.append(f"clear time: ROM {r['cleared']} frames, port {p['cleared']}")
+            if info["samples"] and "i" in info["samples"][0] and prooms[name]:
+                rom_item = info["samples"][0]["i"][2] != 255 and info["samples"][0]["i"][3] == 0     # the room's item lies on the floor at the start
+                port_item = prooms[name][0]["items"][0][0] == 2
+                if rom_item != port_item:
+                    problems.append(f"room item at the start: ROM {'on the floor' if rom_item else 'hidden'}, port {'on the floor' if port_item else 'hidden'}")
             if r["cleared"] is not None and p["cleared"] is not None and r["open"] != p["open"]:
                 problems.append(f"doors after the clear: ROM {r['open']:#04x}, port {p['open']:#04x}")
             out.append((key, name, problems, r, p))
+            NOTES.extend((key, name, text) for text in notes)
 
 
 # Random fliers and the vire, whose hops move its position in the ROM and are only drawn in the port: no speed to compare.
@@ -159,6 +182,7 @@ def main() -> None:
     parser.add_argument("--rom", type=Path)
     parser.add_argument("--port", type=Path)
     parser.add_argument("--idle", action="store_true")
+    parser.add_argument("--notes", action="store_true", help="also list what depends on the simple player (clear times)")
     args = parser.parse_args()
     suffix = "_idle" if args.idle else ""
     rom = json.loads((args.rom or PROJECT / "build" / "refnes" / f"rom_play{suffix}.json").read_text())
@@ -172,6 +196,9 @@ def main() -> None:
             print(f"{key} room {room}:")
             for text in problems:
                 print("   ", text)
+    if args.notes:
+        for key, room, text in NOTES:
+            print(f"note {key} room {room}: {text}")
     print(f"{len(out)} rooms compared, {bad} with differences")
 
 
