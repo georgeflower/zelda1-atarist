@@ -194,6 +194,7 @@ of its own): a build without `ext/Original.nes` stops with a message, and `build
   entrance follow); `screenshot.py --quest 2` does it for you. **Unset it too for the default build** (`DEV_QUEST, 0`).
 - They write `DEV_START_UW`/`DEV_START_LEVEL`/`DEV_START_ENTRANCE`/`START_ROOM_ID` into `build/generated/assets.inc`
   (`DEV_START_ENTRANCE` is the overworld screen of that level's stairs, where leaving comes out).
+- `ZELDA_AUTOPLAY=1` (or `idle`) builds the scripted player of `src/autoplay.s` for the play-through audit (`tools/refnes/README.md`); it is not in any other build, and `screenshot.py` and the Makefile track it like the others.
 - `screenshot.py --room 0x3c` / `--uw 0x0e --level 2` do this for you into `build/dev`, leaving `build/` alone.
   The Makefile tracks both variables in `build/dev_start.stamp`, so changing them
   (including unsetting them) regenerates the assets on the next `make`; no `touch`
