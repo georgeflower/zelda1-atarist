@@ -508,9 +508,19 @@ class RomLevelPaletteTests(unittest.TestCase):
         for palette in self.bundle.level_palettes:
             self.assertEqual(len(palette), build_assets.ST_PALETTE_SIZE)
 
-    def test_levels_one_and_two_use_the_overworld_palette_unchanged(self) -> None:
-        for level in (0, 1):
-            self.assertEqual(self.bundle.level_palettes[level], self.bundle.palette.st_colors)
+    def test_level_one_uses_the_overworld_palette_unchanged(self) -> None:
+        self.assertEqual(self.bundle.level_palettes[0], self.bundle.palette.st_colors)
+
+    def test_a_level_differs_from_the_overworld_only_in_what_it_chooses_itself(self) -> None:
+        # Level 2 shares every colour but sprite palette row 3, which a dungeon chooses itself (a Zol, a Dodongo wear it):
+        # the monsters are baked with the overworld's row 3, so the level puts its colours into those three slots.
+        import underworld
+
+        base = self.bundle.palette
+        row3 = {base.table[underworld.SPRITE_ROW3][pixel] for pixel in (1, 2, 3)}
+        for slot, colour in enumerate(self.bundle.level_palettes[1]):
+            if slot not in row3:
+                self.assertEqual(colour, base.st_colors[slot], f"slot {slot}")
 
     def test_the_slots_other_code_relies_on_never_change(self) -> None:
         import underworld
