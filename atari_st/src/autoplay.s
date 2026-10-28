@@ -19,7 +19,7 @@ autoplay:
     clr.b SCAN_DOWN(%a0)
     clr.b SCAN_LEFT(%a0)
     clr.b SCAN_RIGHT(%a0)
-    clr.b SCAN_SPACE(%a0)
+    clr.b SCAN_CTRL(%a0)
     .ifeq DEV_AUTOPLAY - 2
     bra 90f                             | ZELDA_AUTOPLAY=idle: he only stands there, to watch the monsters
     .endif
@@ -105,7 +105,7 @@ autoplay:
     and.w #15, %d0
     cmp.w #8, %d0
     bge 90f
-    move.b #1, SCAN_SPACE(%a0)
+    move.b #1, SCAN_CTRL(%a0)
 90: movem.l (%sp)+, %d0-%d7/%a0-%a3
     rts
 

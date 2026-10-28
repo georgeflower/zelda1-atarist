@@ -17,8 +17,8 @@ The Second Quest starts when you make a file called ZELDA (like the original), o
 | Key | Action |
 | --- | --- |
 | arrow keys, `W` `A` `S` `D`, joystick | walk |
-| `Space`, joystick fire | sword (A) |
-| `Ctrl` or `Alternate` | B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
+| `Ctrl`, joystick fire | sword (A) |
+| `Space`, `Alternate` or `B` | B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
 | `Tab` | inventory screen (Left/Right to choose the B item) |
 | `K` | debug: a key, four bombs and the candle |
 | `T` | debug: show the room id (`RM-37`, or `CL-xx` in a cellar) on the ribbon |

@@ -25,9 +25,9 @@ How to play
 | Key | Action |
 | --- | --- |
 | arrow keys, `W` `A` `S` `D` or the joystick | walk (in 8-pixel steps, like the original) |
-| `Space`, joystick fire | the sword (A) |
-| `Ctrl` or `Alternate` | the B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
-| `Tab` | the inventory screen (Left/Right choose the B item, `Tab` goes back) |
+| `Ctrl`, joystick fire | the sword (A) |
+| `Space`, `Alternate` or `B` | the B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
+| `Tab` | the inventory screen (Left/Right or the joystick choose the B item, `Tab` goes back) |
 | `K` | debug: a key, four bombs and the candle |
 | `T` | debug: show the room id on the ribbon, `RM-37` (`CL-xx` in a cellar); press again to hide it |
 | `Esc` | quit |

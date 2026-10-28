@@ -391,7 +391,7 @@ cs_letter:
     cmpi.b #B_LETTER, OFF_B_ITEM(%a5)
     bne 8f                                      | the letter has to be the item on B
     lea OFF_KEY_STATES(%a5), %a0
-    tst.b SCAN_CTRL(%a0)
+    tst.b SCAN_SPACE(%a0)
     bne 1f
     tst.b SCAN_ALT(%a0)
     beq 8f
