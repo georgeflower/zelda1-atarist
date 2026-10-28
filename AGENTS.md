@@ -290,7 +290,7 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
 - PowerShell has no heredocs; write files with the editor tools.
 - `make clean` wipes `atari_st/build/*`, including scratch scripts and probes.
 - **50 Hz test**: pass EmuTOS German (`etos512de.img`) as `TOS`; the report then shows `SYNC_MODE=0xfe (50 Hz)`. The US images give
-  `0xfc` (60 Hz). Compare `FRAME_COUNTER` at two `--vbls` (it must advance one per VBL) and count `reg=0x0` writes with `--trace psg_write`
+  `0xfc` (60 Hz). Compare `FRAME_COUNTER` at two `--vbls` (it must advance one per VBL at 50 Hz and five per six VBLs at 60 Hz: 500 in 600) and count `reg=0x0` writes with `--trace psg_write`
   (one per music tick: 600 of 600 VBLs at 50 Hz, 500 at 60 Hz). The report also prints a `PALETTE` line with the 16 colours on show.
 - Hatari quirks: `--memsize 4` with TOS 1.04 bus-errors during TOS's own RAM test
   (use `--memsize 1`); Hatari here runs at **60 Hz** (133,600 cycles per frame).
@@ -391,7 +391,7 @@ time (no pre-shifted copies; only the bosses' narrow pieces are pre-shifted). A 
 ~8k cycles to draw and ~1.7k to erase, so a room of seven or more monsters needs two VBLs. `catch_up`
 (`main.s`, called after `FRAME_COUNTER` is incremented) sees from `FR_CLOCK` (`$462`) that two VBLs passed and runs
 `update_play` once more with `SKIP_DRAW` set (no erase, no draw, no present, boss pool cleared), so the game speed
-stays that of 60 Hz and only the picture runs at 30 Hz; at most one extra pass, never during scrolls or menus. The two passes see consecutive `FRAME_COUNTER` values (the late pass runs with the value `main_loop` just made, the counter moves on before the real pass): when both saw the same value, a run of late frames (a sword beam's DPCM sample is enough) left the counter with one parity, so every "step on every other frame" monster doubled its speed or froze and the Aquamentus's fireballs (Y drift on even frames) fanned wrongly.
+stays that of the display (50 updates a second) and only the picture runs at half rate; at most one extra pass, never during scrolls or menus. The two passes see consecutive `FRAME_COUNTER` values (the late pass runs with the value `main_loop` just made, the counter moves on before the real pass): when both saw the same value, a run of late frames (a sword beam's DPCM sample is enough) left the counter with one parity, so every "step on every other frame" monster doubled its speed or froze and the Aquamentus's fireballs (Y drift on even frames) fanned wrongly.
 `LATE_FRAMES` counts the passes (the harness prints it); `FRAME_COUNTER` ~ VBLs - 170 means the loop kept up.
 
 ## 8. Screen, coordinates, rendering
@@ -613,7 +613,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **Walking speeds** (`ROM_QSPEED` in `tools/actors.py`, held to `MONSTER_PERIOD` by `test_walking_speeds_are_the_roms_q_speeds`): a
   q-speed is a 64th of a pixel a frame: `$20` lynels, moblins, goriyas, slow octoroks, red darknuts, stalfos, gibdos, vires (a pixel every
   other frame), `$28` blue darknuts (5 in 8 frames), `$30` fast octoroks (6 in 8, `step_patterns` in `enemy.s`), `$18` zols (3 in 8), `$40`
-  gels and bubbles; a rope charges at `$60`. Armos and flying ghinis do not walk: they use the flying state machine (below). Speeds are per frame: a 50 Hz display plays at the PAL NES's pace, a 60 Hz one at NTSC pace.
+  gels and bubbles; a rope charges at `$60`. Armos and flying ghinis do not walk: they use the flying state machine (below). Speeds are per frame, and the game plays at the PAL NES's pace on both displays: at 60 Hz `main_loop` lets every sixth VBL pass without an update (`HOLD_SKIP`, after `wait_vbl`; the music holds the same one, `MUS_SKIP`), so 50 frames a second are played either way (the owner asked for it: a 60 Hz screen should not run faster than a 50 Hz one).
   **Ringleader** (`TRIGGER_RINGLEADER`, `uw_check_clear`): when slot 0 is dead, kill the others and open the shutters.
 - **Dodongo** (`$32`, `BEH_DODONGO`, `MODE_DODONGO`; ROM `UpdateDodongo`): a wanderer (turn rate `$20`) whose X is shifted by `$10` when it
   does not face left (it is two sprites wide: `draw_dodongo`, second erase offsets `ENEMY_ERASE2_OFFSETS`). State 0 walks, 1 is
@@ -829,6 +829,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 ## 13. Lessons learned / pitfalls
 
 - Rebuilds with a dev env leave a dungeon start baked in (section 4).
+- **A dev build has branches the default build lacks** (`begin_game`'s `bsr uw_select_level_far` sits at `.text+0x6c`, its stub 32 KB away): `make all` passes the reach check and a dev build (`screenshot.py --uw`) can still fail it, then the harness dies with "marker found twice" (the program ran into the basepage). Run a dev build after adding code to `main_loop`'s neighbourhood; the main loop's hold check is written short for that reason (`bne.s`, memory operands).
 - Hatari at 60 Hz: use the VBL-latch logic in `present_frame`/`wait_vbl`; don't change it casually.
 - The ST has a 16x16 shift blitter at run time; keep sprite counts modest per frame.
 - Tab/menu: drawing straight to the visible screen is fine because nothing else runs.

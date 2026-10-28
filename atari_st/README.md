@@ -56,8 +56,7 @@ Known differences from the original
   slots), and the Dodongo and the Moldorm leave no death cloud
 - the dungeons' monsters appear at once instead of coming out of a spawn cloud
 - `K` is a debug key, it is not in the original
-- the song is written for 50 Hz; on a 60 Hz display every sixth frame holds it back so the tempo
-  stays right
+- the game plays at the PAL speed of 50 frames a second; on a 60 Hz display every sixth frame holds the game and the song back, so both run at the same speed as on a 50 Hz one (the NES in 60 Hz is a sixth faster)
 - it does not fit in 512 KB (the `.PRG` alone is about 700 KB)
 
 Roadmap
