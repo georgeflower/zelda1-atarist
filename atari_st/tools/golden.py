@@ -31,7 +31,7 @@ GOLDEN = PROJECT / "tests" / "golden" / "frames.json"
 
 # name: screenshot.py arguments. Frame counts leave the room time to settle (the game starts at about frame 170).
 GANON_ARROW = ("500:=GANON_SCENE=0,500:=LINK_HELD=0,500:=HP_HALVES=40,500:=ENEMY_X.0=0x78,500:=ENEMY_Y.0=0x80,500:=ENEMY_STATE.0=0xff,"
-               "500:=INV_ARROW=2,500:=INV_BOW=1,500:=INV_RUPEES=50,500:=B_ITEM=4,505:+up,507:-up,512:+ctrl,514:-ctrl")
+               "500:=INV_ARROW=2,500:=INV_BOW=1,500:=INV_RUPEES=50,500:=B_ITEM=4,505:+up,507:-up,512:+space,514:-space")
 
 def _taps(start: int, keys: list[str], gap: int = 4) -> str:
     """Each key pressed for two frames, one every `gap` frames."""
@@ -46,9 +46,9 @@ def _taps(start: int, keys: list[str], gap: int = 4) -> str:
 # name board, where ZELDA is typed (Z: two down and three right; E: two up, one right; L: down, four left; D: up,
 # three right; A: three left) and Tab moves on over the other two slots to END; Start leaves it with the new profile.
 MENU_TO_REGISTER = "400:+return,410:-return,440:+return,450:-return"
-MENU_ZELDA = _taps(500, ["down", "down", "right", "right", "right", "space", "up", "up", "right", "space",
-                         "down", "left", "left", "left", "left", "space", "up", "right", "right", "right", "space",
-                         "left", "left", "left", "space"])
+MENU_ZELDA = _taps(500, ["down", "down", "right", "right", "right", "ctrl", "up", "up", "right", "ctrl",
+                         "down", "left", "left", "left", "left", "ctrl", "up", "right", "right", "right", "ctrl",
+                         "left", "left", "left", "ctrl"])
 ZELDA_WIN = "190:=HP_HALVES=40,190:=LINK_Y=0x95"     # Link at Zelda's, with the hearts of the last dungeon
 MENU_REGISTERED = f"{MENU_TO_REGISTER},{MENU_ZELDA},{_taps(610, ['tab', 'tab', 'tab'])},630:+return,632:-return"
 MENU_TO_ELIMINATION = f"{MENU_REGISTERED},{_taps(710, ['tab', 'tab'], 4)},720:+return,722:-return"
@@ -111,7 +111,7 @@ SCENES: dict[str, list[str]] = {
                        "320:=LINK_X=60,320:=LINK_Y=157,320:=LINK_DIR=2"],
     "uw2_old_man": ["--uw", "0x1f", "--level", "2", "--vbls", "420"],
     # a sword blow on the old man (person_hit) turns his two fires on Link: a fireball is on its way
-    "uw2_old_man_fire": ["--uw", "0x1f", "--level", "2", "--vbls", "520", "--keys", "440:+space,442:-space"],
+    "uw2_old_man_fire": ["--uw", "0x1f", "--level", "2", "--vbls", "520", "--keys", "440:+ctrl,442:-ctrl"],
     "uw3_crowd": ["--uw", "0x49", "--level", "3", "--vbls", "420"],
     "uw4_dark": ["--uw", "0x30", "--level", "4", "--vbls", "420"],
     "uw4_stash": ["--uw", "0x11", "--level", "4", "--vbls", "420"],
@@ -143,11 +143,11 @@ SCENES: dict[str, list[str]] = {
     "uw9_credits_menu": ["--uw", "0x32", "--level", "9", "--vbls", "3600", "--keys", ZELDA_WIN + ",3450:+return,3452:-return"],
     # The overworld's hidden spots (secrets.s). Enemies are cleared at frame 300 so nothing disturbs the poked-in Link.
     "ow_bomb_wall": ["--room", "0x01", "--vbls", "470", "--keys",
-                     "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0x5d,300:=LINK_DIR=8,300:=INV_BOMBS=8,300:=B_ITEM=1,340:+ctrl,343:-ctrl"],
+                     "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0x5d,300:=LINK_DIR=8,300:=INV_BOMBS=8,300:=B_ITEM=1,340:+space,343:-space"],
     "ow_bomb_miss": ["--room", "0x01", "--vbls", "470", "--keys",
-                     "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0x6d,300:=LINK_DIR=8,300:=INV_BOMBS=8,300:=B_ITEM=1,340:+ctrl,343:-ctrl"],
+                     "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0x6d,300:=LINK_DIR=8,300:=INV_BOMBS=8,300:=B_ITEM=1,340:+space,343:-space"],
     "ow_tree_burnt": ["--room", "0x28", "--vbls", "600", "--keys",
-                      "300:=ENEMY_COUNT=0,300:=LINK_X=0xc0,300:=LINK_Y=0xa5,300:=LINK_DIR=1,300:=INV_CANDLE=1,300:=B_ITEM=3,340:+ctrl,343:-ctrl"],
+                      "300:=ENEMY_COUNT=0,300:=LINK_X=0xc0,300:=LINK_Y=0xa5,300:=LINK_DIR=1,300:=INV_CANDLE=1,300:=B_ITEM=3,340:+space,343:-space"],
     "ow_rock_pushed": ["--room", "0x79", "--vbls", "480", "--keys",
                        "300:=ENEMY_COUNT=0,300:=LINK_X=0x80,300:=LINK_Y=0xa5,300:=LINK_DIR=8,300:=INV_BRACELET=1,340:+up"],
     "ow_rock_sliding": ["--room", "0x79", "--vbls", "358", "--keys",
@@ -159,7 +159,7 @@ SCENES: dict[str, list[str]] = {
     # The sword beam is not stopped by trees, stones or walls (MoveShot only knows the room's bounds): from the start screen it
     # flies down through the forest and is seen over the trees.
     "ow_beam_over_trees": ["--room", "0x77", "--vbls", "322", "--keys",
-                           "280:=ENEMY_COUNT=0,280:=HAS_SWORD=1,280:=LINK_DIR=4,300:+space,302:-space"],
+                           "280:=ENEMY_COUNT=0,280:=HAS_SWORD=1,280:=LINK_DIR=4,300:+ctrl,302:-ctrl"],
     "ow_grave_pushed": ["--room", "0x21", "--vbls", "420", "--keys",
                         "300:=ENEMY_COUNT=0,300:=LINK_X=0x90,300:=LINK_Y=0xa5,300:=LINK_DIR=8,340:+up,352:-up"],
     "ow_grave_returns": ["--room", "0x21", "--vbls", "1000", "--keys",
@@ -169,6 +169,8 @@ SCENES: dict[str, list[str]] = {
                         "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,260:+right"],
     "uw6_ladder_across": ["--uw", "0x19", "--level", "6", "--vbls", "310", "--keys",
                           "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,260:+right"],
+    # A blade trap that has hit Link goes on to the middle line and creeps home (it used to turn round at the touch and wrap round the room).
+    "uw1_trap_hits_link": ["--uw", "0x22", "--level", "1", "--vbls", "400", "--keys", "250:=LINK_Y=0x5d,250:=HP_HALVES=40"],
     # The ladder carries Link one square: Level 4's moat in room $21 is two squares thick, and he stops on the ladder (as in the ROM).
     "uw4_ladder_two_wide": ["--uw", "0x21", "--level", "4", "--vbls", "330", "--keys",
                             "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,250:=LINK_X=0x50,250:=LINK_Y=0x5D,250:=LINK_DIR=4,260:+down"],
@@ -202,9 +204,9 @@ SCENES: dict[str, list[str]] = {
     "cave_moblin": ["--room", "0x13", "--cave", "--vbls", "600", "--keys",
                     "300:=INV_RUPEES=10,420:+right,425:-right,430:+up,520:-up"],
     "cave_potion_no_letter": ["--room", "0x02", "--cave", "--vbls", "450"],
-    "cave_potion_letter": ["--room", "0x02", "--cave", "--vbls", "560", "--keys", "300:=INV_LETTER=1,300:=B_ITEM=9,320:+ctrl,340:-ctrl"],
+    "cave_potion_letter": ["--room", "0x02", "--cave", "--vbls", "560", "--keys", "300:=INV_LETTER=1,300:=B_ITEM=9,320:+space,340:-space"],
     "cave_potion_letter_not_on_b": ["--room", "0x02", "--cave", "--vbls", "560", "--keys",
-                                    "300:=INV_LETTER=1,300:=INV_BOMBS=4,300:=B_ITEM=1,320:+ctrl,340:-ctrl"],
+                                    "300:=INV_LETTER=1,300:=INV_BOMBS=4,300:=B_ITEM=1,320:+space,340:-space"],
     "cave_take_any_one": ["--room", "0x06", "--cave", "--vbls", "440"],
     "cave_take_any_road": ["--room", "0x1d", "--cave", "--vbls", "450"],
     "cave_letter_lifted": ["--room", "0x0e", "--cave", "--vbls", "560", "--keys", "420:+right,425:-right,430:+up,520:-up"],
@@ -213,9 +215,9 @@ SCENES: dict[str, list[str]] = {
                         "400:=LINK_X=0x40,400:=LINK_Y=0x8d,400:=HP_HALVES=0x30,401:+up,430:-up"],
     "ow_fairy_pond": ["--room", "0x39", "--vbls", "440", "--keys", "400:=LINK_Y=0xad,400:=HP_HALVES=2"],
     "ow_pond_stairs": ["--room", "0x42", "--vbls", "900", "--keys",
-                       "400:=INV_RECORDER=1,400:=B_ITEM=5,400:=ENEMY_ACTIVE.0=0,420:+ctrl,422:-ctrl"],
+                       "400:=INV_RECORDER=1,400:=B_ITEM=5,400:=ENEMY_ACTIVE.0=0,420:+space,422:-space"],
     "ow_whirlwind_carries": ["--room", "0x77", "--vbls", "450", "--keys",
-                             "400:=TRIFORCE_PIECES=1,400:=INV_RECORDER=1,400:=B_ITEM=5,420:+ctrl,422:-ctrl"],
+                             "400:=TRIFORCE_PIECES=1,400:=INV_RECORDER=1,400:=B_ITEM=5,420:+space,422:-space"],
     # Link's death (death.s): poking DYING at frame 260 is what link_dies does. The blink, the world going red a few
     # lines a frame, the fade, the grey Link and the spark, GAME OVER, then the continue question (filesel.s).
     "death_remap": ["--room", "0x77", "--vbls", "300", "--keys", DEATH],

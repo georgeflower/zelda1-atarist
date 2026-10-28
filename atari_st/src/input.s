@@ -41,8 +41,7 @@ poll_keyboard:
     clr.b OFF_IKBD_PKT(%a5)
     cmp.b #PKT_JOY0, %d1
     bne 2f
-    move.b %d0, OFF_JOY0(%a5)
-    bra 1b
+    bra 1b                      | port 0 is the mouse port: moving the mouse would walk Link (and its button swing the sword)
 2:  cmp.b #PKT_JOY1, %d1
     bne 3f
     move.b %d0, OFF_JOY1(%a5)

@@ -433,16 +433,17 @@ stays that of 60 Hz and only the picture runs at 30 Hz; at most one extra pass, 
   (`ikbd_state`: head, tail, ring); `poll_keyboard` parses once per frame: scancodes
   into `KEY_STATES[128]` (break = bit 7), joystick event packets (`$FE` port 0 / `$FF`
   port 1 + state byte: bits 0-3 up/down/left/right, bit 7 fire -> `JOY0/JOY1`), mouse
-  packets (`$F8-$FB` + 2 bytes) skipped. Joystick reporting is enabled with IKBD
+  packets (`$F8-$FB` + 2 bytes) skipped. **Port 0 packets (`$FE`) are dropped**: it is the mouse port, and in Steem
+  mouse movement arrives as port-0 joystick directions (Link walked by himself). Port 1 is the joystick. Joystick reporting is enabled with IKBD
   command `$14` in `init_video`. TOS's handler is restored on exit. (History: polling
   the ACIA once a frame lost key releases -> "Link walks up by himself".)
 - `read_input_dir` reduces held keys to one direction: bits right=1, left=2, down=4,
   up=8, **lowest bit wins** (so a stuck Up shows only when nothing else is held); a
   direction pressed this frame wins, else the current one is kept while held.
-- **Controls**: arrows / `W A S D` / joystick walk; **`Space` or joystick fire =
-  sword (A)**; **`Ctrl` or `Alternate` = B item** (bombs / boomerang / candle, edge
+- **Controls**: arrows / `W A S D` / joystick walk; **`Ctrl` or joystick fire =
+  sword (A)**; **`Space`, `Alternate` or `B` = B item** (bombs / boomerang / candle, edge
   triggered); **`Tab` = inventory screen**; `K` debug; `T` debug room id (`DEBUG_ROOM`, drawn by `draw_hud_debug` at ribbon col 19; edge-triggered via `T_HELD`); `Esc` quit. Scancodes: Space
-  `$39`, Ctrl `$1D`, Alt `$38`, Tab `$0F`, K `$25`, T `$14`, Esc `$01`.
+  `$39`, Ctrl `$1D`, Alt `$38`, B `$30`, Tab `$0F`, K `$25`, T `$14`, Esc `$01`.
 
 ## 10. Gameplay systems and the original numbers they follow
 
@@ -677,7 +678,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **File menu** (`filesel.s`, `tools/filesel.py`): Return on the title calls `intro_to_menu` -> `filesel_begin`; the menu runs inside `MODE_INTRO` with
   `OFF_INTRO_PHASE = INTRO_PHASE_MENU` (2), so the main loop dispatch and the silent `music_update` are unchanged. Buffer roles: after `intro_present`
   SCREEN_PTR holds the clean picture (never swapped), BG_NEXT is the shown screen (sprites and cursors are drawn on it and restored from the clean copy).
-  Keys: Return = Start, Tab = Select, Space = A, Ctrl/Alt = B (`file_buttons`, NES button layout). The NES picture sits at cell column +4, row -3
+  Keys: Return = Start, Tab = Select, Ctrl = A, Space/Alt = B (`file_buttons`, NES button layout). The NES picture sits at cell column +4, row -3
   (`PLAYFIELD_COLS`). Slots (`SLOT_ACTIVE/NAMES/HEARTS/DEATHS/QUEST/RING`) and `OFF_PROFILE` are in `globals.s`; a slot starts the game with `begin_game`.
   `|` is the comment character of the assembler: never use it as OR in expressions (`+`). The slots are saved by `save.s` (next bullet).
 - **Death, continue and saving** (`death.s`, `save.s`, `tools/gameover.py`; M10 part c): `link_dies` only sets `OFF_DYING`; the main loop (label `8:` after the

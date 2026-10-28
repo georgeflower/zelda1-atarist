@@ -81,7 +81,15 @@ update_menu:
     tst.b SCAN_D_KEY(%a0)
     beq 5f
 4:  or.b #MENU_RIGHT, %d0
-5:  move.b OFF_MENU_KEYS(%a5), %d1
+5:  move.b OFF_JOY0(%a5), %d1           | the joystick walks the cursor too (an emulator's cursor keys come as joystick packets)
+    or.b OFF_JOY1(%a5), %d1
+    btst #2, %d1
+    beq 51f
+    or.b #MENU_LEFT, %d0
+51: btst #3, %d1
+    beq 52f
+    or.b #MENU_RIGHT, %d0
+52: move.b OFF_MENU_KEYS(%a5), %d1
     move.b %d0, OFF_MENU_KEYS(%a5)
     not.b %d1
     and.b %d1, %d0                      | the ones that went down this frame

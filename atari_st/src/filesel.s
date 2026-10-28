@@ -137,8 +137,8 @@ file_buttons:
     file_key SCAN_RETURN, BTN_START
     file_key SCAN_KEYPAD_ENTER, BTN_START
     file_key SCAN_TAB, BTN_SELECT
-    file_key SCAN_SPACE, BTN_A
-    file_key SCAN_CTRL, BTN_B
+    file_key SCAN_CTRL, BTN_A
+    file_key SCAN_SPACE, BTN_B
     file_key SCAN_ALT, BTN_B
     move.b OFF_JOY0(%a5), %d1
     or.b OFF_JOY1(%a5), %d1

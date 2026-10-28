@@ -3,9 +3,10 @@
 |
 | Simplification against the original, to be revisited: one sword damage.
 
-    .equ SCAN_SPACE, 0x39           | A: the sword, like the joystick's fire button
-    .equ SCAN_CTRL, 0x1d            | B: the selected item, like Alternate
+    .equ SCAN_SPACE, 0x39           | B: the selected item
+    .equ SCAN_CTRL, 0x1d            | A: the sword (an emulator's keyboard joystick uses Control for fire)
     .equ SCAN_ALT, 0x38
+    .equ SCAN_B, 0x30               | B as well: an emulator may keep Control for the joystick's fire button
     .equ ATTACK_FRAMES, 12
     .equ BEAM_PHASE, 3              | ATTACK value of the third phase, when the shot leaves
     .equ SWORD_REACH, 12
@@ -67,12 +68,12 @@
     .equ FAIRY_KILLS, 0x10
 
 | ------------------------------------------------------------------- sword
-| The joystick's fire button and Space start a swing, once per press, when Link
+| The joystick's fire button and Control start a swing, once per press, when Link
 | owns a sword.
 sword_input:
     movem.l %d0/%a0, -(%sp)
     lea OFF_KEY_STATES(%a5), %a0
-    tst.b SCAN_SPACE(%a0)
+    tst.b SCAN_CTRL(%a0)
     bne 1f
     move.b OFF_JOY0(%a5), %d0
     or.b OFF_JOY1(%a5), %d0
@@ -957,6 +958,8 @@ link_knockback:
     bsr enemy_behaviour
     cmp.w #BEH_GHINI, %d0
     beq 1f
+    cmp.w #BEH_TRAP, %d0
+    beq 9f                      | a blade trap goes on to the middle line and comes home (UpdateTrap_Full never looks at the hit)
     cmp.w #BEH_TEKTITE, %d0
     bhs 9f                      | jumpers, flyers and burrowers keep their way
 1:  move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
@@ -1094,13 +1097,15 @@ link_dies:
     .equ BOMB_DOOR_SLACK, 0x20
     .equ BOMB_DOOR_TYPE, 4
 
-| Control or Alternate use the B item (items.s says what each one does).
+| Space, Alternate or B use the B item (items.s says what each one does).
 b_item_input:
     movem.l %d0/%a0, -(%sp)
     lea OFF_KEY_STATES(%a5), %a0
-    tst.b SCAN_CTRL(%a0)
+    tst.b SCAN_SPACE(%a0)
     bne 1f
     tst.b SCAN_ALT(%a0)
+    bne 1f
+    tst.b SCAN_B(%a0)
     beq 8f
 1:  tst.b OFF_B_HELD(%a5)
     bne 9f
