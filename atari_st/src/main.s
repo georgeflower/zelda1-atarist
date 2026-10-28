@@ -284,6 +284,15 @@ begin_game:
 
 main_loop:
     bsr wait_vbl
+    btst #1, 0xffff820a         | sync mode bit: set for 50 Hz
+    bne.s 7f
+    addq.b #1, OFF_HOLD_SKIP(%a5)
+    cmp.b #6, OFF_HOLD_SKIP(%a5)
+    blo.s 7f
+    clr.b OFF_HOLD_SKIP(%a5)
+    move.l FR_CLOCK, OFF_LAST_CLOCK(%a5)    | a held VBL is not a late frame
+    bra main_loop               | 60 Hz plays at the speed of 50: one update in six is left out, like the music's tick
+7:
     bsr frame_begin
     bsr palette_sync
     bsr poll_keyboard

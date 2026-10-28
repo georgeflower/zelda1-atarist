@@ -508,6 +508,7 @@
     gvar UW_OPEN_B, 128          | doors opened in the rooms of Levels 7-9 (the ROM keeps one set of world flags for Levels 1-6, another
     gvar UW_FLAGS_B, 128         | for 7-9, LevelInfo_WorldFlagsAddr: every room id exists in both groups, so the two must not be mixed)
     gvar PICKUP_DROPS, 1         | set while the boomerang takes items: the room's own item is not for it
+    gvar HOLD_SKIP, 1            | counts VBLs at 60 Hz: every sixth one passes without a game update, so 60 Hz plays at the speed of 50
     galign
     .equ GLOBALS_BYTES, gvar_offset
 
