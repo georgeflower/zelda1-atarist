@@ -80,11 +80,7 @@ restore_video:
     movea.l #VIDEO_BASE_HI, %a1
     move.b OFF_OLD_SCREEN_HI(%a5), (%a1)
 
-    move.w %sr, %d0
-    ori.w #0x0700, %sr
-    move.l OFF_OLD_IKBD_VEC(%a5), IKBD_VECTOR
-    move.w %d0, %sr
-    rts
+    bra restore_ikbd_far
 
 | a0 = the 16 ST colours for where Link is: the overworld's, or the current dungeon's (level_palettes,
 | built by underworld.palette_lookup so that every colour keeps its slot). Only a0 changes.
