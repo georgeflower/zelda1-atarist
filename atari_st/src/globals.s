@@ -519,8 +519,10 @@
     gvar HOME_NEXT, 4
     gvar IVP, 68                 | where each table of INTRO.DAT is while the buffer holds it (INTRO_TABLE_COUNT longs; ivtab, loader.s)
     .equ GLOBALS_BYTES, gvar_offset
+    .ifdef INTRO_TABLE_COUNT           | (the unit-test harnesses do not read level_buffer.inc)
     .if OFF_IVP + 4 * INTRO_TABLE_COUNT != GLOBALS_BYTES
     .error "IVP is 4 bytes for each table of INTRO.DAT: keep gvar IVP in step with INTRO_TABLES in build_assets.py"
+    .endif
     .endif
 
 | The world flags of the dungeon Link is in: UW_OPEN and UW_FLAGS belong to Levels 1-6, the two arrays at the end to Levels 7-9, the
