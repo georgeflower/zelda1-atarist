@@ -120,6 +120,7 @@ atari_st/                the port
 | `gameover.py` | the death sequence's data: `death_maps` (per palette, which of three spare slots 13-15 each colour goes to, by lightness), `death_colours` (red world, the four fade steps, dead Link, spark), the grey Link and spark sprites, the GAME OVER tiles |
 | `savefile.py` | a Python model of `ZELDA.SAV` (build, parse, checksum) and a check that it agrees with `save.s`/`globals.s`; also a CLI that writes a file for `screenshot.py --hd-file` |
 | `lzpack.py` | the LZ4 block packer (greedy, one step lazy) and its Python decoder; `margin` says how far the output runs ahead of the input, which sizes the level buffer for unpacking in place; `build_assets.level_packed` uses it |
+| `make_disk.py` | `make disk`: a 720 KB FAT12 floppy image (`build/ZELDA.st`) with `ZELDAST.PRG` and the 18 `LEVEL*.DAT`; `read_disk` reads one back (tests); for a real drive, a Gotek or an emulator |
 | `make_prg.py` | wraps the flat binary into a TOS PRG header (`--check` validates) |
 | `screenshot.py` | **headless Hatari harness** (`--hd-file NAME=PATH` copies a file to the emulated drive first): runs the PRG, injects keys, pokes variables, dumps RAM, decodes framebuffer to PNG, prints a state report and a `FRAMEHASH`; `--room`, `--uw`/`--level` build a dev PRG into `build/dev` |
 | `golden.py` | golden frames: runs the fixed scenes through `screenshot.py` and compares `FRAMEHASH` with `tests/golden/frames.json` (`--update`, `--only`, `--png-dir`); skipped without Hatari, `TOS` and the ROM; `make golden-update` |
