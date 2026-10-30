@@ -989,6 +989,8 @@ start_cave_entry_far:
     bra start_cave_entry
 cave_dress_far:
     bra cave_dress
+menu_check_open_cave_far:           | after start_cave_entry_far: the dev start's bsr to that one has 1 byte to spare
+    bra menu_check_open_cave
 erase_at_far:
     bra erase_at
 draw_sprite_far:

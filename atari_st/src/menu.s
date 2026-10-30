@@ -71,6 +71,27 @@ menu_check_open:
 9:  movem.l (%sp)+, %d0/%a0
     rts
 
+| Called by update_cave once Link and the sprites are erased: Tab opens the screen there too (the letter is chosen as the B item
+| in the cave of the medicine woman). menu_close comes back to the cave.
+menu_check_open_cave:
+    movem.l %d0/%a0, -(%sp)
+    lea OFF_KEY_STATES(%a5), %a0
+    tst.b SCAN_TAB(%a0)
+    beq 8f
+    btst #0, OFF_MENU_KEYS(%a5)
+    bne 9f                      | still the same press
+    bset #0, OFF_MENU_KEYS(%a5)
+    tst.b OFF_LIFT_TIMER(%a5)
+    bne 9f                      | not while he holds up an item
+    move.b #1, OFF_MENU_CAVE(%a5)
+    move.b #MODE_MENU, OFF_GAME_MODE(%a5)
+    move.b #1, OFF_HUD_DIRTY(%a5)
+    bsr menu_draw
+    bra 9f
+8:  bclr #0, OFF_MENU_KEYS(%a5)
+9:  movem.l (%sp)+, %d0/%a0
+    rts
+
 update_menu:
     movem.l %d0-%d2/%a0, -(%sp)
     tst.b OFF_EXIT_REQUESTED(%a5)       | Esc closes the screen; the game is walking again and asks next frame
@@ -192,10 +213,18 @@ menu_slot_code_of:
 
 menu_close:
     move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
-    bsr menu_clear                      | nothing of the picture or of the ribbon below it stays
+    tst.b OFF_MENU_CAVE(%a5)
+    beq 1f
+    clr.b OFF_MENU_CAVE(%a5)            | opened in a cave: back to it, with the speech (it is in the clean room) and the prices
+    move.b #MODE_CAVE, OFF_GAME_MODE(%a5)
+1:  bsr menu_clear                      | nothing of the picture or of the ribbon below it stays
     bsr show_background_far             | the room as it was, without sprites
     bsr clear_erase_state_far
-    move.b #1, OFF_HUD_DIRTY(%a5)
+    cmpi.b #MODE_CAVE, OFF_GAME_MODE(%a5)
+    bne 2f
+    clr.b OFF_CAVE_FIRE_VALID(%a5)
+    bsr cave_dress_far                  | the prices are drawn on the screen only
+2:  move.b #1, OFF_HUD_DIRTY(%a5)
     rts
 
 | The whole screen goes black.

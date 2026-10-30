@@ -29,7 +29,7 @@ How to play
 | `Ctrl`, joystick fire | the sword (A) |
 | `Space`, `Alternate` or `B` | the B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
 | `Tab` | the inventory screen (Left/Right or the joystick choose the B item, `Tab` goes back) |
-| `K` | debug: a key, four bombs and the candle |
+| `T` | debug: the room number on the ribbon |
 | `T` | debug: show the room id on the ribbon, `RM-37` (`CL-xx` in a cellar); press again to hide it |
 | `Esc` | asks to quit: QUIT WITHOUT SAVING, SAVE AND QUIT or BACK TO GAME (Up/Down and Return, or Esc again to go back) |
 
@@ -56,7 +56,7 @@ Known differences from the original
 - the Moldorm is two worms of four segments instead of one of ten (the engine has eight monster
   slots), and the Dodongo and the Moldorm leave no death cloud
 - the dungeons' monsters appear at once instead of coming out of a spawn cloud
-- `K` is a debug key, it is not in the original
+- `T` is a debug key (the room number on the ribbon), it is not in the original
 - the game plays at the PAL speed of 50 frames a second; on a 60 Hz display every sixth frame holds the game and the song back, so both run at the same speed as on a 50 Hz one (the NES in 60 Hz is a sixth faster)
 - it needs about 390 KB free after loading: that fits a 520 STFM with TOS 1.02, but only just
 

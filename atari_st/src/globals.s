@@ -164,7 +164,6 @@
     gvar EXIT_GUARD, 1          | set when Link has just stepped out of a cave or level
     gvar UW_ENTER_MASK, 1       | door held open because Link came through it
     gvar UW_NEXT_MASK, 1
-    gvar K_HELD, 1
     gvar WARPED, 1              | Link changed world during this step
     gvar COMMIT, 1              | pixels left in the grid step Link is making
 
@@ -519,6 +518,8 @@
     gvar HOME_NEXT, 4
     gvar QUIT_SEL, 1             | the Esc menu: the line the heart is on
     gvar QUIT_KEYS, 1            | the keys it saw down last frame (quit.s)
+    gvar MENU_CAVE, 1            | the inventory screen was opened inside a cave (Tab there shows the letter to the old woman): menu_close goes back to it
+    galign
     gvar IVP, 68                 | where each table of INTRO.DAT is while the buffer holds it (INTRO_TABLE_COUNT longs; ivtab, loader.s)
     .equ GLOBALS_BYTES, gvar_offset
     .ifdef INTRO_TABLE_COUNT           | (the unit-test harnesses do not read level_buffer.inc)

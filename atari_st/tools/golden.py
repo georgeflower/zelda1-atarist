@@ -244,6 +244,14 @@ SCENES: dict[str, list[str]] = {
     # not two (the clean room and the spare one were one buffer: the old Link and monsters stayed, the rooms were wrong).
     "death_continued_scrolled": ["--room", "0x77", "--vbls", "1250", "--keys",
                                  f"260:+up,440:-up,470:=DYING=1,{_taps(1010, ['return'])},1100:+left,1130:-left"],
+    # Tab inside a cave: the inventory screen opens, and closing it gives the cave back as it was (the same frame as without it); the
+    # medicine woman (cave type 10, behind screen $78) wants the letter chosen as the B item there, then B shows it to her.
+    "cave_inventory": ["--room", "0x77", "--cave", "--vbls", "450", "--keys", "430:+tab,432:-tab"],
+    "cave_inventory_closed": ["--room", "0x77", "--cave", "--vbls", "520", "--keys", "430:+tab,432:-tab,470:+tab,472:-tab"],
+    "cave_letter_shown": ["--room", "0x78", "--cave", "--vbls", "800", "--keys",
+                          "400:=INV_LETTER=1,430:+tab,432:-tab,450:+right,452:-right,480:+tab,482:-tab,520:+space,522:-space"],
+    # The white sword has a dark blue outline: its white blade is as light as the ground on a real screen.
+    "ow_white_sword": ["--room", "0x77", "--vbls", "272", "--keys", "250:=HAS_SWORD=2,260:+ctrl,262:-ctrl"],
     # Continuing in a dungeon: the file menu has used the level buffer, so the level's file is read again.
     "uw1_death_continued": ["--uw", "0x74", "--level", "1", "--vbls", "1000", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
 }

@@ -102,7 +102,7 @@ atari_st/                the port
 | `death.s` | Link's death (`MODE_DEATH`, game mode $11): blink, the red-world remap, spin, fade, grey Link and spark, GAME OVER, then the continue question; also `game_reset_position`, `death_continue/save/retry` (M10 c) |
 | `exit.s` | `restore_ikbd` (via `restore_ikbd_far`): what leaving the game puts back for TOS: the keyboard interrupt masked while the vector returns, both ACIAs emptied, the MFP's pending and in-service marks of the keyboard cleared, the mouse set to relative mode |
 | `save.s` | `ZELDA.SAV` through GEMDOS (Fopen/Fread/Fcreate/Fwrite/Frename...): records of 640 bytes, the `save_fields` table, the secrets patch log replay, checksum (M10 c) |
-| `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level` (loads the level's file), `mon_spr_select`, `debug_keys` (K, T room id) |
+| `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level` (loads the level's file), `mon_spr_select`, `debug_keys` (T room id) |
 | `loader.s` | `file_read`/`file_close` (GEMDOS Fread/Fclose) and `level_load`: reads `LEVEL<n>[Q].DAT` (an 8-byte header: `ZLVZ`, the record number, the packed size; then LZ4 data) into the *end* of the level buffer (allocated behind the three screens), unpacks it over itself from the front (`lz_unpack`), checks the image's magic `ZLVL` and size, tags the buffer (`LOAD_KEY`); a missing, cut or wrong file ends the game with a message; `loading_show` draws LOADING in a black box in the middle of the screen on show (the shifter's base) before every read (`intro_data_load` first blacks the screen and sets the overworld's colours: `loading_clear`); `intro_data_load` does the same for `INTRO.DAT` (record 100, tag `INTRO_RECORD + 1`) and fills `OFF_IVP` with the 17 table addresses the `ivtab name, reg` macro reads (`IV_<name>` in `level_buffer.inc`); `no_memory_report` prints how much memory the buffers need and exits when Malloc fails; included last, reached through a farstub |
 | `lz.s` | `lz_unpack`: the LZ4 block decoder (a0 packed, a2 its end, a1 out; byte copies, about 50 cycles a byte); `tools/lzpack.py` is the packer, `tests/test_lzpack.py` runs the real routine on machine68k |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
@@ -278,7 +278,7 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
   deterministic (identical hashes), but do not compare positions across builds or different key schedules
   as one trajectory.
 - Typical scripted tests: key a dev-start build (`ZELDA_START_UW=0x74`), give items
-  with `K` (`700:+k,702:-k`) or pokes (`700:=INV_BOOMERANG=1,700:=B_ITEM=2`), act at
+  with pokes (`700:=INV_BOOMERANG=1,700:=B_ITEM=2`), act at
   710, capture at 715-800. Room `$74` has 2 stalfos near (0x60,0x6d); `$42` is the
   push-block room (block at X `$70`, Y `$90`; clear monsters by poking
   `ENEMY_ACTIVE.n=0`, stand at X `$80`, hold `left`); `$22` is the trap room (poke
@@ -367,7 +367,7 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
 | `MODE_PLAY` | 0 | `update_play` (double buffered) |
 | `MODE_SCROLL` | 1 | `update_scroll` (room transition, draws to visible screen) |
 | `MODE_CAVE` | 2 | `update_cave` (caves, visible screen) |
-| `MODE_MENU` | 3 | `update_menu` (Tab inventory screen, visible screen) |
+| `MODE_MENU` | 3 | `update_menu` (Tab inventory screen, visible screen; opened from `update_play` or, with `MENU_CAVE` set, from `update_cave`) |
 | `MODE_INTRO` | 4 | `update_intro` (title, story, parade and the file menu incl. the continue question) |
 | `MODE_DEATH` | 5 | `update_death` (`death.s`, phases `DPH_*` in `DEATH_PHASE`) |
 | `MODE_QUIT` | 6 | `update_quit` (`quit.s`, the Esc question, visible screen) |
@@ -421,7 +421,7 @@ stays that of the display (50 updates a second) and only the picture runs at hal
   by slot number. `underworld.palette_lookup` builds a level's table; `palette_sync` (video.s, each frame) loads the one for
   `OFF_LEVEL`; code that restores the colours after a flash calls `cur_palette` (a0 = current table). A level's monsters must be
   baked with the level's own rows when its dungeon is added.
-- **Sprite palette row 3 is the level's own** (the NES dungeons give it three colours each: a Zol is black with gold eyes in Level 4, green in Level 3): the monsters are baked once with the overworld's row 3, which sits in slots 13-15, so `underworld.palette_lookup` puts the level's three row-3 colours into those slots while the level is shown (`SPRITE_ROW3`; a colour the background shares with it uses the slot, no extra art).
+- **Sprite palette row 3 is the level's own** (the NES dungeons give it three colours each: a Zol is black with gold eyes in Level 4, green in Level 3): the monsters are baked once with the overworld's row 3, which sits in slots 13-15, so `underworld.palette_lookup` puts the level's three row-3 colours into those slots while the level is shown (`SPRITE_ROW3`; a colour the background shares with it uses the slot, no extra art). **Except the special bosses**: `InitMode5Play` (`Z_07.asm`, `SpecialBossPaletteObjTypes`) looks at the first monster of a room and swaps row 3 for the boss's own colours: the Dodongos (`$31 $32`) and Digdoggers (`$38 $39`) get `$17 $27 $30` (brown, light orange, white: `ORANGE_BOSS_TYPES` / `ORANGE_BOSS_COLOURS` in `actors.py` bake their art in Link's and the shield's colours), Aquamentus `$0A $29 $30`, Gleeok `$2A $1A $0C` (not done yet: Level 8's Gleeok still wears the level's row 3), Ganon his own. `tools/refnes/zol_colour.mjs LEVEL ROOM TYPE` prints the palette the ROM shows in a room.
 - Sprites: 16x16, 4 planes + 1 mask word, **160 bytes** (`SPRITE_FRAME_BYTES`). Narrow
   NES items (8 wide) are centred in the 16 px frame. `draw_sprite` (a0 frame, a1
   dest, d0 shift), `erase_at` restores from `BG_CUR` (the clean room).
@@ -448,7 +448,7 @@ stays that of the display (50 updates a second) and only the picture runs at hal
   direction pressed this frame wins, else the current one is kept while held.
 - **Controls**: arrows / `W A S D` / joystick walk; **`Ctrl` or joystick fire =
   sword (A)**; **`Space`, `Alternate` or `B` = B item** (bombs / boomerang / candle, edge
-  triggered); **`Tab` = inventory screen**; `K` debug; `T` debug room id (`DEBUG_ROOM`, drawn by `draw_hud_debug` at ribbon col 19; edge-triggered via `T_HELD`); `Esc` = the quit question (`quit.s`: `OFF_EXIT_REQUESTED` is the request, `menu_check_open` turns it into `MODE_QUIT` while Link walks; on the title, the story and the death screens `main_loop` ends the game at once). Scancodes: Space
+  triggered); **`Tab` = inventory screen** (also inside a cave: `menu_check_open_cave`, `MENU_CAVE`; the letter is chosen there and shown to the medicine woman with B); `T` debug room id (`DEBUG_ROOM`, drawn by `draw_hud_debug` at ribbon col 19; edge-triggered via `T_HELD`); `Esc` = the quit question (`quit.s`: `OFF_EXIT_REQUESTED` is the request, `menu_check_open` turns it into `MODE_QUIT` while Link walks; on the title, the story and the death screens `main_loop` ends the game at once). Scancodes: Space
   `$39`, Ctrl `$1D`, Alt `$38`, B `$30`, Tab `$0F`, K `$25`, T `$14`, Esc `$01`.
 
 ## 10. Gameplay systems and the original numbers they follow
@@ -680,7 +680,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   are redrawn from the empty-triforce memory (`menu_triforce`). The picture fills y 0..175 and the HUD ribbon is drawn below it
   (`HUD_MENU_ROW`, `draw_hud_tile_ptr` moves its rows in `MODE_MENU`); in dungeons the compass and map icons sit on the left and the
   sheet map on the right. Left/Right walk the owned B items in the ROM's slot order (`menu_code_slot`/`menu_slot_code`), Tab closes.
-  The caves and shops (`caves.s`) hand them out as in the original (`debug_keys` K gives keys, bombs, the candle; the harness can poke any `INV_*`).
+  The caves and shops (`caves.s`) hand them out as in the original (the harness can poke any `INV_*`; there is no cheat key).
 - **File menu** (`filesel.s`, `tools/filesel.py`): Return on the title calls `intro_to_menu` -> `filesel_begin`; the menu runs inside `MODE_INTRO` with
   `OFF_INTRO_PHASE = INTRO_PHASE_MENU` (2), so the main loop dispatch and the silent `music_update` are unchanged. Buffer roles: after `intro_present`
   SCREEN_PTR holds the clean picture (never swapped), BG_NEXT is the shown screen (sprites and cursors are drawn on it and restored from the clean copy).
@@ -771,7 +771,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   potion (`menu_slot_code_of`, `b_item_owned`; CheckMissingItem), and the medicine woman is shown it by pressing B with it
   selected (`cs_letter` in `caves.s`, as `UpdateCavePerson`'s `@UseLetter`), not with any other B item. The heart containers stop at 16, and the Book of Magic and a beam range per sword are not
   features of the game (the book only turns the rod's shot into flame, done; a sword beam is a fixed shot).
-- **Debug key K**: +1 key, +4 bombs (cap 8), candle. The owner wants it kept for now.
+- **No cheat keys**: the K key (a key, bombs, the candle) is gone; `T` (room number on the ribbon) is the one debug key left.
 
 ## 11. Asset pipeline facts
 

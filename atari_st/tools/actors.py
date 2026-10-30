@@ -307,6 +307,13 @@ MONSTER_TILE_ROW = {0x31: (None, 3), 0x32: (None, 3), 0x41: (0x44, 2), 0x34: (No
                     0x25: (None, 2), 0x26: (None, 2), 0x37: (None, 2)}   # PatraChild_Draw: Anim_SetSpriteDescriptorRedPaletteRow   # DigdoggerSpriteAttrs: palette row 3
 # Dodongo images 7 and 9 (bloated, facing up or down) are one half drawn twice, mirrored.
 DODONGO_MIRRORED_IMAGES = (7, 9)
+# InitMode5Play looks at the first monster of a dungeon room (SpecialBossPaletteObjTypes) and, for the Dodongos ($31, $32) and
+# the Digdoggers ($38, $39), cues OrangeBossPaletteRow7TransferBuf: sprite palette row 3 becomes $17 $27 $30 (brown, light
+# orange, white) whatever the level's own row 3 is (Level 2's is blue). The ST palette holds the level's colours in the three
+# slots of row 3, which the walls may share, so the art is baked with those three colours, which every level keeps in Link's
+# and the shield's rows: $17 and $27 in Link's row (pixel 3, 2), $30 in the second row (pixel 3).
+ORANGE_BOSS_TYPES = (0x31, 0x32, 0x38, 0xFB, 0x18)
+ORANGE_BOSS_COLOURS = ((4, 3), (4, 2), (5, 3))
 LANMOLA_SEGMENTS = 8        # two worms of four (ten of five each in the original)
 GANON_IMAGES = 10            # GanonFrameImages names ten 16x16 pictures (heap entries 0-9 of its animation) and the ashes (11)
 GANON_ASHES = 11
@@ -562,16 +569,38 @@ ROD_TILES = (0x4A, 0x8A)          # the rod's two pictures, Anim_ItemFrameTiles 
 SWORD_SETS = 4                    # wooden, white and magic sword, then the rod
 
 
+def _outlined(rows: list[list[int]], inside: int, edge: int) -> list[list[int]]:
+    """A one-pixel outline of colour `edge` round every `inside` pixel that has nothing beside it (up, down, left, right)."""
+    height, width = len(rows), len(rows[0])
+    out = [list(r) for r in rows]
+    for y in range(height):
+        for x in range(width):
+            if rows[y][x] != -1:
+                continue
+            for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                ny, nx = y + dy, x + dx
+                if 0 <= ny < height and 0 <= nx < width and rows[ny][nx] == inside:
+                    out[y][x] = edge
+                    break
+    return out
+
+
 def _sword_frames(sp_tiles, bg_tiles, palette) -> bytes:
     """Link's sword facing up, down, left, right: one set a grade (the palette row is the grade - 1, as
     UpdateSwordOrRod adds it), then the magic rod (its base attribute with bit 0 set: row 5)."""
     rows = [(B.LINK_PALETTE_ROW, None), (B.LINK_PALETTE_ROW + 1, None), (B.LINK_PALETTE_ROW + 2, None),
             (B.LINK_PALETTE_ROW + 1, ROD_TILES)]
-    return b"".join(
-        _pack_masked(_weapon_rows(sp_tiles, bg_tiles, palette, d, row, tiles or (SWORD_TILE_VERTICAL, SWORD_TILE_HORIZONTAL)))
-        for row, tiles in rows
-        for d in WEAPON_DIRECTIONS
-    )
+    white_row = B.LINK_PALETTE_ROW + 1
+
+    def frame(row, tiles, d):
+        picture = _weapon_rows(sp_tiles, bg_tiles, palette, d, row, tiles or (SWORD_TILE_VERTICAL, SWORD_TILE_HORIZONTAL))
+        if row == white_row and tiles is None:
+            # The white sword is white ($30) and the overworld's ground is $37, one step from it on the ST's three bits a colour, so
+            # on a real screen the blade vanishes: a thin outline in the row's own dark blue ($02) keeps it in view.
+            picture = _outlined(picture, palette.index(row, 3), palette.index(row, 1))
+        return _pack_masked(picture)
+
+    return b"".join(frame(row, tiles, d) for row, tiles in rows for d in WEAPON_DIRECTIONS)
 
 
 def _beam_frames(sp_tiles, bg_tiles, palette) -> bytes:
@@ -766,7 +795,8 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             # one picture, put four times in the corners: plain, flipped right-left, upside down, both (the part
             # attributes $03, $03, $83, $83 and the horizontal flip of the odd parts)
             row = B.LINK_PALETTE_ROW + MONSTER_TILE_ROW[nes_type][1]
-            plain = _monster_image(tiles, palette, row, heap[base], "wide")
+            view = _RemappedPalette(palette, ORANGE_BOSS_COLOURS) if row == B.LINK_PALETTE_ROW + 3 else palette
+            plain = _monster_image(tiles, view, row, heap[base], "wide")
             images = [plain, _flip_rows(plain, True, False), _flip_rows(plain, False, True), _flip_rows(plain, True, True)]
         else:
             images = []
@@ -779,6 +809,9 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
                     override_tile, override_row = MONSTER_TILE_ROW[nes_type]
                     tile = tile if override_tile is None else override_tile
                     row = B.LINK_PALETTE_ROW + override_row
+                view = palette
+                if nes_type in ORANGE_BOSS_TYPES and row == B.LINK_PALETTE_ROW + 3:
+                    view = _RemappedPalette(palette, ORANGE_BOSS_COLOURS)
                 image_layout = layout[frame] if isinstance(layout, tuple) else layout
                 if mode == MODE_DODONGO and image in DODONGO_MIRRORED_IMAGES:
                     image_layout = "mirror"
@@ -790,7 +823,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
                     right = _tile_rows(tiles, palette, row, tile + 2)
                     images.append(_join(left, right))
                 else:
-                    images.append(_monster_image(tiles, palette, row, tile, image_layout))
+                    images.append(_monster_image(tiles, view, row, tile, image_layout))
         art = bytearray()
         for rows in images:
             art.extend(_pack_masked(rows))

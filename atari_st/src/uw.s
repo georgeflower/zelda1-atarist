@@ -9,34 +9,13 @@
     .equ DOORWAY_LANE_X, 0x78       | where a vertical doorway sits
     .equ DOORWAY_LANE_Y, 0x8d       | where a horizontal doorway sits
     .equ DOORWAY_SLACK, 6
-    .equ SCAN_K, 0x25
     .equ SCAN_T, 0x14
 
-| Temporary: K hands out a key, bombs and the candle, until every source of them exists.
+| T switches the room id on the ribbon (the one debug key left).
 debug_keys:
-    bsr debug_room_toggle
-    movem.l %d0/%a0, -(%sp)
-    lea OFF_KEY_STATES(%a5), %a0
-    tst.b SCAN_K(%a0)
-    beq 2f
-    tst.b OFF_K_HELD(%a5)
-    bne 9f
-    move.b #1, OFF_K_HELD(%a5)
-    move.b #1, OFF_INV_CANDLE(%a5)
-    cmpi.b #8, OFF_INV_BOMBS(%a5)
-    bhs 3f
-    addq.b #4, OFF_INV_BOMBS(%a5)
-3:  bsr b_item_fix
-    cmpi.b #9, OFF_INV_KEYS(%a5)
-    bhs 9f
-    addq.b #1, OFF_INV_KEYS(%a5)
-    move.b #1, OFF_HUD_DIRTY(%a5)
-    bra 9f
-2:  clr.b OFF_K_HELD(%a5)
-9:  movem.l (%sp)+, %d0/%a0
-    rts
+    bra debug_room_toggle
 
-| T switches the room id on the ribbon on and off (edge triggered, like K).
+| T switches the room id on the ribbon on and off (edge triggered).
 debug_room_toggle:
     move.l %a0, -(%sp)
     lea OFF_KEY_STATES(%a5), %a0
