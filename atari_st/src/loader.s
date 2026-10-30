@@ -126,5 +126,5 @@ data_missing:
 msg_missing:
     .asciz "\r\nZelda cannot read "
 msg_missing2:
-    .asciz ".\r\nThe LEVEL*.DAT files must be in the same folder as ZELDAST.PRG.\r\nPress a key.\r\n"
+    .asciz ".\r\nKeep the LEVEL*.DAT files in the\r\nsame folder as ZELDAST.PRG.\r\nPress a key.\r\n"
     .even
