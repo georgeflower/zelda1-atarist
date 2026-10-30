@@ -240,6 +240,10 @@ SCENES: dict[str, list[str]] = {
     "death_continue_save": ["--room", "0x77", "--vbls", "800", "--keys", f"{DEATH},{_taps(780, ['tab'])}"],
     "death_continue_flash": ["--room", "0x77", "--vbls", "814", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
     "death_continued": ["--room", "0x77", "--vbls", "1000", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
+    # Dying after a room has scrolled: every scroll swaps BG_CUR and BG_NEXT, so intro_leave has to put all three buffers back,
+    # not two (the clean room and the spare one were one buffer: the old Link and monsters stayed, the rooms were wrong).
+    "death_continued_scrolled": ["--room", "0x77", "--vbls", "1250", "--keys",
+                                 f"260:+up,440:-up,470:=DYING=1,{_taps(1010, ['return'])},1100:+left,1130:-left"],
     # Continuing in a dungeon: the file menu has used the level buffer, so the level's file is read again.
     "uw1_death_continued": ["--uw", "0x74", "--level", "1", "--vbls", "1000", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
 }

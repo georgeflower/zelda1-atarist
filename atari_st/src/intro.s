@@ -70,8 +70,8 @@ intro_leave:
     clr.b OFF_MUS_FORCED(%a5)
     bsr intro_black
     bsr intro_clear_all
-    move.l OFF_HOME_SCREEN(%a5), OFF_SCREEN_PTR(%a5)
-    move.l OFF_HOME_NEXT(%a5), OFF_BG_NEXT(%a5)
+    movem.l OFF_HOME_SCREEN(%a5), %d0-%d2   | all three roles: every scroll swaps BG_CUR and BG_NEXT (finish_scroll), so after a few
+    movem.l %d0-%d2, (%a5)                  | rooms they are not where init_buffers put them; SCREEN_PTR, BG_CUR, BG_NEXT again
     move.l OFF_SCREEN_PTR(%a5), %d0
     bsr set_video_base_xf
     clr.b OFF_PRESENT_PENDING(%a5)
