@@ -16,10 +16,9 @@ Work in progress, expect bugs. Both quests are in: the whole overworld, all nine
 Ganon and Zelda, every item, title and story, file select, death and continue, saving, the credits
 and the music. The list of what is left is in [`PLAN.md`](PLAN.md).
 
-The `.PRG` is about 300 KB. A dungeon's rooms, doors, tiles and the pictures of its monsters are in
-`LEVEL<n>.DAT` (`LEVEL<n>Q.DAT` for the Second Quest), read when Link goes in, so those files must
-be next to the `.PRG` (`make dist` collects them). It still needs 1 MB of RAM; making it fit 512 KB
-is the next thing (see `PLAN.md`).
+The `.PRG` is about 270 KB. The title, the story, the credits and the file menu read their pictures from `INTRO.DAT` (packed, 13 KB, loaded when the intro starts and again after a dungeon). A dungeon's rooms, doors, tiles and the pictures of its monsters are in
+`LEVEL<n>.DAT` (`LEVEL<n>Q.DAT` for the Second Quest), packed (LZ4, 210 KB for the 18 files) and read when Link
+goes in, so those files must be next to the `.PRG` (`make dist` collects them). The game draws on the screen TOS gave the program and allocates two more, plus the level buffer, so it needs about 390 KB free after loading (a 520 STFM has about 407 KB); if there is not enough it says so and exits. Packing the drum samples is the next step for smaller margins (see `PLAN.md`).
 
 How to play
 -----------
@@ -59,7 +58,7 @@ Known differences from the original
 - the dungeons' monsters appear at once instead of coming out of a spawn cloud
 - `K` is a debug key, it is not in the original
 - the game plays at the PAL speed of 50 frames a second; on a 60 Hz display every sixth frame holds the game and the song back, so both run at the same speed as on a 50 Hz one (the NES in 60 Hz is a sixth faster)
-- it does not fit in 512 KB yet (the `.PRG` is about 300 KB, but the screens and the biggest dungeon's file come on top)
+- it needs about 390 KB free after loading: that fits a 520 STFM with TOS 1.02 but only just, and an EmuTOS 512 KB setup (about 75 KB free after load) is still too small
 - the dungeons' files together are more than a 720 KB disk holds next to the `.PRG`
 
 Roadmap
@@ -126,7 +125,7 @@ The asset pipeline
 - **underworld**: rebuilds each level's rooms (`UW_LEVELS`, all nine levels of both quests) from
   the original layout routines (`tools/underworld.py`), including doors, the
   cellars and the level's palette, as 32x22 tile maps over a shared tile bank,
-  and writes each level's tables and monster pictures as `LEVEL<n>[Q].DAT` (`level_file`), and `levels.inc` with `level_table`
+  and writes each level's tables and monster pictures as `LEVEL<n>[Q].DAT` (`level_file`, packed by `tools/lzpack.py`), and `levels.inc` with `level_table`
 - **actors**: monster and item sprites, hit points, drop tables and per-room
   monster and item lists (`tools/actors.py`), plus the cave's rooms, sprites
   and the old man's text
@@ -203,8 +202,8 @@ Notes on the ST implementation
 - Tables are reached through `a6`, which holds `table_anchor` for the whole run;
   the `ltab` macro writes a 32-bit distance from it, so a table may sit anywhere.
   A dungeon's own tables (rooms, doors, tiles, room records, cellars) and its monster
-  pictures are in its `LEVEL<n>[Q].DAT`, which `uw_select_level` reads into the level
-  buffer (`loader.s`); it adds the buffer's address to the offsets in the file's header and
+  pictures are in its `LEVEL<n>[Q].DAT`, which `uw_select_level` reads and unpacks into the level
+  buffer (`loader.s`, `lz.s`); it adds the buffer's address to the offsets in the file's header and
   keeps them in the variable block (the `lvtab` macro). The buffer is tagged with the record
   it holds, so going back into the same dungeon reads nothing.
 - Code is the limit. A `bsr`, `bra` or `Bcc` and a `(label,%pc)` operand span a

@@ -101,6 +101,7 @@ credits_last_sprites:
 
 | The first window: the black room with what Zelda said, both screens, and the colours of the ending.
 credits_init:
+    bsr intro_data_f                    | the credits' pictures replace the dungeon in the buffer
     tst.b OFF_QUEST(%a5)
     beq 2f
     bsr credits_name                    | the Second Quest's line with the player's name and death count
@@ -162,21 +163,21 @@ credits_line:
     bne 5f
     cmp.w #CREDITS_ROWS, %d2
     bhs 8f
-    ltab credits_map, %a0
+    ivtab credits_map, %a0
     bra 6f
 5:  cmp.w #CREDITS_ROWS2, %d2
     bhs 8f
-    ltab credits_map2, %a0
+    ivtab credits_map2, %a0
 6:  move.w %d1, %d0
     andi.w #7, %d0                      | the line in the tile
     add.w %d2, %d2
     move.w 0(%a0, %d2.w), %d2           | the row's offset in credits_rows
-    ltab credits_rows, %a0
+    ivtab credits_rows, %a0
     tst.b OFF_QUEST(%a5)
     beq 4f
-    ltab credits_rows2, %a0
+    ivtab credits_rows2, %a0
 4:  adda.w %d2, %a0
-    ltab credits_tiles, %a2
+    ivtab credits_tiles, %a2
     bsr intro_row_line
     bra 9f
 8:  moveq #31, %d2
@@ -191,11 +192,11 @@ credits_line:
 | from glyphs of the name's colours (credits_glyphs: a tile offset for each NES code below $30).
 credits_name:
     movem.l %d0-%d5/%a0-%a4, -(%sp)
-    ltab credits_map2, %a0
+    ivtab credits_map2, %a0
     move.w (CREDITS_NAME_ROW * 2)(%a0), %d0
-    ltab credits_rows2, %a1
+    ivtab credits_rows2, %a1
     adda.w %d0, %a1                     | the row's 32 cells
-    ltab credits_glyphs, %a2
+    ivtab credits_glyphs, %a2
     moveq #0, %d4
     move.b OFF_PROFILE(%a5), %d4
     move.w %d4, %d5

@@ -10,7 +10,7 @@ I'm making this together with an AI (Claude, from Anthropic). I decide what to b
 
 Work in progress. Both quests are in: the whole overworld, all nine dungeons up to Ganon and Zelda, every item, title and story, file select, death and continue, saving to `ZELDA.SAV`, the credits and the music. Expect bugs. There is a short list of what is left in [`atari_st/PLAN.md`](atari_st/PLAN.md).
 
-The Second Quest starts when you make a file called ZELDA (like the original), or when you finish the game. The `.PRG` is about 300 KB; each dungeon's data is in a file of its own (`LEVEL1.DAT` ... `LEVEL9.DAT`, and `LEVEL1Q.DAT` ... `LEVEL9Q.DAT` for the Second Quest) that the game reads when you go in, so keep them in the same folder as the `.PRG`. I am working on making it fit a 512 KB ST (see [`atari_st/PLAN.md`](atari_st/PLAN.md)); for now you need 1 MB of RAM.
+The Second Quest starts when you make a file called ZELDA (like the original), or when you finish the game. The `.PRG` is about 270 KB; the title, story, credits and file menu data is in `INTRO.DAT` and each dungeon's data is in a file of its own (`LEVEL1.DAT` ... `LEVEL9.DAT`, and `LEVEL1Q.DAT` ... `LEVEL9Q.DAT` for the Second Quest) that the game reads when you go in, so keep them in the same folder as the `.PRG`. I am working on making it fit a 512 KB ST (see [`atari_st/PLAN.md`](atari_st/PLAN.md)); for now you need 1 MB of RAM.
 
 ## Controls
 
@@ -104,7 +104,7 @@ Full Visual Studio 2022 works the same way, as an editor: open the folder over `
    ```sh
    make -C atari_st all
    ```
-   It reads the ROM, builds the data in `atari_st/build/generated/`, assembles, links, checks that every branch reaches its target and writes `atari_st/build/ZELDAST.PRG` (about 300 KB) and the dungeons' files `atari_st/build/generated/LEVEL*.DAT`. `make -C atari_st dist` copies the `.PRG` and the files into `atari_st/build/dist/`, the folder to run from. A rebuild only redoes what changed. `make -C atari_st clean` removes `atari_st/build`.
+   It reads the ROM, builds the data in `atari_st/build/generated/`, assembles, links, checks that every branch reaches its target and writes `atari_st/build/ZELDAST.PRG` (about 300 KB) and the data files `atari_st/build/generated/INTRO.DAT` and `LEVEL*.DAT` (packed, about 225 KB together). `make -C atari_st dist` copies the `.PRG` and the files into `atari_st/build/dist/`, the folder to run from. `make -C atari_st disk` makes `atari_st/build/ZELDA.st`, a 720 KB floppy image with all of them (for a real drive, a Gotek or an emulator; open the disk on the desktop and run `ZELDAST.PRG`). A rebuild only redoes what changed. `make -C atari_st clean` removes `atari_st/build`.
 3. Optional, to check your work: `make -C atari_st check` runs the unit tests, verifies the generated data, checks the `.PRG` header and runs the golden frames. The golden frames need Hatari, an EmuTOS image in the `TOS` environment variable and the ROM; without them they are skipped.
 
 If a tool has another name or lives somewhere else, give it to make: `make -C atari_st all TOOLCHAIN_PREFIX=m68k-elf- PYTHON=python`.

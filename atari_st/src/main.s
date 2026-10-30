@@ -27,6 +27,12 @@
     adda.l %a6, \reg
     .endm
 
+| ivtab name, reg: the address of one of INTRO.DAT's tables (title, story, credits, file menu), which intro_data_load put in
+| the variable block while the buffer holds that file.
+    .macro ivtab name, reg
+    movea.l (OFF_IVP + 4 * IV_\name)(%a5), \reg
+    .endm
+
 | lvtab name, reg: the address of the current dungeon's table (room_index, rooms, doors, tiles, tile_nes,
 | room_info, cellar_maps or cellar_info), which uw_select_level put in the variable block.
     .macro lvtab name, reg
@@ -69,9 +75,15 @@
     .equ LINK_Y_BIAS, (NES_PLAY_AREA_TOP - PLAYFIELD_TOP - LINK_DRAW_OFFSET_Y)
 
 | Three full screens: the one being displayed, the clean render of the current
-| room, and the room being scrolled in.
+| room, and the room being scrolled in. The first is the screen TOS gave the
+| program (Physbase), so only two are asked for, in one block with the level
+| buffer behind them (loader.s).
     .equ BUFFER_COUNT, 3
-    .equ BUFFER_ALLOC, (BUFFER_COUNT * SCREEN_BYTES + 256 + LEVEL_BUF_BYTES)
+    .equ BUFFER_ALLOC, ((BUFFER_COUNT - 1) * SCREEN_BYTES + 256 + LEVEL_BUF_BYTES)
+    .equ XBIOS_PHYSBASE, 2
+    .if (OFF_SCREEN_PTR != 0) + (OFF_BG_CUR != 4) + (OFF_BG_NEXT != 8)
+    .error "init_buffers reads SCREEN_PTR, BG_CUR and BG_NEXT as the first three longs of the variable block"
+    .endif
 
 | ------------------------------------------------------------------- sprites
     .equ SPRITE_HEIGHT, 16
@@ -379,7 +391,10 @@ exit_program:
     bra terminate
 
 no_memory:
-    | Nothing has been reprogrammed yet, so just hand the machine back.
+    | Nothing has been reprogrammed yet: say how much memory it takes and has (loader.s, far away), which then ends the run.
+    pea 1f(%pc)
+1:  addi.l #(no_memory_report - 1b), (%sp)
+    rts
 terminate:
     move.l OFF_OLD_SSP(%a5), -(%sp)
     move.w #GEMDOS_SUPER, -(%sp)
@@ -390,6 +405,15 @@ terminate:
     trap #1
 
 | ---------------------------------------------------------------------------
+    .if MODE_PLAY != 0
+    .error "init_state leaves GAME_MODE as the clear made it"
+    .endif
+    .if (OFF_HEART_CONTAINERS & 1) + (OFF_OBJ_RIGHT & 1) + (OFF_BOUND_RIGHT & 1) + (OFF_LINK_X & 1)
+    .error "init_state stores two bytes at a time: the pairs must start on even addresses"
+    .endif
+    .if (OFF_HP_HALVES - OFF_HEART_CONTAINERS != 1) + (OFF_OBJ_UP - OFF_OBJ_RIGHT != 1) + (OFF_BOUND_UP - OFF_BOUND_RIGHT != 1) + (OFF_LINK_Y - OFF_LINK_X != 1)
+    .error "init_state stores two bytes at a time: the pairs must be next to each other"
+    .endif
 init_state:
     | Zero the whole variable block, then set what needs a non-zero start.
     lea globals(%pc), %a0
@@ -399,26 +423,28 @@ init_state:
     dbra %d7, 1b
 
     move.b #START_ROOM_ID, OFF_ROOM_ID(%a5)
-    move.b #HOME_X, OFF_LINK_X(%a5)
-    move.b #HOME_Y, OFF_LINK_Y(%a5)
+    move.w #((HOME_X << 8) + HOME_Y), OFF_LINK_X(%a5)         | X, Y (next to each other, on an even address)
     move.b #START_DIR, OFF_LINK_DIR(%a5)
-    move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
-    move.b #3, OFF_HEART_CONTAINERS(%a5)
+    | (MODE_PLAY is 0, which the clear above did)
     move.b #8, OFF_MAX_BOMBS(%a5)
-    move.b #6, OFF_HP_HALVES(%a5)
+    move.w #((3 << 8) + 6), OFF_HEART_CONTAINERS(%a5)       | heart containers, HP_HALVES (next to each other, on an even address)
     move.w #0xace1, OFF_RNG(%a5)
     move.b #ROOM_BOUND_LEFT, OFF_OBJ_LEFT(%a5)
-    move.b #ROOM_BOUND_RIGHT, OFF_OBJ_RIGHT(%a5)
-    move.b #ROOM_BOUND_UP, OFF_OBJ_UP(%a5)
+    move.w #((ROOM_BOUND_RIGHT << 8) + ROOM_BOUND_UP), OFF_OBJ_RIGHT(%a5)       | right, up
     move.b #ROOM_BOUND_DOWN, OFF_OBJ_DOWN(%a5)
     move.b #1, OFF_HUD_DIRTY(%a5)
     move.b #LINK_EDGE_LEFT, OFF_BOUND_LEFT(%a5)
-    move.b #LINK_EDGE_RIGHT, OFF_BOUND_RIGHT(%a5)
-    move.b #LINK_EDGE_UP, OFF_BOUND_UP(%a5)
+    move.w #((LINK_EDGE_RIGHT << 8) + LINK_EDGE_UP), OFF_BOUND_RIGHT(%a5)       | right, up
     move.b #LINK_EDGE_DOWN, OFF_BOUND_DOWN(%a5)
     rts
 
 init_buffers:
+    | The screen TOS has on show is the first buffer (the shifter is pointed back at it when the program ends).
+    move.w #XBIOS_PHYSBASE, -(%sp)
+    trap #14
+    addq.l #2, %sp
+    move.l %d0, OFF_SCREEN_PTR(%a5)
+
     move.l #BUFFER_ALLOC, -(%sp)
     move.w #GEMDOS_MALLOC, -(%sp)
     trap #1
@@ -427,23 +453,27 @@ init_buffers:
     beq no_memory
 
     | The shifter wants its base on a 256-byte boundary, and a screen is an
-    | exact multiple of 256, so aligning once aligns all three buffers.
+    | exact multiple of 256, so aligning once aligns both of ours.
     add.l #255, %d0
     and.l #0xffffff00, %d0
-    move.l %d0, OFF_SCREEN_PTR(%a5)
-    add.l #SCREEN_BYTES, %d0
     move.l %d0, OFF_BG_CUR(%a5)
     add.l #SCREEN_BYTES, %d0
     move.l %d0, OFF_BG_NEXT(%a5)
     add.l #SCREEN_BYTES, %d0
-    move.l %d0, OFF_LEVEL_BUF(%a5)      | behind the three screens: the level buffer (loader.s)
+    move.l %d0, OFF_LEVEL_BUF(%a5)      | behind the screens: the level buffer (loader.s)
 
-    movea.l OFF_SCREEN_PTR(%a5), %a0
-    move.l #(BUFFER_COUNT * SCREEN_LONGS - 1), %d7
+    | SCREEN_PTR, BG_CUR and BG_NEXT are the first three longs of the variable block: keep them as the home of the three
+    | buffers (the intro and the credits move them about and put them back), and make all three black.
+    movem.l (%a5), %d1-%d3
+    movem.l %d1-%d3, OFF_HOME_SCREEN(%a5)
+    movea.l %a5, %a1
+    moveq #(BUFFER_COUNT - 1), %d6
+2:  movea.l (%a1)+, %a0
+    move.w #(SCREEN_LONGS - 1), %d7
     moveq #0, %d0
 1:  move.l %d0, (%a0)+
-    subq.l #1, %d7
-    bpl 1b
+    dbra %d7, 1b
+    dbra %d6, 2b
     rts
 
 | Render the current room into bg_cur and show it.
@@ -1108,46 +1138,7 @@ music_bank:
     .align 2
 mon_sprites:
     .incbin "mon_sprites.bin"
-    | The title and the story (tools/intro.py); like the monster pictures they are reached through ltab, from anywhere.
-    .align 2
-title_tiles:
-    .incbin "title_tiles.bin"
-title_cells:
-    .incbin "title_cells.bin"
-story_tiles:
-    .incbin "story_tiles.bin"
-story_rows:
-    .incbin "story_rows.bin"
-story_map:
-    .incbin "story_map.bin"
-    .align 2
-intro_sprites:
-    .incbin "intro_sprites.bin"
-intro_spawns:
-    .incbin "intro_spawns.bin"
-credits_tiles:
-    .incbin "credits_tiles.bin"
-credits_rows:
-    .incbin "credits_rows.bin"
-credits_map:
-    .incbin "credits_map.bin"
-credits_rows2:
-    .incbin "credits_rows2.bin"
-credits_map2:
-    .incbin "credits_map2.bin"
-credits_glyphs:
-    .incbin "credits_glyphs.bin"
-    | The file menu (tools/filesel.py).
-    .align 2
-file_tiles:
-    .incbin "file_tiles.bin"
-file_cells:
-    .incbin "file_cells.bin"
-file_glyphs:
-    .incbin "file_glyphs.bin"
-    .align 2
-file_sprites:
-    .incbin "file_sprites.bin"
+    | The title, the story, the credits and the file menu (tools/intro.py, tools/filesel.py) are not here: they are INTRO.DAT.
     | The inventory screen (tools/submenu.py).
     .align 2
 menu_tiles:

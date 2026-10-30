@@ -1165,8 +1165,9 @@ LEVEL_TABLES = ("room_index", "rooms", "doors", "tiles", "tile_nes", "room_info"
                 "mon_art", "quads")
 LEVEL_NAME_BYTES = 12                                # "LEVEL1Q.DAT" and its terminator, padded
 LEVEL_RECORD_BYTES = 8 + LEVEL_NAME_BYTES             # start room, start Y, triforce room, ... then the file name
-LEVEL_FILE_MAGIC = b"ZLVL"
-LEVEL_HEADER_BYTES = 8 + 4 * (len(LEVEL_TABLES) + 1)  # magic, record number and a spare word, then where each table and the monster art start
+LEVEL_FILE_MAGIC = b"ZLVZ"                            # the file on the disk: this, the record number, the packed size, then the packed image
+LEVEL_IMAGE_MAGIC = b"ZLVL"                           # the image in memory: this, the record number, its own size, then where each table and the monster art start
+LEVEL_HEADER_BYTES = 8 + 4 * (len(LEVEL_TABLES) + 1)  # the image's header
 LEVEL_ART_ALIGN = 2
 
 
@@ -1249,23 +1250,47 @@ def monster_art(arts, wanted: set[int]) -> tuple[bytes, bytes]:
     return bytes(pool), bytes(table)
 
 
-def level_file(number: int, tables: list[bytes], art: bytes) -> bytes:
-    """LEVEL<n>[Q].DAT: a header (magic, the record number, where each table and the monster frames start) and the tables.
+def image_file(number: int, parts: list[bytes]) -> bytes:
+    """A file's image: a header (magic, the record number, its size, where each part starts) and the parts, each on an even address.
 
-    uw_select_level reads the file into the level buffer and adds its address to those offsets.
+    The game unpacks the file into the shared buffer (loader.s) and adds the buffer's address to those offsets.
     """
-    body = bytearray(LEVEL_HEADER_BYTES)
+    body = bytearray(8 + 4 * len(parts))
     offsets = []
-    for data in [*tables, art]:
+    for data in parts:
         if len(body) % LEVEL_ART_ALIGN:
             body.append(0)
         offsets.append(len(body))
         body.extend(data)
     if len(body) % 2:
         body.append(0)
-    head = LEVEL_FILE_MAGIC + number.to_bytes(2, "big") + bytes(2) + b"".join(o.to_bytes(4, "big") for o in offsets)
+    assert len(body) < 0x10000
+    head = LEVEL_IMAGE_MAGIC + number.to_bytes(2, "big") + len(body).to_bytes(2, "big") + b"".join(o.to_bytes(4, "big") for o in offsets)
     body[: len(head)] = head
     return bytes(body)
+
+
+def level_file(number: int, tables: list[bytes], art: bytes) -> bytes:
+    """The level's image: the ten tables, then the monster frames (LEVEL<n>[Q].DAT holds it packed, `level_packed`)."""
+    return image_file(number, [*tables, art])
+
+
+def level_packed(image: bytes) -> tuple[bytes, int]:
+    """(the file LEVEL<n>[Q].DAT, the level buffer bytes the game needs to read and unpack it).
+
+    The file is the magic ZLVZ, the record number and the size of the packed data (3 words), then the image packed by
+    `lzpack` (LZ4). The game reads the packed data into the end of the buffer and unpacks it over itself from the front, so the
+    buffer holds the packed data plus how far the output runs ahead of it (`lzpack.margin`), one more byte for the
+    even address it is read to, and at least the header.
+    """
+    import lzpack
+
+    packed = lzpack.pack(image)
+    assert lzpack.unpack(packed) == image
+    assert len(packed) < 0x10000
+    header = LEVEL_FILE_MAGIC + image[4:6] + len(packed).to_bytes(2, "big")
+    need = len(packed) + max(lzpack.margin(packed), 8) + 1
+    return header + packed, need + need % 2
 
 
 def write_underworld(out_dir: Path, bundle_or_uw) -> None:
@@ -1290,9 +1315,9 @@ def write_underworld(out_dir: Path, bundle_or_uw) -> None:
         art, table = monster_art(level.actors.monster_arts, wanted)
         (out_dir / f"uw{level.key}_mon_art.bin").write_bytes(table)
         tables = [(out_dir / f"uw{level.key}_{name}.bin").read_bytes() for name in LEVEL_TABLES]
-        data = level_file(number, tables, art)
+        data, need = level_packed(level_file(number, tables, art))
         (out_dir / level_file_name(level)).write_bytes(data)
-        max_file = max(max_file, len(data))
+        max_file = max(max_file, need)
     (out_dir / "levels.inc").write_text(level_include(levels), encoding="utf-8")
     cells = bytearray()
     for direction in uw.door_cells:
@@ -1314,7 +1339,34 @@ def write_underworld(out_dir: Path, bundle_or_uw) -> None:
     (out_dir / "fx_sprites.bin").write_bytes(actors.fx_sprites)
     (out_dir / "proj_sprites.bin").write_bytes(actors.proj_sprites)
     (out_dir / "hud_items.bin").write_bytes(actors.hud_items)
-    (out_dir / "level_buffer.inc").write_text(f".equ LEVEL_BUF_BYTES, {max_file}\n.equ LEVEL_HEADER_BYTES, {LEVEL_HEADER_BYTES}\n", encoding="utf-8")
+    (out_dir / "level_buffer.inc").write_text(buffer_include(max_file), encoding="utf-8")
+
+
+# The pictures of the title, the story, the credits and the file menu: used by those screens only, so they are not part of
+# the program but of INTRO.DAT, unpacked into the shared buffer when one of the screens begins (loader.s intro_data_load).
+INTRO_TABLES = ("title_tiles", "title_cells", "story_tiles", "story_rows", "story_map", "intro_sprites", "intro_spawns",
+                "credits_tiles", "credits_rows", "credits_map", "credits_rows2", "credits_map2", "credits_glyphs",
+                "file_tiles", "file_cells", "file_glyphs", "file_sprites")
+INTRO_FILE_NAME = "INTRO.DAT"
+INTRO_RECORD = 100                     # the record number of INTRO.DAT: after the 18 dungeons, so the buffer's key tells them apart
+
+
+def buffer_include(buffer_bytes: int) -> str:
+    """level_buffer.inc: the size of the shared buffer, and where INTRO.DAT's tables are (IV_<name> = the index in OFF_IVP)."""
+    lines = [f".equ LEVEL_BUF_BYTES, {buffer_bytes}", f".equ LEVEL_HEADER_BYTES, {LEVEL_HEADER_BYTES}",
+             f".equ INTRO_RECORD, {INTRO_RECORD}", f".equ INTRO_TABLE_COUNT, {len(INTRO_TABLES)}"]
+    lines += [f".equ IV_{name}, {k}" for k, name in enumerate(INTRO_TABLES)]
+    return "\n".join(lines) + "\n"
+
+
+def write_intro_file(out_dir: Path) -> None:
+    """INTRO.DAT from the .bin files intro.py and filesel.py wrote, and level_buffer.inc with room for it too."""
+    image = image_file(INTRO_RECORD, [(out_dir / f"{name}.bin").read_bytes() for name in INTRO_TABLES])
+    data, need = level_packed(image)
+    (out_dir / INTRO_FILE_NAME).write_bytes(data)
+    inc = out_dir / "level_buffer.inc"
+    levels_need = int(inc.read_text().split()[2]) if inc.exists() else 0
+    inc.write_text(buffer_include(max(levels_need, need)), encoding="utf-8")
 
 
 def underworld_equates(uw, level_count: int = 1, record_count: int = 1) -> list[str]:
@@ -1450,6 +1502,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
     import filesel as filesel_module
 
     intro_lines += filesel_module.write(out_dir, bundle.menus)
+    write_intro_file(out_dir)
     import gameover as gameover_module
 
     intro_lines += gameover_module.write(out_dir, bundle.gameover)
