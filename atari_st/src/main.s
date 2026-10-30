@@ -378,7 +378,10 @@ exit_program:
     bra terminate
 
 no_memory:
-    | Nothing has been reprogrammed yet, so just hand the machine back.
+    | Nothing has been reprogrammed yet: say how much memory it takes and has (loader.s, far away), which then ends the run.
+    pea 1f(%pc)
+1:  addi.l #(no_memory_report - 1b), (%sp)
+    rts
 terminate:
     move.l OFF_OLD_SSP(%a5), -(%sp)
     move.w #GEMDOS_SUPER, -(%sp)
@@ -389,6 +392,12 @@ terminate:
     trap #1
 
 | ---------------------------------------------------------------------------
+    .if (OFF_HEART_CONTAINERS & 1) + (OFF_OBJ_RIGHT & 1) + (OFF_BOUND_RIGHT & 1)
+    .error "init_state stores two bytes at a time: the pairs must start on even addresses"
+    .endif
+    .if (OFF_HP_HALVES - OFF_HEART_CONTAINERS != 1) + (OFF_OBJ_UP - OFF_OBJ_RIGHT != 1) + (OFF_BOUND_UP - OFF_BOUND_RIGHT != 1)
+    .error "init_state stores two bytes at a time: the pairs must be next to each other"
+    .endif
 init_state:
     | Zero the whole variable block, then set what needs a non-zero start.
     lea globals(%pc), %a0
@@ -402,18 +411,15 @@ init_state:
     move.b #HOME_Y, OFF_LINK_Y(%a5)
     move.b #START_DIR, OFF_LINK_DIR(%a5)
     move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
-    move.b #3, OFF_HEART_CONTAINERS(%a5)
     move.b #8, OFF_MAX_BOMBS(%a5)
-    move.b #6, OFF_HP_HALVES(%a5)
+    move.w #((3 << 8) + 6), OFF_HEART_CONTAINERS(%a5)       | heart containers, HP_HALVES (next to each other, on an even address)
     move.w #0xace1, OFF_RNG(%a5)
     move.b #ROOM_BOUND_LEFT, OFF_OBJ_LEFT(%a5)
-    move.b #ROOM_BOUND_RIGHT, OFF_OBJ_RIGHT(%a5)
-    move.b #ROOM_BOUND_UP, OFF_OBJ_UP(%a5)
+    move.w #((ROOM_BOUND_RIGHT << 8) + ROOM_BOUND_UP), OFF_OBJ_RIGHT(%a5)       | right, up
     move.b #ROOM_BOUND_DOWN, OFF_OBJ_DOWN(%a5)
     move.b #1, OFF_HUD_DIRTY(%a5)
     move.b #LINK_EDGE_LEFT, OFF_BOUND_LEFT(%a5)
-    move.b #LINK_EDGE_RIGHT, OFF_BOUND_RIGHT(%a5)
-    move.b #LINK_EDGE_UP, OFF_BOUND_UP(%a5)
+    move.w #((LINK_EDGE_RIGHT << 8) + LINK_EDGE_UP), OFF_BOUND_RIGHT(%a5)       | right, up
     move.b #LINK_EDGE_DOWN, OFF_BOUND_DOWN(%a5)
     rts
 

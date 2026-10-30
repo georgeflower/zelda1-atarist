@@ -128,3 +128,61 @@ msg_missing:
 msg_missing2:
     .asciz ".\r\nKeep the LEVEL*.DAT files in the\r\nsame folder as ZELDAST.PRG.\r\nPress a key.\r\n"
     .even
+
+| Out of memory (init_buffers): the game wants its buffers (BUFFER_ALLOC) from what is left after the program is loaded. Say
+| what it needs and what there is, in KB, in lines of at most 40 characters, then end the run.
+no_memory_report:
+    move.l #-1, -(%sp)                  | Malloc(-1): the biggest block there is
+    move.w #GEMDOS_MALLOC, -(%sp)
+    trap #1
+    addq.l #6, %sp
+    move.l %d0, %d3
+    pea msg_memory(%pc)
+    move.w #GEMDOS_CCONWS, -(%sp)
+    trap #1
+    addq.l #6, %sp
+    move.l #BUFFER_ALLOC, %d0
+    bsr print_kb
+    pea msg_memory2(%pc)
+    move.w #GEMDOS_CCONWS, -(%sp)
+    trap #1
+    addq.l #6, %sp
+    move.l %d3, %d0
+    bsr print_kb
+    pea msg_memory3(%pc)
+    move.w #GEMDOS_CCONWS, -(%sp)
+    trap #1
+    addq.l #6, %sp
+    move.w #GEMDOS_CNECIN, -(%sp)
+    trap #1
+    addq.l #2, %sp
+    bra terminate_lf
+
+| d0.l = bytes: print them as kilobytes (a number under 10000) with GEMDOS Cconws. (Uses d0-d2, a0-a2, a4.)
+print_kb:
+    moveq #10, %d1
+    lsr.l %d1, %d0
+    lea -8(%sp), %sp
+    lea 7(%sp), %a4
+    clr.b (%a4)
+1:  divu.w #10, %d0
+    swap %d0
+    add.b #0x30, %d0
+    move.b %d0, -(%a4)
+    clr.w %d0
+    swap %d0
+    bne 1b
+    move.l %a4, -(%sp)
+    move.w #GEMDOS_CCONWS, -(%sp)
+    trap #1
+    addq.l #6, %sp
+    lea 8(%sp), %sp
+    rts
+
+msg_memory:
+    .asciz "\r\nZelda needs more memory.\r\nIt needs "
+msg_memory2:
+    .asciz " KB free and there are "
+msg_memory3:
+    .asciz " KB.\r\nPress a key.\r\n"
+    .even
