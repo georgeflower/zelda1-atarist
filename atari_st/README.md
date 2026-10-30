@@ -16,10 +16,9 @@ Work in progress, expect bugs. Both quests are in: the whole overworld, all nine
 Ganon and Zelda, every item, title and story, file select, death and continue, saving, the credits
 and the music. The list of what is left is in [`PLAN.md`](PLAN.md).
 
-The `.PRG` is about 300 KB. A dungeon's rooms, doors, tiles and the pictures of its monsters are in
+The `.PRG` is about 270 KB. The title, the story, the credits and the file menu read their pictures from `INTRO.DAT` (packed, 13 KB, loaded when the intro starts and again after a dungeon). A dungeon's rooms, doors, tiles and the pictures of its monsters are in
 `LEVEL<n>.DAT` (`LEVEL<n>Q.DAT` for the Second Quest), packed (LZ4, 210 KB for the 18 files) and read when Link
-goes in, so those files must be next to the `.PRG` (`make dist` collects them). It still needs 1 MB of RAM; making it fit 512 KB
-is the next thing (see `PLAN.md`).
+goes in, so those files must be next to the `.PRG` (`make dist` collects them). The game draws on the screen TOS gave the program and allocates two more, plus the level buffer, so it needs about 390 KB free after loading (a 520 STFM has about 407 KB); if there is not enough it says so and exits. Packing the drum samples is the next step for smaller margins (see `PLAN.md`).
 
 How to play
 -----------
@@ -59,7 +58,7 @@ Known differences from the original
 - the dungeons' monsters appear at once instead of coming out of a spawn cloud
 - `K` is a debug key, it is not in the original
 - the game plays at the PAL speed of 50 frames a second; on a 60 Hz display every sixth frame holds the game and the song back, so both run at the same speed as on a 50 Hz one (the NES in 60 Hz is a sixth faster)
-- it does not fit in 512 KB yet (the `.PRG` is about 300 KB, but the screens and the biggest dungeon's file come on top)
+- it needs about 390 KB free after loading: that fits a 520 STFM with TOS 1.02 but only just, and an EmuTOS 512 KB setup (about 75 KB free after load) is still too small
 - the dungeons' files together are more than a 720 KB disk holds next to the `.PRG`
 
 Roadmap

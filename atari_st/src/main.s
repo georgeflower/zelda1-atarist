@@ -27,6 +27,12 @@
     adda.l %a6, \reg
     .endm
 
+| ivtab name, reg: the address of one of INTRO.DAT's tables (title, story, credits, file menu), which intro_data_load put in
+| the variable block while the buffer holds that file.
+    .macro ivtab name, reg
+    movea.l (OFF_IVP + 4 * IV_\name)(%a5), \reg
+    .endm
+
 | lvtab name, reg: the address of the current dungeon's table (room_index, rooms, doors, tiles, tile_nes,
 | room_info, cellar_maps or cellar_info), which uw_select_level put in the variable block.
     .macro lvtab name, reg
@@ -1129,46 +1135,7 @@ music_bank:
     .align 2
 mon_sprites:
     .incbin "mon_sprites.bin"
-    | The title and the story (tools/intro.py); like the monster pictures they are reached through ltab, from anywhere.
-    .align 2
-title_tiles:
-    .incbin "title_tiles.bin"
-title_cells:
-    .incbin "title_cells.bin"
-story_tiles:
-    .incbin "story_tiles.bin"
-story_rows:
-    .incbin "story_rows.bin"
-story_map:
-    .incbin "story_map.bin"
-    .align 2
-intro_sprites:
-    .incbin "intro_sprites.bin"
-intro_spawns:
-    .incbin "intro_spawns.bin"
-credits_tiles:
-    .incbin "credits_tiles.bin"
-credits_rows:
-    .incbin "credits_rows.bin"
-credits_map:
-    .incbin "credits_map.bin"
-credits_rows2:
-    .incbin "credits_rows2.bin"
-credits_map2:
-    .incbin "credits_map2.bin"
-credits_glyphs:
-    .incbin "credits_glyphs.bin"
-    | The file menu (tools/filesel.py).
-    .align 2
-file_tiles:
-    .incbin "file_tiles.bin"
-file_cells:
-    .incbin "file_cells.bin"
-file_glyphs:
-    .incbin "file_glyphs.bin"
-    .align 2
-file_sprites:
-    .incbin "file_sprites.bin"
+    | The title, the story, the credits and the file menu (tools/intro.py, tools/filesel.py) are not here: they are INTRO.DAT.
     | The inventory screen (tools/submenu.py).
     .align 2
 menu_tiles:

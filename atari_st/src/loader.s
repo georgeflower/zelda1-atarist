@@ -101,6 +101,31 @@ level_load:
 
     .include "lz.s"
 
+| Make sure the buffer holds INTRO.DAT, the pictures of the title, the story, the credits and the file menu, and that
+| IVP (ivtab) points at them. Cheap when it does already. The dungeon in the buffer, if there was one, is gone: the next
+| uw_select_level reads it again (LOAD_KEY says what the buffer holds). Keeps every register.
+intro_data_load:
+    movem.l %d0-%d2/%a0-%a2, -(%sp)
+    move.w #(INTRO_RECORD + 1), %d2
+    cmp.w OFF_LOAD_KEY(%a5), %d2
+    beq 2f
+    lea intro_file_name(%pc), %a0
+    bsr level_load
+    movea.l OFF_LEVEL_BUF(%a5), %a1
+    lea 8(%a1), %a0                     | where each table starts, in the header
+    lea OFF_IVP(%a5), %a2
+    moveq #(INTRO_TABLE_COUNT - 1), %d0
+1:  move.l (%a0)+, %d1
+    add.l %a1, %d1
+    move.l %d1, (%a2)+
+    dbra %d0, 1b
+2:  movem.l (%sp)+, %d0-%d2/%a0-%a2
+    rts
+
+intro_file_name:
+    .asciz "INTRO.DAT"
+    .even
+
 | a0 = the name of the file that could not be used: give the machine back and say so.
 data_missing:
     movea.l %a0, %a4                    | (GEMDOS keeps a4)

@@ -517,7 +517,11 @@
     gvar HOME_SCREEN, 4          | the three screens as init_buffers left them: the one TOS gave the program, then two of our own,
     gvar HOME_CUR, 4             | (the intro and the credits move them about and put them back; these three stay in a row)
     gvar HOME_NEXT, 4
+    gvar IVP, 68                 | where each table of INTRO.DAT is while the buffer holds it (INTRO_TABLE_COUNT longs; ivtab, loader.s)
     .equ GLOBALS_BYTES, gvar_offset
+    .if OFF_IVP + 4 * INTRO_TABLE_COUNT != GLOBALS_BYTES
+    .error "IVP is 4 bytes for each table of INTRO.DAT: keep gvar IVP in step with INTRO_TABLES in build_assets.py"
+    .endif
 
 | The world flags of the dungeon Link is in: UW_OPEN and UW_FLAGS belong to Levels 1-6, the two arrays at the end to Levels 7-9, the
 | same distance from them both (uw_select_level sets UW_BLOCK). uwlea OPEN, %a0 / uwlea FLAGS, %a0 leaves the flags alone.

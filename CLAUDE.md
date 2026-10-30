@@ -17,7 +17,7 @@ TOS `ZELDAST.PRG` that runs in Hatari (and should on real hardware): 320x200,
 Current scope: the whole overworld (128 screens) with its monsters, hidden spots, specials, caves and shops; all nine dungeons of the First Quest
 and all nine of the Second Quest, with their monsters and bosses, up to Ganon, Zelda's thanks and the credits; every item of the original's
 inventory; the title, the file menu, death, the continue question and saving to `ZELDA.SAV`. The PRG is about 300 KB and each dungeon's data is a file of its own
-(`LEVEL<n>[Q].DAT`, packed, read and unpacked when Link goes in, see `loader.s`); the build still needs 1 MB of RAM, 512 KB is the next goal. What is left is in `atari_st/PLAN.md`.
+(`LEVEL<n>[Q].DAT`, packed, read and unpacked when Link goes in, see `loader.s`) and the title, story, credits and file menu data is `INTRO.DAT` (the same format, record 100); the game needs about 390 KB free after loading (a 520 STFM has about 407 KB), 512 KB machines under EmuTOS are the next goal. What is left is in `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
 (`src/Z_00.asm` .. `Z_07.asm`, aldonunez's labelled NES disassembly). It is the
@@ -101,7 +101,7 @@ atari_st/                the port
 | `death.s` | Link's death (`MODE_DEATH`, game mode $11): blink, the red-world remap, spin, fade, grey Link and spark, GAME OVER, then the continue question; also `game_reset_position`, `death_continue/save/retry` (M10 c) |
 | `save.s` | `ZELDA.SAV` through GEMDOS (Fopen/Fread/Fcreate/Fwrite/Frename...): records of 640 bytes, the `save_fields` table, the secrets patch log replay, checksum (M10 c) |
 | `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level` (loads the level's file), `mon_spr_select`, `debug_keys` (K, T room id) |
-| `loader.s` | `file_read`/`file_close` (GEMDOS Fread/Fclose) and `level_load`: reads `LEVEL<n>[Q].DAT` (an 8-byte header: `ZLVZ`, the record number, the packed size; then LZ4 data) into the *end* of the level buffer (allocated behind the three screens), unpacks it over itself from the front (`lz_unpack`), checks the image's magic `ZLVL` and size, tags the buffer (`LOAD_KEY`); a missing, cut or wrong file ends the game with a message; included last, reached through a farstub |
+| `loader.s` | `file_read`/`file_close` (GEMDOS Fread/Fclose) and `level_load`: reads `LEVEL<n>[Q].DAT` (an 8-byte header: `ZLVZ`, the record number, the packed size; then LZ4 data) into the *end* of the level buffer (allocated behind the three screens), unpacks it over itself from the front (`lz_unpack`), checks the image's magic `ZLVL` and size, tags the buffer (`LOAD_KEY`); a missing, cut or wrong file ends the game with a message; `intro_data_load` does the same for `INTRO.DAT` (record 100, tag `INTRO_RECORD + 1`) and fills `OFF_IVP` with the 17 table addresses the `ivtab name, reg` macro reads (`IV_<name>` in `level_buffer.inc`); `no_memory_report` prints how much memory the buffers need and exits when Malloc fails; included last, reached through a farstub |
 | `lz.s` | `lz_unpack`: the LZ4 block decoder (a0 packed, a2 its end, a1 out; byte copies, about 50 cycles a byte); `tools/lzpack.py` is the packer, `tests/test_lzpack.py` runs the real routine on machine68k |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
 | `music.s` | music and sound effects replayed from the VBL hook: four register-stream contexts (song, effect over voice A, effect over voice B, noise effect or DPCM sample over voice C) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`); `music_roar_tick` repeats the boss's ambient roar |
@@ -120,7 +120,7 @@ atari_st/                the port
 | `gameover.py` | the death sequence's data: `death_maps` (per palette, which of three spare slots 13-15 each colour goes to, by lightness), `death_colours` (red world, the four fade steps, dead Link, spark), the grey Link and spark sprites, the GAME OVER tiles |
 | `savefile.py` | a Python model of `ZELDA.SAV` (build, parse, checksum) and a check that it agrees with `save.s`/`globals.s`; also a CLI that writes a file for `screenshot.py --hd-file` |
 | `lzpack.py` | the LZ4 block packer (greedy, one step lazy) and its Python decoder; `margin` says how far the output runs ahead of the input, which sizes the level buffer for unpacking in place; `build_assets.level_packed` uses it |
-| `make_disk.py` | `make disk`: a 720 KB FAT12 floppy image (`build/ZELDA.st`) with `ZELDAST.PRG` and the 18 `LEVEL*.DAT`; `read_disk` reads one back (tests); for a real drive, a Gotek or an emulator |
+| `make_disk.py` | `make disk`: a 720 KB FAT12 floppy image (`build/ZELDA.st`) with `ZELDAST.PRG`, `INTRO.DAT` and the 18 `LEVEL*.DAT`; `read_disk` reads one back (tests); for a real drive, a Gotek or an emulator |
 | `make_prg.py` | wraps the flat binary into a TOS PRG header (`--check` validates) |
 | `screenshot.py` | **headless Hatari harness** (`--hd-file NAME=PATH` copies a file to the emulated drive first): runs the PRG, injects keys, pokes variables, dumps RAM, decodes framebuffer to PNG, prints a state report and a `FRAMEHASH`; `--room`, `--uw`/`--level` build a dev PRG into `build/dev` |
 | `golden.py` | golden frames: runs the fixed scenes through `screenshot.py` and compares `FRAMEHASH` with `tests/golden/frames.json` (`--update`, `--only`, `--png-dir`); skipped without Hatari, `TOS` and the ROM; `make golden-update` |
@@ -690,7 +690,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   goes to slot 13, 14 or 15 (`death_maps`, one row per palette: black stays, the other colours by lightness) four lines a frame
   (`DEATH_LINES`, boolean evaluation of the planes per 16 pixels, `death_remap_lines`), then those three slots get the ROM's colours (`death_colours`) and fade.
   Slots 13-15 are in no level used by the HUD, Link or items. Afterwards the death count of
-  `OFF_PROFILE` goes up (cap $FF), the three screen buffers are put in the menu arrangement and `filesel_begin(FILE_CONTINUE)` asks: CONTINUE
+  `OFF_PROFILE` goes up (cap $FF), the three screen buffers (TOS's own screen, found with Physbase, and two Malloc'ed ones: `HOME_*` keeps them; `intro_start` hides the TOS cursor with ESC f) are put in the menu arrangement and `filesel_begin(FILE_CONTINUE)` asks: CONTINUE
   (`death_continue`: three hearts, `game_reset_position`, overworld start via `enter_room`, a dungeon via `uw_warp_to_start`, items kept), SAVE
   (`save_store_game`: full hearts, the record is written) or RETRY (`death_retry`: `save_load_game` of the stored profile, then `death_restart` at the overworld start or the level's entrance; no file menu). The chosen word flashes
   `FILE_FLASH_FRAMES` (64). `ZELDA.SAV` (`SAVE_FILE` in the variable block, 2696 bytes = 8 of header: `ZSAV`, version word (2), checksum word, then three
@@ -866,7 +866,7 @@ kill counters, knock-back and invincibility; the HUD with the A/B boxes and the 
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
 What is left (details in `atari_st/PLAN.md`): more play-testing, a per-level loader for 512 KB machines and a run on real hardware. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
-cloud. The PRG (about 700 KB) no longer fits a 512 KB machine. Scope decision: both quests in one 1 MB build. All tables are decoded from a user-supplied ROM; do not commit the ROM.
+cloud. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, a 512 KB EmuTOS setup does not yet (the drum samples are next). Scope decision: both quests in one 1 MB build. All tables are decoded from a user-supplied ROM; do not commit the ROM.
 
 ## 15. Persistent notes also kept in the repo memory (VS Code agent memory)
 

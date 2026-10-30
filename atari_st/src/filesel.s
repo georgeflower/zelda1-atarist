@@ -181,14 +181,14 @@ file_click:
 | screen's grid of 8x8 cells), d3.w = the style (0 the text's palette row, 1 the hearts'). Nothing changes.
 file_glyph:
     movem.l %d0-%d3/%a0-%a1, -(%sp)
-    ltab file_glyphs, %a0
+    ivtab file_glyphs, %a0
     andi.w #0xff, %d0
     add.w %d0, %d0
     tst.w %d3
     beq 1f
     adda.w #FILE_GLYPH_STYLE_BYTES, %a0
 1:  move.w 0(%a0, %d0.w), %d0
-    ltab file_tiles, %a0
+    ivtab file_tiles, %a0
     adda.w %d0, %a0
     move.l OFF_SCREEN_PTR(%a5), -(%sp)
     bsr draw_hud_tile_ptr_xf            | the clean copy
@@ -361,7 +361,7 @@ file_name_fields:
 | sprite is given (its top line is one below). Nothing changes.
 file_draw_frame:
     movem.l %d0-%d7/%a0-%a1, -(%sp)
-    ltab file_sprites, %a0
+    ivtab file_sprites, %a0
     andi.l #0xffff, %d1
     mulu.w #SPRITE_FRAME_BYTES, %d1
     adda.l %d1, %a0
@@ -568,16 +568,17 @@ file_links:
 | ------------------------------------------------------------------------------------------------ bringing it up
 | d0.b = the screen: FILE_SELECT, FILE_REGISTER or FILE_ELIMINATE.
 filesel_begin:
+    bsr intro_data_f                    | (after a death the buffer holds the dungeon)
     move.b %d0, OFF_FILE_SCREEN(%a5)
     move.b #INTRO_PHASE_MENU, OFF_INTRO_PHASE(%a5)
     bsr intro_black
     bsr intro_clear_all
-    ltab file_cells, %a0
+    ivtab file_cells, %a0
     moveq #0, %d1
     move.b OFF_FILE_SCREEN(%a5), %d1
     mulu.w #FILE_PICTURE_BYTES, %d1
     adda.l %d1, %a0
-    ltab file_tiles, %a2
+    ivtab file_tiles, %a2
     movea.l OFF_BG_CUR(%a5), %a1
     moveq #(INTRO_TITLE_ROWS - 1), %d5
 1:  moveq #0, %d0

@@ -226,10 +226,13 @@ SCENES: dict[str, list[str]] = {
     "death_link": ["--room", "0x77", "--vbls", "470", "--keys", DEATH],
     "death_spark": ["--room", "0x77", "--vbls", "495", "--keys", DEATH],
     "death_gameover": ["--room", "0x77", "--vbls", "600", "--keys", DEATH],
-    "death_continue": ["--room", "0x77", "--vbls", "670", "--keys", DEATH],
-    "death_continue_save": ["--room", "0x77", "--vbls", "710", "--keys", f"{DEATH},{_taps(690, ['tab'])}"],
-    "death_continue_flash": ["--room", "0x77", "--vbls", "726", "--keys", f"{DEATH},{_taps(690, ['return'])}"],
-    "death_continued": ["--room", "0x77", "--vbls", "800", "--keys", f"{DEATH},{_taps(690, ['return'])}"],
+    # The question comes up at about VBL 725 (a game at 60 Hz leaves one VBL in six out, and the intro data is read first), so the keys come after it.
+    "death_continue": ["--room", "0x77", "--vbls", "770", "--keys", DEATH],
+    "death_continue_save": ["--room", "0x77", "--vbls", "800", "--keys", f"{DEATH},{_taps(780, ['tab'])}"],
+    "death_continue_flash": ["--room", "0x77", "--vbls", "814", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
+    "death_continued": ["--room", "0x77", "--vbls", "1000", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
+    # Continuing in a dungeon: the file menu has used the level buffer, so the level's file is read again.
+    "uw1_death_continued": ["--uw", "0x74", "--level", "1", "--vbls", "1000", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
 }
 
 

@@ -40,7 +40,10 @@
 
 | ------------------------------------------------------------------------------------------------ entering and leaving
 | Called once, with the machine as init has left it: show the title and start its music.
+    farstub intro_data_f, intro_data_load
+
 intro_start:
+    bsr intro_data_f                    | the title's pictures
     bsr hide_cursor                     | TOS' cursor must not blink on the screen it gave us
     bsr save_init                       | the slots as ZELDA.SAV has them
     move.b #MODE_INTRO, OFF_GAME_MODE(%a5)
@@ -262,7 +265,7 @@ intro_draw_frame:
     moveq #(SPRITE_HEIGHT - 1), %d7
 2:  sub.w %d6, %d7                      | the number of lines, less one
     blt 9f
-    ltab intro_sprites, %a0
+    ivtab intro_sprites, %a0
     andi.l #0xffff, %d1
     mulu.w #SPRITE_FRAME_BYTES, %d1
     adda.l %d1, %a0
@@ -288,8 +291,8 @@ intro_draw_frame:
 intro_title_begin:
     bsr intro_black
     bsr intro_clear_all
-    ltab title_cells, %a0
-    ltab title_tiles, %a2
+    ivtab title_cells, %a0
+    ivtab title_tiles, %a2
     movea.l OFF_BG_CUR(%a5), %a1
     moveq #(INTRO_TITLE_ROWS - 1), %d5
 1:  moveq #0, %d0
@@ -549,11 +552,11 @@ intro_story_line:
     move.w %d1, %d0
     andi.w #7, %d0                      | the line in the tile
     add.w %d2, %d2
-    ltab story_map, %a0
+    ivtab story_map, %a0
     move.w 0(%a0, %d2.w), %d2           | the row's offset in story_rows
-    ltab story_rows, %a0
+    ivtab story_rows, %a0
     adda.w %d2, %a0
-    ltab story_tiles, %a2
+    ivtab story_tiles, %a2
     bsr intro_row_line
     bra 9f
 8:  moveq #31, %d2
@@ -572,7 +575,7 @@ intro_story_line:
 intro_overlay_line:
     movem.l %d0-%d7/%a0-%a3, -(%sp)
     movea.l %a1, %a3
-    ltab intro_spawns, %a2
+    ivtab intro_spawns, %a2
     move.w #(INTRO_SPAWNS - 1), %d6
 1:  move.w (%a2)+, %d3                  | the strip line of its top
     move.w (%a2)+, %d2                  | its x
@@ -584,7 +587,7 @@ intro_overlay_line:
     blt 9f
     cmp.w #SPRITE_HEIGHT, %d5
     bge 9f
-    ltab intro_sprites, %a0
+    ivtab intro_sprites, %a0
     andi.l #0xffff, %d4
     mulu.w #SPRITE_FRAME_BYTES, %d4
     adda.l %d4, %a0
@@ -605,7 +608,7 @@ intro_overlay_line:
 | The treasures that flash or flutter are drawn over the hidden screen every frame.
 intro_draw_items:
     movem.l %d0-%d7/%a0, -(%sp)
-    ltab intro_spawns, %a0
+    ivtab intro_spawns, %a0
     move.w #(INTRO_SPAWNS - 1), %d7
 1:  move.w (%a0)+, %d3                  | the strip line of its top
     move.w (%a0)+, %d2                  | its x

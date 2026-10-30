@@ -152,5 +152,63 @@ class SpawnSiteTests(unittest.TestCase):
             self.assertEqual(buffer_bytes, max(B.level_packed(lzpack.unpack((out / n).read_bytes()[8:]))[1] for n in names))
 
 
+class IntroFileTests(unittest.TestCase):
+    """INTRO.DAT: the title, story, credits and file menu tables in one packed file, read when the intro starts."""
+
+    def fake_tables(self, out: Path) -> list[bytes]:
+        tables = [bytes([n + 1]) * (40 + 7 * n) for n in range(len(B.INTRO_TABLES))]
+        for name, table in zip(B.INTRO_TABLES, tables):
+            (out / f"{name}.bin").write_bytes(table)
+        return tables
+
+    def test_the_file_holds_every_table_at_the_offset_the_header_gives(self) -> None:
+        import tempfile
+        import lzpack
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            tables = self.fake_tables(out)
+            B.write_intro_file(out)
+            data = (out / B.INTRO_FILE_NAME).read_bytes()
+            self.assertEqual(data[:4], B.LEVEL_FILE_MAGIC)
+            self.assertEqual(int.from_bytes(data[4:6], "big"), B.INTRO_RECORD)
+            self.assertEqual(int.from_bytes(data[6:8], "big"), len(data) - 8)
+            image = lzpack.unpack(data[8:])
+            self.assertEqual(image[:4], B.LEVEL_IMAGE_MAGIC)
+            self.assertEqual(int.from_bytes(image[6:8], "big"), len(image))
+            for k, table in enumerate(tables):
+                offset = int.from_bytes(image[8 + 4 * k : 12 + 4 * k], "big")
+                self.assertEqual(offset % 2, 0)
+                self.assertEqual(image[offset : offset + len(table)], table, B.INTRO_TABLES[k])
+
+    def test_the_buffer_equate_grows_to_hold_the_intro_when_it_is_the_larger(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            self.fake_tables(out)
+            (out / "level_buffer.inc").write_text(B.buffer_include(8), encoding="utf-8")
+            B.write_intro_file(out)
+            text = (out / "level_buffer.inc").read_text()
+            size = int(text.split()[2])
+            data = (out / B.INTRO_FILE_NAME).read_bytes()
+            self.assertGreaterEqual(size, len(data) - 8)
+            for k, name in enumerate(B.INTRO_TABLES):
+                self.assertIn(f".equ IV_{name}, {k}", text)
+            self.assertIn(f".equ INTRO_TABLE_COUNT, {len(B.INTRO_TABLES)}", text)
+            self.assertIn(f".equ INTRO_RECORD, {B.INTRO_RECORD}", text)
+
+    def test_a_table_name_the_code_asks_for_is_in_the_file(self) -> None:
+        used = set()
+        for path in sorted((ROOT / "src").glob("*.s")):
+            for line in path.read_text(encoding="utf-8").splitlines():
+                code = line.split("|", 1)[0]
+                if not code.lstrip().startswith(".macro"):
+                    used |= set(re.findall(r"\bivtab\s+([a-z0-9_]+)\s*,", code))
+        self.assertTrue(used)
+        self.assertLessEqual(used, set(B.INTRO_TABLES))
+
+    def test_the_intro_record_is_not_a_level_record(self) -> None:
+        self.assertGreater(B.INTRO_RECORD, 2 * len(B.UW_LEVELS))
+
+
 if __name__ == "__main__":
     unittest.main()
