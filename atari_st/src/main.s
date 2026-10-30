@@ -189,6 +189,7 @@
     .equ MFP_IMRB, 0x00fffa15
     .equ MFP_IKBD_BIT, 0x40
     .equ MFP_ISRB, 0x00fffa11
+    .equ MFP_IPRB, 0x00fffa0d
     .equ MIDI_ACIA_STATUS, 0x00fffc04
     .equ MIDI_ACIA_DATA, 0x00fffc06
     .equ IKBD_VECTOR, 0x00000118
@@ -1036,6 +1037,7 @@ uw_person_update_far:
     farstub update_death_far, update_death
     farstub death_begin_far, death_begin
     farstub update_quit_far, update_quit
+    farstub restore_ikbd_far, restore_ikbd
 draw_link_far:
     bra draw_link
 erase_sprite_far:
@@ -1058,6 +1060,7 @@ blit_rect_far:
     .include "death.s"
     .include "quit.s"
     .include "save.s"
+    .include "exit.s"
     .include "loader.s"
 
     | The anchor is this address plus a 32-bit link-time distance (a PC-relative relocation), so the routine may sit

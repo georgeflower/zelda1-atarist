@@ -228,7 +228,8 @@ Notes on the ST implementation
 - The IKBD interrupt vector (`$118`) is replaced by a handler that queues every
   byte in a ring buffer; the main loop parses the queue once a frame. The ACIA
   holds a single byte, so polling it lost key releases and left Link walking.
-  The previous vector is restored on exit.
+  The previous vector is restored on exit, with both ACIAs emptied first so the
+  desktop gets a working keyboard and mouse back.
 
 Licensing notes
 ---------------
