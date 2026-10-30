@@ -7,7 +7,7 @@ learn something new and durable, add it here.
 
 ## 1. What this is
 
-A native **Atari ST (STFM, 1 MB, 68000)** port of **The Legend of Zelda (NES,
+A native **Atari ST (STFM, 512 KB or more, 68000)** port of **The Legend of Zelda (NES,
 1986)**, written in 68000 assembly (GNU as syntax) and driven by a Python asset
 pipeline that reads graphics, rooms, palettes and text from a **ROM you supply
 yourself** (`ext/Original.nes`, gitignored, never committed). It produces a stock
@@ -17,7 +17,7 @@ TOS `ZELDAST.PRG` that runs in Hatari (and should on real hardware): 320x200,
 Current scope: the whole overworld (128 screens) with its monsters, hidden spots, specials, caves and shops; all nine dungeons of the First Quest
 and all nine of the Second Quest, with their monsters and bosses, up to Ganon, Zelda's thanks and the credits; every item of the original's
 inventory; the title, the file menu, death, the continue question and saving to `ZELDA.SAV`. The PRG is about 300 KB and each dungeon's data is a file of its own
-(`LEVEL<n>[Q].DAT`, packed, read and unpacked when Link goes in, see `loader.s`) and the title, story, credits and file menu data is `INTRO.DAT` (the same format, record 100); the game needs about 390 KB free after loading (a 520 STFM has about 407 KB), 512 KB machines under EmuTOS are the next goal. What is left is in `atari_st/PLAN.md`.
+(`LEVEL<n>[Q].DAT`, packed, read and unpacked when Link goes in, see `loader.s`) and the title, story, credits and file menu data is `INTRO.DAT` (the same format, record 100); the game needs about 390 KB free after loading (a 520 STFM has about 407 KB), so it runs on a 512 KB machine such as the owner's 520 STFM. What is left is in `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
 (`src/Z_00.asm` .. `Z_07.asm`, aldonunez's labelled NES disassembly). It is the
@@ -865,8 +865,8 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-What is left (details in `atari_st/PLAN.md`): more play-testing, a per-level loader for 512 KB machines and a run on real hardware. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
-cloud. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, a 512 KB EmuTOS setup does not yet (the drum samples are next). Scope decision: both quests in one 1 MB build. All tables are decoded from a user-supplied ROM; do not commit the ROM.
+What is left (details in `atari_st/PLAN.md`): more play-testing and longer sessions on real hardware. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+cloud. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, with about 17 KB to spare (packing the drum samples to 4 bits would give back about 21 KB). Scope decision: both quests in one build, files per dungeon. All tables are decoded from a user-supplied ROM; do not commit the ROM.
 
 ## 15. Persistent notes also kept in the repo memory (VS Code agent memory)
 

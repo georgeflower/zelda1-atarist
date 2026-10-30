@@ -1,21 +1,21 @@
 # Zelda 1 for Atari ST - what is left
 
-Work in progress. Both quests are in. The `.PRG` is about 270 KB; the intro's data (`INTRO.DAT`) and each dungeon's data (`LEVEL<n>[Q].DAT`) are files next to it. With the screens and the biggest file it needs about 390 KB free, so a 520 STFM (about 407 KB free) runs it only just and a 512 KB EmuTOS does not yet. This file is the short list of what is left and what I want to do next, with the data tables at the end. How the code works is in `AGENTS.md` / `CLAUDE.md`, how to build is in `README.md`.
+Work in progress. Both quests are in. The `.PRG` is about 270 KB; the intro's data (`INTRO.DAT`) and each dungeon's data (`LEVEL<n>[Q].DAT`) are files next to it. With the screens and the biggest file it needs about 390 KB free, so it runs on a 520 STFM (about 407 KB free), but only just. This file is the short list of what is left and what I want to do next, with the data tables at the end. How the code works is in `AGENTS.md` / `CLAUDE.md`, how to build is in `README.md`.
 
 ## What is left
 
 | # | What | Why |
 | --- | --- | --- |
 | 1 | More play-testing, Levels 4 to 9 most of all, then the Second Quest | they are built from the ROM but have had little play |
-| 2 | Run it on a real ST | speed with a full room at 8 MHz, PAL at 50 Hz and the disk write for `ZELDA.SAV` are only seen in Hatari so far |
-| 3 | Fit 512 KB machines (my 520 STFM): the dungeons' files are done and packed (LZ4, 210 KB together); done: the screen TOS gave the program is one of the three buffers, the title, story, credits and file menu data is read from `INTRO.DAT`; still to do: pack the drum samples to 4 bits (about 21 KB), a 512 KB test | about 390 KB used now, about 75 KB free on a 512 KB EmuTOS |
-| 4 | Closer to the original in a few places | the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once; "save and exit" from the Tab menu is not in the original either |
+| 2 | Play it on a real ST for longer | it runs on my 520 STFM from a Gotek now; long sessions will show what Hatari does not |
+| 3 | A bigger memory margin (optional) | the game fits 512 KB now, with about 17 KB to spare; packing the drum samples to 4 bits would give back about 21 KB |
+| 4 | Closer to the original in a few places | the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once; the Esc question (quit without saving, save and quit) is not in the original either |
 
 Not planned: anything that needs the NES hardware itself (the PPU, the DPCM channel) rather than its data.
 
 ## Next
 
-1 first, then 2, then 3 if someone wants a 512 KB version.
+1 first, then 2.
 
 ## Reference data
 
