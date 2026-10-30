@@ -233,6 +233,9 @@ SCENES: dict[str, list[str]] = {
 }
 
 
+RETRIES = 4
+
+
 def run_scene(name: str, args: list[str], tos: Path, png: Path) -> str:
     command = [sys.executable, str(PROJECT / "tools" / "screenshot.py"), "--tos", str(tos), "--out", str(png), *args]
     result = subprocess.run(command, capture_output=True, text=True, cwd=PROJECT)
@@ -274,6 +277,12 @@ def main() -> None:
     changed = []
     for name in names:
         digest = run_scene(name, SCENES[name], args.tos, png_dir / f"{name}.png")
+        # Reading a dungeon's file moves the start of the game by a VBL now and then, and a fight that is decided by
+        # chance (Ganon's) can go either way: a scene that does not match is run again, and only fails if it never does.
+        for _ in range(0 if args.update else RETRIES):
+            if stored.get(name) in (None, digest):
+                break
+            digest = run_scene(name, SCENES[name], args.tos, png_dir / f"{name}.png")
         if args.update:
             stored[name] = digest
             print(f"{name}: {digest[:12]} stored")

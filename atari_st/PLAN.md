@@ -1,6 +1,6 @@
 # Zelda 1 for Atari ST - what is left
 
-Work in progress. Both quests are in, one `.PRG` of about 700 KB that needs 1 MB of RAM. This file is the short list of what is left and what I want to do next, with the data tables at the end. How the code works is in `AGENTS.md` / `CLAUDE.md`, how to build is in `README.md`.
+Work in progress. Both quests are in. The `.PRG` is about 300 KB and each dungeon's data is a file next to it (`LEVEL<n>[Q].DAT`), but with the screens and the biggest file it still needs more than 512 KB. This file is the short list of what is left and what I want to do next, with the data tables at the end. How the code works is in `AGENTS.md` / `CLAUDE.md`, how to build is in `README.md`.
 
 ## What is left
 
@@ -8,7 +8,7 @@ Work in progress. Both quests are in, one `.PRG` of about 700 KB that needs 1 MB
 | --- | --- | --- |
 | 1 | More play-testing, Levels 4 to 9 most of all, then the Second Quest | they are built from the ROM but have had little play |
 | 2 | Run it on a real ST | speed with a full room at 8 MHz, PAL at 50 Hz and the disk write for `ZELDA.SAV` are only seen in Hatari so far |
-| 3 | A per-level loader so it fits 512 KB machines | the `.PRG` is about 700 KB, so it needs 1 MB now |
+| 3 | Fit 512 KB machines (my 520 STFM): the dungeons' files are done; still to do: compress the files (they are 630 KB together, more than a disk holds), read the title and credits pictures from a file, pack the drum samples, use the screen TOS already has, a 512 KB test | about 460 KB used now, 388 KB free on a 512 KB EmuTOS |
 | 4 | Closer to the original in a few places | the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once; "save and exit" from the Tab menu is not in the original either |
 
 Not planned: anything that needs the NES hardware itself (the PPU, the DPCM channel) rather than its data.

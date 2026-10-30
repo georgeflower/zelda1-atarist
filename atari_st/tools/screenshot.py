@@ -90,6 +90,9 @@ def run_hatari(
         shutil.rmtree(hd)
     hd.mkdir(parents=True)
     shutil.copy(prg, hd / "ZELDAST.PRG")
+    # The dungeons' data files (LEVEL*.DAT) come from the same build as the PRG and sit beside it, as on a disk.
+    for data in sorted((prg.parent / "generated").glob("LEVEL*.DAT")):
+        shutil.copy(data, hd / data.name)
     for name, source in HD_FILES:
         shutil.copy(source, hd / name)
 

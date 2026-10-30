@@ -445,6 +445,7 @@ game_reset_position:
     dbra %d0, 0b
     clr.b OFF_ROOM_HIST_I(%a5)
     clr.b OFF_LEVEL(%a5)
+    bsr mon_spr_select_df
     clr.b OFF_PAL_LEVEL(%a5)
     clr.b OFF_IN_CELLAR(%a5)
     clr.b OFF_ATTACK(%a5)
@@ -483,6 +484,9 @@ death_continue:
 death_restart:
     clr.b OFF_SWORD_LOCK(%a5)           | a new life starts with a free sword
     move.b %d0, OFF_LEVEL(%a5)
+    beq 2f
+    bsr uw_select_level_df              | the level's tables are in the buffer (a load may have changed the quest, a screen may have used it)
+2:  bsr mon_spr_select_df
     move.b %d0, OFF_PAL_LEVEL(%a5)
     bsr intro_leave
     tst.b OFF_LEVEL(%a5)
@@ -502,6 +506,8 @@ death_restart:
     farstub clear_erase_state_df, clear_erase_state_far
     farstub show_background_df, show_background_far
     farstub music_stop_df, music_stop_far
+    farstub mon_spr_select_df, mon_spr_select
+    farstub uw_select_level_df, uw_select_level
     farstub dbl_end_df, dbl_end_far
     farstub music_play_df, music_play_far
     farstub swap_screens_df, swap_screens_far

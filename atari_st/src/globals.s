@@ -308,7 +308,7 @@
     gvar CHASE_Y, 1
     galign
     gvar EDGE_REC, 4           | the record of the screen whose monsters are coming in from the edge
-    gvar MON_SPR, 4            | the monster pictures (mon_sprites), found at start-up: see init_pointers
+    gvar MON_SPR, 4            | the monster pictures in use: the overworld's (mon_sprites, found at start-up, see init_pointers) or the dungeon's
     | The tables of the dungeon Link is in, set by uw_select_level from level_table (levels.inc), in this order.
     gvar UWP_ROOM_INDEX, 4
     gvar UWP_ROOMS, 4
@@ -510,6 +510,10 @@
     gvar PICKUP_DROPS, 1         | set while the boomerang takes items: the room's own item is not for it
     gvar HOLD_SKIP, 1            | counts VBLs at 60 Hz: every sixth one passes without a game update, so 60 Hz plays at the speed of 50
     galign
+    gvar LEVEL_BUF, 4            | the level buffer (loader.s): the LEVEL<n>.DAT of the dungeon Link is in, read there
+    gvar MON_SPR_LV, 4           | the monster pictures of that dungeon (in the buffer)
+    gvar MON_SPR_OW, 4           | the overworld's, resident; MON_SPR is the set in use: mon_spr_select follows OFF_LEVEL
+    gvar LOAD_KEY, 2             | which record's file the buffer holds: the record number + 1, 0 = none
     .equ GLOBALS_BYTES, gvar_offset
 
 | The world flags of the dungeon Link is in: UW_OPEN and UW_FLAGS belong to Levels 1-6, the two arrays at the end to Levels 7-9, the

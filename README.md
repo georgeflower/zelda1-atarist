@@ -10,7 +10,7 @@ I'm making this together with an AI (Claude, from Anthropic). I decide what to b
 
 Work in progress. Both quests are in: the whole overworld, all nine dungeons up to Ganon and Zelda, every item, title and story, file select, death and continue, saving to `ZELDA.SAV`, the credits and the music. Expect bugs. There is a short list of what is left in [`atari_st/PLAN.md`](atari_st/PLAN.md).
 
-The Second Quest starts when you make a file called ZELDA (like the original), or when you finish the game. Both quests are in one `.PRG` of about 700 KB, so you need 1 MB of RAM. It fits on a 720 KB disk together with the save file.
+The Second Quest starts when you make a file called ZELDA (like the original), or when you finish the game. The `.PRG` is about 300 KB; each dungeon's data is in a file of its own (`LEVEL1.DAT` ... `LEVEL9.DAT`, and `LEVEL1Q.DAT` ... `LEVEL9Q.DAT` for the Second Quest) that the game reads when you go in, so keep them in the same folder as the `.PRG`. I am working on making it fit a 512 KB ST (see [`atari_st/PLAN.md`](atari_st/PLAN.md)); for now you need 1 MB of RAM.
 
 ## Controls
 
@@ -104,7 +104,7 @@ Full Visual Studio 2022 works the same way, as an editor: open the folder over `
    ```sh
    make -C atari_st all
    ```
-   It reads the ROM, builds the data in `atari_st/build/generated/`, assembles, links, checks that every branch reaches its target and writes `atari_st/build/ZELDAST.PRG` (about 700 KB). A rebuild only redoes what changed. `make -C atari_st clean` removes `atari_st/build`.
+   It reads the ROM, builds the data in `atari_st/build/generated/`, assembles, links, checks that every branch reaches its target and writes `atari_st/build/ZELDAST.PRG` (about 300 KB) and the dungeons' files `atari_st/build/generated/LEVEL*.DAT`. `make -C atari_st dist` copies the `.PRG` and the files into `atari_st/build/dist/`, the folder to run from. A rebuild only redoes what changed. `make -C atari_st clean` removes `atari_st/build`.
 3. Optional, to check your work: `make -C atari_st check` runs the unit tests, verifies the generated data, checks the `.PRG` header and runs the golden frames. The golden frames need Hatari, an EmuTOS image in the `TOS` environment variable and the ROM; without them they are skipped.
 
 If a tool has another name or lives somewhere else, give it to make: `make -C atari_st all TOOLCHAIN_PREFIX=m68k-elf- PYTHON=python`.
@@ -114,11 +114,11 @@ If a tool has another name or lives somewhere else, give it to make: `make -C at
 You need an emulator with 1 MB of RAM (an STFM; real hardware is not tested) and a TOS image: [EmuTOS](https://emutos.sourceforge.io/) 1.4 (the 512k version) is free. Hatari is on [hatari-emu.org](https://hatari-emu.org/) (also as a Windows build) or `sudo apt-get install hatari`.
 
 ```sh
-mkdir -p ~/zelda-disk && cp atari_st/build/ZELDAST.PRG ~/zelda-disk/
+make -C atari_st dist && mkdir -p ~/zelda-disk && cp atari_st/build/dist/* ~/zelda-disk/
 hatari --tos /path/to/etos512us.img --machine st --memsize 1 --harddrive ~/zelda-disk --auto 'C:\ZELDAST.PRG'
 ```
 
-The save file `ZELDA.SAV` is written to that folder. The same thing can be done from the Hatari menus (F12): set the TOS image, 1 MB, a GEMDOS drive folder, and double-click `ZELDAST.PRG`. On Windows give the paths in Windows form, for example `--harddrive C:\zelda-disk`.
+The save file `ZELDA.SAV` is written to that folder. The same thing can be done from the Hatari menus (F12): set the TOS image, 1 MB, a GEMDOS drive folder (with the `.DAT` files in it too), and double-click `ZELDAST.PRG`. On Windows give the paths in Windows form, for example `--harddrive C:\zelda-disk`.
 
 ### Without the ROM
 

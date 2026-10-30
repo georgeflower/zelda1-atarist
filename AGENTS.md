@@ -16,8 +16,8 @@ TOS `ZELDAST.PRG` that runs in Hatari (and should on real hardware): 320x200,
 
 Current scope: the whole overworld (128 screens) with its monsters, hidden spots, specials, caves and shops; all nine dungeons of the First Quest
 and all nine of the Second Quest, with their monsters and bosses, up to Ganon, Zelda's thanks and the credits; every item of the original's
-inventory; the title, the file menu, death, the continue question and saving to `ZELDA.SAV`. One PRG of about 700 KB holds both quests, so
-the build needs 1 MB of RAM and fits one 720 KB disk with `ZELDA.SAV`. What is left is in `atari_st/PLAN.md`.
+inventory; the title, the file menu, death, the continue question and saving to `ZELDA.SAV`. The PRG is about 300 KB and each dungeon's data is a file of its own
+(`LEVEL<n>[Q].DAT`, read when Link goes in, see `loader.s`); the build still needs 1 MB of RAM, 512 KB is the next goal. What is left is in `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
 (`src/Z_00.asm` .. `Z_07.asm`, aldonunez's labelled NES disassembly). It is the
@@ -100,7 +100,8 @@ atari_st/                the port
 | `filesel.s` | the file menu (mode 1, E, F inside `MODE_INTRO` phase 2): player select, name board, elimination, and the continue question after a death (`FILE_CONTINUE`); the slots (`SLOT_*`) |
 | `death.s` | Link's death (`MODE_DEATH`, game mode $11): blink, the red-world remap, spin, fade, grey Link and spark, GAME OVER, then the continue question; also `game_reset_position`, `death_continue/save/retry` (M10 c) |
 | `save.s` | `ZELDA.SAV` through GEMDOS (Fopen/Fread/Fcreate/Fwrite/Frename...): records of 640 bytes, the `save_fields` table, the secrets patch log replay, checksum (M10 c) |
-| `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level`, `debug_keys` (K, T room id) |
+| `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level` (loads the level's file), `mon_spr_select`, `debug_keys` (K, T room id) |
+| `loader.s` | `file_load` (GEMDOS Fopen/Fread/Fclose) and `level_load`: reads `LEVEL<n>[Q].DAT` into the level buffer (allocated behind the three screens), checks its magic and record number, tags the buffer (`LOAD_KEY`); a missing or wrong file ends the game with a message; included last, reached through a farstub |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
 | `music.s` | music and sound effects replayed from the VBL hook: four register-stream contexts (song, effect over voice A, effect over voice B, noise effect or DPCM sample over voice C) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`); `music_roar_tick` repeats the boss's ambient roar |
 
@@ -225,7 +226,7 @@ Moldorm, traps, goriyas, old man, and Levels 3-8: a crowded room, a dark room, a
 the `FRAMEHASH` (SHA-256 of pixel indices plus palette) is compared with the stored one. **Hashes, not images**: the frames are
 Nintendo's artwork, so the tests keep no images. (Screenshots are not kept in the repository; the owner has a zip of the early ones.) Runs are deterministic. After a change that moves pixels on purpose: look at
 `build/golden/<scene>.png`, then `make golden-update` and commit `frames.json`. `make check` runs it and skips quietly without
-Hatari, `TOS` or the ROM. A scene that needs different input uses `--keys` in its `SCENES` entry. **Scenes where monsters move at random
+Hatari, `TOS` or the ROM. A scene that does not match is run again (up to four more times): reading a dungeon's file moves the start of the game by a VBL now and then, and the Ganon scenes are decided by chance. A scene that needs different input uses `--keys` in its `SCENES` entry. **Scenes where monsters move at random
 (`uw2_goriyas`, `uw4_dark`) depend on how long the PRG takes to load**: the harness captures at an absolute VBL, so a PRG of another size
 shows another frame of the walk. After a change that only moves the code, expect those two to change and re-record them.
 
@@ -305,8 +306,7 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
 - **Tables**: `ltab sym, %aN` is `move.l #(sym - table_anchor), %aN` + `adda.l %a6, %aN` (flags untouched): a 32-bit
   distance, so tables may sit anywhere in the image and in any order. `table_anchor` sits just before `fx_sprites`.
   `tools/check_reach.py` fails the build when a symbol named in an `ltab` is missing. The tables of each dungeon are
-  reached through pointers instead: `uw_select_level` (d0.b = level 1..`LEVEL_COUNT`) copies the eight table
-  distances of a 40-byte `level_table` record (`levels.inc`, generated) into `OFF_UWP_*` and the start data into
+  reached through pointers instead: `uw_select_level` (d0.b = level 1..`LEVEL_COUNT`) reads the level's file (`LEVEL<n>[Q].DAT`, named in its 20-byte `level_table` record in `levels.inc`, generated) into the level buffer unless the buffer holds it already (`OFF_LOAD_KEY` = record + 1), adds the buffer's address to the ten table offsets of the file's header (`level_file` in `build_assets.py`: magic `ZLVL`, record number, ten tables, then the monster frames) into `OFF_UWP_*` and `OFF_MON_SPR_LV`, and copies the start data into
   `OFF_UWL_BYTES`; code loads them with **`lvtab NAME, %aN`** (`lvtab ROOMS, %a2`). The tables are
   `room_index rooms doors tiles tile_nes room_info cellar_maps cellar_info`, built per level as `uw<N>_<table>.bin`
   (`UW_LEVELS` in the Makefile and in `build_assets.py`; a test keeps them equal). `room_palette` must stay the first
@@ -790,8 +790,12 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   **`MAX_ENEMIES` is 8**: the per-monster arrays are indexed `d8(%a5,%dn)` (they must start below offset 128) and some code
   uses stride-8 accesses between them (`8(%a0,%d5.w)` from `ENEMY_TURN` to `ENEMY_WANT`), so raising it is a refactor; a worm
   or a group of traps takes slots from the room's other monsters (`_room_info` truncates to eight). `mon_art.bin` gives, per monster, the first frame of its
-  art in `mon_sprites` (octoroks have six images; `proj_sprites` ends with the rock and four arrows, `PF_ROCK`/`PF_ARROW`). `mon_sprites` is the last table, past the
-  anchor's reach, found through the `MON_SPR` pointer set by `init_pointers`. The overworld
+  art in `mon_sprites` (octoroks have six images; `proj_sprites` ends with the rock and four arrows, `PF_ROCK`/`PF_ARROW`). `mon_sprites` holds only the overworld's monsters
+  (those of `ow_room_info` in both quests plus `OVERWORLD_EXTRA`), found through the `MON_SPR_OW` pointer set by `init_pointers`; each dungeon's monster pictures are the last
+  part of its `LEVEL<n>[Q].DAT` (`monster_art`: the monsters its room records name, what they put down (`SPAWNED` in `build_assets.py`), the cellars' keese and the moblin
+  Grumble is drawn as), with `uw<N>_mon_art` pointing into them. `OFF_MON_SPR` is the set in use: `mon_spr_select` (uw.s) sets it from `OFF_LEVEL` wherever the level changes
+  (`uw_select_level`, `uw_leave_level`, `game_reset_position`, `death_restart`). A monster a level does not carry points at frame 0, so the picture is wrong but nothing reads
+  outside the pool: **when code puts down a monster that no room lists, add it to `SPAWNED`** (`tests/test_level_files.py` scans `src/` for those). The overworld
   has `ow_room_info.bin` (128 x 16 bytes: count, flags, monster indices from byte 6) that
   `spawn_from_record` in `enemy.s` shares with the underworld's `uw_room_info`. Draw modes in `actors.py`
   (`MODE_*`), behaviours `BEH_*` in `ai.s` (keep both in step).
@@ -800,7 +804,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 
 ## 12. How to add things (recipes)
 
-- **New monster**: add its NES type to `MONSTER_TYPES`, `MONSTER_PERIOD/DAMAGE/DRAW`,
+- **New monster**: add its NES type to `MONSTER_TYPES` (and, if the code puts it down rather than a room, to `SPAWNED` in `build_assets.py`), `MONSTER_PERIOD/DAMAGE/DRAW`,
   optionally `MONSTER_BEHAVIOUR` (+ a `BEH_*` equate in `ai.s` and a dispatch in
   `update_enemies`), and a draw mode if needed; the room records pick it up automatically.
   Update `test_actors.py` expectations (and the monster counts / `mon_table` size). `make` runs the reach check: if it names a

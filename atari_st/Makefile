@@ -36,6 +36,8 @@ LISTING := $(BUILD_DIR)/zelda_st.lst
 UW_LEVELS := 1 2 3 4 5 6 7 8 9
 UW_KEYS := $(UW_LEVELS) $(addsuffix q2,$(UW_LEVELS))
 UW_LEVEL_TABLES := room_index rooms doors tiles tile_nes room_info cellar_maps cellar_info mon_art quads
+# What the game reads from disk for a dungeon: LEVEL<n>.DAT (First Quest) and LEVEL<n>Q.DAT (Second Quest), kept next to the PRG.
+LEVEL_FILES := $(foreach l,$(UW_LEVELS),LEVEL$(l).DAT LEVEL$(l)Q.DAT)
 MAIN_SRC := $(SRC_DIR)/main.s
 SOURCES := $(wildcard $(SRC_DIR)/*.s)
 # main.s .includes the other modules, so one assembler run covers them all.
@@ -43,7 +45,7 @@ GENERATED := $(GENERATED_DIR)/assets.inc $(GENERATED_DIR)/metatiles.bin \
 	$(GENERATED_DIR)/metatile_tiles.bin $(GENERATED_DIR)/room_maps.bin \
 	$(GENERATED_DIR)/link_sprites.bin $(GENERATED_DIR)/hud_tiles.bin \
 	$(foreach l,$(UW_KEYS),$(foreach t,$(UW_LEVEL_TABLES),$(GENERATED_DIR)/uw$(l)_$(t).bin)) \
-	$(GENERATED_DIR)/levels.inc $(GENERATED_DIR)/uw_door_cells.bin \
+	$(GENERATED_DIR)/levels.inc $(GENERATED_DIR)/level_buffer.inc $(addprefix $(GENERATED_DIR)/,$(LEVEL_FILES)) $(GENERATED_DIR)/uw_door_cells.bin \
 	$(GENERATED_DIR)/mon_sprites.bin $(GENERATED_DIR)/mon_table.bin $(GENERATED_DIR)/mon_mask.bin $(GENERATED_DIR)/mon_cloud.bin \
 	$(GENERATED_DIR)/mon_index.bin $(GENERATED_DIR)/item_sprites.bin \
 	$(GENERATED_DIR)/item_index.bin $(GENERATED_DIR)/drop_table.bin \
@@ -63,7 +65,7 @@ MUSIC_ROM := $(wildcard $(ROOT_DIR)/ext/Original.nes)
 MUSIC_PACKED := $(GENERATED_DIR)/music_bank.bin $(GENERATED_DIR)/music_drum_table.bin \
 	$(GENERATED_DIR)/music_ids.inc
 
-.PHONY: all assets check clean run screenshot golden-update
+.PHONY: all assets check clean run screenshot golden-update dist
 
 all: $(PRG)
 
@@ -102,6 +104,13 @@ $(BIN): $(ELF)
 
 $(PRG): $(BIN) $(TOOLS_DIR)/make_prg.py
 	$(PYTHON) $(TOOLS_DIR)/make_prg.py $< $@
+
+# The folder to run from: the PRG and the dungeons' files it reads, side by side.
+DIST_DIR := $(BUILD_DIR)/dist
+dist: all
+	@mkdir -p $(DIST_DIR)
+	cp $(PRG) $(DIST_DIR)/
+	cp $(addprefix $(GENERATED_DIR)/,$(LEVEL_FILES)) $(DIST_DIR)/
 
 check: all
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py'
