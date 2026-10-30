@@ -31,9 +31,9 @@ How to play
 | `Tab` | the inventory screen (Left/Right or the joystick choose the B item, `Tab` goes back) |
 | `K` | debug: a key, four bombs and the candle |
 | `T` | debug: show the room id on the ribbon, `RM-37` (`CL-xx` in a cellar); press again to hide it |
-| `Esc` | quit |
+| `Esc` | asks to quit: QUIT WITHOUT SAVING, SAVE AND QUIT or BACK TO GAME (Up/Down and Return, or Esc again to go back) |
 
-The game starts on the title screen. Press Return, pick a player and make a name. Call it ZELDA
+The game starts on the title screen. Press fire (Return, Ctrl or the joystick button), pick a player and make a name. Call it ZELDA
 to play the Second Quest, like in the original. The game saves to `ZELDA.SAV` in the current
 directory.
 
@@ -228,7 +228,8 @@ Notes on the ST implementation
 - The IKBD interrupt vector (`$118`) is replaced by a handler that queues every
   byte in a ring buffer; the main loop parses the queue once a frame. The ACIA
   holds a single byte, so polling it lost key releases and left Link walking.
-  The previous vector is restored on exit.
+  The previous vector is restored on exit, with both ACIAs emptied first so the
+  desktop gets a working keyboard and mouse back.
 
 Licensing notes
 ---------------

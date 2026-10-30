@@ -275,6 +275,22 @@ PORT_LINE_Y = WINDOW_TOP_LINE + 5       # NES line: the window's 6th line, the c
 PORT_TEXT_TILE_ROW = 20                 # "PUSH START BUTTON" is on this tile row; the line has its palette
 
 
+TITLE_PROMPT = "PRESS FIRE"             # in place of the ROM's "PUSH START BUTTON": the ST has a joystick button, not a Start button
+PROMPT_FIRST_COL, PROMPT_LAST_COL = 8, 24      # the cells the ROM's words fill (the cells either side are the cliffs)
+
+
+def put_title_prompt(ppu: Ppu) -> None:
+    """Replace the words on tile row PORT_TEXT_TILE_ROW, keeping the row's palette, centred where the old ones were."""
+    import credits as credits_module
+    cells = ppu.tiles[PAGE_A]
+    for col in range(PROMPT_FIRST_COL, PROMPT_LAST_COL + 1):
+        cells[PORT_TEXT_TILE_ROW * 32 + col] = credits_module.BLANK_TILE
+    codes = credits_module.nes_codes(TITLE_PROMPT)
+    first = 16 - len(codes) // 2
+    for number, code in enumerate(codes):
+        cells[PORT_TEXT_TILE_ROW * 32 + first + number] = code
+
+
 def stamp_text(image: list[list[int]], ppu: Ppu, bg_tiles, palette: B.PaletteMap, text: str, x: int, y: int) -> None:
     """Letters of the background patterns drawn into the picture at any pixel position (not only on the tile grid)."""
     import credits as credits_module
@@ -488,6 +504,7 @@ def build(source_root: Path) -> IntroData:
     title_palette = B.build_palette_map(title_pal32)
     ppu = Ppu()
     ppu.apply(parse_stream(title_stream))
+    put_title_prompt(ppu)
     initial = table(asm2, "InitialTitleSprites")
     static = [tuple(initial[i : i + 4]) for i in range(0, 0x70, 4)]
     image = title_image(ppu, bg_tiles, sp_tiles, title_palette, static)

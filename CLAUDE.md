@@ -95,13 +95,15 @@ atari_st/                the port
 | `combat.s` | sword, beam, bombs, candle, drops/kill counters, `take_item`, HP/knock-back, rings, shield, clock, effects (spark/cloud), shutters, triforce ending, the ringleader trigger |
 | `hud.s` | status ribbon, hearts, counters, A/B boxes (`hud_items`) |
 | `menu.s` | Tab inventory screen (MODE_MENU), laid out as the ROM's submenu: B-item box, items box with the cursor, passive row, triforce or map sheet; the HUD ribbon sits below it |
+| `quit.s` | The Esc question (`MODE_QUIT` 6): QUIT WITHOUT SAVING / SAVE AND QUIT (`save_store_game` of the slot in `OFF_PROFILE`, then `exit_program`) / BACK TO GAME (Esc again does the same), three lines on a black screen with the ribbon's heart as the cursor; Up/Down (W/S, joystick) move, Return, keypad Enter, Ctrl, Space or the joystick button choose (`QUIT_SEL`, `QUIT_KEYS`); opened by `menu_check_open` after the sprites are erased (as the Tab screen is), closed like `menu_close`; `text_draw` writes an ASCII string with `text_glyphs`; a scroll or a cave keeps the request until Link walks again |
 | `intro.s` | the title, the story and the parade of the treasures (MODE_INTRO, game mode 0 of the ROM, M10): ring of 200 lines filled from tile tables, the waterfall's sprites, the glowing Triforce, the fade, `intro_leave`; included after `bosses.s`, reaches main.s through `*_far` stubs |
 | `credits.s` | the credits wall (`INTRO_PHASE_CREDITS` of `MODE_INTRO`, game mode `$13` of the ROM after Zelda's words): the same ring of 200 lines as the story, filled from `credits_*` tables; scrolls 600 lines, then the last screen (ash pile, flashing Triforce of Power); included after `intro.s` |
 | `filesel.s` | the file menu (mode 1, E, F inside `MODE_INTRO` phase 2): player select, name board, elimination, and the continue question after a death (`FILE_CONTINUE`); the slots (`SLOT_*`) |
 | `death.s` | Link's death (`MODE_DEATH`, game mode $11): blink, the red-world remap, spin, fade, grey Link and spark, GAME OVER, then the continue question; also `game_reset_position`, `death_continue/save/retry` (M10 c) |
+| `exit.s` | `restore_ikbd` (via `restore_ikbd_far`): what leaving the game puts back for TOS: the keyboard interrupt masked while the vector returns, both ACIAs emptied, the MFP's pending and in-service marks of the keyboard cleared, the mouse set to relative mode |
 | `save.s` | `ZELDA.SAV` through GEMDOS (Fopen/Fread/Fcreate/Fwrite/Frename...): records of 640 bytes, the `save_fields` table, the secrets patch log replay, checksum (M10 c) |
 | `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level` (loads the level's file), `mon_spr_select`, `debug_keys` (K, T room id) |
-| `loader.s` | `file_read`/`file_close` (GEMDOS Fread/Fclose) and `level_load`: reads `LEVEL<n>[Q].DAT` (an 8-byte header: `ZLVZ`, the record number, the packed size; then LZ4 data) into the *end* of the level buffer (allocated behind the three screens), unpacks it over itself from the front (`lz_unpack`), checks the image's magic `ZLVL` and size, tags the buffer (`LOAD_KEY`); a missing, cut or wrong file ends the game with a message; `intro_data_load` does the same for `INTRO.DAT` (record 100, tag `INTRO_RECORD + 1`) and fills `OFF_IVP` with the 17 table addresses the `ivtab name, reg` macro reads (`IV_<name>` in `level_buffer.inc`); `no_memory_report` prints how much memory the buffers need and exits when Malloc fails; included last, reached through a farstub |
+| `loader.s` | `file_read`/`file_close` (GEMDOS Fread/Fclose) and `level_load`: reads `LEVEL<n>[Q].DAT` (an 8-byte header: `ZLVZ`, the record number, the packed size; then LZ4 data) into the *end* of the level buffer (allocated behind the three screens), unpacks it over itself from the front (`lz_unpack`), checks the image's magic `ZLVL` and size, tags the buffer (`LOAD_KEY`); a missing, cut or wrong file ends the game with a message; `loading_show` draws LOADING in a black box in the middle of the screen on show (the shifter's base) before every read (`intro_data_load` first blacks the screen and sets the overworld's colours: `loading_clear`); `intro_data_load` does the same for `INTRO.DAT` (record 100, tag `INTRO_RECORD + 1`) and fills `OFF_IVP` with the 17 table addresses the `ivtab name, reg` macro reads (`IV_<name>` in `level_buffer.inc`); `no_memory_report` prints how much memory the buffers need and exits when Malloc fails; included last, reached through a farstub |
 | `lz.s` | `lz_unpack`: the LZ4 block decoder (a0 packed, a2 its end, a1 out; byte copies, about 50 cycles a byte); `tools/lzpack.py` is the packer, `tests/test_lzpack.py` runs the real routine on machine68k |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
 | `music.s` | music and sound effects replayed from the VBL hook: four register-stream contexts (song, effect over voice A, effect over voice B, noise effect or DPCM sample over voice C) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`); `music_roar_tick` repeats the boss's ambient roar |
@@ -368,6 +370,7 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
 | `MODE_MENU` | 3 | `update_menu` (Tab inventory screen, visible screen) |
 | `MODE_INTRO` | 4 | `update_intro` (title, story, parade and the file menu incl. the continue question) |
 | `MODE_DEATH` | 5 | `update_death` (`death.s`, phases `DPH_*` in `DEATH_PHASE`) |
+| `MODE_QUIT` | 6 | `update_quit` (`quit.s`, the Esc question, visible screen) |
 
 **Double buffering**: play frames draw into a hidden buffer (`SCREEN_PTR` = buffer
 being drawn into, `BG_NEXT` = the other) shown the next frame (`present_frame`
@@ -438,14 +441,14 @@ stays that of the display (50 updates a second) and only the picture runs at hal
   port 1 + state byte: bits 0-3 up/down/left/right, bit 7 fire -> `JOY0/JOY1`), mouse
   packets (`$F8-$FB` + 2 bytes) skipped. **Port 0 packets (`$FE`) are dropped**: it is the mouse port, and in Steem
   mouse movement arrives as port-0 joystick directions (Link walked by himself). Port 1 is the joystick. Joystick reporting is enabled with IKBD
-  command `$14` in `init_video`. TOS's handler is restored on exit. (History: polling
+  command `$14` in `init_video`. TOS's handler is restored on exit by `restore_ikbd` (`exit.s`), which also empties both ACIAs and clears the MFP's marks: a byte left in an ACIA holds the shared interrupt line low and TOS gets no more keyboard or mouse interrupts. (History: polling
   the ACIA once a frame lost key releases -> "Link walks up by himself".)
 - `read_input_dir` reduces held keys to one direction: bits right=1, left=2, down=4,
   up=8, **lowest bit wins** (so a stuck Up shows only when nothing else is held); a
   direction pressed this frame wins, else the current one is kept while held.
 - **Controls**: arrows / `W A S D` / joystick walk; **`Ctrl` or joystick fire =
   sword (A)**; **`Space`, `Alternate` or `B` = B item** (bombs / boomerang / candle, edge
-  triggered); **`Tab` = inventory screen**; `K` debug; `T` debug room id (`DEBUG_ROOM`, drawn by `draw_hud_debug` at ribbon col 19; edge-triggered via `T_HELD`); `Esc` quit. Scancodes: Space
+  triggered); **`Tab` = inventory screen**; `K` debug; `T` debug room id (`DEBUG_ROOM`, drawn by `draw_hud_debug` at ribbon col 19; edge-triggered via `T_HELD`); `Esc` = the quit question (`quit.s`: `OFF_EXIT_REQUESTED` is the request, `menu_check_open` turns it into `MODE_QUIT` while Link walks; on the title, the story and the death screens `main_loop` ends the game at once). Scancodes: Space
   `$39`, Ctrl `$1D`, Alt `$38`, B `$30`, Tab `$0F`, K `$25`, T `$14`, Esc `$01`.
 
 ## 10. Gameplay systems and the original numbers they follow
@@ -715,7 +718,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   the waterfall's waves and crest on the title. The timeline is the ROM's (512 frames of title with the Triforce glow `TriforceGlowingColors`, 14 fade
   palettes with `DemoPhase0Subphase1Delays`, the first page scrolling in, 256 frames of rest, 1408 steps of parade, 256, 56). The scroll copy is the
   most expensive thing the game does (about 130,000 cycles a picture, split over two frames); the music's drums take enough of the rest that a few
-  frames in a hundred run a VBL long while the animated items are on screen. Return (or the keypad Enter or the joystick button) is Start; leaving
+  frames in a hundred run a VBL long while the animated items are on screen. Return, the keypad Enter, Ctrl or the joystick button is Start (the title says PRESS FIRE: `intro.put_title_prompt` replaces the ROM's PUSH START BUTTON line); leaving
   restores the three buffers, the palette and the game's mode (`intro_leave`). `music_update` leaves the song alone in this mode (the title song is an
   event song, `MUS_TITLE`). The title carries a line of the port's own, "PORTED TO ATARI ST BY Q", stamped into the picture at the top (`intro.stamp_text`). **Skip logic**: Start in any phase of the title or the story goes to the file menu (`intro_to_menu`), as `UpdateMode0Demo_Sub0` does; the ROM's `SkippedDemo` and `TransferredDemoPatterns` only keep the NES's CHR RAM and the menu entry after saving straight (mode D goes to mode 0 submode 1, past the title), which on the ST is `credits_to_menu` and `death_save` calling `filesel_begin` directly.
 - **Credits wall** (`credits.s`, `tools/credits.py`): after Zelda's closing words `zelda_tick` scene 8 calls `credits_begin`, which only sets `MODE_INTRO` and

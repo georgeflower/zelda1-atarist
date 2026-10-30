@@ -38,6 +38,13 @@
 | Called by update_play once Link and the sprites are erased: Tab opens the screen.
 menu_check_open:
     movem.l %d0/%a0, -(%sp)
+    tst.b OFF_EXIT_REQUESTED(%a5)       | Esc: the question (quit.s); only while the game is walking
+    beq 0f
+    tst.b OFF_GAME_MODE(%a5)
+    bne 0f
+    bsr quit_open
+    bra 9f
+0:
     lea OFF_KEY_STATES(%a5), %a0
     tst.b SCAN_TAB(%a0)
     beq 8f
@@ -66,6 +73,11 @@ menu_check_open:
 
 update_menu:
     movem.l %d0-%d2/%a0, -(%sp)
+    tst.b OFF_EXIT_REQUESTED(%a5)       | Esc closes the screen; the game is walking again and asks next frame
+    beq 0f
+    bsr menu_close
+    bra 9f
+0:
     lea OFF_KEY_STATES(%a5), %a0
     moveq #0, %d0                       | the keys down now
     tst.b SCAN_TAB(%a0)

@@ -122,6 +122,7 @@
     .equ MODE_MENU, 3
     .equ MODE_INTRO, 4              | the title, the story and the parade of the treasures (intro.s)
     .equ MODE_DEATH, 5              | Link's death, from the red world to GAME OVER (death.s)
+    .equ MODE_QUIT, 6               | Esc: "quit without saving / save and quit / back to game" over the room (quit.s)
 
 | PlayerScreenEdgeBounds (Z_07.asm): Link leaves the overworld screen when he
 | reaches these coordinates. ObjectRoomBoundsOW is for other objects, not Link.
@@ -188,6 +189,7 @@
     .equ MFP_IMRB, 0x00fffa15
     .equ MFP_IKBD_BIT, 0x40
     .equ MFP_ISRB, 0x00fffa11
+    .equ MFP_IPRB, 0x00fffa0d
     .equ MIDI_ACIA_STATUS, 0x00fffc04
     .equ MIDI_ACIA_DATA, 0x00fffc06
     .equ IKBD_VECTOR, 0x00000118
@@ -295,6 +297,28 @@ begin_game:
     bsr draw_hud_far
     rts
 
+    | init_anchor itself is the last routine of the code (just before the read-only tables, see below); game_start
+    | reaches it through this trampoline, a 32-bit jump that touches no register. These three sit in front of the
+    | modules because game_start's 16-bit branches could not reach them past the modules any more.
+init_anchor_far:
+    pea 1f(%pc)
+1:  addi.l #(init_anchor - 1b), (%sp)
+    rts
+
+    | The monster pictures are the last table, past what the anchor can address, so they are found
+    | through a pointer: the anchor plus a link-time distance.
+init_pointers:
+    movea.l %a6, %a0
+    adda.l #(mon_sprites - table_anchor), %a0
+    move.l %a0, OFF_MON_SPR_OW(%a5)
+    move.l %a0, OFF_MON_SPR(%a5)
+    rts
+
+quest_apply_mid:                        | the dev start's call (a 32-bit stub: begin_game is far from the stubs in the middle)
+    pea 1f(%pc)
+1:  addi.l #(quest_apply - 1b), (%sp)
+    rts
+
 main_loop:
     bsr wait_vbl
     btst #1, 0xffff820a         | sync mode bit: set for 50 Hz
@@ -315,8 +339,12 @@ main_loop:
     .endif
     bsr music_update
     tst.b OFF_EXIT_REQUESTED(%a5)
-    bne exit_program
-    addq.w #1, OFF_FRAME_COUNTER(%a5)
+    beq.s 71f
+    move.b OFF_GAME_MODE(%a5), %d0              | Esc asks inside a game (menu_check_open); the title, the story and the
+    subq.b #MODE_INTRO, %d0                     | death have nothing to save and quit at once
+    cmp.b #2, %d0                               | (MODE_INTRO and MODE_DEATH follow each other)
+    blo exit_program
+71:    addq.w #1, OFF_FRAME_COUNTER(%a5)
     bsr catch_up
 
     moveq #0, %d0
@@ -330,6 +358,8 @@ main_loop:
     beq 5f
     cmp.b #MODE_DEATH, %d0
     beq 6f
+    cmp.b #MODE_QUIT, %d0
+    beq 9f
     bsr update_cave_far
     bra 3f
 4:  bsr update_menu_far
@@ -337,6 +367,8 @@ main_loop:
 5:  bsr update_intro_far
     bra main_loop
 6:  bsr update_death_far
+    bra main_loop
+9:  bsr update_quit_far
     bra main_loop
 1:  bsr update_play
     bra 3f
@@ -886,22 +918,6 @@ update_play:
     .include "items.s"
     .include "dmon.s"
 
-    | init_anchor itself is the last routine of the code (just before the read-only tables, see below); game_start
-    | reaches it through this trampoline, a 32-bit jump that touches no register.
-init_anchor_far:
-    pea 1f(%pc)
-1:  addi.l #(init_anchor - 1b), (%sp)
-    rts
-
-    | The monster pictures are the last table, past what the anchor can address, so they are found
-    | through a pointer: the anchor plus a link-time distance.
-init_pointers:
-    movea.l %a6, %a0
-    adda.l #(mon_sprites - table_anchor), %a0
-    move.l %a0, OFF_MON_SPR_OW(%a5)
-    move.l %a0, OFF_MON_SPR(%a5)
-    rts
-
     | The code has outgrown what one 16-bit branch spans, so the modules at the end reach main.s's frame routines
     | through these stubs in the middle.
 uw_select_level_far:                    | first: begin_game's dev start reaches it with little to spare
@@ -933,10 +949,6 @@ present_frame_far:
     bra present_frame
 set_video_base_far:
     bra set_video_base
-begin_game_far:
-    bra begin_game
-quest_apply_mid:                        | the dev start's call, which the far stub itself is out of reach of
-    bra quest_apply_far
 music_event_far:
     bra music_event
 music_stop_far:
@@ -1024,6 +1036,8 @@ uw_person_update_far:
     farstub quest_apply_far, quest_apply
     farstub update_death_far, update_death
     farstub death_begin_far, death_begin
+    farstub update_quit_far, update_quit
+    farstub restore_ikbd_far, restore_ikbd
 draw_link_far:
     bra draw_link
 erase_sprite_far:
@@ -1044,7 +1058,9 @@ blit_rect_far:
     .include "credits.s"
     .include "filesel.s"
     .include "death.s"
+    .include "quit.s"
     .include "save.s"
+    .include "exit.s"
     .include "loader.s"
 
     | The anchor is this address plus a 32-bit link-time distance (a PC-relative relocation), so the routine may sit
