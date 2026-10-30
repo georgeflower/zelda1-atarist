@@ -69,9 +69,15 @@
     .equ LINK_Y_BIAS, (NES_PLAY_AREA_TOP - PLAYFIELD_TOP - LINK_DRAW_OFFSET_Y)
 
 | Three full screens: the one being displayed, the clean render of the current
-| room, and the room being scrolled in.
+| room, and the room being scrolled in. The first is the screen TOS gave the
+| program (Physbase), so only two are asked for, in one block with the level
+| buffer behind them (loader.s).
     .equ BUFFER_COUNT, 3
-    .equ BUFFER_ALLOC, (BUFFER_COUNT * SCREEN_BYTES + 256 + LEVEL_BUF_BYTES)
+    .equ BUFFER_ALLOC, ((BUFFER_COUNT - 1) * SCREEN_BYTES + 256 + LEVEL_BUF_BYTES)
+    .equ XBIOS_PHYSBASE, 2
+    .if (OFF_SCREEN_PTR != 0) + (OFF_BG_CUR != 4) + (OFF_BG_NEXT != 8)
+    .error "init_buffers reads SCREEN_PTR, BG_CUR and BG_NEXT as the first three longs of the variable block"
+    .endif
 
 | ------------------------------------------------------------------- sprites
     .equ SPRITE_HEIGHT, 16
@@ -392,10 +398,13 @@ terminate:
     trap #1
 
 | ---------------------------------------------------------------------------
-    .if (OFF_HEART_CONTAINERS & 1) + (OFF_OBJ_RIGHT & 1) + (OFF_BOUND_RIGHT & 1)
+    .if MODE_PLAY != 0
+    .error "init_state leaves GAME_MODE as the clear made it"
+    .endif
+    .if (OFF_HEART_CONTAINERS & 1) + (OFF_OBJ_RIGHT & 1) + (OFF_BOUND_RIGHT & 1) + (OFF_LINK_X & 1)
     .error "init_state stores two bytes at a time: the pairs must start on even addresses"
     .endif
-    .if (OFF_HP_HALVES - OFF_HEART_CONTAINERS != 1) + (OFF_OBJ_UP - OFF_OBJ_RIGHT != 1) + (OFF_BOUND_UP - OFF_BOUND_RIGHT != 1)
+    .if (OFF_HP_HALVES - OFF_HEART_CONTAINERS != 1) + (OFF_OBJ_UP - OFF_OBJ_RIGHT != 1) + (OFF_BOUND_UP - OFF_BOUND_RIGHT != 1) + (OFF_LINK_Y - OFF_LINK_X != 1)
     .error "init_state stores two bytes at a time: the pairs must be next to each other"
     .endif
 init_state:
@@ -407,10 +416,9 @@ init_state:
     dbra %d7, 1b
 
     move.b #START_ROOM_ID, OFF_ROOM_ID(%a5)
-    move.b #HOME_X, OFF_LINK_X(%a5)
-    move.b #HOME_Y, OFF_LINK_Y(%a5)
+    move.w #((HOME_X << 8) + HOME_Y), OFF_LINK_X(%a5)         | X, Y (next to each other, on an even address)
     move.b #START_DIR, OFF_LINK_DIR(%a5)
-    move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
+    | (MODE_PLAY is 0, which the clear above did)
     move.b #8, OFF_MAX_BOMBS(%a5)
     move.w #((3 << 8) + 6), OFF_HEART_CONTAINERS(%a5)       | heart containers, HP_HALVES (next to each other, on an even address)
     move.w #0xace1, OFF_RNG(%a5)
@@ -424,6 +432,12 @@ init_state:
     rts
 
 init_buffers:
+    | The screen TOS has on show is the first buffer (the shifter is pointed back at it when the program ends).
+    move.w #XBIOS_PHYSBASE, -(%sp)
+    trap #14
+    addq.l #2, %sp
+    move.l %d0, OFF_SCREEN_PTR(%a5)
+
     move.l #BUFFER_ALLOC, -(%sp)
     move.w #GEMDOS_MALLOC, -(%sp)
     trap #1
@@ -432,23 +446,27 @@ init_buffers:
     beq no_memory
 
     | The shifter wants its base on a 256-byte boundary, and a screen is an
-    | exact multiple of 256, so aligning once aligns all three buffers.
+    | exact multiple of 256, so aligning once aligns both of ours.
     add.l #255, %d0
     and.l #0xffffff00, %d0
-    move.l %d0, OFF_SCREEN_PTR(%a5)
-    add.l #SCREEN_BYTES, %d0
     move.l %d0, OFF_BG_CUR(%a5)
     add.l #SCREEN_BYTES, %d0
     move.l %d0, OFF_BG_NEXT(%a5)
     add.l #SCREEN_BYTES, %d0
-    move.l %d0, OFF_LEVEL_BUF(%a5)      | behind the three screens: the level buffer (loader.s)
+    move.l %d0, OFF_LEVEL_BUF(%a5)      | behind the screens: the level buffer (loader.s)
 
-    movea.l OFF_SCREEN_PTR(%a5), %a0
-    move.l #(BUFFER_COUNT * SCREEN_LONGS - 1), %d7
+    | SCREEN_PTR, BG_CUR and BG_NEXT are the first three longs of the variable block: keep them as the home of the three
+    | buffers (the intro and the credits move them about and put them back), and make all three black.
+    movem.l (%a5), %d1-%d3
+    movem.l %d1-%d3, OFF_HOME_SCREEN(%a5)
+    movea.l %a5, %a1
+    moveq #(BUFFER_COUNT - 1), %d6
+2:  movea.l (%a1)+, %a0
+    move.w #(SCREEN_LONGS - 1), %d7
     moveq #0, %d0
 1:  move.l %d0, (%a0)+
-    subq.l #1, %d7
-    bpl 1b
+    dbra %d7, 1b
+    dbra %d6, 2b
     rts
 
 | Render the current room into bg_cur and show it.

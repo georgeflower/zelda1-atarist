@@ -514,6 +514,9 @@
     gvar MON_SPR_LV, 4           | the monster pictures of that dungeon (in the buffer)
     gvar MON_SPR_OW, 4           | the overworld's, resident; MON_SPR is the set in use: mon_spr_select follows OFF_LEVEL
     gvar LOAD_KEY, 2             | which record's file the buffer holds: the record number + 1, 0 = none
+    gvar HOME_SCREEN, 4          | the three screens as init_buffers left them: the one TOS gave the program, then two of our own,
+    gvar HOME_CUR, 4             | (the intro and the credits move them about and put them back; these three stay in a row)
+    gvar HOME_NEXT, 4
     .equ GLOBALS_BYTES, gvar_offset
 
 | The world flags of the dungeon Link is in: UW_OPEN and UW_FLAGS belong to Levels 1-6, the two arrays at the end to Levels 7-9, the

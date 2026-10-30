@@ -41,6 +41,7 @@
 | ------------------------------------------------------------------------------------------------ entering and leaving
 | Called once, with the machine as init has left it: show the title and start its music.
 intro_start:
+    bsr hide_cursor                     | TOS' cursor must not blink on the screen it gave us
     bsr save_init                       | the slots as ZELDA.SAV has them
     move.b #MODE_INTRO, OFF_GAME_MODE(%a5)
     move.b #1, OFF_INTRO_KEYS(%a5)      | a Start that is still down from before does not count
@@ -49,17 +50,25 @@ intro_start:
     moveq #MUS_TITLE, %d0
     bra music_event_xf
 
+| ESC f: TOS' text cursor off. The screen it is drawn on (v_bas_ad) is the first of the game's buffers (init_buffers).
+hide_cursor:
+    movem.l %d0-%d2/%a0-%a2, -(%sp)
+    move.l #0x1b660000, -(%sp)          | "ESC f", and the end of the string
+    pea (%sp)
+    move.w #GEMDOS_CCONWS, -(%sp)
+    trap #1
+    lea 10(%sp), %sp
+    movem.l (%sp)+, %d0-%d2/%a0-%a2
+    rts
+
 | Everything the game expects of the screens, restored: the buffers clean and in their places, the game's colours.
 intro_leave:
     bsr music_stop_xf
     clr.b OFF_MUS_FORCED(%a5)
     bsr intro_black
     bsr intro_clear_all
-    move.l OFF_BG_CUR(%a5), %d0
-    sub.l #SCREEN_BYTES, %d0
-    move.l %d0, OFF_SCREEN_PTR(%a5)
-    add.l #(2 * SCREEN_BYTES), %d0
-    move.l %d0, OFF_BG_NEXT(%a5)
+    move.l OFF_HOME_SCREEN(%a5), OFF_SCREEN_PTR(%a5)
+    move.l OFF_HOME_NEXT(%a5), OFF_BG_NEXT(%a5)
     move.l OFF_SCREEN_PTR(%a5), %d0
     bsr set_video_base_xf
     clr.b OFF_PRESENT_PENDING(%a5)
@@ -79,17 +88,19 @@ intro_black:
 
 | Zero the three buffers.
 intro_clear_all:
-    movem.l %d0-%d1/%a0, -(%sp)
-    movea.l OFF_BG_CUR(%a5), %a0
-    suba.l #SCREEN_BYTES, %a0
-    move.w #(BUFFER_COUNT * SCREEN_BYTES / 16 - 1), %d1
+    movem.l %d0-%d2/%a0-%a1, -(%sp)
+    lea OFF_HOME_SCREEN(%a5), %a1
+    moveq #(BUFFER_COUNT - 1), %d2
+2:  movea.l (%a1)+, %a0
+    move.w #(SCREEN_BYTES / 16 - 1), %d1
     moveq #0, %d0
 1:  move.l %d0, (%a0)+
     move.l %d0, (%a0)+
     move.l %d0, (%a0)+
     move.l %d0, (%a0)+
     dbra %d1, 1b
-    movem.l (%sp)+, %d0-%d1/%a0
+    dbra %d2, 2b
+    movem.l (%sp)+, %d0-%d2/%a0-%a1
     rts
 
 | a0 = 16 colours, put in the palette registers.
