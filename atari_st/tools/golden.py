@@ -77,6 +77,7 @@ SCENES: dict[str, list[str]] = {
     "story_page": ["--vbls", "1600"],
     "story_parade": ["--vbls", "2600"],
     "title_start": ["--vbls", "480", "--keys", "400:+return,420:-return"],
+    "title_start_ctrl": ["--vbls", "480", "--keys", "400:+ctrl,420:-ctrl"],       # PRESS FIRE: Ctrl is the keyboard's fire button
     "file_register": ["--vbls", "480", "--keys", MENU_TO_REGISTER],
     "file_register_typed": ["--vbls", "556", "--keys", f"{MENU_TO_REGISTER},{MENU_ZELDA}"],
     "file_named": ["--vbls", "700", "--keys", MENU_REGISTERED],
@@ -92,6 +93,14 @@ SCENES: dict[str, list[str]] = {
                          f"{INV_OW},300:=INV_LETTER=1,301:=B_ITEM=9,380:+tab,385:-tab,420:+right,423:-right,445:+left,448:-left"],
     "inv_dungeon": ["--uw", "0x73", "--level", "1", "--vbls", "400", "--keys", f"{INV_UW},380:+tab,385:-tab"],
     "ow_start": ["--room", "0x77", "--vbls", "420"],
+    # Esc asks before the game ends (quit.s). The keys poke the request itself: the harness does not send scancodes through the IKBD.
+    "quit_menu": ["--room", "0x77", "--vbls", "400", "--keys", "380:=EXIT_REQUESTED=1"],
+    "quit_menu_save": ["--room", "0x77", "--vbls", "440", "--keys", "380:=EXIT_REQUESTED=1,410:+down,413:-down"],
+    "quit_menu_back": ["--room", "0x77", "--vbls", "500", "--keys", "380:=EXIT_REQUESTED=1,410:+up,413:-up,430:+return,433:-return"],
+    "quit_menu_esc": ["--room", "0x77", "--vbls", "500", "--keys", "380:=EXIT_REQUESTED=1,430:=EXIT_REQUESTED=1"],
+    "quit_menu_inventory": ["--room", "0x77", "--vbls", "460", "--keys", "380:+tab,385:-tab,420:=EXIT_REQUESTED=1"],
+    "quit_menu_dungeon": ["--uw", "0x73", "--level", "1", "--vbls", "400", "--keys", "380:=EXIT_REQUESTED=1"],
+    "quit_menu_dungeon_back": ["--uw", "0x73", "--level", "1", "--vbls", "500", "--keys", "380:=EXIT_REQUESTED=1,430:=EXIT_REQUESTED=1"],
     "ow_entrance_l2": ["--room", "0x3c", "--vbls", "420"],
     "uw1_start": ["--uw", "0x73", "--level", "1", "--vbls", "420"],
     "uw1_aquamentus": ["--uw", "0x35", "--level", "1", "--vbls", "420"],

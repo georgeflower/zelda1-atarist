@@ -116,12 +116,14 @@ intro_set_palette:
     movem.l (%sp)+, %d7/%a0-%a1
     rts
 
-| Start was pressed (Return, the keypad's Enter or the joystick's button), once per press: d0.b is non-zero then.
+| Start was pressed (Return, the keypad's Enter, Ctrl or the joystick's button: "PRESS FIRE"), once per press: d0.b is non-zero then.
 intro_check_start:
     lea OFF_KEY_STATES(%a5), %a0
     tst.b SCAN_RETURN(%a0)
     bne 1f
     tst.b SCAN_KEYPAD_ENTER(%a0)
+    bne 1f
+    tst.b SCAN_CTRL(%a0)                | the keyboard's fire button
     bne 1f
     move.b OFF_JOY0(%a5), %d0
     or.b OFF_JOY1(%a5), %d0

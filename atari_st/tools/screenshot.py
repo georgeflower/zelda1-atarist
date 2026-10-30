@@ -45,6 +45,7 @@ SCANCODES = {
     "b": 0x30,
     "space": 0x39,
     "tab": 0x0F,
+    "esc": 0x01,
     "return": 0x1C,
     "ctrl": 0x1D,
     "alt": 0x38,

@@ -517,6 +517,8 @@
     gvar HOME_SCREEN, 4          | the three screens as init_buffers left them: the one TOS gave the program, then two of our own,
     gvar HOME_CUR, 4             | (the intro and the credits move them about and put them back; these three stay in a row)
     gvar HOME_NEXT, 4
+    gvar QUIT_SEL, 1             | the Esc menu: the line the heart is on
+    gvar QUIT_KEYS, 1            | the keys it saw down last frame (quit.s)
     gvar IVP, 68                 | where each table of INTRO.DAT is while the buffer holds it (INTRO_TABLE_COUNT longs; ivtab, loader.s)
     .equ GLOBALS_BYTES, gvar_offset
     .ifdef INTRO_TABLE_COUNT           | (the unit-test harnesses do not read level_buffer.inc)

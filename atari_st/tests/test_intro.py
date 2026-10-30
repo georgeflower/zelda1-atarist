@@ -105,3 +105,20 @@ class SpriteTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TitlePromptTests(unittest.TestCase):
+    """The title says PRESS FIRE where the ROM says PUSH START BUTTON (intro.put_title_prompt)."""
+
+    def test_the_prompt_is_in_the_middle_of_the_line_the_rom_had(self) -> None:
+        import credits
+        ppu = intro.Ppu()
+        for column in range(intro.PROMPT_FIRST_COL, intro.PROMPT_LAST_COL + 1):
+            ppu.tiles[intro.PAGE_A][intro.PORT_TEXT_TILE_ROW * 32 + column] = 0x01    # what the ROM's words leave
+        intro.put_title_prompt(ppu)
+        row = ppu.tiles[intro.PAGE_A][intro.PORT_TEXT_TILE_ROW * 32:(intro.PORT_TEXT_TILE_ROW + 1) * 32]
+        codes = credits.nes_codes("PRESS FIRE")
+        first = 16 - len(codes) // 2
+        self.assertEqual(row[first:first + len(codes)], codes)
+        outside = row[intro.PROMPT_FIRST_COL:first] + row[first + len(codes):intro.PROMPT_LAST_COL + 1]
+        self.assertTrue(all(code == credits.BLANK_TILE for code in outside), outside)

@@ -22,7 +22,7 @@ The Second Quest starts when you make a file called ZELDA (like the original), o
 | `Tab` | inventory screen (Left/Right to choose the B item) |
 | `K` | debug: a key, four bombs and the candle |
 | `T` | debug: show the room id (`RM-37`, or `CL-xx` in a cellar) on the ribbon |
-| `Esc` | quit |
+| `Esc` | asks to quit: QUIT WITHOUT SAVING, SAVE AND QUIT or BACK TO GAME (Up/Down and Return, or Esc again to go back) |
 
 ## Build
 
