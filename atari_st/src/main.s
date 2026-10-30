@@ -175,6 +175,7 @@
     .equ MFP_IMRB, 0x00fffa15
     .equ MFP_IKBD_BIT, 0x40
     .equ MFP_ISRB, 0x00fffa11
+    .equ MFP_IPRB, 0x00fffa0d
     .equ MIDI_ACIA_STATUS, 0x00fffc04
     .equ MIDI_ACIA_DATA, 0x00fffc06
     .equ IKBD_VECTOR, 0x00000118
@@ -990,6 +991,7 @@ uw_person_update_far:
     farstub quest_apply_far, quest_apply
     farstub update_death_far, update_death
     farstub death_begin_far, death_begin
+    farstub restore_ikbd_far, restore_ikbd
 draw_link_far:
     bra draw_link
 erase_sprite_far:
@@ -1011,6 +1013,7 @@ blit_rect_far:
     .include "filesel.s"
     .include "death.s"
     .include "save.s"
+    .include "exit.s"
 
     | The anchor is this address plus a 32-bit link-time distance (a PC-relative relocation), so the routine may sit
     | anywhere. (It used to sit in the middle of the code with a 16-bit `lea room_palette(%pc)`, which limited the

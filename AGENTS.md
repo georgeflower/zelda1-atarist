@@ -99,6 +99,7 @@ atari_st/                the port
 | `credits.s` | the credits wall (`INTRO_PHASE_CREDITS` of `MODE_INTRO`, game mode `$13` of the ROM after Zelda's words): the same ring of 200 lines as the story, filled from `credits_*` tables; scrolls 600 lines, then the last screen (ash pile, flashing Triforce of Power); included after `intro.s` |
 | `filesel.s` | the file menu (mode 1, E, F inside `MODE_INTRO` phase 2): player select, name board, elimination, and the continue question after a death (`FILE_CONTINUE`); the slots (`SLOT_*`) |
 | `death.s` | Link's death (`MODE_DEATH`, game mode $11): blink, the red-world remap, spin, fade, grey Link and spark, GAME OVER, then the continue question; also `game_reset_position`, `death_continue/save/retry` (M10 c) |
+| `exit.s` | `restore_ikbd` (via `restore_ikbd_far`): what leaving the game puts back for TOS: the keyboard interrupt masked while the vector returns, both ACIAs emptied, the MFP's pending and in-service marks of the keyboard cleared, the mouse set to relative mode |
 | `save.s` | `ZELDA.SAV` through GEMDOS (Fopen/Fread/Fcreate/Fwrite/Frename...): records of 640 bytes, the `save_fields` table, the secrets patch log replay, checksum (M10 c) |
 | `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level`, `debug_keys` (K, T room id) |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
@@ -435,7 +436,7 @@ stays that of the display (50 updates a second) and only the picture runs at hal
   port 1 + state byte: bits 0-3 up/down/left/right, bit 7 fire -> `JOY0/JOY1`), mouse
   packets (`$F8-$FB` + 2 bytes) skipped. **Port 0 packets (`$FE`) are dropped**: it is the mouse port, and in Steem
   mouse movement arrives as port-0 joystick directions (Link walked by himself). Port 1 is the joystick. Joystick reporting is enabled with IKBD
-  command `$14` in `init_video`. TOS's handler is restored on exit. (History: polling
+  command `$14` in `init_video`. TOS's handler is restored on exit by `restore_ikbd` (`exit.s`), which also empties both ACIAs and clears the MFP's marks: a byte left in an ACIA holds the shared interrupt line low and TOS gets no more keyboard or mouse interrupts. (History: polling
   the ACIA once a frame lost key releases -> "Link walks up by himself".)
 - `read_input_dir` reduces held keys to one direction: bits right=1, left=2, down=4,
   up=8, **lowest bit wins** (so a stuck Up shows only when nothing else is held); a
