@@ -11,6 +11,7 @@
 |     y  24..199   playfield, 256x176, x = 32..287
 
     .include "assets.inc"
+    .include "level_buffer.inc"
     .include "music_ids.inc"
     .include "globals.s"
     .if UW_ROOM_BYTES != 704
@@ -70,7 +71,7 @@
 | Three full screens: the one being displayed, the clean render of the current
 | room, and the room being scrolled in.
     .equ BUFFER_COUNT, 3
-    .equ BUFFER_ALLOC, (BUFFER_COUNT * SCREEN_BYTES + 256)
+    .equ BUFFER_ALLOC, (BUFFER_COUNT * SCREEN_BYTES + 256 + LEVEL_BUF_BYTES)
 
 | ------------------------------------------------------------------- sprites
     .equ SPRITE_HEIGHT, 16
@@ -434,6 +435,8 @@ init_buffers:
     move.l %d0, OFF_BG_CUR(%a5)
     add.l #SCREEN_BYTES, %d0
     move.l %d0, OFF_BG_NEXT(%a5)
+    add.l #SCREEN_BYTES, %d0
+    move.l %d0, OFF_LEVEL_BUF(%a5)      | behind the three screens: the level buffer (loader.s)
 
     movea.l OFF_SCREEN_PTR(%a5), %a0
     move.l #(BUFFER_COUNT * SCREEN_LONGS - 1), %d7
@@ -866,11 +869,14 @@ init_anchor_far:
 init_pointers:
     movea.l %a6, %a0
     adda.l #(mon_sprites - table_anchor), %a0
+    move.l %a0, OFF_MON_SPR_OW(%a5)
     move.l %a0, OFF_MON_SPR(%a5)
     rts
 
     | The code has outgrown what one 16-bit branch spans, so the modules at the end reach main.s's frame routines
     | through these stubs in the middle.
+uw_select_level_far:                    | first: begin_game's dev start reaches it with little to spare
+    bra uw_select_level
 clear_erase_state_far:
     bra clear_erase_state
 enemy_init_special_far:
@@ -918,8 +924,6 @@ draw_hud_tile_ptr_far:
     bra draw_hud_tile_ptr
 menu_check_open_far:
     bra menu_check_open
-uw_select_level_far:
-    bra uw_select_level
 cave_talk_far:
     bra cave_talk
 debug_keys_far:
@@ -1014,6 +1018,7 @@ blit_rect_far:
     .include "death.s"
     .include "save.s"
     .include "exit.s"
+    .include "loader.s"
 
     | The anchor is this address plus a 32-bit link-time distance (a PC-relative relocation), so the routine may sit
     | anywhere. (It used to sit in the middle of the code with a 16-bit `lea room_palette(%pc)`, which limited the
@@ -1159,8 +1164,8 @@ death_sprites:
     .incbin "death_sprites.bin"
 death_maps:
     .incbin "death_maps.bin"
-    | Each dungeon's tables and level_table (generated). They are reached through pointers that
-    | uw_select_level builds, so they may sit anywhere, however far from table_anchor.
+    | level_table (generated): each dungeon's start data and the name of its file. The tables themselves are read
+    | from LEVEL<n>[Q].DAT into the level buffer by uw_select_level (loader.s) and reached through pointers.
     .align 2
     .include "levels.inc"
 

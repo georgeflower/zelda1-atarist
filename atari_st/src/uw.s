@@ -797,8 +797,20 @@ uw_try_door:
 | Make dungeon d0.b (1 to LEVEL_COUNT) the current one: OFF_LEVEL, and the pointers to its tables and
 | its start room, start Y, triforce room, minimap column and cellar count from level_table (levels.inc): the
 | First Quest's dungeons are its records 0 to 8, the Second Quest's (OFF_QUEST) 9 to 17.
+    farstub level_load_f, level_load
+
+| OFF_MON_SPR follows OFF_LEVEL: the overworld's pictures, or those of the dungeon in the level buffer. Called wherever
+| OFF_LEVEL changes (uw_select_level, uw_leave_level, game_reset_position and death_restart in death.s).
+mon_spr_select:
+    tst.b OFF_LEVEL(%a5)
+    bne 1f
+    move.l OFF_MON_SPR_OW(%a5), OFF_MON_SPR(%a5)
+    rts
+1:  move.l OFF_MON_SPR_LV(%a5), OFF_MON_SPR(%a5)
+    rts
+
 uw_select_level:
-    movem.l %d0-%d1/%a0-%a1, -(%sp)
+    movem.l %d0-%d2/%a0-%a2, -(%sp)
     move.b %d0, OFF_LEVEL(%a5)
     clr.w OFF_UW_BLOCK(%a5)             | Levels 1-6 share one set of world flags, 7-9 another (LevelInfo_WorldFlagsAddr)
     cmp.b #7, %d0
@@ -810,18 +822,30 @@ uw_select_level:
     tst.b OFF_QUEST(%a5)
     beq 0f
     add.w #LEVEL_COUNT, %d0
-0:  mulu.w #LEVEL_RECORD_BYTES, %d0
+0:  move.w %d0, %d2
+    addq.w #1, %d2                      | the record number + 1: what the buffer is tagged with
+    mulu.w #LEVEL_RECORD_BYTES, %d0
     ltab level_table, %a0
     adda.w %d0, %a0
-    lea OFF_UWP_ROOM_INDEX(%a5), %a1
+    move.l (%a0)+, OFF_UWL_BYTES(%a5)   | start room, start Y, triforce room, minimap column
+    move.l (%a0)+, (OFF_UWL_BYTES + 4)(%a5)     | cellar count, boss room, stairs, padding
+    cmp.w OFF_LOAD_KEY(%a5), %d2
+    beq 3f                              | the buffer holds this level's file already
+    bsr music_stop_far                  | a drum sample would fight the disk for the processor
+    bsr level_load_f                    | a0 = the file's name, d2.w = the key; it does not come back on an error
+3:  movea.l OFF_LEVEL_BUF(%a5), %a1
+    lea 8(%a1), %a2                     | the offsets of the file's tables
+    lea OFF_UWP_ROOM_INDEX(%a5), %a0
     moveq #9, %d1
-1:  move.l (%a0)+, %d0
-    add.l %a6, %d0                  | the record holds distances from table_anchor
-    move.l %d0, (%a1)+
+1:  move.l (%a2)+, %d0
+    add.l %a1, %d0                      | the file holds distances from its own start
+    move.l %d0, (%a0)+
     dbra %d1, 1b
-    move.l (%a0)+, (%a1)+           | start room, start Y, triforce room, minimap column
-    move.l (%a0)+, (%a1)+           | cellar count, padding
-    movem.l (%sp)+, %d0-%d1/%a0-%a1
+    move.l (%a2)+, %d0
+    add.l %a1, %d0
+    move.l %d0, OFF_MON_SPR_LV(%a5)     | the dungeon's monster pictures
+    bsr mon_spr_select
+    movem.l (%sp)+, %d0-%d2/%a0-%a2
     rts
 
 | Walk down the stairs of an overworld entrance into level d0.b.
@@ -858,6 +882,7 @@ uw_leave_level:
     clr.b OFF_UW_PERSON(%a5)
     move.b #1, OFF_WARPED(%a5)
     clr.b OFF_LEVEL(%a5)
+    bsr mon_spr_select
     move.b #LINK_EDGE_LEFT, OFF_BOUND_LEFT(%a5)
     move.b #LINK_EDGE_RIGHT, OFF_BOUND_RIGHT(%a5)
     move.b #LINK_EDGE_UP, OFF_BOUND_UP(%a5)

@@ -52,12 +52,13 @@ class LevelIncludeTests(unittest.TestCase):
             map_col0=2, cellar_info=[b""], boss_room=0x15, stairs_first=120,
         )
         record = build_assets.level_include([level]).split("level_table:\n", 1)[1]
-        data = record.split("    .byte ", 1)[1].strip()
+        data = record.split("    .byte ", 1)[1].split("\n", 1)[0].strip()
         self.assertEqual(
             [int(value.strip(), 0) for value in data.split(",")],
             [0x65, 0xDD, 0x14, 2, 1, 0x15, 120, 0],
         )
-        self.assertEqual(build_assets.LEVEL_RECORD_BYTES, 4 * len(build_assets.LEVEL_TABLES) + 8)
+        self.assertIn('.asciz "LEVEL5.DAT"', record)       # then the name of the level's file
+        self.assertEqual(build_assets.LEVEL_RECORD_BYTES, 8 + build_assets.LEVEL_NAME_BYTES)
 
 
 class ExtractionTests(unittest.TestCase):
