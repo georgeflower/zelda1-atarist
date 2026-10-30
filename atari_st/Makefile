@@ -65,7 +65,7 @@ MUSIC_ROM := $(wildcard $(ROOT_DIR)/ext/Original.nes)
 MUSIC_PACKED := $(GENERATED_DIR)/music_bank.bin $(GENERATED_DIR)/music_drum_table.bin \
 	$(GENERATED_DIR)/music_ids.inc
 
-.PHONY: all assets check clean run screenshot golden-update dist
+.PHONY: all assets check clean run screenshot golden-update dist disk
 
 all: $(PRG)
 
@@ -111,6 +111,11 @@ dist: all
 	@mkdir -p $(DIST_DIR)
 	cp $(PRG) $(DIST_DIR)/
 	cp $(addprefix $(GENERATED_DIR)/,$(LEVEL_FILES)) $(DIST_DIR)/
+
+# A 720 KB floppy image with the game on it, for a real drive, a Gotek or an emulator (the 18 files and the PRG fit with room to spare).
+DISK := $(BUILD_DIR)/ZELDA.st
+disk: all
+	$(PYTHON) tools/make_disk.py $(DISK) $(PRG) $(addprefix $(GENERATED_DIR)/,$(LEVEL_FILES))
 
 check: all
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py'

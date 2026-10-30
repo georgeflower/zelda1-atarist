@@ -17,8 +17,8 @@ Ganon and Zelda, every item, title and story, file select, death and continue, s
 and the music. The list of what is left is in [`PLAN.md`](PLAN.md).
 
 The `.PRG` is about 300 KB. A dungeon's rooms, doors, tiles and the pictures of its monsters are in
-`LEVEL<n>.DAT` (`LEVEL<n>Q.DAT` for the Second Quest), read when Link goes in, so those files must
-be next to the `.PRG` (`make dist` collects them). It still needs 1 MB of RAM; making it fit 512 KB
+`LEVEL<n>.DAT` (`LEVEL<n>Q.DAT` for the Second Quest), packed (LZ4, 210 KB for the 18 files) and read when Link
+goes in, so those files must be next to the `.PRG` (`make dist` collects them). It still needs 1 MB of RAM; making it fit 512 KB
 is the next thing (see `PLAN.md`).
 
 How to play
@@ -126,7 +126,7 @@ The asset pipeline
 - **underworld**: rebuilds each level's rooms (`UW_LEVELS`, all nine levels of both quests) from
   the original layout routines (`tools/underworld.py`), including doors, the
   cellars and the level's palette, as 32x22 tile maps over a shared tile bank,
-  and writes each level's tables and monster pictures as `LEVEL<n>[Q].DAT` (`level_file`), and `levels.inc` with `level_table`
+  and writes each level's tables and monster pictures as `LEVEL<n>[Q].DAT` (`level_file`, packed by `tools/lzpack.py`), and `levels.inc` with `level_table`
 - **actors**: monster and item sprites, hit points, drop tables and per-room
   monster and item lists (`tools/actors.py`), plus the cave's rooms, sprites
   and the old man's text
@@ -203,8 +203,8 @@ Notes on the ST implementation
 - Tables are reached through `a6`, which holds `table_anchor` for the whole run;
   the `ltab` macro writes a 32-bit distance from it, so a table may sit anywhere.
   A dungeon's own tables (rooms, doors, tiles, room records, cellars) and its monster
-  pictures are in its `LEVEL<n>[Q].DAT`, which `uw_select_level` reads into the level
-  buffer (`loader.s`); it adds the buffer's address to the offsets in the file's header and
+  pictures are in its `LEVEL<n>[Q].DAT`, which `uw_select_level` reads and unpacks into the level
+  buffer (`loader.s`, `lz.s`); it adds the buffer's address to the offsets in the file's header and
   keeps them in the variable block (the `lvtab` macro). The buffer is tagged with the record
   it holds, so going back into the same dungeon reads nothing.
 - Code is the limit. A `bsr`, `bra` or `Bcc` and a `(label,%pc)` operand span a

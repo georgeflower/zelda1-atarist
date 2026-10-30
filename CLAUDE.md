@@ -17,7 +17,7 @@ TOS `ZELDAST.PRG` that runs in Hatari (and should on real hardware): 320x200,
 Current scope: the whole overworld (128 screens) with its monsters, hidden spots, specials, caves and shops; all nine dungeons of the First Quest
 and all nine of the Second Quest, with their monsters and bosses, up to Ganon, Zelda's thanks and the credits; every item of the original's
 inventory; the title, the file menu, death, the continue question and saving to `ZELDA.SAV`. The PRG is about 300 KB and each dungeon's data is a file of its own
-(`LEVEL<n>[Q].DAT`, read when Link goes in, see `loader.s`); the build still needs 1 MB of RAM, 512 KB is the next goal. What is left is in `atari_st/PLAN.md`.
+(`LEVEL<n>[Q].DAT`, packed, read and unpacked when Link goes in, see `loader.s`); the build still needs 1 MB of RAM, 512 KB is the next goal. What is left is in `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
 (`src/Z_00.asm` .. `Z_07.asm`, aldonunez's labelled NES disassembly). It is the
@@ -102,7 +102,8 @@ atari_st/                the port
 | `exit.s` | `restore_ikbd` (via `restore_ikbd_far`): what leaving the game puts back for TOS: the keyboard interrupt masked while the vector returns, both ACIAs emptied, the MFP's pending and in-service marks of the keyboard cleared, the mouse set to relative mode |
 | `save.s` | `ZELDA.SAV` through GEMDOS (Fopen/Fread/Fcreate/Fwrite/Frename...): records of 640 bytes, the `save_fields` table, the secrets patch log replay, checksum (M10 c) |
 | `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level` (loads the level's file), `mon_spr_select`, `debug_keys` (K, T room id) |
-| `loader.s` | `file_load` (GEMDOS Fopen/Fread/Fclose) and `level_load`: reads `LEVEL<n>[Q].DAT` into the level buffer (allocated behind the three screens), checks its magic and record number, tags the buffer (`LOAD_KEY`); a missing or wrong file ends the game with a message; included last, reached through a farstub |
+| `loader.s` | `file_read`/`file_close` (GEMDOS Fread/Fclose) and `level_load`: reads `LEVEL<n>[Q].DAT` (an 8-byte header: `ZLVZ`, the record number, the packed size; then LZ4 data) into the *end* of the level buffer (allocated behind the three screens), unpacks it over itself from the front (`lz_unpack`), checks the image's magic `ZLVL` and size, tags the buffer (`LOAD_KEY`); a missing, cut or wrong file ends the game with a message; included last, reached through a farstub |
+| `lz.s` | `lz_unpack`: the LZ4 block decoder (a0 packed, a2 its end, a1 out; byte copies, about 50 cycles a byte); `tools/lzpack.py` is the packer, `tests/test_lzpack.py` runs the real routine on machine68k |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
 | `music.s` | music and sound effects replayed from the VBL hook: four register-stream contexts (song, effect over voice A, effect over voice B, noise effect or DPCM sample over voice C) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`); `music_roar_tick` repeats the boss's ambient roar |
 
@@ -119,6 +120,8 @@ atari_st/                the port
 | `filesel.py` | the file menu's pictures (four: select, register, eliminate, continue), glyphs and sprites from `Mode1TileTransferBuf`, `ModeFTitleTransferBuf`, `ModeFCharsTransferBuf` and the menu palettes |
 | `gameover.py` | the death sequence's data: `death_maps` (per palette, which of three spare slots 13-15 each colour goes to, by lightness), `death_colours` (red world, the four fade steps, dead Link, spark), the grey Link and spark sprites, the GAME OVER tiles |
 | `savefile.py` | a Python model of `ZELDA.SAV` (build, parse, checksum) and a check that it agrees with `save.s`/`globals.s`; also a CLI that writes a file for `screenshot.py --hd-file` |
+| `lzpack.py` | the LZ4 block packer (greedy, one step lazy) and its Python decoder; `margin` says how far the output runs ahead of the input, which sizes the level buffer for unpacking in place; `build_assets.level_packed` uses it |
+| `make_disk.py` | `make disk`: a 720 KB FAT12 floppy image (`build/ZELDA.st`) with `ZELDAST.PRG` and the 18 `LEVEL*.DAT`; `read_disk` reads one back (tests); for a real drive, a Gotek or an emulator |
 | `make_prg.py` | wraps the flat binary into a TOS PRG header (`--check` validates) |
 | `screenshot.py` | **headless Hatari harness** (`--hd-file NAME=PATH` copies a file to the emulated drive first): runs the PRG, injects keys, pokes variables, dumps RAM, decodes framebuffer to PNG, prints a state report and a `FRAMEHASH`; `--room`, `--uw`/`--level` build a dev PRG into `build/dev` |
 | `golden.py` | golden frames: runs the fixed scenes through `screenshot.py` and compares `FRAMEHASH` with `tests/golden/frames.json` (`--update`, `--only`, `--png-dir`); skipped without Hatari, `TOS` and the ROM; `make golden-update` |
@@ -307,7 +310,7 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
 - **Tables**: `ltab sym, %aN` is `move.l #(sym - table_anchor), %aN` + `adda.l %a6, %aN` (flags untouched): a 32-bit
   distance, so tables may sit anywhere in the image and in any order. `table_anchor` sits just before `fx_sprites`.
   `tools/check_reach.py` fails the build when a symbol named in an `ltab` is missing. The tables of each dungeon are
-  reached through pointers instead: `uw_select_level` (d0.b = level 1..`LEVEL_COUNT`) reads the level's file (`LEVEL<n>[Q].DAT`, named in its 20-byte `level_table` record in `levels.inc`, generated) into the level buffer unless the buffer holds it already (`OFF_LOAD_KEY` = record + 1), adds the buffer's address to the ten table offsets of the file's header (`level_file` in `build_assets.py`: magic `ZLVL`, record number, ten tables, then the monster frames) into `OFF_UWP_*` and `OFF_MON_SPR_LV`, and copies the start data into
+  reached through pointers instead: `uw_select_level` (d0.b = level 1..`LEVEL_COUNT`) reads the level's file (`LEVEL<n>[Q].DAT`, named in its 20-byte `level_table` record in `levels.inc`, generated) into the level buffer unless the buffer holds it already (`OFF_LOAD_KEY` = record + 1), adds the buffer's address to the ten table offsets of the file's header (`level_file` in `build_assets.py`: magic `ZLVL`, record number, size, ten tables, then the monster frames; `level_packed` makes the file from it: `ZLVZ`, record number, packed size, `lzpack` data; `LEVEL_BUF_BYTES` is the packed size plus `lzpack.margin`, the most the output runs ahead of the input, so the unpacking in place is safe) into `OFF_UWP_*` and `OFF_MON_SPR_LV`, and copies the start data into
   `OFF_UWL_BYTES`; code loads them with **`lvtab NAME, %aN`** (`lvtab ROOMS, %a2`). The tables are
   `room_index rooms doors tiles tile_nes room_info cellar_maps cellar_info`, built per level as `uw<N>_<table>.bin`
   (`UW_LEVELS` in the Makefile and in `build_assets.py`; a test keeps them equal). `room_palette` must stay the first
