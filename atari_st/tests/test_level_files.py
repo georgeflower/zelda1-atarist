@@ -49,8 +49,9 @@ class MonsterSetTests(unittest.TestCase):
         tables = [bytes([n]) * (n + 1) for n in range(len(B.LEVEL_TABLES))]
         art = bytes(FRAME)
         data = B.level_file(5, tables, art)
-        self.assertEqual(data[:4], B.LEVEL_FILE_MAGIC)
+        self.assertEqual(data[:4], B.LEVEL_IMAGE_MAGIC)
         self.assertEqual(int.from_bytes(data[4:6], "big"), 5)
+        self.assertEqual(int.from_bytes(data[6:8], "big"), len(data))
         offsets = [int.from_bytes(data[8 + 4 * n : 12 + 4 * n], "big") for n in range(len(B.LEVEL_TABLES) + 1)]
         self.assertGreaterEqual(offsets[0], B.LEVEL_HEADER_BYTES)
         for offset in offsets:
@@ -58,6 +59,17 @@ class MonsterSetTests(unittest.TestCase):
         for table, offset in zip(tables, offsets):
             self.assertEqual(data[offset : offset + len(table)], table)
         self.assertEqual(data[offsets[-1] : offsets[-1] + FRAME], art)
+
+    def test_the_file_on_the_disk_is_the_packed_image_behind_eight_bytes(self) -> None:
+        import lzpack
+        image = B.level_file(3, [bytes([n]) * 300 for n in range(len(B.LEVEL_TABLES))], bytes(B.SPRITE_FRAME_BYTES))
+        data, need = B.level_packed(image)
+        self.assertEqual(data[:4], B.LEVEL_FILE_MAGIC)
+        self.assertEqual(data[4:6], image[4:6])                                  # the record number
+        self.assertEqual(int.from_bytes(data[6:8], "big"), len(data) - 8)        # the packed size
+        self.assertEqual(lzpack.unpack(data[8:]), image)
+        self.assertGreaterEqual(need, len(image))
+        self.assertEqual(need % 2, 0)
 
     def test_file_names_are_eight_dot_three(self) -> None:
         from types import SimpleNamespace
@@ -123,14 +135,21 @@ class SpawnSiteTests(unittest.TestCase):
                     B.room_monsters(records) | {self.index[B.GRUMBLE_MONSTER]}, self.index))
                 self.assertTrue(art)
 
-    def test_no_level_file_is_bigger_than_the_buffer(self) -> None:
+    def test_the_buffer_holds_every_image_and_every_file_with_the_room_to_unpack_it_in_place(self) -> None:
         import tempfile
+        import lzpack
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)
             B.write_underworld(out, self.bundle)
-            sizes = [(out / B.level_file_name(level)).stat().st_size for level in self.bundle.levels]
-            self.assertEqual(f".equ LEVEL_BUF_BYTES, {max(sizes)}", (out / "level_buffer.inc").read_text().splitlines()[0])
-            self.assertEqual(len(sizes), 2 * len(B.UW_LEVELS))
+            buffer_bytes = int((out / "level_buffer.inc").read_text().splitlines()[0].split()[-1])
+            names = [B.level_file_name(level) for level in self.bundle.levels]
+            self.assertEqual(len(names), 2 * len(B.UW_LEVELS))
+            for name in names:
+                data = (out / name).read_bytes()
+                image = lzpack.unpack(data[8:])
+                self.assertLessEqual(len(image), buffer_bytes, name)
+                self.assertLessEqual(len(data) - 8 + lzpack.margin(data[8:]), buffer_bytes, name)
+            self.assertEqual(buffer_bytes, max(B.level_packed(lzpack.unpack((out / n).read_bytes()[8:]))[1] for n in names))
 
 
 if __name__ == "__main__":

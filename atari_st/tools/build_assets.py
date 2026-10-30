@@ -1165,8 +1165,9 @@ LEVEL_TABLES = ("room_index", "rooms", "doors", "tiles", "tile_nes", "room_info"
                 "mon_art", "quads")
 LEVEL_NAME_BYTES = 12                                # "LEVEL1Q.DAT" and its terminator, padded
 LEVEL_RECORD_BYTES = 8 + LEVEL_NAME_BYTES             # start room, start Y, triforce room, ... then the file name
-LEVEL_FILE_MAGIC = b"ZLVL"
-LEVEL_HEADER_BYTES = 8 + 4 * (len(LEVEL_TABLES) + 1)  # magic, record number and a spare word, then where each table and the monster art start
+LEVEL_FILE_MAGIC = b"ZLVZ"                            # the file on the disk: this, the record number, the packed size, then the packed image
+LEVEL_IMAGE_MAGIC = b"ZLVL"                           # the image in memory: this, the record number, its own size, then where each table and the monster art start
+LEVEL_HEADER_BYTES = 8 + 4 * (len(LEVEL_TABLES) + 1)  # the image's header
 LEVEL_ART_ALIGN = 2
 
 
@@ -1250,9 +1251,10 @@ def monster_art(arts, wanted: set[int]) -> tuple[bytes, bytes]:
 
 
 def level_file(number: int, tables: list[bytes], art: bytes) -> bytes:
-    """LEVEL<n>[Q].DAT: a header (magic, the record number, where each table and the monster frames start) and the tables.
+    """The level's image: a header (magic, the record number, its size, where each table and the monster frames start) and the tables.
 
-    uw_select_level reads the file into the level buffer and adds its address to those offsets.
+    LEVEL<n>[Q].DAT holds it packed (`level_packed`); uw_select_level has it unpacked into the level buffer and adds the
+    buffer's address to those offsets.
     """
     body = bytearray(LEVEL_HEADER_BYTES)
     offsets = []
@@ -1263,9 +1265,28 @@ def level_file(number: int, tables: list[bytes], art: bytes) -> bytes:
         body.extend(data)
     if len(body) % 2:
         body.append(0)
-    head = LEVEL_FILE_MAGIC + number.to_bytes(2, "big") + bytes(2) + b"".join(o.to_bytes(4, "big") for o in offsets)
+    assert len(body) < 0x10000
+    head = LEVEL_IMAGE_MAGIC + number.to_bytes(2, "big") + len(body).to_bytes(2, "big") + b"".join(o.to_bytes(4, "big") for o in offsets)
     body[: len(head)] = head
     return bytes(body)
+
+
+def level_packed(image: bytes) -> tuple[bytes, int]:
+    """(the file LEVEL<n>[Q].DAT, the level buffer bytes the game needs to read and unpack it).
+
+    The file is the magic ZLVZ, the record number and the size of the packed data (3 words), then the image packed by
+    `lzpack` (LZ4). The game reads the packed data into the end of the buffer and unpacks it over itself from the front, so the
+    buffer holds the packed data plus how far the output runs ahead of it (`lzpack.margin`), one more byte for the
+    even address it is read to, and at least the header.
+    """
+    import lzpack
+
+    packed = lzpack.pack(image)
+    assert lzpack.unpack(packed) == image
+    assert len(packed) < 0x10000
+    header = LEVEL_FILE_MAGIC + image[4:6] + len(packed).to_bytes(2, "big")
+    need = len(packed) + max(lzpack.margin(packed), 8) + 1
+    return header + packed, need + need % 2
 
 
 def write_underworld(out_dir: Path, bundle_or_uw) -> None:
@@ -1290,9 +1311,9 @@ def write_underworld(out_dir: Path, bundle_or_uw) -> None:
         art, table = monster_art(level.actors.monster_arts, wanted)
         (out_dir / f"uw{level.key}_mon_art.bin").write_bytes(table)
         tables = [(out_dir / f"uw{level.key}_{name}.bin").read_bytes() for name in LEVEL_TABLES]
-        data = level_file(number, tables, art)
+        data, need = level_packed(level_file(number, tables, art))
         (out_dir / level_file_name(level)).write_bytes(data)
-        max_file = max(max_file, len(data))
+        max_file = max(max_file, need)
     (out_dir / "levels.inc").write_text(level_include(levels), encoding="utf-8")
     cells = bytearray()
     for direction in uw.door_cells:
