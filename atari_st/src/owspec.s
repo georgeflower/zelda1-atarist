@@ -209,8 +209,30 @@ uw_ladder_ok:
     neg.w %d2                           | left: the ladder must lie to the left
 16: moveq #1, %d0                       | (blocked again unless it is still ahead)
     tst.w %d2
-    ble 7f
-    bra 8f
+    bgt 8f
+    bne 7f
+    | Squarely on an up ladder (case E of CheckLadder): the tile ahead is the water under his top half, so the tile above
+    | it decides, as if he stood 8 pixels higher: a moat one square thick lets him off, a thicker one does not.
+    btst #3, %d1
+    beq 7f
+    moveq #0, %d2
+    move.b OFF_HOT_ROW(%a5), %d2
+    subq.w #1, %d2
+    bmi 7f
+    moveq #0, %d3
+    move.b OFF_LINK_X(%a5), %d3
+    lsr.w #3, %d3
+    bsr fetch_tile
+    bsr tile_blocks
+    tst.w %d0
+    bne 17f
+    addq.w #1, %d3
+    bsr fetch_tile
+    bsr tile_blocks
+    tst.w %d0
+    beq 8f
+17: moveq #1, %d0
+    bra 7f
 2:  tst.b OFF_FOOD_TIMER(%a5)
     bne 7f                              | (the food has the slot)
     moveq #0, %d2                       | which of the four: up, down, left, right
