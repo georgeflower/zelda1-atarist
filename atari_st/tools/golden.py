@@ -53,6 +53,13 @@ ZELDA_WIN = "190:=HP_HALVES=40,190:=LINK_Y=0x95"     # Link at Zelda's, with the
 MENU_REGISTERED = f"{MENU_TO_REGISTER},{MENU_ZELDA},{_taps(610, ['tab', 'tab', 'tab'])},630:+return,632:-return"
 MENU_TO_ELIMINATION = f"{MENU_REGISTERED},{_taps(710, ['tab', 'tab'], 4)},720:+return,722:-return"
 
+# Level 1 from the start room: out through the west door into the keese room $72, clear it, back east, and (RESPAWN_BACK) west again
+RESPAWN_OUT = ("200:=LINK_X=0x20,200:=LINK_Y=0x8d,201:+left,260:-left,300:=ENEMY_COUNT=0,"
+               "310:=LINK_X=0xd8,310:=LINK_Y=0x8d,311:+right,360:-right")
+RESPAWN_BACK = "370:=LINK_X=0x20,370:=LINK_Y=0x8d,371:+left,430:-left"
+RESPAWN_WALK = f"{RESPAWN_OUT},{RESPAWN_BACK}"
+HIST_WIPE = ",".join(f"365:=ROOM_HIST.{i}=0" for i in range(6)) + ",365:=ROOM_HIST_I=0"     # the list of the last six rooms emptied
+
 DEATH = "260:=DYING=1"
 
 INV_OW = "300:=INV_BOMBS=4,300:=B_ITEM=1,300:=INV_BOOMERANG=1,300:=INV_CANDLE=1,300:=INV_RAFT=1,300:=INV_RING=1,300:=TRIFORCE_PIECES=5"
@@ -106,6 +113,13 @@ SCENES: dict[str, list[str]] = {
     "uw1_aquamentus": ["--uw", "0x35", "--level", "1", "--vbls", "420"],
     # the key of room $33 rides on its first stalfos (MoveAndDrawRoomItem): put the stalfos somewhere and the key is there too
     "uw1_item_carrier": ["--uw", "0x33", "--level", "1", "--vbls", "302", "--keys", "300:=ENEMY_X.0=0x90,300:=ENEMY_Y.0=0x6d"],
+    # Monsters coming back (ModifyObjCountByHistoryUW): Level 1's keese room $72 is cleared, Link goes to the start room and back.
+    # Within the last six rooms it stays empty; with the list wiped it starts afresh; a boss room stays dead either way.
+    "uw1_cleared_room_empty": ["--uw", "0x73", "--level", "1", "--vbls", "470", "--keys", RESPAWN_WALK],
+    "uw1_cleared_room_returns": ["--uw", "0x73", "--level", "1", "--vbls", "470", "--keys", f"{RESPAWN_OUT},{HIST_WIPE},{RESPAWN_BACK}"],
+    "uw1_boss_stays_dead": ["--uw", "0x35", "--level", "1", "--vbls", "420", "--keys",
+                            f"200:=ENEMY_COUNT=0,210:=LINK_X=0xd8,210:=LINK_Y=0x8d,211:+right,260:-right,{HIST_WIPE.replace('365:', '280:')},"
+                            "290:=LINK_X=0x20,290:=LINK_Y=0x8d,291:+left,360:-left"],
     "uw2_start": ["--uw", "0x7d", "--level", "2", "--vbls", "420"],
     "uw2_dodongo": ["--uw", "0x0e", "--level", "2", "--vbls", "420"],
     # Two bombs swallowed with a walk in between (the count must survive the walk): the Dodongo is dead and has left a drop.

@@ -98,24 +98,9 @@ uw_spawn:
     move.b %d2, OFF_ROOM_ROAR(%a5)      | the boss roar the room can hear (music_roar_tick)
     bsr uw_setup_item
     bsr block_setup_f
-    uwlea FLAGS, %a2
-    btst #0, 0(%a2, %d0.w)
-    beq 5f
-    moveq #0, %d2                   | cleared, and not yet back: only the blade traps are there (they head the record's list,
-    move.b (%a1), %d2               | so it is the first d1 that are placed)
-    moveq #0, %d1
-7:  cmp.w %d2, %d1
-    bhs 8f
-    cmp.b #MON_TRAP_INDEX, 6(%a1, %d1.w)
-    bne 8f
-    addq.w #1, %d1
-    bra 7b
-8:  tst.w %d1
-    beq 9b                      | already cleared: they stay dead
-    bra spawn_counted
-5:  bsr uw_remaining_far        | not cleared: what is left of them
+    bsr uw_remaining_far            | how many of them are there, cleared or not
     tst.w %d1
-    beq 9b
+    beq 9b                          | already cleared: they stay dead
     bra spawn_counted
 
 | a1 = a room record (monster count at 0, monster indices from 6): place them

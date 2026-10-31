@@ -282,12 +282,24 @@ uw_spawn_begin:
 9:  movem.l (%sp)+, %d0-%d2/%a0
     rts
 
-| d0.w = the room, a1 = its record, a room that is not cleared. Returns d1.w = how many of its monsters are there: all of
-| them, less the ones killed on earlier visits (a boss is all there until it is dead).
+| d0.w = the room, a1 = its record. Returns d1.w = how many of its monsters are there. A room that is cleared (and not yet
+| back) has only its blade traps, which head the record's list; one that is not has all of them, less the ones killed on
+| earlier visits (a boss is all there until it is dead).
 uw_remaining:
     movem.l %d2/%a0, -(%sp)
     moveq #0, %d1
-    move.b (%a1), %d1
+    uwlea FLAGS, %a0
+    btst #0, 0(%a0, %d0.w)
+    beq 3f
+    moveq #0, %d2
+    move.b (%a1), %d2
+1:  cmp.w %d2, %d1
+    bhs 9f
+    cmp.b #MON_TRAP_INDEX, 6(%a1, %d1.w)
+    bne 9f
+    addq.w #1, %d1
+    bra 1b
+3:  move.b (%a1), %d1
     btst #3, 1(%a1)
     bne 9f
     lea OFF_UW_KILLS(%a5), %a0
