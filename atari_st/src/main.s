@@ -922,6 +922,8 @@ update_play:
     | through these stubs in the middle.
 uw_select_level_far:                    | first: begin_game's dev start reaches it with little to spare
     bra uw_select_level
+enemy_shove_snap_far:
+    bra enemy_shove_snap
 clear_erase_state_far:
     bra clear_erase_state
 enemy_init_special_far:

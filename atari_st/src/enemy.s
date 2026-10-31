@@ -847,7 +847,10 @@ enemy_shove:
     bra 25f
 23: subq.w #1, %d3
 25: dbra %d4, 1b
-    move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
+    cmp.b #ENEMY_SHOVE_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
+    bne 26f
+    bsr enemy_shove_snap_far    | the last frame of the shove: back onto the lane (owspec.s: no room here)
+26: move.b %d2, OFF_ENEMY_X(%a5, %d5.w)
     move.b %d3, OFF_ENEMY_Y(%a5, %d5.w)
     bra 9f
 3:  move.b %d2, OFF_ENEMY_X(%a5, %d5.w)

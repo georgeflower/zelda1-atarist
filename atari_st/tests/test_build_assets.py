@@ -504,20 +504,27 @@ class RomLevelPaletteTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.bundle = build_assets.load_assets(ROM_ROOT)
 
+    def _true_overworld(self):
+        """The overworld's palette as the ROM has it: the shown one has its ground a little darker (OW_GROUND_ST), the dungeons' do not."""
+        shown = self.bundle.palette
+        ground = build_assets.nes_color_to_st(build_assets.OW_GROUND_NES)
+        colours = tuple(ground if c == build_assets.OW_GROUND_ST else c for c in shown.st_colors)
+        return build_assets.PaletteMap(st_colors=colours, table=shown.table)
+
     def test_every_level_has_a_sixteen_colour_palette(self) -> None:
         self.assertEqual(len(self.bundle.level_palettes), 9)
         for palette in self.bundle.level_palettes:
             self.assertEqual(len(palette), build_assets.ST_PALETTE_SIZE)
 
     def test_level_one_uses_the_overworld_palette_unchanged(self) -> None:
-        self.assertEqual(self.bundle.level_palettes[0], self.bundle.palette.st_colors)
+        self.assertEqual(self.bundle.level_palettes[0], self._true_overworld().st_colors)
 
     def test_a_level_differs_from_the_overworld_only_in_what_it_chooses_itself(self) -> None:
         # Level 2 shares every colour but sprite palette row 3, which a dungeon chooses itself (a Zol, a Dodongo wear it):
         # the monsters are baked with the overworld's row 3, so the level puts its colours into those three slots.
         import underworld
 
-        base = self.bundle.palette
+        base = self._true_overworld()
         row3 = {base.table[underworld.SPRITE_ROW3][pixel] for pixel in (1, 2, 3)}
         for slot, colour in enumerate(self.bundle.level_palettes[1]):
             if slot not in row3:
@@ -526,7 +533,7 @@ class RomLevelPaletteTests(unittest.TestCase):
     def test_the_slots_other_code_relies_on_never_change(self) -> None:
         import underworld
 
-        base = self.bundle.palette
+        base = self._true_overworld()
         fixed = {base.table[row][pixel] for row in underworld.PROTECTED_ROWS for pixel in range(4)}
         fixed |= set(underworld.PROTECTED_SLOTS)
         for level, palette in enumerate(self.bundle.level_palettes, 1):
@@ -539,7 +546,7 @@ class RomLevelPaletteTests(unittest.TestCase):
         for level, palette in enumerate(self.bundle.level_palettes, 1):
             info = build_assets.require_binary(ROM_ROOT, f"dat/LevelInfoUW{level}.dat")
             nes = info[build_assets.LEVEL_INFO_PALETTE_OFFSET : build_assets.LEVEL_INFO_PALETTE_OFFSET + 32]
-            table, colors = underworld.palette_lookup(self._overworld(), self.bundle.palette, nes)
+            table, colors = underworld.palette_lookup(self._overworld(), self._true_overworld(), nes)
             self.assertEqual(colors, palette)
             for row in range(8):
                 for pixel in range(4):

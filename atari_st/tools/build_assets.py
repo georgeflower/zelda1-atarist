@@ -210,6 +210,12 @@ def nes_color_to_st(color_index: int) -> int:
     return ((red >> 5) << 8) | ((green >> 5) << 4) | (blue >> 5)
 
 
+# The overworld's ground is NES $37, (252, 216, 168), which the ST's three bits a colour turn into $765, almost white: on a
+# real screen the white blades of the white and the magic sword vanish on it. A little darker keeps them in view.
+OW_GROUND_NES = 0x37
+OW_GROUND_ST = 0x654
+
+
 @dataclass(frozen=True)
 class PaletteMap:
     """One ST palette shared by every NES palette row.
@@ -225,6 +231,13 @@ class PaletteMap:
 
     def index(self, row: int, pixel: int) -> int:
         return self.table[row][pixel]
+
+
+def darken_overworld_ground(palette: "PaletteMap") -> "PaletteMap":
+    """The overworld's palette with the ground colour a little darker (OW_GROUND_ST)."""
+    ground = nes_color_to_st(OW_GROUND_NES)
+    colours = tuple(OW_GROUND_ST if c == ground else c for c in palette.st_colors)
+    return PaletteMap(st_colors=colours, table=palette.table)
 
 
 def build_palette_map(palette_bytes: Sequence[int]) -> PaletteMap:
@@ -951,7 +964,7 @@ def load_assets(source_root: Path) -> AssetBundle:
             cave_text=cave_text,
             cave_table=cave_table,
             cave_shortcuts=cave_shortcuts,
-            palette=palette_map,
+            palette=darken_overworld_ground(palette_map),    # only the overworld's own colours: a dungeon's palettes keep the true $37
             level_palettes=level_palettes,
             ow_room_info=ow_room_info,
             ow_room_info_q2=q2_info,

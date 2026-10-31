@@ -186,6 +186,8 @@ SCENES: dict[str, list[str]] = {
     # A moat one square thick (Level 4, room $30, dark: the candle is lit): the ladder carries Link over it, going up (CheckLadder case E).
     "uw4_ladder_one_wide": ["--uw", "0x30", "--level", "4", "--vbls", "345", "--keys",
                             "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,250:=INV_CANDLE=1,250:=B_ITEM=3,260:+space,262:-space,300:+up"],
+    # Gleeok has a palette of his own ($2A $1A $0C): green, with dark green and blue (a Level 4 room, shown before he strikes).
+    "uw4_gleeok": ["--uw", "0x13", "--level", "4", "--vbls", "420"],
     # Sprite palette row 3 is the level's own: the Zols of Level 4 are black with gold eyes.
     "uw4_zols": ["--uw", "0x32", "--level", "4", "--vbls", "260"],
     # Ganon: brown after the sword, then a silver arrow. He burns solid, the ashes stay under the Triforce of Power.
@@ -253,8 +255,9 @@ SCENES: dict[str, list[str]] = {
     "cave_inventory_closed": ["--room", "0x77", "--cave", "--vbls", "520", "--keys", "430:+tab,432:-tab,470:+tab,472:-tab"],
     "cave_letter_shown": ["--room", "0x78", "--cave", "--vbls", "800", "--keys",
                           "400:=INV_LETTER=1,430:+tab,432:-tab,450:+right,452:-right,480:+tab,482:-tab,520:+space,522:-space"],
-    # The white sword has a dark blue outline: its white blade is as light as the ground on a real screen.
+    # The white sword and the magic sword are white, and the overworld's ground is a little darker so they show (issue #96).
     "ow_white_sword": ["--room", "0x77", "--vbls", "272", "--keys", "250:=HAS_SWORD=2,260:+ctrl,262:-ctrl"],
+    "ow_magic_sword": ["--room", "0x77", "--vbls", "272", "--keys", "250:=HAS_SWORD=3,260:+ctrl,262:-ctrl"],
     # Continuing in a dungeon: the file menu has used the level buffer, so the level's file is read again.
     "uw1_death_continued": ["--uw", "0x74", "--level", "1", "--vbls", "1000", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
 }
