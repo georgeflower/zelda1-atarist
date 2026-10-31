@@ -29,6 +29,7 @@ GLYPH_STYLES = 2                     # palette row 0 and 1
 # Tiles the menu writes at run time: every character of the board (ModeE_CharMap), the blank, the dash of the slot line
 # and the three heart tiles FormatHeartsInTextBuf picks.
 HEART_FULL, HEART_HALF, HEART_EMPTY, BLANK, DASH = 0xF2, 0x65, 0x66, 0x24, 0x62
+QUESTION = 0x2E                  # the "?" of the ROM's font, for the question before RETRY (filesel.s)
 SPRITE_HEART_TILE = 0xF3             # Mode1CursorSpriteTriplet, ModeEandFCursorSprites: sprite 0
 LINK_TILES = (0x08, 0x0A)            # Mode1_WriteLinkSprites: the left and right halves of Link
 SWORD_TILE = 0x20                    # the second quest's marker beside Link
@@ -150,7 +151,7 @@ def build(source_root: Path) -> MenuData:
         if ppu.palette_row(0, row, col) != style:
             raise SystemExit(f"The {what} of the menu is not in palette row {style} any more")
     char_map = I.table(asm2, "ModeE_CharMap")
-    ids = sorted(set(char_map) | {HEART_FULL, HEART_HALF, HEART_EMPTY, BLANK, DASH})
+    ids = sorted(set(char_map) | {HEART_FULL, HEART_HALF, HEART_EMPTY, BLANK, DASH, QUESTION})
     glyph_words = []
     for style in range(GLYPH_STYLES):
         offsets = [bank.add(I.cell_pixels(bg_tiles, palette, BLANK, style))] * 256

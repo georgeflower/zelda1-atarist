@@ -501,6 +501,9 @@ file_heart_show:
     bne 11f
     move.w #FILE_CONT_HEART_X, %d4
     ltab file_continue_ys, %a0
+    tst.b OFF_FILE_CONFIRM(%a5)
+    beq 2f
+    lea file_confirm_ys(%pc), %a0       | YES and NO
     bra 2f
 11: move.w #FILE_REG_HEART_X, %d4
     ltab file_register_ys, %a0
@@ -1014,12 +1017,15 @@ file_delete_slot:
 | and then death.s does what it says. FILE_SEL is the choice (the submode of the ROM).
 file_continue_begin:
     clr.b OFF_FILE_SEL(%a5)
+    clr.b OFF_FILE_CONFIRM(%a5)
     clr.b OFF_FILE_FLASH(%a5)
     bsr file_heart_show
     ltab file_palette, %a0
     bra intro_set_palette
 
 file_continue_update:
+    tst.b OFF_FILE_CONFIRM(%a5)
+    bne file_confirm_update
     tst.b OFF_FILE_FLASH(%a5)
     bne file_continue_flash
     move.b OFF_FILE_PRESSED(%a5), %d0
@@ -1077,7 +1083,11 @@ file_continue_flash:
     rts
 
 file_continue_go:
-    bsr music_stop_xf                  | SilenceAllSound
+    cmpi.b #2, OFF_FILE_SEL(%a5)
+    bne 1f
+    tst.b OFF_FILE_CONFIRM(%a5)
+    beq file_confirm_begin             | RETRY: are you sure?
+1:  bsr music_stop_xf                  | SilenceAllSound
     clr.b OFF_MUS_FORCED(%a5)
     moveq #0, %d0
     move.b OFF_FILE_SEL(%a5), %d0
@@ -1085,3 +1095,109 @@ file_continue_go:
     subq.b #1, %d0
     beq death_save
     bra death_retry
+
+| RETRY gives the game up to the last save, so the port asks before it does (the original does not): the three words are
+| taken off the picture and "ARE YOU SURE? ALL PROGRESS SINCE LAST SAVE WILL BE LOST!" with YES and NO come in their
+| place, the heart beside NO. YES goes on as RETRY did; NO (or B) is back at the three words with the heart on RETRY.
+    .equ FILE_ASK_COL, 14
+    .equ FILE_ASK_ROW, 12
+    .equ FILE_ASK_ROW_STEP, 3
+
+file_confirm_ys:
+    .byte (FILE_ASK_ROW * 8 + 23), ((FILE_ASK_ROW + FILE_ASK_ROW_STEP) * 8 + 23)
+    .even
+
+file_confirm_begin:
+    move.b #1, OFF_FILE_CONFIRM(%a5)
+    clr.b OFF_FILE_FLASH(%a5)
+    moveq #2, %d2                       | rows 2..17, columns 4..35: the picture's text and nothing else
+    moveq #15, %d5
+1:  moveq #4, %d1
+    moveq #31, %d6
+2:  moveq #FILE_BLANK_TILE, %d0
+    moveq #0, %d3
+    bsr file_glyph
+    addq.w #1, %d1
+    dbra %d6, 2b
+    addq.w #1, %d2
+    dbra %d5, 1b
+    lea file_ask_text(%pc), %a0
+    moveq #2, %d4                       | the first three lines, centred
+    moveq #5, %d2
+3:  moveq #0, %d1
+    move.b (%a0)+, %d1                  | column
+    bsr file_text
+    addq.w #2, %d2
+    dbra %d4, 3b
+    moveq #FILE_ASK_COL, %d1
+    moveq #FILE_ASK_ROW, %d2
+    bsr file_text                       | YES
+    moveq #FILE_ASK_COL, %d1
+    add.w #FILE_ASK_ROW_STEP, %d2
+    bsr file_text                       | NO
+    move.b #1, OFF_FILE_SEL(%a5)        | NO is the first choice
+    clr.b OFF_FILE_HEART_Y(%a5)
+    bra file_heart_show
+
+| a0 = column byte then a string of capitals, spaces, "!" and "?" ending in 0 (a0 is left past the 0, but the column is read
+| by the caller): d1.w = the column, d2.w = the row of the 8x8 cells.
+file_text:
+    movem.l %d0-%d3, -(%sp)
+    moveq #0, %d3
+1:  moveq #0, %d0
+    move.b (%a0)+, %d0
+    beq 9f
+    cmp.b #0x20, %d0
+    bne 2f
+    moveq #FILE_BLANK_TILE, %d0
+    bra 5f
+2:  cmp.b #0x21, %d0                    | "!"
+    bne 3f
+    moveq #0x29, %d0
+    bra 5f
+3:  cmp.b #0x3f, %d0                    | "?"
+    bne 4f
+    moveq #0x2e, %d0
+    bra 5f
+4:  sub.b #(0x41 - 0x0a), %d0           | the font's codes: the letters follow the digits
+5:  bsr file_glyph
+    addq.w #1, %d1
+    bra 1b
+9:  movem.l (%sp)+, %d0-%d3
+    rts
+
+file_confirm_update:
+    move.b OFF_FILE_PRESSED(%a5), %d0
+    btst #6, %d0                        | B: NO
+    bne 4f
+    btst #4, %d0                        | Start
+    bne 3f
+    btst #7, %d0                        | the joystick's button, A
+    bne 3f
+    andi.b #(BTN_SELECT + BTN_DOWN + BTN_UP), %d0
+    beq 9f
+    bsr file_click
+    eori.b #1, OFF_FILE_SEL(%a5)        | the other of the two
+    bra file_heart_show
+3:  tst.b OFF_FILE_SEL(%a5)
+    bne 4f
+    move.b #2, OFF_FILE_CONFIRM(%a5)    | YES: RETRY as it was
+    move.b #2, OFF_FILE_SEL(%a5)
+    bra file_continue_go
+4:  clr.b OFF_FILE_CONFIRM(%a5)         | NO: the three words again, the heart on RETRY
+    moveq #FILE_CONTINUE, %d0
+    bsr filesel_begin
+    move.b #2, OFF_FILE_SEL(%a5)
+    bra file_heart_show
+9:  rts
+
+file_ask_text:
+    .byte 14
+    .asciz "ARE YOU SURE?"
+    .byte 11
+    .asciz "ALL PROGRESS SINCE"
+    .byte 9
+    .asciz "LAST SAVE WILL BE LOST!"
+    .asciz "YES"
+    .asciz "NO"
+    .even

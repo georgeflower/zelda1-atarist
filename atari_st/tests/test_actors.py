@@ -250,14 +250,14 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(actors.MONSTER_DAMAGE[0x2F], 0)
         self.assertEqual(len(actors.FAIRY_TILES), 2)
 
-    def test_the_flying_ghini_and_the_armos_share_the_flying_state_machine(self) -> None:
-        # UpdateArmos and UpdateFlyingGhini are one routine in the ROM: both fly (the port's peahat code), neither is listed for a screen
+    def test_the_flying_ghini_flies_and_the_armos_walks(self) -> None:
+        # UpdateArmos is UpdateGoriya (the armos walks, at q-speed $20 or $60 by chance), UpdateFlyingGhini flies; neither is listed for a screen
         self.assertIn(0x22, actors.MONSTER_TYPES)
         self.assertEqual(actors.MONSTER_BEHAVIOUR[0x22], actors.BEHAVIOUR_ARMOS)
         self.assertEqual(actors.MONSTER_BEHAVIOUR[0x1E], actors.BEHAVIOUR_ARMOS)
         self.assertEqual(actors.MONSTER_DRAW[0x22], actors.MONSTER_DRAW[0x21])   # drawn like a ghini
         self.assertIn(0x22, actors.MONSTER_FLYERS)
-        self.assertIn(0x1E, actors.MONSTER_FLYERS)
+        self.assertNotIn(0x1E, actors.MONSTER_FLYERS)
         self.assertIn(0x22, actors.OVERWORLD_ART)
         self.assertNotIn(0x22, actors.OVERWORLD_LISTED)
         self.assertEqual(actors.MONSTER_DAMAGE[0x22], 2)    # ObjTypeToDamagePoints $01
