@@ -58,7 +58,7 @@ so do not add any of these or bump anything when you finish a milestone; what is
 
 ```
 build.ps1, util.ps1      PowerShell helpers from the original disassembly project
-README.md                short project overview (+ controls) and the step-by-step build instructions (Linux, Windows/WSL, with and without the ROM): keep them in step with the Makefile
+README.md                short project overview (+ controls) and the step-by-step build instructions (Linux, Windows/WSL): keep them in step with the Makefile
 AGENTS.md / CLAUDE.md    this briefing
 src/                     ORIGINAL NES disassembly (Z_00..Z_07.asm, *.inc, bins.xml, dat/)
 ext/Original.nes         your ROM (gitignored), 131088 bytes; built with The Legend of Zelda (Europe) (Rev 1)
