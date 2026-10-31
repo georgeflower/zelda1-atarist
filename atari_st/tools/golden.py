@@ -244,6 +244,10 @@ SCENES: dict[str, list[str]] = {
     "death_continue": ["--room", "0x77", "--vbls", "770", "--keys", DEATH],
     "death_continue_save": ["--room", "0x77", "--vbls", "800", "--keys", f"{DEATH},{_taps(780, ['tab'])}"],
     "death_continue_flash": ["--room", "0x77", "--vbls", "814", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
+    # RETRY asks first: ARE YOU SURE? with YES and NO (the heart on NO); NO is back at the three words with the heart on RETRY
+    "death_retry_ask": ["--room", "0x77", "--vbls", "900", "--keys", f"{DEATH},{_taps(780, ['tab', 'tab', 'return'], 10)}"],
+    "death_retry_no": ["--room", "0x77", "--vbls", "960", "--keys",
+                       f"{DEATH},{_taps(780, ['tab', 'tab', 'return'], 10)},{_taps(905, ['return'])}"],
     "death_continued": ["--room", "0x77", "--vbls", "1000", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
     # Dying after a room has scrolled: every scroll swaps BG_CUR and BG_NEXT, so intro_leave has to put all three buffers back,
     # not two (the clean room and the spare one were one buffer: the old Link and monsters stayed, the rooms were wrong).
