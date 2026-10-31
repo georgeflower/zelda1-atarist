@@ -31,6 +31,7 @@ spawn_room_enemies:
 
     bsr owspec_room_start_far       | the heart container of P6, the raft and the ladder
     bsr ow_save_kills               | the screen just left remembers how many died there
+    clr.b OFF_SPAWNED_WORLD(%a5)
     moveq #0, %d0                   | overworld: the screen's record in ow_room_info
     move.b OFF_ROOM_ID(%a5), %d0
     move.w %d0, %d1
@@ -64,6 +65,7 @@ uw_spawn:
     bsr uw_room_info_ptr
     tst.w %d1
     bmi 9b
+    bsr uw_spawn_begin_far          | the room just left remembers its kills; this one goes into the list of the last six
     bsr boss_room_init_f            | the rupee stash, Grumble
     btst #4, 1(%a1)
     beq 3f
@@ -98,23 +100,22 @@ uw_spawn:
     bsr block_setup_f
     uwlea FLAGS, %a2
     btst #0, 0(%a2, %d0.w)
-    beq spawn_from_record
-    moveq #0, %d2                   | cleared: only the recurring ones come back, the blade traps and the lanmolas
-    move.b (%a1), %d2               | (ModifyObjCountByHistoryUW: object lists $3A, $3B and from $49 on); the rest stay dead.
-    moveq #0, %d1                   | They head the record's list, so it is the first d1 that are placed.
+    beq 5f
+    moveq #0, %d2                   | cleared, and not yet back: only the blade traps are there (they head the record's list,
+    move.b (%a1), %d2               | so it is the first d1 that are placed)
+    moveq #0, %d1
 7:  cmp.w %d2, %d1
     bhs 8f
-    move.b 6(%a1, %d1.w), %d3
-    cmp.b #MON_TRAP_INDEX, %d3
-    beq 6f
-    cmp.b #MON_LANMOLA_INDEX, %d3
-    beq 6f
-    cmp.b #MON_LANMOLA_RED, %d3
+    cmp.b #MON_TRAP_INDEX, 6(%a1, %d1.w)
     bne 8f
-6:  addq.w #1, %d1
+    addq.w #1, %d1
     bra 7b
 8:  tst.w %d1
     beq 9b                      | already cleared: they stay dead
+    bra spawn_counted
+5:  bsr uw_remaining_far        | not cleared: what is left of them
+    tst.w %d1
+    beq 9b
     bra spawn_counted
 
 | a1 = a room record (monster count at 0, monster indices from 6): place them
@@ -256,6 +257,8 @@ ow_history_count:
 ow_save_kills:
     tst.b OFF_SPAWNED_VALID(%a5)
     beq 9f
+    tst.b OFF_SPAWNED_WORLD(%a5)
+    bne 9f                          | a dungeon room: its kills went with the way out
     movem.l %d0-%d3/%a0, -(%sp)
     moveq #0, %d3
     move.b OFF_SPAWNED_ROOM(%a5), %d3

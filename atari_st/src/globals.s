@@ -520,6 +520,8 @@
     gvar QUIT_KEYS, 1            | the keys it saw down last frame (quit.s)
     gvar MENU_CAVE, 1            | the inventory screen was opened inside a cave (Tab there shows the letter to the old woman): menu_close goes back to it
     gvar FILE_CONFIRM, 1         | the continue question's "are you sure" about RETRY is on show (filesel.s)
+    gvar SPAWNED_WORLD, 1        | 0 when SPAWNED_ROOM is an overworld screen, 1 when it is a dungeon room
+    gvar UW_KILLS, 128           | per dungeon room, the monsters killed since it was last filled (LevelKillCounts); cleared on the way in and out, not saved
     galign
     gvar IVP, 68                 | where each table of INTRO.DAT is while the buffer holds it (INTRO_TABLE_COUNT longs; ivtab, loader.s)
     .equ GLOBALS_BYTES, gvar_offset
