@@ -421,7 +421,7 @@ stays that of the display (50 updates a second) and only the picture runs at hal
   by slot number. `underworld.palette_lookup` builds a level's table; `palette_sync` (video.s, each frame) loads the one for
   `OFF_LEVEL`; code that restores the colours after a flash calls `cur_palette` (a0 = current table). A level's monsters must be
   baked with the level's own rows when its dungeon is added.
-- **Sprite palette row 3 is the level's own** (the NES dungeons give it three colours each: a Zol is black with gold eyes in Level 4, green in Level 3): the monsters are baked once with the overworld's row 3, which sits in slots 13-15, so `underworld.palette_lookup` puts the level's three row-3 colours into those slots while the level is shown (`SPRITE_ROW3`; a colour the background shares with it uses the slot, no extra art). **Except the special bosses**: `InitMode5Play` (`Z_07.asm`, `SpecialBossPaletteObjTypes`) looks at the first monster of a room and swaps row 3 for the boss's own colours: the Dodongos (`$31 $32`) and Digdoggers (`$38 $39`) get `$17 $27 $30` (brown, light orange, white: `ORANGE_BOSS_TYPES` / `ORANGE_BOSS_COLOURS` in `actors.py` bake their art in Link's and the shield's colours), Aquamentus `$0A $29 $30`, Gleeok `$2A $1A $0C` (not done yet: Level 8's Gleeok still wears the level's row 3), Ganon his own. `tools/refnes/zol_colour.mjs LEVEL ROOM TYPE` prints the palette the ROM shows in a room.
+- **Sprite palette row 3 is the level's own** (the NES dungeons give it three colours each: a Zol is black with gold eyes in Level 4, green in Level 3): the monsters are baked once with the overworld's row 3, which sits in slots 13-15, so `underworld.palette_lookup` puts the level's three row-3 colours into those slots while the level is shown (`SPRITE_ROW3`; a colour the background shares with it uses the slot, no extra art). **Except the special bosses**: `InitMode5Play` (`Z_07.asm`, `SpecialBossPaletteObjTypes`) looks at the first monster of a room and swaps row 3 for the boss's own colours: the Dodongos (`$31 $32`) and Digdoggers (`$38 $39`) get `$17 $27 $30` (brown, light orange, white: `ORANGE_BOSS_TYPES` / `ORANGE_BOSS_COLOURS` in `actors.py` bake their art in Link's and the shield's colours), Aquamentus `$0A $29 $30`, Gleeok `$2A $1A $0C` (green, dark green, dark blue-grey: `GLEEOK_TYPES` / `GLEEOK_SLOTS` in `actors.py` bake the body, necks and heads with slots 10, 7 and 11, which hold the nearest ST colours in every level), Ganon his own. The overworld's ground colour (`$37`) is shown a little darker (`build_assets.darken_overworld_ground`, ST `0x654`) so that the white sword, whose blade is the ground's colour in the ROM, can be seen on it. `tools/refnes/zol_colour.mjs LEVEL ROOM TYPE` prints the palette the ROM shows in a room.
 - Sprites: 16x16, 4 planes + 1 mask word, **160 bytes** (`SPRITE_FRAME_BYTES`). Narrow
   NES items (8 wide) are centred in the 16 px frame. `draw_sprite` (a0 frame, a1
   dest, d0 shift), `erase_at` restores from `BG_CUR` (the clean room).
@@ -476,7 +476,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   only from a boundary); gel moves 1 px/frame and rests `$08/$18/$28/$38` frames at each square edge. Keese: `ControlKeeseFlight`
   state machine (accelerate to `$C0`, chase/wander, slow, rest), fly over blocks, 8 dirs.
 - **Damage/invincibility**: Link `ObjInvincibilityTimer` `$18` counted every 2nd frame =
-  48 frames, shove 32 px; monsters `$10` = 32 frames, shove up to 64 px at 4 px/frame.
+  48 frames, shove 32 px; monsters `$10` = 32 frames, shove up to 64 px at 4 px/frame. The shove's last frame puts the monster back onto its lane (`enemy_shove_snap`: the last square boundary it passed); a monster left between squares would never look at the squares ahead and walked through walls and round the screen.
   Damage table `ObjTypeToDamagePoints` (`$80` = half heart, `$01` = one heart).
 - **Sword**: phases 1,8,1,1,1 frames; only cuts in state 2; tile `$20` (vertical,
   narrow) / `$82` (horizontal); offsets `PlayerToWeaponOffsetsX/Y` (Z_07). Hit box (`sword_box` in combat.s,
@@ -622,7 +622,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **Walking speeds** (`ROM_QSPEED` in `tools/actors.py`, held to `MONSTER_PERIOD` by `test_walking_speeds_are_the_roms_q_speeds`): a
   q-speed is a 64th of a pixel a frame: `$20` lynels, moblins, goriyas, slow octoroks, red darknuts, stalfos, gibdos, vires (a pixel every
   other frame), `$28` blue darknuts (5 in 8 frames), `$30` fast octoroks (6 in 8, `step_patterns` in `enemy.s`), `$18` zols (3 in 8), `$40`
-  gels and bubbles; a rope charges at `$60`. Armos and flying ghinis do not walk: they use the flying state machine (below). Speeds are per frame, and the game plays at the PAL NES's pace on both displays: at 60 Hz `main_loop` lets every sixth VBL pass without an update (`HOLD_SKIP`, after `wait_vbl`; the music holds the same one, `MUS_SKIP`), so 50 frames a second are played either way (the owner asked for it: a 60 Hz screen should not run faster than a 50 Hz one).
+  gels and bubbles; a rope charges at `$60`. The armos walks like a goriya at `$20` or `$60` (below); flying ghinis do not walk, they use the flying state machine. Speeds are per frame, and the game plays at the PAL NES's pace on both displays: at 60 Hz `main_loop` lets every sixth VBL pass without an update (`HOLD_SKIP`, after `wait_vbl`; the music holds the same one, `MUS_SKIP`), so 50 frames a second are played either way (the owner asked for it: a 60 Hz screen should not run faster than a 50 Hz one).
   **Ringleader** (`TRIGGER_RINGLEADER`, `uw_check_clear`): when slot 0 is dead, kill the others and open the shutters.
 - **Dodongo** (`$32`, `BEH_DODONGO`, `MODE_DODONGO`; ROM `UpdateDodongo`): a wanderer (turn rate `$20`) whose X is shifted by `$10` when it
   does not face left (it is two sprites wide: `draw_dodongo`, second erase offsets `ENEMY_ERASE2_OFFSETS`). State 0 walks, 1 is
@@ -636,10 +636,11 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   (half a pixel a frame, `ENEMY_SPEED/FRAC`); a wall bounce is kept in `ENEMY_BOUNCE` until the next turn. A killed segment comes back once with
   `$20` HP and the tail is removed instead; the head dies for good (`moldorm_died`). Drawn as tile `$44`, palette row 2.
 - **Overworld movers** (`movers.s`): tektites and boulders jump (`UpdateTektiteOrBoulder`), leevers and zoras burrow
-  (`ENEMY_GHOST`: bit 0 weapons pass through, bit 1 harms nobody), peahats fly, ghinis wander at rate `$FF`, the boulder set drops boulders. **Armos and flying ghinis** (`$1E`, `$22`, `BEH_ARMOS`;
-  `owspec_armos_ai`): `UpdateArmos` and `UpdateFlyingGhini` are one routine in the ROM, so both rise for `$3F` frames (`ENEMY_ANIMC`, shown every
-  other frame, no weapon touches them) and then fly in eight directions with `flyer_control` (decide rolls `$A0` and `$08`, top speed `$A0`,
-  speed `$1F` at the start) and `flyer_move`; unlike a peahat they can always be hit. A step blocked by a gravestone tile (`$BC`-`$BF`) makes a
+  (`ENEMY_GHOST`: bit 0 weapons pass through, bit 1 harms nobody), peahats fly, ghinis wander at rate `$FF`, the boulder set drops boulders. **Armos and flying ghinis** (`$1E`, `$22`, `BEH_ARMOS`; `owspec_armos_ai`): both rise for `$3F` frames (`ENEMY_ANIMC`, shown every
+  other frame, no weapon touches them). A **flying ghini** then flies in eight directions with `flyer_control` (decide rolls `$A0` and `$08`, top speed `$A0`,
+  speed `$1F` at the start) and `flyer_move`; unlike a peahat it can always be hit. An **armos** is no flyer: `UpdateArmos` is `UpdateGoriya`, so it walks
+  like a goriya (`goriya_ai`, never throwing) at a q-speed `InitArmosOrFlyingGhini` picks by chance when it has risen: `$20` (a pixel every other frame) or `$60` (a
+  pixel and a half a frame, stored in `ENEMY_SPEED`; the fast one is stepped by the rope's charging code: `owspec_armos_ai` hands the walker `d7` = rope and `ENEMY_STATE` = 1). A step blocked by a gravestone tile (`$BC`-`$BF`) makes a
   flying ghini on that square, one blocked by an armos tile (`$C0`-`$C3`) an armos (`ow_armos_touch`); a dying ghini (`$21`) puts out all flying
   ghinis (`ghini_lets_go_of_ghosts`); neither counts for the screen's kill history.
 - **Dungeon people** (`$4B..$52` in the room list; `actors.dungeon_people`): the speech is picked through

@@ -434,6 +434,30 @@ ow_armos_touch:
 9:  movem.l (%sp)+, %d0-%d5/%a0-%a1
     rts
 
+| A shove that ends between two squares would leave the monster off its lane: the walker only looks at the squares ahead (and
+| turns) where both X and Y are on the grid, so it would walk on through walls and round the screen. Called from
+| enemy_shove on its last frame: d2 = X, d3 = Y (words), d6 = the way it was shoved; back to the last square boundary it
+| passed (the one it started from when it passed none). The lanes down and up are at Y = 16 n + 13.
+enemy_shove_snap:
+    cmpi.b #ENEMY_SHOVE_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
+    bne 4f                              | only the shove's last frame
+    btst #0, %d6
+    beq 1f
+    and.w #0xfff0, %d2                  | right: down to the boundary
+    rts
+1:  btst #1, %d6
+    beq 2f
+    add.w #15, %d2                      | left: up to the boundary
+    and.w #0xfff0, %d2
+    rts
+2:  sub.w #13, %d3
+    btst #2, %d6
+    bne 3f
+    add.w #15, %d3
+3:  and.w #0xfff0, %d3
+    add.w #13, %d3
+4:  rts
+
 armos_rooms:
     .byte 0x24, 0x0b, 0x1c, 0x22, 0x34, 0x3d, 0x4e      | SecretArmosRoomIds
 armos_xs:
@@ -463,10 +487,14 @@ owspec_init:
 9:  movem.l (%sp)+, %d0/%a0
     rts
 
-| d5 = the armos or the flying ghini, called from mover_update. Returns d0.w = 1: it moves itself. It rises for $3F frames
-| (InitArmosOrFlyingGhini); then EndInitFlyer gives it speed $1F and the flying state machine takes over. UpdateArmos
-| and UpdateFlyingGhini are one routine in the ROM: ControlFlyingGhiniFlight (decide rolls $A0 and $08, top speed
-| $A0) and MoveFlyer, so an armos flies in eight directions like a peahat that can always be hit.
+| d5 = the armos or the flying ghini, called from mover_update (a tail jump: d4 = the frames a pixel step takes, d7 = the
+| behaviour, both the caller's own). Returns d0.w = 1: it moves itself, 0: the walker code in update_enemies moves it.
+| Both rise for $3F frames (InitArmosOrFlyingGhini). A flying ghini then gets speed $1F (EndInitFlyer) and the flying state
+| machine (ControlFlyingGhiniFlight: decide rolls $A0 and $08, top speed $A0, MoveFlyer). An armos is no flyer: UpdateArmos
+| is UpdateGoriya, so it walks like a goriya (but never throws), at a q-speed InitArmosOrFlyingGhini picks at random when it
+| has risen: $20 (a pixel every other frame, the table's period) or $60 (a pixel and a half a frame). The walker code
+| already steps a charging rope that fast, so a fast armos borrows it: it is called a rope (d7) that is charging
+| (ENEMY_STATE, which goriya_ai reads as "its boomerang is out" and so needs clear while it runs).
 owspec_armos_ai:
     movem.l %d1-%d3/%a0, -(%sp)
     lea OFF_ENEMY_ANIMC(%a5), %a0
@@ -479,18 +507,37 @@ owspec_armos_ai:
     bne 3f
     lea OFF_ENEMY_GHOST(%a5), %a0       | a flying ghini leaves no hole behind: weapons hurt it now
     clr.b 0(%a0, %d5.w)
+    lea OFF_ENEMY_SPEED(%a5), %a0       | EndInitFlyer
+    move.b #0x1f, 0(%a0, %d5.w)
     bra 4f
 3:  bsr armos_wake
-4:  lea OFF_ENEMY_SPEED(%a5), %a0       | EndInitFlyer
-    move.b #0x1f, 0(%a0, %d5.w)
-    lea OFF_ENEMY_FRAC(%a5), %a0
+    moveq #0x20, %d1                    | q-speed $20 if Random < $80, $60 otherwise
+    bsr rand8
+    cmp.b #0x80, %d0
+    blo 2f
+    moveq #0x60, %d1
+2:  lea OFF_ENEMY_SPEED(%a5), %a0
+    move.b %d1, 0(%a0, %d5.w)
+4:  lea OFF_ENEMY_FRAC(%a5), %a0
     clr.b 0(%a0, %d5.w)
     clr.b OFF_ENEMY_STATE(%a5, %d5.w)
     clr.b OFF_ENEMY_TIMER(%a5, %d5.w)
     clr.b OFF_ENEMY_STEP(%a5, %d5.w)
 8:  moveq #1, %d0
     bra 9f
-5:  move.w #0xa0, %d1                   | Flyer_GhiniDecideState: chase at >= $A0, wander at >= $08, else slow down
+5:  cmpi.b #MON_FGHINI, OFF_ENEMY_TYPE(%a5, %d5.w)
+    beq 6f
+    clr.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bsr goriya_ai_far                   | the armos turns toward Link like a goriya
+    lea OFF_ENEMY_SPEED(%a5), %a0
+    cmpi.b #0x60, 0(%a0, %d5.w)
+    bne 7f
+    move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
+    moveq #1, %d4                       | a step every frame, and one more every other frame
+    moveq #BEH_ROPE, %d7
+7:  moveq #0, %d0
+    bra 9f
+6:  move.w #0xa0, %d1                   | Flyer_GhiniDecideState: chase at >= $A0, wander at >= $08, else slow down
     move.w #0x08, %d2
     move.w #0xa0, %d3
     bsr flyer_control

@@ -93,7 +93,7 @@ MONSTER_PERIOD = {0x06: 2, 0x15: 1, 0x1B: 1, 0x28: 2, 0x2A: 2, 0x27: 3, 0x3D: 8,
 # InitObject's default $20 for lynels, moblins, goriyas, slow octoroks, red darknuts, the vire, rope (which charges at
 # $60), stalfos and gibdos; $30 for fast octoroks; $28 for blue darknuts; $18 for a zol; $40 for gels and bubbles.
 # tests/test_actors.py holds MONSTER_PERIOD to this: the two must give the same pixels per frame.
-# The armos and the flying ghini are no walkers: they fly like a peahat (UpdateArmos is UpdateFlyingGhini) and speed up to $A0.
+# The armos walks like a goriya (UpdateArmos calls UpdateGoriya) at $20 or $60, picked at random when it has risen; the flying ghini flies up to $A0.
 ROM_QSPEED = {0x01: 0x20, 0x02: 0x20, 0x03: 0x20, 0x04: 0x20, 0x05: 0x20, 0x06: 0x20,
               0x07: 0x20, 0x08: 0x30, 0x09: 0x20, 0x0A: 0x30, 0x0B: 0x20, 0x0C: 0x28,
               0x12: 0x20, 0x13: 0x18, 0x15: 0x40, 0x28: 0x20, 0x2A: 0x20, 0x2B: 0x40, 0x2C: 0x40, 0x2D: 0x40, 0x30: 0x20,
@@ -148,7 +148,7 @@ MONSTER_HURT = {
     0x2E: 0x00, 0x2F: 0x00,     # the whirlwind and the fairy take nothing
 }
 # Keese ignore walls and blocks and are only held in by the room edges.
-MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x1D, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x47, 0x48, 0x25, 0x26, 0x3E, 0x2E, 0x2F, 0x1E, 0x22)
+MONSTER_FLYERS = (0x1B, 0x1A, 0x1C, 0x1D, 0x3C, 0x38, 0xFB, 0x18, 0x43, 0x44, 0x45, 0xF9, 0x46, 0x47, 0x48, 0x25, 0x26, 0x3E, 0x2E, 0x2F, 0x22)
 
 # What the game does with a monster every frame, besides drawing it.
 (BEHAVIOUR_WANDER, BEHAVIOUR_ROPE, BEHAVIOUR_GORIYA, BEHAVIOUR_WALLMASTER, BEHAVIOUR_BOSS,
@@ -314,6 +314,10 @@ DODONGO_MIRRORED_IMAGES = (7, 9)
 # and the shield's rows: $17 and $27 in Link's row (pixel 3, 2), $30 in the second row (pixel 3).
 ORANGE_BOSS_TYPES = (0x31, 0x32, 0x38, 0xFB, 0x18)
 ORANGE_BOSS_COLOURS = ((4, 3), (4, 2), (5, 3))
+# Gleeok has the same kind of palette: $2A $1A $0C (green, dark green, dark blue-grey). The slots below hold the nearest ST colours
+# in every level: 10 is Link's tunic green (0x460), 7 the dark green (0x050, exactly $1A), 11 a dark blue (0x005).
+GLEEOK_TYPES = (0x43, 0x44, 0x45, 0xF9, 0x46)
+GLEEOK_SLOTS = (10, 7, 11)
 LANMOLA_SEGMENTS = 8        # two worms of four (ten of five each in the original)
 GANON_IMAGES = 10            # GanonFrameImages names ten 16x16 pictures (heap entries 0-9 of its animation) and the ashes (11)
 GANON_ASHES = 11
@@ -569,36 +573,16 @@ ROD_TILES = (0x4A, 0x8A)          # the rod's two pictures, Anim_ItemFrameTiles 
 SWORD_SETS = 4                    # wooden, white and magic sword, then the rod
 
 
-def _outlined(rows: list[list[int]], inside: int, edge: int) -> list[list[int]]:
-    """A one-pixel outline of colour `edge` round every `inside` pixel that has nothing beside it (up, down, left, right)."""
-    height, width = len(rows), len(rows[0])
-    out = [list(r) for r in rows]
-    for y in range(height):
-        for x in range(width):
-            if rows[y][x] != -1:
-                continue
-            for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-                ny, nx = y + dy, x + dx
-                if 0 <= ny < height and 0 <= nx < width and rows[ny][nx] == inside:
-                    out[y][x] = edge
-                    break
-    return out
-
-
 def _sword_frames(sp_tiles, bg_tiles, palette) -> bytes:
     """Link's sword facing up, down, left, right: one set a grade (the palette row is the grade - 1, as
     UpdateSwordOrRod adds it), then the magic rod (its base attribute with bit 0 set: row 5)."""
     rows = [(B.LINK_PALETTE_ROW, None), (B.LINK_PALETTE_ROW + 1, None), (B.LINK_PALETTE_ROW + 2, None),
             (B.LINK_PALETTE_ROW + 1, ROD_TILES)]
-    white_row = B.LINK_PALETTE_ROW + 1
 
     def frame(row, tiles, d):
-        picture = _weapon_rows(sp_tiles, bg_tiles, palette, d, row, tiles or (SWORD_TILE_VERTICAL, SWORD_TILE_HORIZONTAL))
-        if row == white_row and tiles is None:
-            # The white sword is white ($30) and the overworld's ground is $37, one step from it on the ST's three bits a colour, so
-            # on a real screen the blade vanishes: a thin outline in the row's own dark blue ($02) keeps it in view.
-            picture = _outlined(picture, palette.index(row, 3), palette.index(row, 1))
-        return _pack_masked(picture)
+        # The swords keep the ROM's colours: the white one and the magic one have a white blade. What kept it in view on a real
+        # screen was the overworld's ground, which build_assets.OW_GROUND_ST makes a little darker.
+        return _pack_masked(_weapon_rows(sp_tiles, bg_tiles, palette, d, row, tiles or (SWORD_TILE_VERTICAL, SWORD_TILE_HORIZONTAL)))
 
     return b"".join(frame(row, tiles, d) for row, tiles in rows for d in WEAPON_DIRECTIONS)
 
@@ -758,9 +742,9 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
         elif mode == MODE_MANHANDLA:
             images = _manhandla_images(tiles, palette, base, heap, attr_heap, layout)
         elif mode == MODE_GLEEOK:
-            images = _gleeok_images(tiles, palette)
+            images = _gleeok_images(tiles, _FixedPalette(GLEEOK_SLOTS))
         elif nes_type == 0xF9:
-            images = [_monster_image(tiles, palette, B.LINK_PALETTE_ROW + 3, GLEEOK_HEAD_TILE, "left")]
+            images = [_monster_image(tiles, _FixedPalette(GLEEOK_SLOTS), B.LINK_PALETTE_ROW + 3, GLEEOK_HEAD_TILE, "left")]
         elif mode == MODE_FAIRY:
             images = [_monster_image(tiles, palette, B.LINK_PALETTE_ROW + 2, tile, "narrow") for tile in FAIRY_TILES]
         elif mode == MODE_GANON:
@@ -812,6 +796,8 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
                 view = palette
                 if nes_type in ORANGE_BOSS_TYPES and row == B.LINK_PALETTE_ROW + 3:
                     view = _RemappedPalette(palette, ORANGE_BOSS_COLOURS)
+                if nes_type in GLEEOK_TYPES and row == B.LINK_PALETTE_ROW + 3:
+                    view = _FixedPalette(GLEEOK_SLOTS)
                 image_layout = layout[frame] if isinstance(layout, tuple) else layout
                 if mode == MODE_DODONGO and image in DODONGO_MIRRORED_IMAGES:
                     image_layout = "mirror"
