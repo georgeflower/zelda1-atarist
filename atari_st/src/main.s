@@ -1048,6 +1048,8 @@ blit_rect_far:
     bra blit_rect
 enemy_shove_snap_far:                   | last, so that it moves none of the stubs the 16-bit reach of begin_game needs
     bra enemy_shove_snap
+    farstub uw_spawn_begin_far, uw_spawn_begin
+    farstub uw_remaining_far, uw_remaining
 
     .include "autoplay.s"           | (dev builds only) right behind the far stubs, where the 16-bit reach is
     .include "link.s"

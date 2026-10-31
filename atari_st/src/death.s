@@ -444,6 +444,7 @@ game_reset_position:
 0:  clr.b (%a0)+
     dbra %d0, 0b
     clr.b OFF_ROOM_HIST_I(%a5)
+    bsr uw_kills_clear_df
     clr.b OFF_LEVEL(%a5)
     bsr mon_spr_select_df
     clr.b OFF_PAL_LEVEL(%a5)
@@ -507,6 +508,7 @@ death_restart:
     farstub show_background_df, show_background_far
     farstub music_stop_df, music_stop_far
     farstub mon_spr_select_df, mon_spr_select
+    farstub uw_kills_clear_df, uw_kills_clear
     farstub uw_select_level_df, uw_select_level
     farstub dbl_end_df, dbl_end_far
     farstub music_play_df, music_play_far

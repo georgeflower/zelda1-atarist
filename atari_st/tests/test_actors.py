@@ -211,13 +211,13 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(actors.MONSTER_DAMAGE[0x21], 2)
         self.assertIn(0x1A, actors.MONSTER_FLYERS)
 
-    def test_the_recurring_monsters_enemy_s_names_by_index_come_from_the_build(self) -> None:
-        # enemy.s keeps the blade trap and the blue lanmola coming back in a cleared room by their mon_table index; the
+    def test_the_blade_trap_enemy_s_names_by_index_comes_from_the_build(self) -> None:
+        # enemy.s and uw.s keep the blade traps coming back in a cleared room by their mon_table index; the
         # numbers are generated (a hard-coded one went wrong when the black keese joined the table)
-        source = (Path(__file__).resolve().parents[1] / "src" / "enemy.s").read_text(encoding="utf-8")
-        self.assertIn("MON_TRAP_INDEX", source)
-        self.assertIn("MON_LANMOLA_INDEX", source)
-        self.assertNotRegex(source, r"\.equ MON_(TRAP|LANMOLA)_INDEX")
+        for name in ("enemy.s", "uw.s"):
+            source = (Path(__file__).resolve().parents[1] / "src" / name).read_text(encoding="utf-8")
+            self.assertIn("MON_TRAP_INDEX", source)
+            self.assertNotRegex(source, r"\.equ MON_(TRAP|LANMOLA)_INDEX")
         builder = (Path(__file__).resolve().parents[1] / "tools" / "build_assets.py").read_text(encoding="utf-8")
         self.assertIn("MON_TRAP_INDEX, {uw.actors.mon_index[0x49]}", builder)
         self.assertIn("MON_LANMOLA_INDEX, {uw.actors.mon_index[0x3A]}", builder)
@@ -336,9 +336,18 @@ class ActorTableTests(unittest.TestCase):
     def test_the_push_block_flag_is_bit_7_of_the_trigger_byte(self) -> None:
         # attribute D bit 6 makes FindAndCreatePushBlockObject run, whatever the secret trigger is
         # (room $22, the bow room, has the block but trigger 0; room $42 has block and trigger 4)
-        for attr_d, attr_f, want in ((0xDA, 0x00, 0x80), (0x62, 0x04, 0x84), (0x1F, 0x07, 0x07), (0x80, 0x00, 0x00)):
+        # (attribute D bit 7 makes the list id $40, a list that never comes back: bit 3 as well)
+        for attr_d, attr_f, want in ((0xDA, 0x00, 0x88), (0x62, 0x04, 0x84), (0x1F, 0x07, 0x07), (0x80, 0x00, 0x08)):
             record = actors._room_info(0, ([0], [attr_d], [0], [attr_f]), [3, 5, 6, 8], bytes(64))
             self.assertEqual(record[1], want, f"D {attr_d:#x} F {attr_f:#x}")
+
+    def test_bosses_and_single_big_monsters_are_marked_as_never_coming_back(self) -> None:
+        # trigger bit 3: the object lists $32-$48 (but not the lanmolas $3A/$3B) stay dead; every other list recurs
+        for list_id, never in ((0x01, False), (0x31, False), (0x32, True), (0x3C, True), (0x3A, False), (0x3B, False),
+                               (0x48, True), (0x49, False)):
+            attrs = ([list_id & 0x3F], [0x80 if list_id & 0x40 else 0], [0], [0])
+            record = actors._room_info(0, attrs, [1, 4, 5, 6], bytes(64))
+            self.assertEqual(bool(record[1] & 0x08), never, f"list {list_id:#x}")
 
     def test_a_lone_moldorm_becomes_two_worms_of_four_segments(self) -> None:
         segment = actors.MONSTER_TYPES.index(0x41)

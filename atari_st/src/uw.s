@@ -186,6 +186,7 @@ uw_render_map:
 | Build and draw the current room. d0.w = room id, a1 = destination buffer
 uw_render_current:
     movem.l %d1/%a0, -(%sp)
+    bsr uw_respawn_check
     bsr uw_mark_visited
     lea OFF_UW_MAP(%a5), %a0
     move.b OFF_UW_ENTER_MASK(%a5), %d1
@@ -217,6 +218,7 @@ uw_render_next:
     movem.l %d1-%d3/%a0, -(%sp)
     clr.b OFF_STASH_ROOM(%a5)           | Link is leaving a room: its rupees are no longer on show
     clr.b OFF_ROOM_LIT(%a5)             | and a room he lit is dark again
+    bsr uw_respawn_check
     | The door Link comes in through is the opposite one; E/W and S/N swap.
     move.b %d1, %d2
     and.b #5, %d2
@@ -237,6 +239,144 @@ uw_render_next:
     bsr uw_bake_person
     bsr uw_bake_boss
     movem.l (%sp)+, %d1-%d3/%a0
+    rts
+
+| ---------------------------------------------------------------- the monsters come back
+| The shared list of the last six rooms entered (RoomHistory), the kills of every room (LevelKillCounts) and the rules
+| of ModifyObjCountByHistoryUW. The overworld's side is in enemy.s.
+
+| d0.w = the room Link is in, a1 = its record. The room just left remembers how many died in it, and this one goes into the list.
+uw_spawn_begin:
+    movem.l %d0-%d2/%a0, -(%sp)
+    tst.b OFF_SPAWNED_VALID(%a5)
+    beq 3f
+    tst.b OFF_SPAWNED_WORLD(%a5)
+    beq 3f                          | a screen of the overworld is forgotten on the way in
+    moveq #0, %d1
+    move.b OFF_SPAWNED_ROOM(%a5), %d1
+    lea OFF_UW_KILLS(%a5), %a0
+    moveq #0, %d2
+    move.b OFF_ROOM_KILLS(%a5), %d2
+    add.b 0(%a0, %d1.w), %d2
+    bcc 2f
+    moveq #-1, %d2
+2:  move.b %d2, 0(%a0, %d1.w)
+3:  move.b (%a1), OFF_ROOM_OBJ(%a5)
+    clr.b OFF_ROOM_KILLS(%a5)
+    move.b %d0, OFF_SPAWNED_ROOM(%a5)
+    move.b #1, OFF_SPAWNED_VALID(%a5)
+    move.b #1, OFF_SPAWNED_WORLD(%a5)
+    lea OFF_ROOM_HIST(%a5), %a0     | the list of the last six: this room goes in, unless it is there already
+    moveq #5, %d2
+4:  cmp.b 0(%a0, %d2.w), %d0
+    beq 9f
+    dbra %d2, 4b
+    moveq #0, %d2
+    move.b OFF_ROOM_HIST_I(%a5), %d2
+    move.b %d0, 0(%a0, %d2.w)
+    addq.b #1, %d2
+    cmp.b #6, %d2
+    blo 5f
+    moveq #0, %d2
+5:  move.b %d2, OFF_ROOM_HIST_I(%a5)
+9:  movem.l (%sp)+, %d0-%d2/%a0
+    rts
+
+| d0.w = the room, a1 = its record. Returns d1.w = how many of its monsters are there. A room that is cleared (and not yet
+| back) has only its blade traps, which head the record's list; one that is not has all of them, less the ones killed on
+| earlier visits (a boss is all there until it is dead).
+uw_remaining:
+    movem.l %d2/%a0, -(%sp)
+    moveq #0, %d1
+    uwlea FLAGS, %a0
+    btst #0, 0(%a0, %d0.w)
+    beq 3f
+    moveq #0, %d2
+    move.b (%a1), %d2
+1:  cmp.w %d2, %d1
+    bhs 9f
+    cmp.b #MON_TRAP_INDEX, 6(%a1, %d1.w)
+    bne 9f
+    addq.w #1, %d1
+    bra 1b
+3:  move.b (%a1), %d1
+    btst #3, 1(%a1)
+    bne 9f
+    lea OFF_UW_KILLS(%a5), %a0
+    moveq #0, %d2
+    move.b 0(%a0, %d0.w), %d2
+    sub.w %d2, %d1
+    bpl 9f
+    moveq #0, %d1
+9:  movem.l (%sp)+, %d2/%a0
+    rts
+
+| Before a dungeon room is drawn, d0.w = its number: a room that was cleared and has dropped out of the list of the last
+| six starts afresh, with its monsters back and its shutters shut. A boss stays dead, and the blade traps come back
+| as they always did. (The picture needs the shutters, so this comes before the drawing and the spawn.)
+uw_respawn_check:
+    movem.l %d0-%d2/%a0-%a2, -(%sp)
+    andi.w #0x7f, %d0
+    uwlea FLAGS, %a2
+    btst #0, 0(%a2, %d0.w)
+    beq 9f
+    bsr uw_room_info_ptr
+    tst.w %d1
+    bmi 9f
+    tst.b (%a1)
+    beq 9f                          | nobody lives here
+    btst #3, 1(%a1)
+    bne 9f                          | a boss stays dead
+    cmp.b #MON_TRAP_INDEX, 6(%a1)
+    beq 9f
+    lea OFF_ROOM_HIST(%a5), %a0
+    moveq #5, %d2
+1:  cmp.b 0(%a0, %d2.w), %d0
+    beq 9f                          | among the last six: nobody is here yet
+    dbra %d2, 1b
+    bclr #0, 0(%a2, %d0.w)
+    lea OFF_UW_KILLS(%a5), %a0
+    clr.b 0(%a0, %d0.w)
+    lvtab ROOM_INDEX, %a0
+    moveq #0, %d2
+    move.b 0(%a0, %d0.w), %d2
+    mulu.w #UW_DOOR_RECORD_BYTES, %d2
+    lvtab DOORS, %a1
+    adda.l %d2, %a1
+    uwlea OPEN, %a2
+    moveq #3, %d2
+2:  cmpi.b #DOOR_SHUTTER, 0(%a1, %d2.w)
+    bne 3f
+    bclr %d2, 0(%a2, %d0.w)
+3:  dbra %d2, 2b
+9:  movem.l (%sp)+, %d0-%d2/%a0-%a2
+    rts
+
+| Link goes into or out of a dungeon (InitMode2): the list of the last six rooms and the kills of every room are wiped.
+| The flags of the rooms stay.
+history_clear:
+    movem.l %d0/%a0-%a1, -(%sp)
+    lea OFF_ROOM_HIST(%a5), %a0
+    moveq #5, %d0
+1:  clr.b (%a0)+
+    dbra %d0, 1b
+    clr.b OFF_ROOM_HIST_I(%a5)
+    lea OFF_UW_KILLS(%a5), %a0
+    lea OFF_OW_KILLS(%a5), %a1
+    moveq #127, %d0
+2:  clr.b (%a0)+
+    and.b #0xf8, (%a1)+             | (the overworld's screens lose their kills, not what was found there)
+    dbra %d0, 2b
+    movem.l (%sp)+, %d0/%a0-%a1
+    rts
+
+uw_kills_clear:
+    movem.l %d0/%a0, -(%sp)
+    lea OFF_UW_KILLS(%a5), %a0
+    moveq #127, %d0
+1:  clr.b (%a0)+
+    dbra %d0, 1b
+    movem.l (%sp)+, %d0/%a0
     rts
 
 | The scroll has finished: the room that was drawn off screen is now current.
@@ -831,6 +971,7 @@ uw_select_level:
 uw_enter_level:
     move.b OFF_ROOM_ID(%a5), OFF_CAVE_SOURCE_ROOM(%a5)
     bsr uw_select_level
+    bsr history_clear
 
 | Link starts the level over: the first room, at the bottom, walking up. This
 | is also where a wallmaster takes him.
@@ -870,6 +1011,7 @@ uw_leave_level:
     move.b #ROOM_BOUND_RIGHT, OFF_OBJ_RIGHT(%a5)
     move.b #ROOM_BOUND_UP, OFF_OBJ_UP(%a5)
     move.b #ROOM_BOUND_DOWN, OFF_OBJ_DOWN(%a5)
+    bsr history_clear
     move.b OFF_CAVE_SOURCE_ROOM(%a5), OFF_ROOM_ID(%a5)
     moveq #0, %d2
     move.b OFF_ROOM_ID(%a5), %d2
