@@ -1,6 +1,6 @@
 # The Legend of Zelda for Atari ST
 
-A port of Zelda 1 to the Atari ST. It's written in 68000 assembly and runs as a normal TOS `.PRG` on an ST with 1 MB of RAM (320x200, 16 colours). I run it in Hatari.
+A port of Zelda 1 to the Atari ST. It's written in 68000 assembly and runs as a normal TOS `.PRG` on an ST with 512 KB of RAM or more (320x200, 16 colours). I run it on my 520 STFM and in Hatari.
 
 There is no game data in this repo. You have to bring your own ROM and put it in `ext/Original.nes`. The graphics, rooms, music and texts are all read from it when you build. The ROM is gitignored and should never be committed.
 
@@ -10,7 +10,7 @@ I'm making this together with an AI (Claude, from Anthropic). I decide what to b
 
 Work in progress. Both quests are in: the whole overworld, all nine dungeons up to Ganon and Zelda, every item, title and story, file select, death and continue, saving to `ZELDA.SAV`, the credits and the music. Expect bugs. There is a short list of what is left in [`atari_st/PLAN.md`](atari_st/PLAN.md).
 
-The Second Quest starts when you make a file called ZELDA (like the original), or when you finish the game. The `.PRG` is about 270 KB; the title, story, credits and file menu data is in `INTRO.DAT` and each dungeon's data is in a file of its own (`LEVEL1.DAT` ... `LEVEL9.DAT`, and `LEVEL1Q.DAT` ... `LEVEL9Q.DAT` for the Second Quest) that the game reads when you go in, so keep them in the same folder as the `.PRG`. I am working on making it fit a 512 KB ST (see [`atari_st/PLAN.md`](atari_st/PLAN.md)); for now you need 1 MB of RAM.
+The Second Quest starts when you make a file called ZELDA (like the original), or when you finish the game. The `.PRG` is about 270 KB; the title, story, credits and file menu data is in `INTRO.DAT` and each dungeon's data is in a file of its own (`LEVEL1.DAT` ... `LEVEL9.DAT`, and `LEVEL1Q.DAT` ... `LEVEL9Q.DAT` for the Second Quest) that the game reads when you go in, so keep them in the same folder as the `.PRG`. It fits a 512 KB ST: it needs about 390 KB free after loading and a 520 STFM has about 407 KB. If there is not enough memory it says so and exits.
 
 ## Controls
 
@@ -20,9 +20,9 @@ The Second Quest starts when you make a file called ZELDA (like the original), o
 | `Ctrl`, joystick fire | sword (A) |
 | `Space`, `Alternate` or `B` | B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
 | `Tab` | inventory screen (Left/Right to choose the B item) |
-| `K` | debug: a key, four bombs and the candle |
+| `T` | debug: the room number on the ribbon |
 | `T` | debug: show the room id (`RM-37`, or `CL-xx` in a cellar) on the ribbon |
-| `Esc` | quit |
+| `Esc` | asks to quit: QUIT WITHOUT SAVING, SAVE AND QUIT or BACK TO GAME (Up/Down and Return, or Esc again to go back) |
 
 ## Build
 
@@ -111,14 +111,14 @@ If a tool has another name or lives somewhere else, give it to make: `make -C at
 
 ### Running it
 
-You need an emulator with 1 MB of RAM (an STFM; real hardware is not tested) and a TOS image: [EmuTOS](https://emutos.sourceforge.io/) 1.4 (the 512k version) is free. Hatari is on [hatari-emu.org](https://hatari-emu.org/) (also as a Windows build) or `sudo apt-get install hatari`.
+You need an ST with 512 KB of RAM or more, real or in an emulator, and a TOS image for the emulator: [EmuTOS](https://emutos.sourceforge.io/) 1.4 (the 512k version) is free. Hatari is on [hatari-emu.org](https://hatari-emu.org/) (also as a Windows build) or `sudo apt-get install hatari`.
 
 ```sh
 make -C atari_st dist && mkdir -p ~/zelda-disk && cp atari_st/build/dist/* ~/zelda-disk/
 hatari --tos /path/to/etos512us.img --machine st --memsize 1 --harddrive ~/zelda-disk --auto 'C:\ZELDAST.PRG'
 ```
 
-The save file `ZELDA.SAV` is written to that folder. The same thing can be done from the Hatari menus (F12): set the TOS image, 1 MB, a GEMDOS drive folder (with the `.DAT` files in it too), and double-click `ZELDAST.PRG`. On Windows give the paths in Windows form, for example `--harddrive C:\zelda-disk`.
+The save file `ZELDA.SAV` is written to that folder. The same thing can be done from the Hatari menus (F12): set the TOS image, 1 MB of RAM (512 KB is enough too), a GEMDOS drive folder (with the `.DAT` files in it too), and double-click `ZELDAST.PRG`. On Windows give the paths in Windows form, for example `--harddrive C:\zelda-disk`.
 
 ### Without the ROM
 

@@ -621,6 +621,9 @@ update_cave:
     bsr erase_sprite
     bsr erase_cave_fires_far
     bsr cave_sprites_erase_far
+    bsr menu_check_open_cave_far        | Tab: the inventory screen, for the letter
+    cmp.b #MODE_CAVE, OFF_GAME_MODE(%a5)
+    bne 9f
     bsr cave_talk_far
     bsr cave_update_far
     tst.b OFF_CAVE_TEXT_ON(%a5)

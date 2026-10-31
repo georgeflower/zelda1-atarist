@@ -41,6 +41,8 @@ SWORD_DX, SWORD_DY = 0x0C, -3                  # Mode1_WriteLinkSprites
 LINK_STEP = 0x18                               # the next slot, $18 pixels down
 
 # Frames in file_sprites.bin
+BLUE_RING = 0x32                                # the colour LinkColors gives the blue ring
+GAME_BLUE = 0x22                                # the NES colour whose ST colour the game's blue-ring Link wears (the water's blue)
 FRAME_LINK = 0                                 # three: the ring Link wears (none, blue, red) picks the colour of his tunic
 FRAME_SWORD = 3
 FRAME_HEART = 4                                # red (palette 7 as it is in modes 1 and E)
@@ -103,6 +105,8 @@ def build(source_root: Path) -> MenuData:
     if len(link_colours) != 3:
         raise SystemExit("LinkColors is not three colours")
     for ring, colour in enumerate(link_colours):
+        if colour == BLUE_RING:
+            colour = GAME_BLUE         # as in the game (build_assets.link_tunic_indices): $32 itself is a pale lavender that looks white
         pal32[16 + 4 * ring + 1] = colour
     palette = B.build_palette_map(pal32)
     out.palette = list(palette.st_colors)

@@ -15,6 +15,10 @@
     farstub music_exit_lf, music_exit
     farstub restore_video_lf, restore_video
     farstub terminate_lf, terminate
+    farstub text_draw_lf, text_draw
+
+    .equ LOADING_COL, 15                | the box: nine cells wide and three high, the word in its middle row
+    .equ LOADING_ROW, 11
 
 | d3 = the file's handle, a3 = where, d0.l = how many bytes. Returns d0.l = the bytes read, negative on an error. (GEMDOS
 | keeps d3-d7 and a3-a6, so the working values live there.)
@@ -43,6 +47,7 @@ file_close:
 | tools/build_assets.py): the whole level in one read, nothing else in memory to hold it.
 level_load:
     movem.l %d0-%d5/%a0-%a4, -(%sp)
+    bsr loading_show
     clr.w OFF_LOAD_KEY(%a5)             | until it is in, the buffer holds nothing
     movea.l %a0, %a4                    | the name
     move.w %d2, %d5
@@ -101,6 +106,65 @@ level_load:
 
     .include "lz.s"
 
+| LOADING, in a black box in the middle of the screen on show (the shifter's base, whichever buffer that is), so that a floppy's
+| seconds do not look like a hung machine. Whatever the box covers is drawn again when the file is in.
+loading_show:
+    movem.l %d0-%d2/%a0, -(%sp)
+    move.l OFF_SCREEN_PTR(%a5), -(%sp)
+    bsr video_base_now
+    move.l %d0, OFF_SCREEN_PTR(%a5)
+    moveq #LOADING_COL, %d1
+    moveq #LOADING_ROW, %d2
+    lea loading_blank(%pc), %a0
+    bsr text_draw_lf
+    addq.w #1, %d2
+    lea loading_text(%pc), %a0
+    bsr text_draw_lf
+    addq.w #1, %d2
+    lea loading_blank(%pc), %a0
+    bsr text_draw_lf
+    move.l (%sp)+, OFF_SCREEN_PTR(%a5)
+    movem.l (%sp)+, %d0-%d2/%a0
+    rts
+
+| d0.l = where the shifter is reading the screen from (a plain ST has no low byte: the base is 256-byte aligned).
+video_base_now:
+    movea.l #VIDEO_BASE_HI, %a0
+    moveq #0, %d0
+    move.b (%a0), %d0
+    lsl.l #8, %d0
+    movea.l #VIDEO_BASE_MID, %a0
+    move.b (%a0), %d0
+    lsl.l #8, %d0
+    rts
+
+| Before INTRO.DAT is read: the screen on show black, the colours of the overworld (the title, the credits and the file
+| menu set their own once the pictures are in), so that the box has something to stand on.
+loading_clear:
+    movem.l %d0-%d1/%a0-%a1, -(%sp)
+    bsr video_base_now
+    movea.l %d0, %a0
+    moveq #0, %d0
+    move.w #(SCREEN_BYTES / 16 - 1), %d1
+1:  move.l %d0, (%a0)+
+    move.l %d0, (%a0)+
+    move.l %d0, (%a0)+
+    move.l %d0, (%a0)+
+    dbra %d1, 1b
+    ltab room_palette, %a0
+    movea.l #PALETTE_BASE, %a1
+    moveq #15, %d1
+2:  move.w (%a0)+, (%a1)+
+    dbra %d1, 2b
+    movem.l (%sp)+, %d0-%d1/%a0-%a1
+    rts
+
+loading_text:
+    .asciz " LOADING "
+loading_blank:
+    .asciz "         "
+    .even
+
 | Make sure the buffer holds INTRO.DAT, the pictures of the title, the story, the credits and the file menu, and that
 | IVP (ivtab) points at them. Cheap when it does already. The dungeon in the buffer, if there was one, is gone: the next
 | uw_select_level reads it again (LOAD_KEY says what the buffer holds). Keeps every register.
@@ -109,6 +173,7 @@ intro_data_load:
     move.w #(INTRO_RECORD + 1), %d2
     cmp.w OFF_LOAD_KEY(%a5), %d2
     beq 2f
+    bsr loading_clear
     lea intro_file_name(%pc), %a0
     bsr level_load
     movea.l OFF_LEVEL_BUF(%a5), %a1

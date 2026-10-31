@@ -77,6 +77,7 @@ SCENES: dict[str, list[str]] = {
     "story_page": ["--vbls", "1600"],
     "story_parade": ["--vbls", "2600"],
     "title_start": ["--vbls", "480", "--keys", "400:+return,420:-return"],
+    "title_start_ctrl": ["--vbls", "480", "--keys", "400:+ctrl,420:-ctrl"],       # PRESS FIRE: Ctrl is the keyboard's fire button
     "file_register": ["--vbls", "480", "--keys", MENU_TO_REGISTER],
     "file_register_typed": ["--vbls", "556", "--keys", f"{MENU_TO_REGISTER},{MENU_ZELDA}"],
     "file_named": ["--vbls", "700", "--keys", MENU_REGISTERED],
@@ -92,6 +93,14 @@ SCENES: dict[str, list[str]] = {
                          f"{INV_OW},300:=INV_LETTER=1,301:=B_ITEM=9,380:+tab,385:-tab,420:+right,423:-right,445:+left,448:-left"],
     "inv_dungeon": ["--uw", "0x73", "--level", "1", "--vbls", "400", "--keys", f"{INV_UW},380:+tab,385:-tab"],
     "ow_start": ["--room", "0x77", "--vbls", "420"],
+    # Esc asks before the game ends (quit.s). The keys poke the request itself: the harness does not send scancodes through the IKBD.
+    "quit_menu": ["--room", "0x77", "--vbls", "400", "--keys", "380:=EXIT_REQUESTED=1"],
+    "quit_menu_save": ["--room", "0x77", "--vbls", "440", "--keys", "380:=EXIT_REQUESTED=1,410:+down,413:-down"],
+    "quit_menu_back": ["--room", "0x77", "--vbls", "500", "--keys", "380:=EXIT_REQUESTED=1,410:+up,413:-up,430:+return,433:-return"],
+    "quit_menu_esc": ["--room", "0x77", "--vbls", "500", "--keys", "380:=EXIT_REQUESTED=1,430:=EXIT_REQUESTED=1"],
+    "quit_menu_inventory": ["--room", "0x77", "--vbls", "460", "--keys", "380:+tab,385:-tab,420:=EXIT_REQUESTED=1"],
+    "quit_menu_dungeon": ["--uw", "0x73", "--level", "1", "--vbls", "400", "--keys", "380:=EXIT_REQUESTED=1"],
+    "quit_menu_dungeon_back": ["--uw", "0x73", "--level", "1", "--vbls", "500", "--keys", "380:=EXIT_REQUESTED=1,430:=EXIT_REQUESTED=1"],
     "ow_entrance_l2": ["--room", "0x3c", "--vbls", "420"],
     "uw1_start": ["--uw", "0x73", "--level", "1", "--vbls", "420"],
     "uw1_aquamentus": ["--uw", "0x35", "--level", "1", "--vbls", "420"],
@@ -174,6 +183,9 @@ SCENES: dict[str, list[str]] = {
     # The ladder carries Link one square: Level 4's moat in room $21 is two squares thick, and he stops on the ladder (as in the ROM).
     "uw4_ladder_two_wide": ["--uw", "0x21", "--level", "4", "--vbls", "330", "--keys",
                             "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,250:=LINK_X=0x50,250:=LINK_Y=0x5D,250:=LINK_DIR=4,260:+down"],
+    # A moat one square thick (Level 4, room $30, dark: the candle is lit): the ladder carries Link over it, going up (CheckLadder case E).
+    "uw4_ladder_one_wide": ["--uw", "0x30", "--level", "4", "--vbls", "345", "--keys",
+                            "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,250:=INV_CANDLE=1,250:=B_ITEM=3,260:+space,262:-space,300:+up"],
     # Sprite palette row 3 is the level's own: the Zols of Level 4 are black with gold eyes.
     "uw4_zols": ["--uw", "0x32", "--level", "4", "--vbls", "260"],
     # Ganon: brown after the sword, then a silver arrow. He burns solid, the ashes stay under the Triforce of Power.
@@ -231,6 +243,18 @@ SCENES: dict[str, list[str]] = {
     "death_continue_save": ["--room", "0x77", "--vbls", "800", "--keys", f"{DEATH},{_taps(780, ['tab'])}"],
     "death_continue_flash": ["--room", "0x77", "--vbls", "814", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
     "death_continued": ["--room", "0x77", "--vbls", "1000", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
+    # Dying after a room has scrolled: every scroll swaps BG_CUR and BG_NEXT, so intro_leave has to put all three buffers back,
+    # not two (the clean room and the spare one were one buffer: the old Link and monsters stayed, the rooms were wrong).
+    "death_continued_scrolled": ["--room", "0x77", "--vbls", "1250", "--keys",
+                                 f"260:+up,440:-up,470:=DYING=1,{_taps(1010, ['return'])},1100:+left,1130:-left"],
+    # Tab inside a cave: the inventory screen opens, and closing it gives the cave back as it was (the same frame as without it); the
+    # medicine woman (cave type 10, behind screen $78) wants the letter chosen as the B item there, then B shows it to her.
+    "cave_inventory": ["--room", "0x77", "--cave", "--vbls", "450", "--keys", "430:+tab,432:-tab"],
+    "cave_inventory_closed": ["--room", "0x77", "--cave", "--vbls", "520", "--keys", "430:+tab,432:-tab,470:+tab,472:-tab"],
+    "cave_letter_shown": ["--room", "0x78", "--cave", "--vbls", "800", "--keys",
+                          "400:=INV_LETTER=1,430:+tab,432:-tab,450:+right,452:-right,480:+tab,482:-tab,520:+space,522:-space"],
+    # The white sword has a dark blue outline: its white blade is as light as the ground on a real screen.
+    "ow_white_sword": ["--room", "0x77", "--vbls", "272", "--keys", "250:=HAS_SWORD=2,260:+ctrl,262:-ctrl"],
     # Continuing in a dungeon: the file menu has used the level buffer, so the level's file is read again.
     "uw1_death_continued": ["--uw", "0x74", "--level", "1", "--vbls", "1000", "--keys", f"{DEATH},{_taps(780, ['return'])}"],
 }

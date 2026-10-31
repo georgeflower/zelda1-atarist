@@ -7,7 +7,7 @@ learn something new and durable, add it here.
 
 ## 1. What this is
 
-A native **Atari ST (STFM, 1 MB, 68000)** port of **The Legend of Zelda (NES,
+A native **Atari ST (STFM, 512 KB or more, 68000)** port of **The Legend of Zelda (NES,
 1986)**, written in 68000 assembly (GNU as syntax) and driven by a Python asset
 pipeline that reads graphics, rooms, palettes and text from a **ROM you supply
 yourself** (`ext/Original.nes`, gitignored, never committed). It produces a stock
@@ -17,7 +17,7 @@ TOS `ZELDAST.PRG` that runs in Hatari (and should on real hardware): 320x200,
 Current scope: the whole overworld (128 screens) with its monsters, hidden spots, specials, caves and shops; all nine dungeons of the First Quest
 and all nine of the Second Quest, with their monsters and bosses, up to Ganon, Zelda's thanks and the credits; every item of the original's
 inventory; the title, the file menu, death, the continue question and saving to `ZELDA.SAV`. The PRG is about 300 KB and each dungeon's data is a file of its own
-(`LEVEL<n>[Q].DAT`, packed, read and unpacked when Link goes in, see `loader.s`) and the title, story, credits and file menu data is `INTRO.DAT` (the same format, record 100); the game needs about 390 KB free after loading (a 520 STFM has about 407 KB), 512 KB machines under EmuTOS are the next goal. What is left is in `atari_st/PLAN.md`.
+(`LEVEL<n>[Q].DAT`, packed, read and unpacked when Link goes in, see `loader.s`) and the title, story, credits and file menu data is `INTRO.DAT` (the same format, record 100); the game needs about 390 KB free after loading (a 520 STFM has about 407 KB), so it runs on a 512 KB machine such as the owner's 520 STFM. What is left is in `atari_st/PLAN.md`.
 
 The repository root also contains the original disassembly the port is built on
 (`src/Z_00.asm` .. `Z_07.asm`, aldonunez's labelled NES disassembly). It is the
@@ -95,14 +95,15 @@ atari_st/                the port
 | `combat.s` | sword, beam, bombs, candle, drops/kill counters, `take_item`, HP/knock-back, rings, shield, clock, effects (spark/cloud), shutters, triforce ending, the ringleader trigger |
 | `hud.s` | status ribbon, hearts, counters, A/B boxes (`hud_items`) |
 | `menu.s` | Tab inventory screen (MODE_MENU), laid out as the ROM's submenu: B-item box, items box with the cursor, passive row, triforce or map sheet; the HUD ribbon sits below it |
+| `quit.s` | The Esc question (`MODE_QUIT` 6): QUIT WITHOUT SAVING / SAVE AND QUIT (`save_store_game` of the slot in `OFF_PROFILE`, then `exit_program`) / BACK TO GAME (Esc again does the same), three lines on a black screen with the ribbon's heart as the cursor; Up/Down (W/S, joystick) move, Return, keypad Enter, Ctrl, Space or the joystick button choose (`QUIT_SEL`, `QUIT_KEYS`); opened by `menu_check_open` after the sprites are erased (as the Tab screen is), closed like `menu_close`; `text_draw` writes an ASCII string with `text_glyphs`; a scroll or a cave keeps the request until Link walks again |
 | `intro.s` | the title, the story and the parade of the treasures (MODE_INTRO, game mode 0 of the ROM, M10): ring of 200 lines filled from tile tables, the waterfall's sprites, the glowing Triforce, the fade, `intro_leave`; included after `bosses.s`, reaches main.s through `*_far` stubs |
 | `credits.s` | the credits wall (`INTRO_PHASE_CREDITS` of `MODE_INTRO`, game mode `$13` of the ROM after Zelda's words): the same ring of 200 lines as the story, filled from `credits_*` tables; scrolls 600 lines, then the last screen (ash pile, flashing Triforce of Power); included after `intro.s` |
 | `filesel.s` | the file menu (mode 1, E, F inside `MODE_INTRO` phase 2): player select, name board, elimination, and the continue question after a death (`FILE_CONTINUE`); the slots (`SLOT_*`) |
 | `death.s` | Link's death (`MODE_DEATH`, game mode $11): blink, the red-world remap, spin, fade, grey Link and spark, GAME OVER, then the continue question; also `game_reset_position`, `death_continue/save/retry` (M10 c) |
 | `exit.s` | `restore_ikbd` (via `restore_ikbd_far`): what leaving the game puts back for TOS: the keyboard interrupt masked while the vector returns, both ACIAs emptied, the MFP's pending and in-service marks of the keyboard cleared, the mouse set to relative mode |
 | `save.s` | `ZELDA.SAV` through GEMDOS (Fopen/Fread/Fcreate/Fwrite/Frename...): records of 640 bytes, the `save_fields` table, the secrets patch log replay, checksum (M10 c) |
-| `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level` (loads the level's file), `mon_spr_select`, `debug_keys` (K, T room id) |
-| `loader.s` | `file_read`/`file_close` (GEMDOS Fread/Fclose) and `level_load`: reads `LEVEL<n>[Q].DAT` (an 8-byte header: `ZLVZ`, the record number, the packed size; then LZ4 data) into the *end* of the level buffer (allocated behind the three screens), unpacks it over itself from the front (`lz_unpack`), checks the image's magic `ZLVL` and size, tags the buffer (`LOAD_KEY`); a missing, cut or wrong file ends the game with a message; `intro_data_load` does the same for `INTRO.DAT` (record 100, tag `INTRO_RECORD + 1`) and fills `OFF_IVP` with the 17 table addresses the `ivtab name, reg` macro reads (`IV_<name>` in `level_buffer.inc`); `no_memory_report` prints how much memory the buffers need and exits when Malloc fails; included last, reached through a farstub |
+| `uw.s` | underworld rooms, doors, stairs/cellar, level entry/exit, `uw_select_level` (loads the level's file), `mon_spr_select`, `debug_keys` (T room id) |
+| `loader.s` | `file_read`/`file_close` (GEMDOS Fread/Fclose) and `level_load`: reads `LEVEL<n>[Q].DAT` (an 8-byte header: `ZLVZ`, the record number, the packed size; then LZ4 data) into the *end* of the level buffer (allocated behind the three screens), unpacks it over itself from the front (`lz_unpack`), checks the image's magic `ZLVL` and size, tags the buffer (`LOAD_KEY`); a missing, cut or wrong file ends the game with a message; `loading_show` draws LOADING in a black box in the middle of the screen on show (the shifter's base) before every read (`intro_data_load` first blacks the screen and sets the overworld's colours: `loading_clear`); `intro_data_load` does the same for `INTRO.DAT` (record 100, tag `INTRO_RECORD + 1`) and fills `OFF_IVP` with the 17 table addresses the `ivtab name, reg` macro reads (`IV_<name>` in `level_buffer.inc`); `no_memory_report` prints how much memory the buffers need and exits when Malloc fails; included last, reached through a farstub |
 | `lz.s` | `lz_unpack`: the LZ4 block decoder (a0 packed, a2 its end, a1 out; byte copies, about 50 cycles a byte); `tools/lzpack.py` is the packer, `tests/test_lzpack.py` runs the real routine on machine68k |
 | `input.s` | IKBD interrupt handler (`ikbd_isr`) + parser (`poll_keyboard`): scancodes, joystick, mouse skip |
 | `music.s` | music and sound effects replayed from the VBL hook: four register-stream contexts (song, effect over voice A, effect over voice B, noise effect or DPCM sample over voice C) read from one bank, merged and written to the PSG (+ digidrum engine in `.data`); `music_roar_tick` repeats the boss's ambient roar |
@@ -277,7 +278,7 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
   deterministic (identical hashes), but do not compare positions across builds or different key schedules
   as one trajectory.
 - Typical scripted tests: key a dev-start build (`ZELDA_START_UW=0x74`), give items
-  with `K` (`700:+k,702:-k`) or pokes (`700:=INV_BOOMERANG=1,700:=B_ITEM=2`), act at
+  with pokes (`700:=INV_BOOMERANG=1,700:=B_ITEM=2`), act at
   710, capture at 715-800. Room `$74` has 2 stalfos near (0x60,0x6d); `$42` is the
   push-block room (block at X `$70`, Y `$90`; clear monsters by poking
   `ENEMY_ACTIVE.n=0`, stand at X `$80`, hold `left`); `$22` is the trap room (poke
@@ -366,9 +367,10 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
 | `MODE_PLAY` | 0 | `update_play` (double buffered) |
 | `MODE_SCROLL` | 1 | `update_scroll` (room transition, draws to visible screen) |
 | `MODE_CAVE` | 2 | `update_cave` (caves, visible screen) |
-| `MODE_MENU` | 3 | `update_menu` (Tab inventory screen, visible screen) |
+| `MODE_MENU` | 3 | `update_menu` (Tab inventory screen, visible screen; opened from `update_play` or, with `MENU_CAVE` set, from `update_cave`) |
 | `MODE_INTRO` | 4 | `update_intro` (title, story, parade and the file menu incl. the continue question) |
 | `MODE_DEATH` | 5 | `update_death` (`death.s`, phases `DPH_*` in `DEATH_PHASE`) |
+| `MODE_QUIT` | 6 | `update_quit` (`quit.s`, the Esc question, visible screen) |
 
 **Double buffering**: play frames draw into a hidden buffer (`SCREEN_PTR` = buffer
 being drawn into, `BG_NEXT` = the other) shown the next frame (`present_frame`
@@ -419,7 +421,7 @@ stays that of the display (50 updates a second) and only the picture runs at hal
   by slot number. `underworld.palette_lookup` builds a level's table; `palette_sync` (video.s, each frame) loads the one for
   `OFF_LEVEL`; code that restores the colours after a flash calls `cur_palette` (a0 = current table). A level's monsters must be
   baked with the level's own rows when its dungeon is added.
-- **Sprite palette row 3 is the level's own** (the NES dungeons give it three colours each: a Zol is black with gold eyes in Level 4, green in Level 3): the monsters are baked once with the overworld's row 3, which sits in slots 13-15, so `underworld.palette_lookup` puts the level's three row-3 colours into those slots while the level is shown (`SPRITE_ROW3`; a colour the background shares with it uses the slot, no extra art).
+- **Sprite palette row 3 is the level's own** (the NES dungeons give it three colours each: a Zol is black with gold eyes in Level 4, green in Level 3): the monsters are baked once with the overworld's row 3, which sits in slots 13-15, so `underworld.palette_lookup` puts the level's three row-3 colours into those slots while the level is shown (`SPRITE_ROW3`; a colour the background shares with it uses the slot, no extra art). **Except the special bosses**: `InitMode5Play` (`Z_07.asm`, `SpecialBossPaletteObjTypes`) looks at the first monster of a room and swaps row 3 for the boss's own colours: the Dodongos (`$31 $32`) and Digdoggers (`$38 $39`) get `$17 $27 $30` (brown, light orange, white: `ORANGE_BOSS_TYPES` / `ORANGE_BOSS_COLOURS` in `actors.py` bake their art in Link's and the shield's colours), Aquamentus `$0A $29 $30`, Gleeok `$2A $1A $0C` (not done yet: Level 8's Gleeok still wears the level's row 3), Ganon his own. `tools/refnes/zol_colour.mjs LEVEL ROOM TYPE` prints the palette the ROM shows in a room.
 - Sprites: 16x16, 4 planes + 1 mask word, **160 bytes** (`SPRITE_FRAME_BYTES`). Narrow
   NES items (8 wide) are centred in the 16 px frame. `draw_sprite` (a0 frame, a1
   dest, d0 shift), `erase_at` restores from `BG_CUR` (the clean room).
@@ -446,7 +448,7 @@ stays that of the display (50 updates a second) and only the picture runs at hal
   direction pressed this frame wins, else the current one is kept while held.
 - **Controls**: arrows / `W A S D` / joystick walk; **`Ctrl` or joystick fire =
   sword (A)**; **`Space`, `Alternate` or `B` = B item** (bombs / boomerang / candle, edge
-  triggered); **`Tab` = inventory screen**; `K` debug; `T` debug room id (`DEBUG_ROOM`, drawn by `draw_hud_debug` at ribbon col 19; edge-triggered via `T_HELD`); `Esc` quit. Scancodes: Space
+  triggered); **`Tab` = inventory screen** (also inside a cave: `menu_check_open_cave`, `MENU_CAVE`; the letter is chosen there and shown to the medicine woman with B); `T` debug room id (`DEBUG_ROOM`, drawn by `draw_hud_debug` at ribbon col 19; edge-triggered via `T_HELD`); `Esc` = the quit question (`quit.s`: `OFF_EXIT_REQUESTED` is the request, `menu_check_open` turns it into `MODE_QUIT` while Link walks; on the title, the story and the death screens `main_loop` ends the game at once). Scancodes: Space
   `$39`, Ctrl `$1D`, Alt `$38`, B `$30`, Tab `$0F`, K `$25`, T `$14`, Esc `$01`.
 
 ## 10. Gameplay systems and the original numbers they follow
@@ -678,7 +680,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   are redrawn from the empty-triforce memory (`menu_triforce`). The picture fills y 0..175 and the HUD ribbon is drawn below it
   (`HUD_MENU_ROW`, `draw_hud_tile_ptr` moves its rows in `MODE_MENU`); in dungeons the compass and map icons sit on the left and the
   sheet map on the right. Left/Right walk the owned B items in the ROM's slot order (`menu_code_slot`/`menu_slot_code`), Tab closes.
-  The caves and shops (`caves.s`) hand them out as in the original (`debug_keys` K gives keys, bombs, the candle; the harness can poke any `INV_*`).
+  The caves and shops (`caves.s`) hand them out as in the original (the harness can poke any `INV_*`; there is no cheat key).
 - **File menu** (`filesel.s`, `tools/filesel.py`): Return on the title calls `intro_to_menu` -> `filesel_begin`; the menu runs inside `MODE_INTRO` with
   `OFF_INTRO_PHASE = INTRO_PHASE_MENU` (2), so the main loop dispatch and the silent `music_update` are unchanged. Buffer roles: after `intro_present`
   SCREEN_PTR holds the clean picture (never swapped), BG_NEXT is the shown screen (sprites and cursors are drawn on it and restored from the clean copy).
@@ -716,7 +718,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   the waterfall's waves and crest on the title. The timeline is the ROM's (512 frames of title with the Triforce glow `TriforceGlowingColors`, 14 fade
   palettes with `DemoPhase0Subphase1Delays`, the first page scrolling in, 256 frames of rest, 1408 steps of parade, 256, 56). The scroll copy is the
   most expensive thing the game does (about 130,000 cycles a picture, split over two frames); the music's drums take enough of the rest that a few
-  frames in a hundred run a VBL long while the animated items are on screen. Return (or the keypad Enter or the joystick button) is Start; leaving
+  frames in a hundred run a VBL long while the animated items are on screen. Return, the keypad Enter, Ctrl or the joystick button is Start (the title says PRESS FIRE: `intro.put_title_prompt` replaces the ROM's PUSH START BUTTON line); leaving
   restores the three buffers, the palette and the game's mode (`intro_leave`). `music_update` leaves the song alone in this mode (the title song is an
   event song, `MUS_TITLE`). The title carries a line of the port's own, "PORTED TO ATARI ST BY Q", stamped into the picture at the top (`intro.stamp_text`). **Skip logic**: Start in any phase of the title or the story goes to the file menu (`intro_to_menu`), as `UpdateMode0Demo_Sub0` does; the ROM's `SkippedDemo` and `TransferredDemoPatterns` only keep the NES's CHR RAM and the menu entry after saving straight (mode D goes to mode 0 submode 1, past the title), which on the ST is `credits_to_menu` and `death_save` calling `filesel_begin` directly.
 - **Credits wall** (`credits.s`, `tools/credits.py`): after Zelda's closing words `zelda_tick` scene 8 calls `credits_begin`, which only sets `MODE_INTRO` and
@@ -769,7 +771,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   potion (`menu_slot_code_of`, `b_item_owned`; CheckMissingItem), and the medicine woman is shown it by pressing B with it
   selected (`cs_letter` in `caves.s`, as `UpdateCavePerson`'s `@UseLetter`), not with any other B item. The heart containers stop at 16, and the Book of Magic and a beam range per sword are not
   features of the game (the book only turns the rod's shot into flame, done; a sword beam is a fixed shot).
-- **Debug key K**: +1 key, +4 bombs (cap 8), candle. The owner wants it kept for now.
+- **No cheat keys**: the K key (a key, bombs, the candle) is gone; `T` (room number on the ribbon) is the one debug key left.
 
 ## 11. Asset pipeline facts
 
@@ -866,8 +868,8 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-What is left (details in `atari_st/PLAN.md`): more play-testing, a per-level loader for 512 KB machines and a run on real hardware. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
-cloud. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, a 512 KB EmuTOS setup does not yet (the drum samples are next). Scope decision: both quests in one 1 MB build. All tables are decoded from a user-supplied ROM; do not commit the ROM.
+What is left (details in `atari_st/PLAN.md`): more play-testing and longer sessions on real hardware. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+cloud. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, with about 17 KB to spare (packing the drum samples to 4 bits would give back about 21 KB). Scope decision: both quests in one build, files per dungeon. All tables are decoded from a user-supplied ROM; do not commit the ROM.
 
 ## 15. Persistent notes also kept in the repo memory (VS Code agent memory)
 

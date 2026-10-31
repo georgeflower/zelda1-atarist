@@ -126,6 +126,8 @@ music_update:
 1:  move.b #MUS_NONE, %d0
     cmp.b #MODE_CAVE, OFF_GAME_MODE(%a5)
     beq 3f
+    tst.b OFF_MENU_CAVE(%a5)
+    bne 3f                      | the inventory screen opened in a cave: caves are silent (kept short: 16-bit reach of the dev start)
     cmp.b #MODE_INTRO, OFF_GAME_MODE(%a5)
     beq 3f                      | the title plays its own song (intro.s), and without one the screen is silent
     cmp.b #MODE_DEATH, OFF_GAME_MODE(%a5)
