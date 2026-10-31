@@ -439,6 +439,8 @@ ow_armos_touch:
 | enemy_shove on its last frame: d2 = X, d3 = Y (words), d6 = the way it was shoved; back to the last square boundary it
 | passed (the one it started from when it passed none). The lanes down and up are at Y = 16 n + 13.
 enemy_shove_snap:
+    cmpi.b #ENEMY_SHOVE_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
+    bne 4f                              | only the shove's last frame
     btst #0, %d6
     beq 1f
     and.w #0xfff0, %d2                  | right: down to the boundary
@@ -454,7 +456,7 @@ enemy_shove_snap:
     add.w #15, %d3
 3:  and.w #0xfff0, %d3
     add.w #13, %d3
-    rts
+4:  rts
 
 armos_rooms:
     .byte 0x24, 0x0b, 0x1c, 0x22, 0x34, 0x3d, 0x4e      | SecretArmosRoomIds

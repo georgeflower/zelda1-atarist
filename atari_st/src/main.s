@@ -922,8 +922,6 @@ update_play:
     | through these stubs in the middle.
 uw_select_level_far:                    | first: begin_game's dev start reaches it with little to spare
     bra uw_select_level
-enemy_shove_snap_far:
-    bra enemy_shove_snap
 clear_erase_state_far:
     bra clear_erase_state
 enemy_init_special_far:
@@ -1048,6 +1046,8 @@ erase_sprite_far:
     bra erase_sprite
 blit_rect_far:
     bra blit_rect
+enemy_shove_snap_far:                   | last, so that it moves none of the stubs the 16-bit reach of begin_game needs
+    bra enemy_shove_snap
 
     .include "autoplay.s"           | (dev builds only) right behind the far stubs, where the 16-bit reach is
     .include "link.s"
