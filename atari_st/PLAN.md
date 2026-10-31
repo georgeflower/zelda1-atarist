@@ -6,10 +6,8 @@ Work in progress. Both quests are in. The `.PRG` is about 270 KB; the intro's da
 
 | # | What | Why |
 | --- | --- | --- |
-| 1 | More play-testing, Levels 4 to 9 most of all, then the Second Quest | they are built from the ROM but have had little play |
-| 2 | Play it on a real ST for longer | it runs on my 520 STFM from a Gotek now; long sessions will show what Hatari does not |
-| 3 | A bigger memory margin (optional) | the game fits 512 KB now, with about 17 KB to spare; packing the drum samples to 4 bits would give back about 21 KB |
-| 4 | Closer to the original in a few places | the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once; the Esc question (quit without saving, save and quit) is not in the original either |
+| 1 | More play-testing and bug hunting on real hardware, then the Second Quest |
+| 2 | Closer to the original in a few places | the Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death cloud; the dungeons' monsters appear at once; the Esc question (quit without saving, save and quit) is not in the original either |
 
 Not planned: anything that needs the NES hardware itself (the PPU, the DPCM channel) rather than its data.
 
