@@ -321,8 +321,10 @@ GLEEOK_SLOTS = (10, 7, 11)
 LANMOLA_SEGMENTS = 8        # two worms of four (ten of five each in the original)
 GANON_IMAGES = 10            # GanonFrameImages names ten 16x16 pictures (heap entries 0-9 of its animation) and the ashes (11)
 GANON_ASHES = 11
-GANON_COLOURINGS = (        # blue and brown, as the ROM recolours palette row 7 by transfer records ($16 $2C $3C, $07 $17 $30): the
-    ((6, 1), (5, 2), (5, 3)),   # nearest colours of Level 9's own sprite rows (row, pixel): red, blue, white
+GANON_BLUE_SLOTS = (4, 8, 1)    # Ganon's row $16 $2C $3C: red, cyan, white (for $3C, a pale cyan). Slot 8 is the overworld's ground, which
+                                # Level 9 does not use: underworld.LEVEL_EXTRA_COLOURS gives it $2C there.
+GANON_COLOURINGS = (        # blue (cyan in the ROM) and brown, as the ROM recolours palette row 7 by transfer records ($16 $2C $3C, $07 $17 $30): the
+    None,                       # blue: GANON_BLUE_SLOTS
     ((6, 1), (4, 3), (5, 3)),   # brown $07 $17 $30: the level has no $07, so red $16 stands in for it, then brown $17 and white
 )
 GANON_RAYS = (              # GanonBurstDirs / GanonBurstTiles / GanonBurstSpriteAttrs, by ray: right, left, down, down-right,
@@ -753,7 +755,7 @@ def build_actors(source_root: Path, level: int, bg_tiles, palette, room_ids, att
             else:
                 images = []
                 for colours in GANON_COLOURINGS:
-                    view = _RemappedPalette(palette, colours)
+                    view = _FixedPalette(GANON_BLUE_SLOTS) if colours is None else _RemappedPalette(palette, colours)
                     for part in range(GANON_IMAGES):
                         images.append(_monster_image(tiles, view, B.LINK_PALETTE_ROW + 3, heap[base + part], "wide"))
                 view = _RemappedPalette(palette, GANON_ASH_COLOURS)

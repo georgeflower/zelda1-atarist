@@ -388,7 +388,11 @@ PROTECTED_SLOTS = (1, 2, 4, 7, 9)
 SPRITE_ROW3 = 7            # the fourth sprite palette row: the one whose three colours each level chooses itself
 
 
-def palette_lookup(ow_palette: bytes, ow_map: "B.PaletteMap", uw_palette: bytes):
+# Colours a level's special art needs beyond its own palette rows (Level 9's Ganon is cyan, $2C), taken from the spare slots.
+LEVEL_EXTRA_COLOURS = {9: (0x2C,)}
+
+
+def palette_lookup(ow_palette: bytes, ow_map: "B.PaletteMap", uw_palette: bytes, extra: tuple = ()):
     """Express a level's palette rows in a 16-colour ST palette that keeps the overworld's slot numbers.
 
     Everything baked once for all modes (Link, items, effects, the HUD, the cellar walls) names a colour by
@@ -448,6 +452,10 @@ def palette_lookup(ow_palette: bytes, ow_map: "B.PaletteMap", uw_palette: bytes)
         slot_of[nes] = slot
         st_colors[slot] = B.nes_color_to_st(nes)
 
+    for nes in extra:                                # art of this level only: a spare slot each, in the order of the spare list
+        if not spare:
+            raise SystemExit(f"Level colour {nes:#04x} has no free slot in the shared ST palette")
+        st_colors[spare.pop(0)] = B.nes_color_to_st(nes)
     for slot, colour in forced.items():
         st_colors[slot] = B.nes_color_to_st(colour)
     table = []
@@ -466,7 +474,7 @@ def level_palettes(source_root: Path, ow_palette: bytes, ow_map) -> list[tuple[i
     for level in range(1, 10):
         info = B.require_binary(source_root, f"dat/LevelInfoUW{level}.dat")
         uw_palette = info[B.LEVEL_INFO_PALETTE_OFFSET : B.LEVEL_INFO_PALETTE_OFFSET + 32]
-        result.append(palette_lookup(ow_palette, ow_map, uw_palette)[1])
+        result.append(palette_lookup(ow_palette, ow_map, uw_palette, LEVEL_EXTRA_COLOURS.get(level, ()))[1])
     return result
 
 
