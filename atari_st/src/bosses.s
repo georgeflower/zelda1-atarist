@@ -1892,8 +1892,8 @@ dmon_gflyer:
     rts
 
 | ------------------------------------------------------------------ Lanmola
-| UpdateLamnola. Two worms of four segments (the ROM has ten, in two worms of five). Every segment starts at
-| ($40, $8D); only the heads (slots 3 and 7 of the worm's four) have a heading, and the others get theirs as the
+| UpdateLamnola. Two worms of five segments, as in the ROM. Every segment starts at
+| ($40, $8D); only the heads (slots 4 and 9) have a heading, and the others get theirs as the
 | head's go down the body, one step each time it has gone eight pixels, so the worm uncoils. A segment moves
 | one pixel a frame (the blue Lanmola) or two (the red) along its heading, ENEMY_DIR, which is 0 until it is told.
 | At a square of the 16-pixel grid the head chooses: half the time it turns toward Link (sideways if Link
@@ -1901,6 +1901,7 @@ dmon_gflyer:
 | a way that is shut turns it on to the next that is not back the way it came.
     .equ LANMOLA_START_X, 0x40
     .equ LANMOLA_START_Y, 0x8d
+    .equ LANMOLA_SEGMENTS, 5
 
 lanmola_init:
     movem.l %d0, -(%sp)
@@ -1908,8 +1909,10 @@ lanmola_init:
     move.b #LANMOLA_START_Y, OFF_ENEMY_Y(%a5, %d5.w)
     clr.b OFF_ENEMY_DIR(%a5, %d5.w)
     move.w %d5, %d0
-    and.w #3, %d0
-    cmp.w #3, %d0
+    cmp.w #LANMOLA_SEGMENTS, %d0
+    blo 1f
+    subq.w #LANMOLA_SEGMENTS, %d0       | its place in its worm
+1:  cmp.w #(LANMOLA_SEGMENTS - 1), %d0
     bne 9f
     move.b #DIR_UP, OFF_ENEMY_DIR(%a5, %d5.w)
 9:  movem.l (%sp)+, %d0
@@ -1937,8 +1940,10 @@ dmon_lanmola:
     beq 5f
     sub.b %d1, OFF_ENEMY_Y(%a5, %d5.w)
 5:  move.w %d5, %d1
-    and.w #3, %d1
-    cmp.w #3, %d1
+    cmp.w #LANMOLA_SEGMENTS, %d1
+    blo 6f
+    subq.w #LANMOLA_SEGMENTS, %d1
+6:  cmp.w #(LANMOLA_SEGMENTS - 1), %d1
     bne 90f
     bsr lanmola_head
 90: movem.l (%sp)+, %d1/%d4
@@ -1959,10 +1964,12 @@ lanmola_head:
     addq.w #3, %d0
     and.w #7, %d0
     bne 99f
-    move.w %d5, %d1
-    and.w #0xfc, %d1                    | the worm's lowest slot
-    lea OFF_ENEMY_DIR(%a5), %a0
-    moveq #2, %d0
+    moveq #0, %d1
+    cmp.w #LANMOLA_SEGMENTS, %d5
+    blo 2f
+    moveq #LANMOLA_SEGMENTS, %d1        | the worm's lowest slot
+2:  lea OFF_ENEMY_DIR(%a5), %a0
+    moveq #(LANMOLA_SEGMENTS - 2), %d0
 1:  move.b 1(%a0, %d1.w), 0(%a0, %d1.w)
     addq.w #1, %d1
     dbra %d0, 1b
@@ -3724,3 +3731,29 @@ block_draw:
     bsr fx_put_a0_bf
     movem.l (%sp)+, %d0-%d2/%d6/%a0
 9:  rts
+
+| ------------------------------------------------------------------ Narrow pictures
+    .include "narrow.s"
+
+    .equ MODE_GEL, 3
+
+| Monster d3's picture: a0 = frame, a1 = destination, d0.w = shift. The gels and a Lanmola's segments are eight pixels wide
+| and take the quicker blit; so does nothing else, and not a monster still in its spawn cloud (a sixteen-wide picture).
+enemy_blit:
+    movem.l %d1/%a2, -(%sp)
+    lea OFF_ENEMY_CLOUD(%a5), %a2
+    tst.b 0(%a2, %d3.w)
+    bne 1f
+    moveq #0, %d1
+    move.b OFF_ENEMY_TYPE(%a5, %d3.w), %d1
+    lsl.w #3, %d1
+    ltab mon_table, %a2
+    move.b 6(%a2, %d1.w), %d1           | its draw mode
+    cmp.w #MODE_GEL, %d1
+    beq 2f
+    cmp.w #MODE_LANMOLA, %d1
+    bne 1f
+2:  movem.l (%sp)+, %d1/%a2
+    bra draw_sprite_narrow
+1:  movem.l (%sp)+, %d1/%a2
+    bra draw_sprite_bf

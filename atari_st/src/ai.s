@@ -2405,8 +2405,8 @@ enemy_dx:
     rts
 
 | ------------------------------------------------------------------ Moldorm
-| Two worms of four segments (the original has five each; this port has eight monster slots). Each segment is a
-| monster; the head (slots 3 and 7) steers like a flyer (Flyer_Chase, Flyer_Wander, Flyer_MoldormDecideState)
+| Two worms of five segments. Each segment is a
+| monster; the head (slots 4 and 9) steers like a flyer (Flyer_Chase, Flyer_Wander, Flyer_MoldormDecideState)
 | and every $10 frames each segment below it takes over the heading the one above had, so the body follows the
 | head's track. They all move at speed $80, half a pixel a frame. ENEMY_DIR 0 means the segment has not been
 | told where to go yet. ENEMY_STATE is the head's flying state (2 or 3: chase or wander), ENEMY_STEP its turns
@@ -2414,8 +2414,16 @@ enemy_dx:
     .equ MOLDORM_START_X, 0x80
     .equ MOLDORM_START_Y, 0x70
     .equ MOLDORM_SPEED, 0x80
-    .equ MOLDORM_SEGMENTS, 4
+    .equ MOLDORM_SEGMENTS, 5
     .equ MOLDORM_HP_REVIVED, 2          | a segment that "dies" comes back with $20 hit points
+
+| d5 = a worm segment (Moldorm's, or Lanmola's: both are five to a worm). Returns d0.w = its place in its worm, 0 to 4.
+worm_place:
+    move.w %d5, %d0
+    cmp.w #MOLDORM_SEGMENTS, %d0
+    blo 1f
+    subq.w #MOLDORM_SEGMENTS, %d0
+1:  rts
 
 moldorm_init:
     movem.l %d0-%d1/%a0, -(%sp)
@@ -2433,8 +2441,7 @@ moldorm_init:
     move.b #MOLDORM_SPEED, 0(%a0, %d5.w)
     lea OFF_ENEMY_FRAC(%a5), %a0
     clr.b 0(%a0, %d5.w)
-    move.w %d5, %d0
-    and.w #3, %d0
+    bsr worm_place
     cmp.w #(MOLDORM_SEGMENTS - 1), %d0
     bne 9f
     bsr rand8                           | a head starts off in a random one of the eight directions
@@ -2453,8 +2460,7 @@ moldorm_ai:
     movem.l %d0-%d4/%a0-%a1, -(%sp)
     tst.b OFF_ENEMY_DIR(%a5, %d5.w)
     beq 9f
-    move.w %d5, %d0
-    and.w #3, %d0
+    bsr worm_place
     cmp.w #(MOLDORM_SEGMENTS - 1), %d0
     bne 5f
     bsr moldorm_steer
@@ -2676,8 +2682,7 @@ moldorm_move:
     move.l (%sp)+, %d3
     tst.w %d0
     bne 9f                          | free to go on
-    move.w %d5, %d0
-    and.w #3, %d0
+    bsr worm_place
     cmp.w #(MOLDORM_SEGMENTS - 1), %d0
     bne 9f                          | only a head remembers the bounce
     bsr keese_ring_index

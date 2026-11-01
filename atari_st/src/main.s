@@ -264,7 +264,11 @@ game_start:
     .if DEV_SKIP_INTRO
     bsr begin_game
     .else
-    bsr intro_start_far
+    pea 3f(%pc)                     | (intro_start is out of a branch's reach from here: jump there, and it returns to 3)
+    pea 2f(%pc)
+2:  addi.l #(intro_start - 2b), (%sp)
+    rts
+3:
     .endif
     bra main_loop
 
@@ -952,6 +956,8 @@ music_play_far:
     bra music_play
 uw_light_room_far:
     bra uw_light_room
+enemy_blit_far:
+    bra enemy_blit
 
 enter_room_far:
     bra enter_room

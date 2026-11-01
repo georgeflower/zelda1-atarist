@@ -755,9 +755,11 @@ sword_hits_table:
 | head is left, and that one dies for good. d5 = the segment.
 moldorm_died:
     movem.l %d0-%d2, -(%sp)
-    move.w %d5, %d1
-    and.w #0xfc, %d1                    | the worm's lowest slot
-    move.w %d1, %d2
+    moveq #0, %d1
+    cmp.w #MOLDORM_SEGMENTS, %d5
+    blo 0f
+    moveq #MOLDORM_SEGMENTS, %d1        | the worm's lowest slot
+0:  move.w %d1, %d2
     addq.w #(MOLDORM_SEGMENTS - 1), %d2 | its head
     move.w %d1, %d0
 1:  tst.b OFF_ENEMY_ACTIVE(%a5, %d0.w)

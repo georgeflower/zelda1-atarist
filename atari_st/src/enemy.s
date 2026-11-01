@@ -163,7 +163,11 @@ spawn_counted:                  | d1 = how many
 3:  move.b %d6, OFF_ENEMY_X(%a5, %d5.w)
     move.b %d7, OFF_ENEMY_Y(%a5, %d5.w)
     moveq #0, %d0
-    move.b 6(%a1, %d5.w), %d0   | monster index from the room record
+    move.w %d5, %d0
+    cmp.w #8, %d0
+    blo 5f
+    moveq #7, %d0               | a count above eight (the worms, Patra) repeats the record's last monster
+5:  move.b 6(%a1, %d0.w), %d0   | monster index from the room record
     move.b %d0, OFF_ENEMY_TYPE(%a5, %d5.w)
     ltab mon_table, %a2
     lsl.w #3, %d0
@@ -1183,7 +1187,7 @@ draw_enemies:
     movea.l OFF_SCREEN_PTR(%a5), %a1
     adda.l %d1, %a1
     move.w %d4, %d0
-    bsr draw_sprite
+    bsr enemy_blit_far
 8:  addq.w #1, %d3
     bra 1b
 9:  movem.l (%sp)+, %d0-%d6/%a0-%a2
