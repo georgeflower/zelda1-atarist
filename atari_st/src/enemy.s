@@ -507,16 +507,17 @@ clear_enemies:
     rts
 
 erase_enemies:
-    movem.l %d0/%d3/%a0, -(%sp)
+    movem.l %d0/%d3/%a0-%a1, -(%sp)
     lea OFF_ENEMY_ERASE_OFFSETS(%a5), %a0
+    lea OFF_ENEMY_ERASE_VALID(%a5), %a1
     moveq #0, %d3
-1:  tst.b OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+1:  tst.b 0(%a1, %d3.w)
     beq 2f
     move.w %d3, %d0
     lsl.w #2, %d0
     move.l 0(%a0, %d0.w), %d0
     bsr erase_at
-    btst #1, OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+    btst #1, 0(%a1, %d3.w)
     beq 3f
     move.w %d3, %d0                 | a second sprite (the Dodongo's other half)
     lsl.w #2, %d0
@@ -524,11 +525,11 @@ erase_enemies:
     move.l 0(%a0, %d0.w), %d0
     bsr erase_at
     lea OFF_ENEMY_ERASE_OFFSETS(%a5), %a0
-3:  clr.b OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+3:  clr.b 0(%a1, %d3.w)
 2:  addq.w #1, %d3
     cmp.w #MAX_ENEMIES, %d3
     blo 1b
-    movem.l (%sp)+, %d0/%d3/%a0
+    movem.l (%sp)+, %d0/%d3/%a0-%a1
     rts
 
 update_enemies:
@@ -1196,7 +1197,8 @@ draw_enemies:
     lsl.w #2, %d0
     lea OFF_ENEMY_ERASE_OFFSETS(%a5), %a2
     move.l %d1, 0(%a2, %d0.w)
-    move.b #1, OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+    lea OFF_ENEMY_ERASE_VALID(%a5), %a2
+    move.b #1, 0(%a2, %d3.w)
     movea.l OFF_SCREEN_PTR(%a5), %a1
     adda.l %d1, %a1
     move.w %d4, %d0

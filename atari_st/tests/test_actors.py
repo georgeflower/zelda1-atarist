@@ -545,7 +545,7 @@ class DodongoBombCountTests(unittest.TestCase):
         self.assertNotIn("OFF_ENEMY_WANT", body)
         self.assertIn("OFF_ENEMY_BOMBS", body)
         wander = source[source.index("wander_tick:"):source.index("goriya_ai:")]
-        self.assertIn("clr.b 8(%a0, %d5.w)", wander)   # the reason the count needs a variable of its own
+        self.assertIn("clr.b ENEMY_STRIDE(%a0, %d5.w)", wander)   # the reason the count needs a variable of its own
 
 
 @unittest.skipUnless(HAS_ROM, "needs ext/Original.nes")

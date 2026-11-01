@@ -354,7 +354,7 @@ wander_tick:
     neg.w %d1
 3:  cmp.w #9, %d1
     blo 30f                         | in his row: turn horizontally
-5:  clr.b 8(%a0, %d5.w)             | not aiming at him
+5:  clr.b ENEMY_STRIDE(%a0, %d5.w)             | not aiming at him
     tst.b 0(%a0, %d5.w)
     bne 9f
     move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
@@ -374,7 +374,7 @@ wander_tick:
 40: move.b %d0, OFF_ENEMY_DIR(%a5, %d5.w)
     bsr rand8
     move.b %d0, 0(%a0, %d5.w)       | the next turn comes when this runs out
-    move.b #1, 8(%a0, %d5.w)
+    move.b #1, ENEMY_STRIDE(%a0, %d5.w)
 9:  movem.l (%sp)+, %d0-%d4/%a0
     rts
 
@@ -498,7 +498,7 @@ goriya_ai:
     bsr enemy_at_boundary
     tst.w %d0
     beq 6f                          | between squares: the wish stays as it was
-    clr.b 8(%a0, %d5.w)
+    clr.b ENEMY_STRIDE(%a0, %d5.w)
     moveq #0, %d1
     move.b OFF_CHASE_X(%a5), %d1
     moveq #0, %d2
@@ -531,8 +531,8 @@ goriya_ai:
     bmi 7f
     moveq #DIR_RIGHT, %d2
 7:  move.b %d2, OFF_ENEMY_DIR(%a5, %d5.w)
-    move.b #1, 8(%a0, %d5.w)
-6:  tst.b 8(%a0, %d5.w)
+    move.b #1, ENEMY_STRIDE(%a0, %d5.w)
+6:  tst.b ENEMY_STRIDE(%a0, %d5.w)
     beq 9f
     tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
     bne 9f
@@ -584,7 +584,7 @@ goriya_throw:
     move.b %d5, PJ_OWNER(%a4, %d0.w)
     move.b #1, OFF_ENEMY_STATE(%a5, %d5.w)
     lea OFF_ENEMY_TURN(%a5), %a4
-    clr.b 8(%a4, %d5.w)             | the wish is spent
+    clr.b ENEMY_STRIDE(%a4, %d5.w)             | the wish is spent
     bsr rand8
     and.b #0x3f, %d0
     move.b %d0, OFF_ENEMY_TIMER(%a5, %d5.w)     | and it waits this long before the next throw
@@ -627,7 +627,7 @@ walker_shoot:
     move.b 0(%a1, %d5.w), %d1
     subq.w #1, %d1
     bpl 2f
-    tst.b 8(%a0, %d5.w)
+    tst.b ENEMY_STRIDE(%a0, %d5.w)
     beq 8f
     moveq #SHOOT_TIME, %d1
 2:  move.b %d1, 0(%a1, %d5.w)
@@ -640,7 +640,7 @@ walker_shoot:
     bsr walker_fire
     tst.w %d0
     beq 8f
-    clr.b 8(%a0, %d5.w)
+    clr.b ENEMY_STRIDE(%a0, %d5.w)
 7:  moveq #1, %d0
     bra 9f
 8:  moveq #0, %d0
@@ -1636,7 +1636,8 @@ draw_boss_head:
     lsl.w #2, %d0
     lea OFF_ENEMY_ERASE_OFFSETS(%a5), %a1
     move.l %d1, 0(%a1, %d0.w)
-    move.b #1, OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+    lea OFF_ENEMY_ERASE_VALID(%a5), %a1
+    move.b #1, 0(%a1, %d3.w)
     movea.l OFF_SCREEN_PTR(%a5), %a1
     adda.l %d1, %a1
     move.w %d4, %d0
@@ -2573,7 +2574,10 @@ draw_dodongo:
     bsr dodongo_put
     tst.w %d0
     beq 99f
-    move.b #1, OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+    move.l %a0, -(%sp)
+    lea OFF_ENEMY_ERASE_VALID(%a5), %a0
+    move.b #1, 0(%a0, %d3.w)
+    move.l (%sp)+, %a0
     move.b OFF_ENEMY_DIR(%a5, %d3.w), %d0
     and.b #3, %d0
     beq 99f                                 | facing up or down: one sprite
@@ -2588,7 +2592,10 @@ draw_dodongo:
     bsr dodongo_put
     tst.w %d0
     beq 99f
-    move.b #3, OFF_ENEMY_ERASE_VALID(%a5, %d3.w)
+    move.l %a0, -(%sp)
+    lea OFF_ENEMY_ERASE_VALID(%a5), %a0
+    move.b #3, 0(%a0, %d3.w)
+    move.l (%sp)+, %a0
 99: movem.l (%sp)+, %d0-%d7/%a0-%a2
     rts
 
