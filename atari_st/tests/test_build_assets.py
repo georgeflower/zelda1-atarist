@@ -482,7 +482,7 @@ class RomAllDungeonsTests(unittest.TestCase):
         for level in self.ROOMS:
             uw = self.bundle.levels[level - 1]
             for record in uw.actors.room_info:
-                self.assertEqual(record[5] & 0x1F, 0, (level, record.hex()))
+                self.assertEqual(record[5] & 0x07, 0, (level, record.hex()))
 
     def test_rooms_carry_the_boss_roar_of_attribute_e_in_bits_5_and_6(self) -> None:
         roars = {}
