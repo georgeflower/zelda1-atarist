@@ -572,7 +572,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `$3C` (`uw_enter_level` stores that screen in `CAVE_SOURCE_ROOM`; the dev start uses `DEV_START_ENTRANCE`).
 - **Levels 3-8** (built by the same pipeline; `UW_LEVELS := 1 2 3 4 5 6 7 8`, entered from the overworld by the level number
   in `room_attr_b`; the dev start takes `ZELDA_START_LEVEL`). Room record (16 bytes): 0 monster count, 1 trigger (bits 0-2
-  trigger, bit 5 Grumble, bit 6 rupee stash, bit 7 push block), 2 item, 3/4 item X/Y, 5 unsupported monsters (bit 7: the room
+  trigger, bit 5 Grumble, bit 6 rupee stash, bit 7 push block), 2 item, 3/4 item X/Y, 5 unsupported monsters (bits 0-2), statues that shoot (bits 3-4: 1 four, 2 two) and the boss roar (bits 5-6) (bit 7: the room
   is dark), 6-13 monsters, 14-15 person text offset. Dark rooms (`ROOM_DARK`, `uw_dark_fill`) show nothing but Link, monsters
   and effects until the candle is used (`uw_light_room`, `ROOM_LIT`). Rupee stash: `stash_bake` paints the rupees into the room
   and `boss_misc_update` collects them (`UW_FLAGS` bit 2). Grumble (`GRUMBLE_ON`): blocks the doorway tile until fed (food
@@ -609,6 +609,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   triforce pieces with the flashing backdrop (`MUS_ENDING` after it) and the closing words. Scene 8 waits `ZELDA_CREDIT_WAIT` frames and hands over to the credits wall (`credits_begin`, scene 9 = taken over): see
   **Credits wall** in the intro section. The Second Quest restart is not ported.
   Silver Arrow and Red Ring are in cellars. `MUS_GANON` plays when Ganon appears and again when he burns. The boss roars are hooked (sound section).
+- **Shooting statues** (`UpdateStatues`; `statue_fire_tick` in `bosses.s`, run by `boss_misc_update`): the rooms whose layout (attribute D & `$3F`) is `$24` (four statues, pattern 0) or `$23` (two, pattern 1) shoot fireballs at Link all the time, as the old man's flames do after a sword blow (pattern 2): every statue has a wait (`STATUE_T`, 0 on entering the room); when it runs out a roll under `$F0` chooses the next wait (`$50/$80/$F0/$60`) and fires, never with Link within `$18` of it on both axes. `_room_info` puts the count in the record's byte 5 (`ROOM_STATUES`); the spots are `StatueXs/Ys` (`statue_xs`). `fireball_aim_xy` overwrites d1 and d2 (the mouth), so a caller keeps them across it. `uw2_statues` shows the fireballs. The ROM fires only while a monster slot from 6 up is free; the port does not look at that.
 - **Blue goriya** (`$05`): throws whenever its timer reaches 0, no `$23`/`$77` roll (`goriya_ai` reads the NES type from `mon_table`).
 - **A goriya's boomerang** (`proj_*` kinds `PK_BOOMERANG`, `PK_RETURNING` in `ai.s`; ROM `UpdateArrowOrBoomerang`): flies out at 2.5 px/frame
   for 33 frames. It hurts Link (a heart) or is parried (the small shield is enough: Link idle and facing it, `CheckLinkCollision`) only

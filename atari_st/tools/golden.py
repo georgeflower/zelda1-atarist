@@ -140,6 +140,7 @@ SCENES: dict[str, list[str]] = {
     "uw4_stash": ["--uw", "0x11", "--level", "4", "--vbls", "420"],
     "uw7_grumble": ["--uw", "0x28", "--level", "7", "--vbls", "420"],
     "uw7_crowd": ["--uw", "0x5a", "--level", "7", "--vbls", "420"],
+    "uw2_statues": ["--uw", "0x4f", "--level", "2", "--vbls", "350"],
     "uw9_lanmola": ["--uw", "0x11", "--level", "9", "--vbls", "420"],
     "uw9_patra": ["--uw", "0x21", "--level", "9", "--vbls", "420"],
     "uw9_ganon": ["--uw", "0x42", "--level", "9", "--vbls", "420"],

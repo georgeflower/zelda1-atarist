@@ -212,9 +212,9 @@ class ActorTableTests(unittest.TestCase):
         self.assertIn(0x1A, actors.MONSTER_FLYERS)
 
     def test_the_blade_trap_enemy_s_names_by_index_comes_from_the_build(self) -> None:
-        # enemy.s and uw.s keep the blade traps coming back in a cleared room by their mon_table index; the
+        # uw.s keeps the blade traps coming back in a cleared room by their mon_table index; the
         # numbers are generated (a hard-coded one went wrong when the black keese joined the table)
-        for name in ("enemy.s", "uw.s"):
+        for name in ("uw.s",):
             source = (Path(__file__).resolve().parents[1] / "src" / name).read_text(encoding="utf-8")
             self.assertIn("MON_TRAP_INDEX", source)
             self.assertNotRegex(source, r"\.equ MON_(TRAP|LANMOLA)_INDEX")
@@ -340,6 +340,14 @@ class ActorTableTests(unittest.TestCase):
         for attr_d, attr_f, want in ((0xDA, 0x00, 0x88), (0x62, 0x04, 0x84), (0x1F, 0x07, 0x07), (0x80, 0x00, 0x08)):
             record = actors._room_info(0, ([0], [attr_d], [0], [attr_f]), [3, 5, 6, 8], bytes(64))
             self.assertEqual(record[1], want, f"D {attr_d:#x} F {attr_f:#x}")
+
+    def test_statue_rooms_carry_how_many_statues_shoot(self) -> None:
+        # byte 5 bits 3-4: attribute D & $3F = $24 is a room of four shooting statues (1), $23 one of two (2), any other layout none;
+        # the dark flag (bit 7) and the roar (bits 5-6) stay where they were
+        for layout, want in ((0x24, 1), (0x23, 2), (0x25, 0), (0x00, 0)):
+            record = actors._room_info(0, ([0], [layout], [0xA0], [0]), [1, 4, 5, 6], bytes(64))
+            self.assertEqual((record[5] >> 3) & 3, want, f"layout {layout:#x}")
+            self.assertEqual(record[5] & 0xE0, 0xA0, f"layout {layout:#x}")
 
     def test_bosses_and_single_big_monsters_are_marked_as_never_coming_back(self) -> None:
         # trigger bit 3: the object lists $32-$48 (but not the lanmolas $3A/$3B) stay dead; every other list recurs
