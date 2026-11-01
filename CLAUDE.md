@@ -478,6 +478,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **Damage/invincibility**: Link `ObjInvincibilityTimer` `$18` counted every 2nd frame =
   48 frames, shove 32 px; monsters `$10` = 32 frames, shove up to 64 px at 4 px/frame. The shove's last frame puts the monster back onto its lane (`enemy_shove_snap`: the last square boundary it passed); a monster left between squares would never look at the squares ahead and walked through walls and round the screen.
   Damage table `ObjTypeToDamagePoints` (`$80` = half heart, `$01` = one heart).
+- **A monster dying** (`HandleMonsterDied`, `AnimateAndDrawMetaObject`; `tools/refnes/death_probe.mjs`): every monster that is killed (the Dodongo and the Moldorm segments too) vanishes for 6 frames, shows the small death spark for 6 frames, the big one for 6, the small one again for 6 and then drops what it drops (`kill_enemy` sets `ENEMY_CLOUD` to `CLOUD_DYING`, `cloud_tick` walks it through the pictures `FX_DEATH_LITTLE`/`FX_DEATH_BIG` and calls `kill_drop` at `CLOUD_DYING_END`). Meanwhile `ENEMY_ACTIVE` is 0, so nothing hits it; the room counts it as alive until it is gone.
 - **Sword**: phases 1,8,1,1,1 frames; only cuts in state 2; tile `$20` (vertical,
   narrow) / `$82` (horizontal); offsets `PlayerToWeaponOffsetsX/Y` (Z_07). Hit box (`sword_box` in combat.s,
   `CheckMonsterStabbingCollision`): blade middle +6,+8 (up/down) or +8,+6 (sideways) vs the monster's +8,+8,
@@ -612,7 +613,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   triforce pieces with the flashing backdrop (`MUS_ENDING` after it) and the closing words. Scene 8 waits `ZELDA_CREDIT_WAIT` frames and hands over to the credits wall (`credits_begin`, scene 9 = taken over): see
   **Credits wall** in the intro section. The Second Quest restart is not ported.
   Silver Arrow and Red Ring are in cellars. `MUS_GANON` plays when Ganon appears and again when he burns. The boss roars are hooked (sound section).
-- **Shooting statues** (`UpdateStatues`; `statue_fire_tick` in `bosses.s`, run by `boss_misc_update`): the rooms whose layout (attribute D & `$3F`) is `$24` (four statues, pattern 0) or `$23` (two, pattern 1) shoot fireballs at Link all the time, as the old man's flames do after a sword blow (pattern 2): every statue has a wait (`STATUE_T`, 0 on entering the room); when it runs out a roll under `$F0` chooses the next wait (`$50/$80/$F0/$60`) and fires, never with Link within `$18` of it on both axes. `_room_info` puts the count in the record's byte 5 (`ROOM_STATUES`); the spots are `StatueXs/Ys` (`statue_xs`). `fireball_aim_xy` overwrites d1 and d2 (the mouth), so a caller keeps them across it. `uw2_statues` shows the fireballs. The ROM fires only while a monster slot from 6 up is free; the port does not look at that.
+- **Shooting statues** (`UpdateStatues`; `statue_fire_tick` in `bosses.s`, run by `boss_misc_update`): the rooms whose layout (attribute D & `$3F`) is `$24` (four statues, pattern 0) or `$23` (two, pattern 1) shoot fireballs at Link all the time, as the old man's flames do after a sword blow (pattern 2): every statue has a wait (`STATUE_T`, 0 on entering the room); when it runs out a roll under `$F0` chooses the next wait (`$50/$80/$F0/$60`) and fires, never with Link within `$18` of it on both axes. `_room_info` puts the count in the record's byte 5 (`ROOM_STATUES`); the spots are `StatueXs/Ys` (`statue_xs`). `fireball_aim_xy` overwrites d1 and d2 (the mouth), so a caller keeps them across it. `uw2_statues` shows the fireballs. The ROM fires (and counts the waits down) only while one of the monster slots 6 to 11 is free: `fire_slot_free` (bosses.s) counts the monsters in the port's slots 5 to 10 and the monsters' shots in flight against those six, for the statues and the old man's flames alike (`tools/refnes/statue_probe.mjs`: eight keese in Level 6 room `$58` leave three slots, so three fireballs at most).
 - **Blue goriya** (`$05`): throws whenever its timer reaches 0, no `$23`/`$77` roll (`goriya_ai` reads the NES type from `mon_table`).
 - **A goriya's boomerang** (`proj_*` kinds `PK_BOOMERANG`, `PK_RETURNING` in `ai.s`; ROM `UpdateArrowOrBoomerang`): flies out at 2.5 px/frame
   for 33 frames. It hurts Link (a heart) or is parried (the small shield is enough: Link idle and facing it, `CheckLinkCollision`) only
@@ -651,7 +652,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   going up past Y `$8E`. A sword blow on him (`sword_hits` -> `person_hit`, bosses.s) sets `PERSON_FIRE` (the ROM's
   `PersonFireballsEnabled`); `person_fire_tick` (from `boss_misc_update`) then lets each flame shoot a fireball at Link
   (`fireball_aim_xy`, `fireball_spawn_xy` in ai.s) after `$50/$80/$F0/$60` frames, never with Link within `$18` of it (`UpdateStatues`
-  pattern 2); `uw_person_begin` quiets them at each visit. Only the sword counts (the ROM kills him with any weapon).
+  pattern 2); `uw_person_begin` quiets them at each visit. The beam, a bomb's cloud, the candle's flame, Link's arrows and the rod's shot do the same, as in the ROM (`Person_CheckCollisions` takes any weapon but the boomerang: the loops of `beam_update`, `bomb_hurt_enemies`, `fire_update` and `lshot_collide` call `person_hit` with their own reach; `tools/refnes/person_probe.mjs` measures it).
   The flame is the candle flame art.
   Two people do more than talk (room record byte 13 = `PERSON_KIND_BOMBS`/`PERSON_KIND_MONEY` in a room with no monsters, `UW_PERSON_KIND`):
   the "more bombs" man (`$4F`, but only in the levels whose people are table A, 5 and 7; Link must be level with him) sells +4
@@ -868,8 +869,7 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-What is left (details in `atari_st/PLAN.md`): more play-testing and longer sessions on real hardware. The Dodongo and Moldorm have no death
-cloud. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, with about 17 KB to spare (packing the drum samples to 4 bits would give back about 21 KB). Scope decision: both quests in one build, files per dungeon. All tables are decoded from a user-supplied ROM; do not commit the ROM.
+What is left (details in `atari_st/PLAN.md`): more play-testing and longer sessions on real hardware. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, with about 17 KB to spare (packing the drum samples to 4 bits would give back about 21 KB). Scope decision: both quests in one build, files per dungeon. All tables are decoded from a user-supplied ROM; do not commit the ROM.
 
 ## 15. Persistent notes also kept in the repo memory (VS Code agent memory)
 

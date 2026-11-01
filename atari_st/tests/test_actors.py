@@ -331,7 +331,7 @@ class ActorTableTests(unittest.TestCase):
         data = rom_actors()
         self.assertEqual(len(data.sword_sprites), 16 * B.SPRITE_FRAME_BYTES)  # four directions x (three swords + the rod)
         self.assertEqual(len(data.beam_sprites), 16 * B.SPRITE_FRAME_BYTES)   # direction x palette row
-        self.assertEqual(len(data.fx_sprites), 21 * B.SPRITE_FRAME_BYTES)     # 2 clouds, 4 corners x 4 rows, 2 fires, the third cloud
+        self.assertEqual(len(data.fx_sprites), 23 * B.SPRITE_FRAME_BYTES)     # 2 clouds, 4 corners x 4 rows, 2 fires, the third cloud, the death spark's two
 
     def test_trap_rooms_hold_four_or_six_traps(self) -> None:
         trap = actors.MONSTER_TYPES.index(0x49)

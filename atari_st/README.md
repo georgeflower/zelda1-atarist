@@ -53,7 +53,6 @@ What is in it
 Known differences from the original
 -----------------------------------
 
-- the Dodongo and the Moldorm leave no death cloud
 - `T` is a debug key (the room number on the ribbon), it is not in the original
 - the game plays at the PAL speed of 50 frames a second; on a 60 Hz display every sixth frame holds the game and the song back, so both run at the same speed as on a 50 Hz one (the NES in 60 Hz is a sixth faster)
 - it needs about 390 KB free after loading: that fits a 520 STFM with TOS 1.02, but only just

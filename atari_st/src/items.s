@@ -347,7 +347,7 @@ lshot_collide:
     moveq #0, %d6
     moveq #0, %d5
 1:  cmp.b OFF_ENEMY_COUNT(%a5), %d5
-    bhs 8f
+    bhs 75f
     tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
     beq 7f
     tst.b OFF_ENEMY_HURT(%a5, %d5.w)
@@ -392,6 +392,12 @@ lshot_collide:
     bra 8f
 7:  addq.w #1, %d5
     bra 1b
+75: move.w %d2, %d1                     | the old man takes any shot but the boomerang
+    move.w %d3, %d2
+    moveq #LSHOT_RANGE, %d4
+    moveq #LSHOT_RANGE, %d6
+    bsr boss_person_hit_f
+    move.w %d0, %d6
 8:  move.w %d6, %d0
     movem.l (%sp)+, %d1-%d6/%a0
     rts

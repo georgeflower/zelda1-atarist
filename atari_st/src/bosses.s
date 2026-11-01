@@ -16,6 +16,7 @@
     farstub fetch_tile_bf, fetch_tile
     farstub kill_enemy_bf, kill_enemy
     farstub rand8_bf, rand8
+    farstub spawn_drop_bf, spawn_drop
     farstub tile_blocks_bf, tile_blocks
     farstub walker_fire_bf, walker_fire
     farstub zora_fire_bf, zora_fire
@@ -3291,6 +3292,7 @@ boss_misc_update:
 | be in X and in Y (sword_hits). Hits the old man if the blade is on him.
 person_hit:
     movem.l %d1-%d3, -(%sp)
+    moveq #0, %d0                       | returns d0.w = 1 when the man was hit
     tst.b OFF_UW_PERSON(%a5)
     beq 9f
     cmpi.b #3, OFF_UW_PERSON(%a5)
@@ -3310,7 +3312,44 @@ person_hit:
 2:  cmp.w %d6, %d2
     bhs 9f
     move.b #1, OFF_PERSON_FIRE(%a5)
+    moveq #1, %d0
 9:  movem.l (%sp)+, %d1-%d3
+    rts
+
+| FindEmptyMonsterSlot / UpdateStatues: the ROM makes a fireball only while one of the monster slots 6..11 is free (the
+| slots 1..5 do not count), and when none is the whole routine ends before the waits count down. The monsters in the
+| port's slots 5..10 and the monsters' shots in flight (the ROM keeps both in monster slots; a fireball takes the highest
+| free one) are counted against those six. Returns carry set when a slot is free; the flags are all it changes.
+fire_slot_free:
+    movem.l %d0-%d2/%a0, -(%sp)
+    moveq #0, %d1
+    moveq #5, %d0
+    lea OFF_ENEMY_CLOUD(%a5), %a0
+1:  cmp.b OFF_ENEMY_COUNT(%a5), %d0
+    bhs 3f
+    tst.b OFF_ENEMY_ACTIVE(%a5, %d0.w)
+    bne 2f
+    tst.b 0(%a0, %d0.w)
+    beq 11f
+2:  addq.w #1, %d1
+11: addq.w #1, %d0
+    cmp.w #MAX_ENEMIES, %d0
+    blo 1b
+3:  lea OFF_PROJ_KIND(%a5), %a0
+    moveq #MAX_PROJ - 1, %d0
+4:  moveq #0, %d2
+    move.b PJ_KIND(%a0, %d0.w), %d2
+    beq 5f
+    cmp.w #PK_PART, %d2
+    bls 41f                             | a goriya's boomerang, a fireball, a piece of Aquamentus
+    cmp.w #PK_ROCK, %d2
+    blo 5f                              | Link's boomerang
+    cmp.w #PK_SWORDSHOT, %d2
+    bhi 5f                              | Link's arrows and magic
+41: addq.w #1, %d1
+5:  dbra %d0, 4b
+    cmp.w #6, %d1                       | carry: fewer than six are taken
+    movem.l (%sp)+, %d0-%d2/%a0         | (movem leaves the flags)
     rts
 
 person_fire_tick:
@@ -3320,6 +3359,8 @@ person_fire_tick:
     beq 9f
     cmpi.b #3, OFF_UW_PERSON(%a5)
     beq 9f
+    bsr fire_slot_free
+    bcc 9f                              | no free monster slot: nothing counts down
     movem.l %d0-%d7/%a0-%a1, -(%sp)
     moveq #1, %d7                       | the flames, last first as in the ROM
 1:  lea OFF_PERSON_FIRE_T(%a5), %a0
@@ -3382,7 +3423,9 @@ statue_fire_tick:
     bne 0f
     moveq #4, %d6
     moveq #1, %d7
-0:  movem.l %d0-%d7/%a0-%a1, -(%sp)
+0:  bsr fire_slot_free
+    bcc 9f                              | no free monster slot: nothing counts down
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
 1:  lea OFF_STATUE_T(%a5), %a0
     subq.b #1, 0(%a0, %d7.w)
     cmpi.b #0xff, 0(%a0, %d7.w)
@@ -3757,3 +3800,59 @@ enemy_blit:
     bra draw_sprite_narrow
 1:  movem.l (%sp)+, %d1/%a2
     bra draw_sprite_bf
+
+| ------------------------------------------------------------------ The end of a death spark
+| The end of the death spark of monster d5 (the ROM's metastate $14): the world's kill cycle moves on, and what the
+| monster drops is put where it stood.
+kill_drop:
+    moveq #0, %d0                       | the column moves on before the lookup
+    move.b OFF_KILL_CYCLE(%a5), %d0
+    addq.w #1, %d0
+    cmp.w #KILL_CYCLE_LENGTH, %d0
+    blo 2f
+    moveq #0, %d0
+2:  move.b %d0, OFF_KILL_CYCLE(%a5)
+
+    moveq #0, %d0
+    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
+    moveq #3, %d1
+    cmpi.b #0xff, %d0
+    beq 4f
+    ltab mon_table, %a0
+    lsl.w #3, %d0
+    moveq #0, %d1
+    move.b 4(%a0, %d0.w), %d1
+    cmpi.b #0xff, %d1
+    beq 9f                      | this kind never drops anything
+    tst.w %d5
+    bne 4f
+    cmpi.b #0x2a, 0(%a0, %d0.w)
+    beq 9f                      | a stalfos in the first slot may carry the room's item
+4:  move.w %d1, %d2
+    mulu.w #KILL_CYCLE_LENGTH, %d2
+    moveq #0, %d0
+    move.b OFF_KILL_CYCLE(%a5), %d0
+    add.w %d0, %d2
+    ltab drop_table, %a0
+    moveq #0, %d0
+    move.b 0(%a0, %d2.w), %d2           | d2 = the item the table offers
+    cmpi.b #FAIRY_KILLS, OFF_WORLD_KILLS(%a5)
+    bne 5f
+    moveq #ITEM_FAIRY, %d2
+    bra 7f
+5:  cmpi.b #HELP_KILLS, OFF_HELP_COUNT(%a5)
+    blo 6f
+    moveq #ITEM_FIVE_RUPEES, %d2
+    tst.b OFF_HELP_VALUE(%a5)
+    beq 7f
+    moveq #ITEM_BOMBS, %d2
+7:  clr.b OFF_HELP_COUNT(%a5)
+    clr.b OFF_HELP_VALUE(%a5)
+    bra 8f
+6:  bsr rand8_bf
+    ltab drop_rates, %a0
+    cmp.b 0(%a0, %d1.w), %d0
+    bhs 9f
+8:  move.b %d2, %d0
+    bsr spawn_drop_bf
+9:  rts

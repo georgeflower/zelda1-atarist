@@ -3,7 +3,11 @@
 | Every room spawns the monsters listed for it, drawn with the ROM's own sprite art. Hit points, damage and
 | drops live in combat.s.
 
-    .equ FX_SPAWN_CLOUD_LAST, 20    | the third picture of the spawn cloud, the last frame of fx_sprites
+    .equ FX_SPAWN_CLOUD_LAST, 20    | the third picture of the spawn cloud
+    .equ FX_DEATH_LITTLE, 21        | a monster's death spark: the little picture, then the big one
+    .equ FX_DEATH_BIG, 22
+    .equ CLOUD_DYING, 5             | ENEMY_CLOUD 1-3 is the spawn cloud's picture; 5 is the dying monster's metastate $10 (nothing shown),
+    .equ CLOUD_DYING_END, 9         | 6, 7 and 8 the spark's three pictures; at 9 it is gone and its drop is made
 
 | d0.b = a pseudo-random byte
 rand8:
@@ -360,9 +364,11 @@ cloud_begin:
     rts
 
 | Once a frame: AnimateAndDrawMetaObject. A picture of the cloud stays for the timer (the first) or six frames (the
-| next two); then the monster is out of it and lives.
+| next two); then the monster is out of it and lives. A dying monster's spark goes the same way (kill_enemy starts it at
+| CLOUD_DYING): three pictures of six frames after the first state, which shows nothing, and then the monster is removed
+| and what it drops is put down (kill_drop), as the ROM does at metastate $14.
 cloud_tick:
-    movem.l %d3/%a0-%a1, -(%sp)
+    movem.l %d3/%d5/%a0-%a1, -(%sp)
     lea OFF_ENEMY_CLOUD(%a5), %a0
     lea OFF_ENEMY_CLOUD_T(%a5), %a1
     moveq #0, %d3
@@ -374,16 +380,28 @@ cloud_tick:
     bne 2f
     addq.b #1, 0(%a0, %d3.w)        | the next picture
     move.b #6, 0(%a1, %d3.w)
+    cmpi.b #CLOUD_DYING, 0(%a0, %d3.w)
+    blo 5f
+    move.b #5, 0(%a1, %d3.w)        | a death spark's picture shows for six frames in all (the ROM draws first and then counts)
+5:  cmpi.b #CLOUD_DYING_END, 0(%a0, %d3.w)
+    beq 3f
     cmpi.b #4, 0(%a0, %d3.w)
     bne 2f
     clr.b 0(%a0, %d3.w)             | out of the cloud
     clr.b 0(%a1, %d3.w)
     move.b #1, OFF_ENEMY_ACTIVE(%a5, %d3.w)
     bra 8f
+3:  clr.b 0(%a0, %d3.w)             | the spark is over: the monster goes, and leaves what it drops
+    clr.b 0(%a1, %d3.w)
+    move.w %d3, %d5
+    movem.l %d0-%d2, -(%sp)
+    bsr kill_drop_far
+    movem.l (%sp)+, %d0-%d2
+    bra 8f
 2:  subq.b #1, 0(%a1, %d3.w)
 8:  addq.w #1, %d3
     bra 1b
-9:  movem.l (%sp)+, %d3/%a0-%a1
+9:  movem.l (%sp)+, %d3/%d5/%a0-%a1
     rts
 
 | FindNextEdgeSpawnCell. Returns d0.w = the next square of the screen's border (row in the high
@@ -1216,6 +1234,8 @@ draw_enemies:
     moveq #0, %d0
     move.b 0(%a0, %d3.w), %d0
     beq 8b
+    cmp.w #CLOUD_DYING, %d0
+    bhs 72f
     subq.w #1, %d0
     cmp.w #2, %d0
     bne 71f
@@ -1224,6 +1244,14 @@ draw_enemies:
     ltab fx_sprites, %a0
     adda.l %d0, %a0
     bra 4b
+72: subq.w #(CLOUD_DYING + 1), %d0      | the first dying state shows nothing; then little, big, little
+    bmi 8b
+    moveq #FX_DEATH_LITTLE, %d1
+    cmp.w #1, %d0
+    bne 73f
+    moveq #FX_DEATH_BIG, %d1
+73: move.w %d1, %d0
+    bra 71b
 
 | NES coordinates to a screen offset. d1.w = X, d2.w = Y.
 | Returns d1.l = byte offset of the sprite's top-left group and d4.w = shift

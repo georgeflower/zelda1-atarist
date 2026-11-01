@@ -953,6 +953,8 @@ uw_light_room_far:
     bra uw_light_room
 enemy_blit_far:
     bra enemy_blit
+kill_drop_far:
+    bra kill_drop
 
 enter_room_far:
     bra enter_room
