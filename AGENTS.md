@@ -845,6 +845,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 
 - Rebuilds with a dev env leave a dungeon start baked in (section 4).
 - **A dev build has branches the default build lacks** (`begin_game`'s calls sit near `.text+0x6c`, 32 KB from the stubs in the middle: it reaches `uw_select_level` and `quest_apply` through `*_mid` stubs, and `game_start` jumps to `intro_start` through the stack): `make all` passes the reach check and a dev build (`screenshot.py --uw`) can still fail it, then the harness dies with "marker found twice" (the program ran into the basepage). Run a dev build after adding code to `main_loop`'s neighbourhood; the main loop's hold check is written short for that reason (`bne.s`, memory operands).
+- **A routine called from a loop must keep the loop's registers**: `cloud_tick` walks the monsters with `a0`/`a1` on their cloud arrays and calls `kill_drop`, which clobbers both; the monsters after the one whose death spark had ended were looked at through a table (a dead flying head of Gleeok came back as a monster nothing could kill, and bytes of a table were counted up). It saves `a0`-`a1` around the call now.
 - Hatari at 60 Hz: use the VBL-latch logic in `present_frame`/`wait_vbl`; don't change it casually.
 - The ST has a 16x16 shift blitter at run time; keep sprite counts modest per frame.
 - Tab/menu: drawing straight to the visible screen is fine because nothing else runs.
