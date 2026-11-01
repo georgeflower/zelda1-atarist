@@ -25,5 +25,6 @@ It found two things in the port that the per-room tables could not show: the wiz
 
 ## Small probes
 
+- `respawn_probe.mjs [dungeon|partial|boss|reenter|overworld|all]`: clears a room in the ROM, leaves it and comes back, and prints the room history, the room's world flags and kill count and what is made on re-entry. It shows when monsters return in the dungeons (once the room is out of the last six entered; bosses never; kills of a room not cleared are kept; leaving a dungeon clears the history) and in the overworld.
 - `ladder_test.mjs LEVEL ROOM X Y DIR [FRAMES]`: puts Link in a room of the ROM with the ladder and walks him one way; prints the moat and where he stops (on the ladder's square: it carries him one square, never two).
 - `zol_colour.mjs LEVEL ROOM TYPE`: the palette on screen and the colours of a monster in the ROM, and a picture (`PPM=file.ppm`). Sprite palette row 3 is each dungeon's own, which is why a Zol is black in Level 4.

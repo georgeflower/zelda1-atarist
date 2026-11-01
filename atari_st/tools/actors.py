@@ -1008,7 +1008,7 @@ def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_by
 
 
 def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, lists=(), level: int = 0) -> bytes:
-    """count, secret trigger (bit 7: the room has a push block, 6 a rupee stash, 5 Grumble, 4 the man at Level 9's door), item id, item X, item Y,
+    """count, secret trigger (bit 7: the room has a push block, 6 a rupee stash, 5 Grumble, 4 the man at Level 9's door, 3 its monsters never come back), item id, item X, item Y,
     unsupported (bit 7: a dark room, bits 5-6: which boss roar the room can hear, attribute E's sound index),
     eight monsters, then where the person's speech starts in the cave text (0xFF: nobody talks here)."""
     attr_c, attr_d, attr_e, attr_f = attrs
@@ -1057,6 +1057,8 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
     if 0x3E in types:
         trigger = (trigger & ~7) | 7        # Ganon's room item stays hidden until he is ashes (Ganon_ActivateRoomItem)
     trigger |= (0x40 if RUPEE_STASH in types else 0) | (0x20 if GRUMBLE in types else 0)   # not monsters: the room's own things
+    if 0x32 <= list_id <= 0x48 and list_id not in (0x3A, 0x3B):
+        trigger |= 0x08                                 # a boss or a single big monster: once dead it stays dead (the recurring lists are the others)
     if level == 9 and list_id == PERSON_LIST_FIRST:
         trigger |= 0x10                                 # the man who lets Link in once he holds all eight pieces
     dark = 0x80 if attr_e[room] & 0x80 else 0           # attribute E bit 7: a dark room (until the candle is lit)
