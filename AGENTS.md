@@ -414,7 +414,7 @@ stays that of the display (50 updates a second) and only the picture runs at hal
   `uw_build_map`; `uw_redraw_room` re-renders (it REBUILDS the map, so in-place map
   edits such as the pushed block must be re-applied after).
 - One ST palette covers all NES background and sprite rows (16 colours, no
-  collisions). Sprite palette rows are `LINK_PALETTE_ROW (4) + attribute & 3`.
+  collisions). The NES colour index becomes an ST colour through `build_assets.NES_RGB`, the table of the reference emulator (jsnes, `tools/refnes`), rounded to the ST's 3 bits a channel: the owner's NES shows Level 1 blue and Level 6 green, which the usual FCEUX table does not give (teal and brown). Sprite palette rows are `LINK_PALETTE_ROW (4) + attribute & 3`.
 - **Palette per mode**: `room_palette` is the overworld's; `level_palettes` holds nine more (one per dungeon, 32 bytes each). A
   dungeon keeps every overworld colour in its slot and swaps in the 1-3 colours the overworld lacks (Levels 3-9), because Link,
   items, effects, the HUD, the cellar walls and the minimap (slots named in `hud.s`, `underworld.PROTECTED_SLOTS`) are baked once
