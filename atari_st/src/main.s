@@ -278,7 +278,7 @@ begin_game:
     .if DEV_START_UW != 255
     | Development shortcut: start inside the level, with a sword and a key.
     moveq #DEV_START_LEVEL, %d0
-    bsr uw_select_level_far
+    bsr uw_select_level_mid
     move.b #UW_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
     move.b #UW_BOUND_RIGHT, OFF_BOUND_RIGHT(%a5)
     move.b #UW_BOUND_UP, OFF_BOUND_UP(%a5)
@@ -318,6 +318,11 @@ init_pointers:
     adda.l #(mon_sprites - table_anchor), %a0
     move.l %a0, OFF_MON_SPR_OW(%a5)
     move.l %a0, OFF_MON_SPR(%a5)
+    rts
+
+uw_select_level_mid:                    | the dev start's other call, the same
+    pea 1f(%pc)
+1:  addi.l #(uw_select_level - 1b), (%sp)
     rts
 
 quest_apply_mid:                        | the dev start's call (a 32-bit stub: begin_game is far from the stubs in the middle)
@@ -926,8 +931,6 @@ update_play:
 
     | The code has outgrown what one 16-bit branch spans, so the modules at the end reach main.s's frame routines
     | through these stubs in the middle.
-uw_select_level_far:                    | first: begin_game's dev start reaches it with little to spare
-    bra uw_select_level
 clear_erase_state_far:
     bra clear_erase_state
 enemy_init_special_far:
