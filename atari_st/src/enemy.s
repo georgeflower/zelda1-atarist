@@ -359,6 +359,8 @@ cloud_begin:
     move.b %d2, 0(%a2, %d5.w)
     lea OFF_ENEMY_CLOUD(%a5), %a2
     move.b #1, 0(%a2, %d5.w)
+    lea OFF_ENEMY_LIVE(%a5), %a2
+    move.b OFF_ENEMY_ACTIVE(%a5, %d5.w), 0(%a2, %d5.w)     | a bubble or a trap (2) is none of the room's monsters once it is out
     clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
 9:  movem.l (%sp)+, %d0/%d2/%a2
     rts
@@ -368,7 +370,7 @@ cloud_begin:
 | CLOUD_DYING): three pictures of six frames after the first state, which shows nothing, and then the monster is removed
 | and what it drops is put down (kill_drop), as the ROM does at metastate $14.
 cloud_tick:
-    movem.l %d3/%d5/%a0-%a1, -(%sp)
+    movem.l %d3/%d5/%a0-%a2, -(%sp)
     lea OFF_ENEMY_CLOUD(%a5), %a0
     lea OFF_ENEMY_CLOUD_T(%a5), %a1
     moveq #0, %d3
@@ -389,7 +391,8 @@ cloud_tick:
     bne 2f
     clr.b 0(%a0, %d3.w)             | out of the cloud
     clr.b 0(%a1, %d3.w)
-    move.b #1, OFF_ENEMY_ACTIVE(%a5, %d3.w)
+    lea OFF_ENEMY_LIVE(%a5), %a2
+    move.b 0(%a2, %d3.w), OFF_ENEMY_ACTIVE(%a5, %d3.w)
     bra 8f
 3:  clr.b 0(%a0, %d3.w)             | the spark is over: the monster goes, and leaves what it drops
     clr.b 0(%a1, %d3.w)
@@ -401,7 +404,7 @@ cloud_tick:
 2:  subq.b #1, 0(%a1, %d3.w)
 8:  addq.w #1, %d3
     bra 1b
-9:  movem.l (%sp)+, %d3/%d5/%a0-%a1
+9:  movem.l (%sp)+, %d3/%d5/%a0-%a2
     rts
 
 | FindNextEdgeSpawnCell. Returns d0.w = the next square of the screen's border (row in the high
