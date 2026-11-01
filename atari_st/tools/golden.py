@@ -5,7 +5,8 @@ Each scene starts the game somewhere (a dev build, see `screenshot.py --room/--u
 optional key presses, and fingerprints the framebuffer plus palette (the `FRAMEHASH` line of screenshot.py). The runs
 are deterministic, so a change in the fingerprint means a change in what the game draws or does.
 
-The fingerprints live in `tests/golden/frames.json`. Pictures are not kept in the repository: they would be frames of
+The fingerprints live in `tests/golden/frames/<scene>.txt`, one small file per scene, so two branches that re-record
+different scenes never touch the same file. Pictures are not kept in the repository: they would be frames of
 Nintendo's artwork. `--png-dir` writes the PNGs of a run so a failure can be looked at, next to the stored hash.
 
     python3 tools/golden.py                  # compare; exit 1 when a scene changed
@@ -27,7 +28,21 @@ import sys
 from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[1]
-GOLDEN = PROJECT / "tests" / "golden" / "frames.json"
+GOLDEN = PROJECT / "tests" / "golden" / "frames"      # one <scene>.txt per scene: the hash and a newline
+
+
+def load_stored() -> dict[str, str]:
+    """The stored fingerprints, by scene name."""
+    if not GOLDEN.is_dir():
+        return {}
+    return {path.stem: path.read_text(encoding="utf-8").strip() for path in sorted(GOLDEN.glob("*.txt"))}
+
+
+def store(name: str, digest: str) -> None:
+    GOLDEN.mkdir(parents=True, exist_ok=True)
+    path = GOLDEN / f"{name}.txt"
+    if not path.exists() or path.read_text(encoding="utf-8").strip() != digest:
+        path.write_text(digest + "\n", encoding="utf-8")
 
 # name: screenshot.py arguments. Frame counts leave the room time to settle (the game starts at about frame 170).
 GANON_ARROW = ("500:=GANON_SCENE=0,500:=LINK_HELD=0,500:=HP_HALVES=40,500:=ENEMY_X.0=0x78,500:=ENEMY_Y.0=0x80,500:=ENEMY_STATE.0=0xff,"
@@ -319,7 +334,7 @@ def main() -> None:
     unknown = [n for n in names if n not in SCENES]
     if unknown:
         raise SystemExit(f"unknown scene(s): {', '.join(unknown)}")
-    stored = json.loads(GOLDEN.read_text(encoding="utf-8")) if GOLDEN.exists() else {}
+    stored = load_stored()
     png_dir = args.png_dir or PROJECT / "build" / "golden"
     png_dir.mkdir(parents=True, exist_ok=True)
 
@@ -333,7 +348,7 @@ def main() -> None:
                 break
             digest = run_scene(name, SCENES[name], args.tos, png_dir / f"{name}.png")
         if args.update:
-            stored[name] = digest
+            store(name, digest)
             print(f"{name}: {digest[:12]} stored")
         elif stored.get(name) == digest:
             print(f"{name}: ok")
@@ -342,8 +357,10 @@ def main() -> None:
             print(f"{name}: CHANGED ({'new scene' if name not in stored else stored[name][:12]} -> {digest[:12]}), "
                   f"picture in {png_dir / (name + '.png')}")
     if args.update:
-        GOLDEN.parent.mkdir(parents=True, exist_ok=True)
-        GOLDEN.write_text(json.dumps(dict(sorted(stored.items())), indent=1) + "\n", encoding="utf-8")
+        if not args.only:                       # a full run also drops the files of scenes that are gone
+            for path in GOLDEN.glob("*.txt"):
+                if path.stem not in SCENES:
+                    path.unlink()
         print(f"wrote {GOLDEN}")
     elif changed:
         sys.exit(f"golden: {len(changed)} scene(s) changed; look at the pictures, then --update if intended")

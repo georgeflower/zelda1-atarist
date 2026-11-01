@@ -72,7 +72,7 @@ Tools
 - `tools/check_reach.py` runs after every link and fails the build when a table name is missing or
   a branch doesn't fit 16 bits (GNU as wraps those silently, see the notes at the end)
 - `tools/golden.py` runs fixed scenes in Hatari and compares a hash of each screen with
-  `tests/golden/frames.json`
+  `tests/golden/frames/` (one file per scene)
 - unit tests for the pipeline and the music player
 - a headless Hatari harness (`tools/screenshot.py`) that takes screenshots, presses keys and pokes
   variables; `--hd-file ZELDA.SAV=file` puts a file on the emulated drive first
@@ -172,7 +172,7 @@ that room of that dungeon: the harness builds a matching dev PRG into `build/dev
 Makefile bake the start into a build; finish with a plain `make all`).
 
 The golden frames are a set of fixed scenes (`tools/golden.py`): each prints a hash of
-the pixels and palette, and `tests/golden/frames.json` holds the expected ones.
+the pixels and palette, and `tests/golden/frames/<scene>.txt` holds the expected ones.
 The hashes are stored instead of pictures because the pictures would be frames of
 Nintendo's artwork; `build/golden/*.png` shows a run. `make golden-update` accepts
 a change after you have looked at it.
