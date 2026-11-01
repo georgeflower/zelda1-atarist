@@ -81,7 +81,7 @@ atari_st/                the port
 | `main.s` | equates, `_start`, main loop, mode dispatch, double buffering, erase state, `.rodata` incbins, `.data` |
 | `globals.s` | the variable block (`gvar` macro generates `OFF_*` offsets) |
 | `video.s` | init/restore video + IKBD vector, room rendering, scroll composition, `wait_vbl`, HUD palette |
-| `sprite.s` | masked 16x16 blitter (`draw_sprite`), `erase_at`, Link drawing |
+| `sprite.s` | masked 16x16 blitter (`draw_sprite`), `erase_at`, Link drawing; `narrow.s` (included by `bosses.s`) has `draw_sprite_narrow`, the quicker blit for eight-pixel pictures (gels, a Lanmola's segments) that `enemy_blit` picks, tested against `draw_sprite` in `tests/test_sprite_narrow.py` |
 | `link.s` | input -> direction, grid-step movement, collision, room transitions, caves, scroll |
 | `enemy.s` | monster spawn (overworld monsters come out of a spawn cloud: `cloud_begin`/`cloud_tick`; screens with edge spawns use `edge_spawn_tick`), walker AI (16-px lanes), shove, draw, `sprite_offset`, `rand8` |
 | `dmon.s` | the dungeon monsters of Levels 3-8 (darknuts, gibdo, zol, vire, pols voice, like-like, bubbles, wizzrobes), `mon_mask` (which weapons hurt what), `STEP_PATTERNS`, and the `farstub` trampoline macro + list |
@@ -592,9 +592,9 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   5 `$46 $66`, 6 `$19 $1A`, 7 `$18 $49 $5A`, 9 `$23 $40 $56 $65`.
 - **Level 9** (`UW_LEVELS := 1 2 3 4 5 6 7 8 9`; the monsters live in `bosses.s`, the dungeon people and the door man in `uw.s`): 57 rooms,
   a ten-entry cellar array, the old men from person table C, and the man at the door (record trigger bit 4) who opens only
-  with all eight triforce pieces. **Lanmola** (`$3A` blue, `$3B` red; `BEH_LANMOLA`): two worms of four segments that start at
+  with all eight triforce pieces. **Lanmola** (`$3A` blue, `$3B` red; `BEH_LANMOLA`): two worms of five segments (as in the ROM) that start at
   ($40,$8D) and uncoil as the head's headings go down the body; the head decides at every square. **Patra** (`$47`/`$48`, children
-  `$25`/`$26`; `BEH_PATRA`, `BEH_PATRA_CHILD`): `_room_info` expands one eye into the eye plus seven children (`PATRA_CHILDREN`); the
+  `$25`/`$26`; `BEH_PATRA`, `BEH_PATRA_CHILD`): `_room_info` expands one eye into the eye plus eight children (`PATRA_CHILDREN`); the
   children come out one at a time and orbit it (`patra_cos`, `PATRA_MAN` flips the radii every $FF frames); the eye is proof
   until none is left (`patra_kids`), everything is hurt by the sword only. **Ganon** (`$3E`, `BEH_GANON`): `ganon_tick`, called by
   `boss_misc_update` because `LINK_HELD` skips `update_enemies`, runs the scene (`GANON_SCENE` 1 dark room, 2 the Triforce of
@@ -627,9 +627,8 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   bloated, 2 is stunned. It eats a ticking bomb that reaches its mouth (`dodongo_bomb_tick`, limits per direction) and dies after two; a
   bomb cloud in range stuns it for `$20` frames, the sword kills a stunned one (`dodongo_sword`) and it leaves a bomb; otherwise hits do
   nothing. The bombs it has swallowed are counted in `ENEMY_BOMBS` (the ROM's `Dodongo_ObjBombHits`); they must not live in `ENEMY_WANT`, which `wander_tick` clears at every square boundary (that once made it need five or six bombs). Pictures `dodongo_images`/`dodongo_flips` (palette row 3, the bloated ones are mirror layout).
-- **Moldorm** (`$41`, `BEH_MOLDORM`; ROM `Moldorm_*`, `Flyer_*`): the ROM has ten segments; **this port has two worms of four** (the engine has
-  eight monster slots; `MOLDORM_SEGMENTS` in `ai.s` is per worm, `actors.MOLDORM_SEGMENTS = 8` in total, expanded in `_room_info`). The head
-  (slot & 3 = 3) steers (`moldorm_steer`: chase or wander states 2/3, eight turns `$10` frames apart, then `Flyer_MoldormDecideState` rand >= `$40` =
+- **Moldorm** (`$41`, `BEH_MOLDORM`; ROM `Moldorm_*`, `Flyer_*`): ten segments, two worms of five (`MOLDORM_SEGMENTS` in `ai.s` is per worm,
+  `actors.MOLDORM_SEGMENTS = 10` in total, expanded in `_room_info`; the record keeps eight and a count above eight repeats the last). The heads (slots 4 and 9: `worm_place`) steer (`moldorm_steer`: chase or wander states 2/3, eight turns `$10` frames apart, then `Flyer_MoldormDecideState` rand >= `$40` =
   chase); every time its timer is re-armed to `$10` each segment below takes the old heading of the one above (`ENEMY_OLDDIR`); speed `$80`
   (half a pixel a frame, `ENEMY_SPEED/FRAC`); a wall bounce is kept in `ENEMY_BOUNCE` until the next turn. A killed segment comes back once with
   `$20` HP and the tail is removed instead; the head dies for good (`moldorm_died`). Drawn as tile `$44`, palette row 2.
@@ -796,9 +795,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   draw mode, behaviour. Monsters ported (`actors.MONSTER_TYPES`): `05`/`06` goriya (blue/red), `15` gel, `1B` keese, `28` rope, `2A`
   stalfos, `27` wallmaster, `3D` Aquamentus, `49` trap, `31`/`32` Dodongo, `41` Moldorm segment, and the overworld's `01`/`02` lynel,
   `03`/`04` moblin, `07`-`0A` octorok, tektites, leevers, zoras, peahats, ghinis, boulders (`movers.s`), armos `1E` and the flying ghini `22` (`owspec.s`).
-  **`MAX_ENEMIES` is 8**: the per-monster arrays are indexed `d8(%a5,%dn)` (they must start below offset 128) and some code
-  uses stride-8 accesses between them (`8(%a0,%d5.w)` from `ENEMY_TURN` to `ENEMY_WANT`), so raising it is a refactor; a worm
-  or a group of traps takes slots from the room's other monsters (`_room_info` truncates to eight). `mon_art.bin` gives, per monster, the first frame of its
+  **`MAX_ENEMIES` is 11** (`ENEMY_STRIDE` apart): the arrays that sit within reach of `d8(%a5,%dn)` (they must start below offset 128) are indexed that way, the others through `lea` and `0(%aN,%dM.w)`; two worms of five or Patra and eight children fit, a room's other monsters share what is left. `mon_art.bin` gives, per monster, the first frame of its
   art in `mon_sprites` (octoroks have six images; `proj_sprites` ends with the rock and four arrows, `PF_ROCK`/`PF_ARROW`). `mon_sprites` holds only the overworld's monsters
   (those of `ow_room_info` in both quests plus `OVERWORLD_EXTRA`), found through the `MON_SPR_OW` pointer set by `init_pointers`; each dungeon's monster pictures are the last
   part of its `LEVEL<n>[Q].DAT` (`monster_art`: the monsters its room records name, what they put down (`SPAWNED` in `build_assets.py`), the cellars' keese and the moblin
@@ -842,7 +839,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 ## 13. Lessons learned / pitfalls
 
 - Rebuilds with a dev env leave a dungeon start baked in (section 4).
-- **A dev build has branches the default build lacks** (`begin_game`'s `bsr uw_select_level_far` sits at `.text+0x6c`, its stub 32 KB away): `make all` passes the reach check and a dev build (`screenshot.py --uw`) can still fail it, then the harness dies with "marker found twice" (the program ran into the basepage). Run a dev build after adding code to `main_loop`'s neighbourhood; the main loop's hold check is written short for that reason (`bne.s`, memory operands).
+- **A dev build has branches the default build lacks** (`begin_game`'s calls sit near `.text+0x6c`, 32 KB from the stubs in the middle: it reaches `uw_select_level` and `quest_apply` through `*_mid` stubs, and `game_start` jumps to `intro_start` through the stack): `make all` passes the reach check and a dev build (`screenshot.py --uw`) can still fail it, then the harness dies with "marker found twice" (the program ran into the basepage). Run a dev build after adding code to `main_loop`'s neighbourhood; the main loop's hold check is written short for that reason (`bne.s`, memory operands).
 - Hatari at 60 Hz: use the VBL-latch logic in `present_frame`/`wait_vbl`; don't change it casually.
 - The ST has a 16x16 shift blitter at run time; keep sprite counts modest per frame.
 - Tab/menu: drawing straight to the visible screen is fine because nothing else runs.
@@ -868,7 +865,7 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-What is left (details in `atari_st/PLAN.md`): more play-testing and longer sessions on real hardware. The Moldorm is two worms of four, not one of ten; the Dodongo and Moldorm have no death
+What is left (details in `atari_st/PLAN.md`): more play-testing and longer sessions on real hardware. The Dodongo and Moldorm have no death
 cloud. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, with about 17 KB to spare (packing the drum samples to 4 bits would give back about 21 KB). Scope decision: both quests in one build, files per dungeon. All tables are decoded from a user-supplied ROM; do not commit the ROM.
 
 ## 15. Persistent notes also kept in the repo memory (VS Code agent memory)

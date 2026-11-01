@@ -364,12 +364,13 @@ class ActorTableTests(unittest.TestCase):
             record = actors._room_info(0, attrs, [1, 4, 5, 6], bytes(64))
             self.assertEqual(bool(record[1] & 0x08), never, f"list {list_id:#x}")
 
-    def test_a_lone_moldorm_becomes_two_worms_of_four_segments(self) -> None:
+    def test_a_lone_moldorm_becomes_two_worms_of_five_segments(self) -> None:
         segment = actors.MONSTER_TYPES.index(0x41)
         attrs = ([0x22], [0x80], [0], [0])      # list id $62, the first of the ObjLists: here a single Moldorm
         record = actors._room_info(0, attrs, [1, 4, 5, 6], bytes(64), lists=[[0x41]])
-        self.assertEqual(list(record[6:6 + actors.MOLDORM_SEGMENTS]), [segment] * actors.MOLDORM_SEGMENTS)
+        self.assertEqual(actors.MOLDORM_SEGMENTS, 10)
         self.assertEqual(record[0], actors.MOLDORM_SEGMENTS)
+        self.assertEqual(list(record[6:14]), [segment] * 8, "the record holds eight; the spawner repeats the last for the rest")
 
     def test_the_new_monsters_have_their_tables(self) -> None:
         for nes_type in (0x05, 0x31, 0x32, 0x41):
@@ -388,7 +389,7 @@ class ActorTableTests(unittest.TestCase):
         self.assertEqual(actors.MONSTER_HURT[0x37], 0, "and nothing touches her")
         self.assertEqual(actors.MONSTER_DAMAGE[0x3E], 8, "Ganon: ObjTypeToDamagePoints $04, four hearts")
 
-    def test_zelda_comes_with_four_guard_fires_and_patra_with_seven_children(self) -> None:
+    def test_zelda_comes_with_four_guard_fires_and_patra_with_eight_children(self) -> None:
         zelda = actors.MONSTER_TYPES.index(0x37)
         fire = actors.MONSTER_TYPES.index(0x3F)
         record = actors._room_info(0, ([0x37], [0x00], [0], [0]), [1, 4, 5, 6], bytes(64))   # list id $37: one Zelda
@@ -398,7 +399,9 @@ class ActorTableTests(unittest.TestCase):
         eye = actors.MONSTER_TYPES.index(0x47)
         child = actors.MONSTER_TYPES.index(0x25)
         record = actors._room_info(0, ([0x07], [0x80], [0], [0]), [1, 4, 5, 6], bytes(64))   # list id $47
-        self.assertEqual(list(record[6:6 + 1 + actors.PATRA_CHILDREN]), [eye] + [child] * actors.PATRA_CHILDREN)
+        self.assertEqual(actors.PATRA_CHILDREN, 8)
+        self.assertEqual(record[0], 1 + actors.PATRA_CHILDREN)
+        self.assertEqual(list(record[6:14]), [eye] + [child] * 7)
 
     def test_ganons_room_keeps_its_item_hidden_until_he_is_ashes(self) -> None:
         record = actors._room_info(0, ([0x3E], [0x00], [0], [0x03]), [1, 4, 5, 6], bytes(64))

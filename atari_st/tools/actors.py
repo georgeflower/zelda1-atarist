@@ -318,7 +318,7 @@ ORANGE_BOSS_COLOURS = ((4, 3), (4, 2), (5, 3))
 # in every level: 10 is Link's tunic green (0x460), 7 the dark green (0x050, exactly $1A), 11 a dark blue (0x005).
 GLEEOK_TYPES = (0x43, 0x44, 0x45, 0xF9, 0x46)
 GLEEOK_SLOTS = (10, 7, 11)
-LANMOLA_SEGMENTS = 8        # two worms of four (ten of five each in the original)
+LANMOLA_SEGMENTS = 10       # two worms of five, as in the original
 GANON_IMAGES = 10            # GanonFrameImages names ten 16x16 pictures (heap entries 0-9 of its animation) and the ashes (11)
 GANON_ASHES = 11
 GANON_BLUE_SLOTS = (4, 8, 1)    # Ganon's row $16 $2C $3C: red, cyan, white (for $3C, a pale cyan). Slot 8 is the overworld's ground, which
@@ -331,9 +331,9 @@ GANON_RAYS = (              # GanonBurstDirs / GanonBurstTiles / GanonBurstSprit
     (0xEE, True, False), (0xEE, False, False), (0xE8, False, True), (0x30, True, True),     # down-left, up, up-right, up-left
     (0x30, False, True), (0xE8, False, False), (0x30, True, False), (0x30, False, False))
 GANON_ASH_COLOURS = ((4, 2), (4, 3), (6, 1))      # the triforce colours $27 $06 $16: orange, brown for the dark red, red
-PATRA_CHILDREN = 7          # eight in the original, which has ten object slots; here the eye and seven
+PATRA_CHILDREN = 8          # the eye and eight children, as in the original
 PATRA_CHILD_OF = {0x47: 0x25, 0x48: 0x26}      # InitPatra: type $47 goes with child $25, $48 with $26
-MOLDORM_SEGMENTS = 8        # two worms of four (the original has five each, but there are only eight monster slots)
+MOLDORM_SEGMENTS = 10       # two worms of five, as in the original
 MONSTER_IMAGES = 4          # image slots of an ordinary monster, each stored plain and flipped
 OCTOROK_IMAGES = 6          # side, front and back, in two animation sets (mon_art says where each art starts)
 # Octorok frames in ObjAnimFrameHeap order: side, back, front for set one, then the same for set two. The back
@@ -1014,7 +1014,7 @@ def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_by
 def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, lists=(), level: int = 0) -> bytes:
     """count, secret trigger (bit 7: the room has a push block, 6 a rupee stash, 5 Grumble, 4 the man at Level 9's door, 3 its monsters never come back), item id, item X, item Y,
     unsupported (bit 7: a dark room, bits 5-6: which boss roar the room can hear, attribute E's sound index, bits 3-4: statues that shoot fireballs, 1 four, 2 two; bits 0-2: monsters not ported),
-    eight monsters, then where the person's speech starts in the cave text (0xFF: nobody talks here)."""
+    eight monsters (a count above eight repeats the last one), then where the person's speech starts in the cave text (0xFF: nobody talks here)."""
     attr_c, attr_d, attr_e, attr_f = attrs
     list_id = (attr_c[room] & 0x3F) | (0x40 if attr_d[room] & 0x80 else 0)
     count = foe_counts[attr_c[room] >> 6]
@@ -1044,7 +1044,9 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
         types = types + [PATRA_CHILD_OF[types[0]]] * PATRA_CHILDREN
     if len(types) == 1 and types[0] in (0x3A, 0x3B):
         types = types * LANMOLA_SEGMENTS                  # InitLamnola makes two worms (here of four segments each)
-    monsters = [MONSTER_TYPES.index(t) for t in types if t in MONSTER_TYPES][:8]
+    monsters = [MONSTER_TYPES.index(t) for t in types if t in MONSTER_TYPES]
+    if len(monsters) > 8 and len(set(monsters[7:])) != 1:
+        raise SystemExit(f"room {room:#x}: more than eight monsters that do not end in a run of one kind")
     # CheckHasLivingMonsters ignores bubbles ($2B-$2D) and everything from $49 up,
     # which includes the traps; any other monster has to be killed before the room clears.
     unsupported = sum(
@@ -1072,7 +1074,7 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
     statues = {STATUE_LAYOUT_FOUR: 1, STATUE_LAYOUT_TWO: 2}.get(attr_d[room] & 0x3F, 0)    # UpdateStatues: the statues that shoot fireballs
     item_x = (pos & 0xF0) - (8 if item_id == TRIFORCE_PIECE else 0)   # the ROM moves a triforce piece 8 pixels left (@StoreLocation), onto the room's middle
     record = bytearray([len(monsters), trigger, item_id, item_x, (pos & 0x0F) << 4, unsupported | statues << 3 | roar << 5 | dark])
-    record.extend(monsters)
+    record.extend(monsters[:8])                  # a count above eight repeats the last of these (the worms, Patra's children)
     record.extend([0xFF] * (ROOM_INFO_BYTES - 2 - len(record)))
     if person != NO_PERSON and not monsters:
         # the people that do more than talk: byte 13, which a room without monsters does not use, says which

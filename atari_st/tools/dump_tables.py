@@ -72,7 +72,7 @@ def dump_underworld(source_root: Path, level: int, lists: list[list[int]]) -> di
             "push_block": bool(d & 0x40),
             "monster_list": (c & 0x3F) | (0x40 if d & 0x80 else 0),
             "monster_count": record[0],
-            "monsters": [actors.MONSTER_TYPES[m] for m in record[6:6 + record[0]]],
+            "monsters": [actors.MONSTER_TYPES[record[6 + min(i, 7)]] for i in range(record[0])],
         })
     return {"level": level, "start_room": start, "start_y": info[B.LEVEL_INFO_START_Y],
             "triforce_room": info[B.LEVEL_INFO_TRIFORCE_ROOM_ID], "foe_counts": foe, "rooms": rooms}
