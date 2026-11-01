@@ -964,31 +964,12 @@ enemy_square_blocked:
 9:  movem.l (%sp)+, %d1-%d5
     rts
 
-| d2.w = X, d3.w = Y. Returns d0.w = 1 outside the room's object bounds.
-enemy_out_of_bounds:
-    move.l %d1, -(%sp)
-    moveq #1, %d0
-    moveq #0, %d1
-    move.b OFF_OBJ_LEFT(%a5), %d1
-    cmp.w %d1, %d2
-    blt 9f
-    move.b OFF_OBJ_RIGHT(%a5), %d1
-    cmp.w %d1, %d2
-    bgt 9f
-    move.b OFF_OBJ_UP(%a5), %d1
-    cmp.w %d1, %d3
-    blt 9f
-    move.b OFF_OBJ_DOWN(%a5), %d1
-    cmp.w %d1, %d3
-    bgt 9f
-    moveq #0, %d0
-9:  move.l (%sp)+, %d1
-    rts
-
-| The overworld's version of the bounds: a monster may stop on the square next to a bound, because
-| BoundByRoom only stops it going on through it (left bound $11 still lets it reach lane $10, up bound
-| $4E lane $4D). Monsters that walk in from the edge need this to get going.
+| d2.w = X, d3.w = Y. Returns d0.w = 1 outside the room's object bounds. A monster may stop on the square next to a
+| bound, because BoundByRoom only stops it going on through it: in the overworld left bound $11 still lets it reach lane
+| $10 and up bound $4E lane $4D, in a dungeon $21 lane $20 and $5E lane $5D (the top row of the floor, which the
+| monsters did not use before). Monsters that walk in from the edge of an overworld screen need this to get going.
 enemy_out_of_bounds_ow:
+enemy_out_of_bounds:
     move.l %d1, -(%sp)
     moveq #1, %d0
     moveq #0, %d1

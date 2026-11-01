@@ -593,7 +593,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **Level 9** (`UW_LEVELS := 1 2 3 4 5 6 7 8 9`; the monsters live in `bosses.s`, the dungeon people and the door man in `uw.s`): 57 rooms,
   a ten-entry cellar array, the old men from person table C, and the man at the door (record trigger bit 4) who opens only
   with all eight triforce pieces. **Lanmola** (`$3A` blue, `$3B` red; `BEH_LANMOLA`): two worms of four segments that start at
-  ($40,$8D) and uncoil as the head's headings go down the body; the head decides at every square. **Patra** (`$47`/`$48`, children
+  ($40,$8D) and uncoil as the head's headings go down the body; the head decides at every square. Like every dungeon monster it may stop on the square next to a bound (`enemy_out_of_bounds`, as in the overworld: left lane `$20`, top lane `$5D`), so it reaches the left column and the top row, as in the ROM. **Patra** (`$47`/`$48`, children
   `$25`/`$26`; `BEH_PATRA`, `BEH_PATRA_CHILD`): `_room_info` expands one eye into the eye plus seven children (`PATRA_CHILDREN`); the
   children come out one at a time and orbit it (`patra_cos`, `PATRA_MAN` flips the radii every $FF frames); the eye is proof
   until none is left (`patra_kids`), everything is hurt by the sword only. **Ganon** (`$3E`, `BEH_GANON`): `ganon_tick`, called by
