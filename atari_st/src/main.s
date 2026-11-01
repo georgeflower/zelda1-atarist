@@ -302,7 +302,7 @@ begin_game:
     .endif
     bsr enter_room
     .if DEV_START_CAVE
-    bsr start_cave_entry_far            | development shortcut: start inside the cave behind the start screen
+    bsr start_cave_entry_mid            | development shortcut: start inside the cave behind the start screen
     .endif
     bsr draw_hud_far
     rts
@@ -327,6 +327,11 @@ init_pointers:
 uw_select_level_mid:                    | the dev start's other call, the same
     pea 1f(%pc)
 1:  addi.l #(uw_select_level - 1b), (%sp)
+    rts
+
+start_cave_entry_mid:                  | the dev start's cave, the same
+    pea 1f(%pc)
+1:  addi.l #(start_cave_entry - 1b), (%sp)
     rts
 
 quest_apply_mid:                        | the dev start's call (a 32-bit stub: begin_game is far from the stubs in the middle)
