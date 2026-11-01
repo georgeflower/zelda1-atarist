@@ -32,9 +32,8 @@ class DumpTablesTests(unittest.TestCase):
 
 class GoldenSceneTests(unittest.TestCase):
     def test_every_scene_has_a_stored_fingerprint(self) -> None:
-        import json
         import golden
-        stored = json.loads(golden.GOLDEN.read_text(encoding="utf-8"))
+        stored = golden.load_stored()
         self.assertEqual(sorted(stored), sorted(golden.SCENES))
         for digest in stored.values():
             self.assertRegex(digest, r"^[0-9a-f]{64}$")

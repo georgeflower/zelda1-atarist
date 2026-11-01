@@ -129,7 +129,7 @@ The save file `ZELDA.SAV` is written to that folder. The same thing can be done 
 - `atari_st/` - the port: 68000 source, the tools that turn the ROM into ST data, tests and a headless Hatari harness
 - `src/` - the original Zelda 1 disassembly, used as the reference
 - `ext/` - where your ROM goes (gitignored)
-- `AGENTS.md` / `CLAUDE.md` - notes for AI assistants working on the project (same file twice)
+- `AGENTS.md` - notes for AI assistants working on the project (`CLAUDE.md` only points to it)
 
 ## Credits
 

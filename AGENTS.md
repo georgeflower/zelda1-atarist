@@ -1,7 +1,8 @@
 # AGENTS.md - everything an AI assistant needs to work on this project
 
 This file is the single briefing for any coding agent (Claude, Copilot, Codex,
-...). `CLAUDE.md` is an identical copy for tools that look for that name. Read it
+...). `CLAUDE.md` only points here, for tools that look for that name (one file to edit, so
+the two cannot conflict). Read it
 before researching anything: most questions have been answered here. If you
 learn something new and durable, add it here.
 
@@ -59,7 +60,7 @@ so do not add any of these or bump anything when you finish a milestone; what is
 ```
 build.ps1, util.ps1      PowerShell helpers from the original disassembly project
 README.md                short project overview (+ controls) and the step-by-step build instructions (Linux, Windows/WSL): keep them in step with the Makefile
-AGENTS.md / CLAUDE.md    this briefing
+AGENTS.md                this briefing (CLAUDE.md only points to it)
 src/                     ORIGINAL NES disassembly (Z_00..Z_07.asm, *.inc, bins.xml, dat/)
 ext/Original.nes         your ROM (gitignored), 131088 bytes; built with The Legend of Zelda (Europe) (Rev 1)
 atari_st/                the port
@@ -69,7 +70,7 @@ atari_st/                the port
   PLAN.md                what is left, plus the ROM data tables as an appendix
   src/*.s                68000 code (one assembly unit, main.s .includes the rest)
   tools/*.py             asset pipeline, PRG packer, Hatari screenshot harness
-  tests/*.py             unittest suites (about 200 tests); tests/golden/frames.json = golden frame hashes
+  tests/*.py             unittest suites (about 200 tests); tests/golden/frames/<scene>.txt = golden frame hashes, one file per scene
   music/                 the YM2149 digidrum player (ymplay.h); the songs are ripped from the ROM
   build/                 OUTPUT (gitignored): generated/, ZELDAST.PRG, scratch, shots/
 ```
@@ -125,7 +126,7 @@ atari_st/                the port
 | `make_disk.py` | `make disk`: a 720 KB FAT12 floppy image (`build/ZELDA.st`) with `ZELDAST.PRG`, `INTRO.DAT` and the 18 `LEVEL*.DAT`; `read_disk` reads one back (tests); for a real drive, a Gotek or an emulator |
 | `make_prg.py` | wraps the flat binary into a TOS PRG header (`--check` validates) |
 | `screenshot.py` | **headless Hatari harness** (`--hd-file NAME=PATH` copies a file to the emulated drive first): runs the PRG, injects keys, pokes variables, dumps RAM, decodes framebuffer to PNG, prints a state report and a `FRAMEHASH`; `--room`, `--uw`/`--level` build a dev PRG into `build/dev` |
-| `golden.py` | golden frames: runs the fixed scenes through `screenshot.py` and compares `FRAMEHASH` with `tests/golden/frames.json` (`--update`, `--only`, `--png-dir`); skipped without Hatari, `TOS` and the ROM; `make golden-update` |
+| `golden.py` | golden frames: runs the fixed scenes through `screenshot.py` and compares `FRAMEHASH` with `tests/golden/frames/<scene>.txt` (`--update`, `--only`, `--png-dir`); skipped without Hatari, `TOS` and the ROM; `make golden-update` |
 | `dump_tables.py` | dumps the ROM tables the port is built from (overworld screens, all nine dungeons' rooms, monster lists) as `build/dump/tables.json` and `tables.md`; checks the ROM |
 | `check_reach.py` | run after every link: fails the build if an `ltab` symbol is missing or a branch or PC-relative operand does not fit 16 bits (reads `build/zelda_st.lst`) |
 | `dev_run.sh` | build with a start room + capture (needs `$TOS`) |
@@ -225,12 +226,12 @@ writing). They cover the asset pipeline and tables; the 68000 music player is th
 68000 code with unit tests. `test_actors.py` also holds the Makefile-vs-`build_assets.UW_LEVELS` check and the
 reach-check listing parser.
 
-### Golden frames (`tools/golden.py`, `tests/golden/frames.json`)
+### Golden frames (`tools/golden.py`, `tests/golden/frames/`)
 Thirty-five fixed scenes (overworld start, the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo,
 Moldorm, traps, goriyas, old man, and Levels 3-8: a crowded room, a dark room, a rupee stash, Grumble, a dark crowd; Level 9: a Lanmola room, a Patra room, Ganon's room, Zelda's room and Zelda's thanks; Level 4's Zols and the ladder stopping on a two-square moat) are run through `screenshot.py` (dev builds in `build/dev` via `--room`/`--uw`/`--level`) and
 the `FRAMEHASH` (SHA-256 of pixel indices plus palette) is compared with the stored one. **Hashes, not images**: the frames are
 Nintendo's artwork, so the tests keep no images. (Screenshots are not kept in the repository; the owner has a zip of the early ones.) Runs are deterministic. After a change that moves pixels on purpose: look at
-`build/golden/<scene>.png`, then `make golden-update` and commit `frames.json`. `make check` runs it and skips quietly without
+`build/golden/<scene>.png`, then `make golden-update` and commit the changed `frames/*.txt` (one small file per scene, so branches that re-record different scenes do not conflict; a scene changed by two merged branches has to be recorded again on the merged code, see below). `make check` runs it and skips quietly without
 Hatari, `TOS` or the ROM. A scene that does not match is run again (up to four more times): reading a dungeon's file moves the start of the game by a VBL now and then, and the Ganon scenes are decided by chance. A scene that needs different input uses `--keys` in its `SCENES` entry. **Scenes where monsters move at random
 (`uw2_goriyas`, `uw4_dark`) depend on how long the PRG takes to load**: the harness captures at an absolute VBL, so a PRG of another size
 shows another frame of the walk. After a change that only moves the code, expect those two to change and re-record them.
