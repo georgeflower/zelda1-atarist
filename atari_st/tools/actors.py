@@ -1132,6 +1132,8 @@ def _clears_metastate(name: str, routines, following, seen=None) -> bool:
         return True
     ends = False
     for code in routines[name]:
+        if re.search(r"\bSTA\s+ObjMetastate\+1", code):      # a worm or a boss that sets up its own pieces clears theirs (and its own) by hand
+            return True
         call = re.search(r"\b(?:JSR|JMP)\s+(\w+)", code)
         if call and _clears_metastate(call.group(1), routines, following, seen):
             return True

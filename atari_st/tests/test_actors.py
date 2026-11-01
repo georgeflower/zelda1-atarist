@@ -36,6 +36,12 @@ class SpawnCloudTests(unittest.TestCase):
         # leevers, zoras, peahats, boulders, ghinis, Gohma and Ganon are put down without one
         for at_once in (0x0F, 0x10, 0x11, 0x1A, 0x1F, 0x20, 0x22, 0x33, 0x34, 0x3E):
             self.assertEqual(clouds[at_once], actors.SPAWN_CLOUD_NONE, hex(at_once))
+        # measured in the ROM's dungeons (tools/refnes/cloud_types.mjs): the wizzrobes, wallmaster, Lanmolas, Manhandla, Moldorm and
+        # Gleeok clear their metastate themselves (InitMoldorm and the like store it by hand), the rest wait in the cloud
+        for at_once in (0x23, 0x24, 0x27, 0x3A, 0x3B, 0x3C, 0x41, 0x43, 0x44, 0x45):
+            self.assertEqual(clouds[at_once], actors.SPAWN_CLOUD_NONE, hex(at_once))
+        for in_cloud in (0x2A, 0x2B, 0x31, 0x32, 0x37, 0x38, 0x3D, 0x47, 0x49):
+            self.assertEqual(clouds[in_cloud], actors.SPAWN_CLOUD_SHORT, hex(in_cloud))
 
     @unittest.skipUnless(HAS_ROM, "needs the ROM")
     def test_the_dungeons_monsters_use_the_cloud_like_the_overworlds(self) -> None:
