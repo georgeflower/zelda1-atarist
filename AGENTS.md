@@ -464,7 +464,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   derived from the ROM by `actors.rom_spawn_clouds` (initialisers that end in `ResetObjMetastate` have none). Screens whose attribute F has bit 3
   set (20 of them around the start) place nothing: monsters come in one by one at a square of a counter-clockwise ring, with no cloud, and not
   closer to Link than `EDGE_SAFE_DIST`. The ROM waits 0 / 20-50 frames and keeps only `$22` away; the `EDGE_*` equates in `main.s` are a gentler
-  version the owner asked for. The dungeons' monsters still appear at once.
+  version the owner asked for. **Dungeons** do the same (`OFF_LEVEL` no longer matters): a room's monsters come out of their clouds, and a monster in its cloud counts as alive for the room clear and the ringleader. Moldorm, Lanmola, Manhandla, Gleeok, the wizzrobes and the wallmaster have none (their initialisers clear the metastate by hand); `tools/refnes/cloud_types.mjs` measures this in the ROM.
 - **Walking monsters**: 16-px lanes; turn/choose only when X&15==0 and Y&15==13; blocked
   -> random perpendicular, other perpendicular, reverse, stop. The turns themselves follow the ROM
   (`ai.s`): stalfos/gels `Wanderer_TargetPlayer` (`wander_tick`; rate `$80` / `$20`, turn timer in `ENEMY_TURN`:

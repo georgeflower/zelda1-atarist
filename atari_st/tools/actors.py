@@ -1132,6 +1132,8 @@ def _clears_metastate(name: str, routines, following, seen=None) -> bool:
         return True
     ends = False
     for code in routines[name]:
+        if re.search(r"\bSTA\s+ObjMetastate\+1", code):      # a worm or a boss that sets up its own pieces clears theirs (and its own) by hand
+            return True
         call = re.search(r"\b(?:JSR|JMP)\s+(\w+)", code)
         if call and _clears_metastate(call.group(1), routines, following, seen):
             return True
@@ -1161,11 +1163,10 @@ def rom_spawn_clouds(source_root: Path) -> dict[int, int]:
 
 
 def monster_cloud_table(source_root: Path) -> bytes:
-    """One byte per monster: the spawn cloud it comes out of. Only the overworld puts monsters down in clouds for
-    now (the dungeons' monsters appear at once, as they did before), so the other types get 0."""
+    """One byte per monster: the spawn cloud it comes out of (SPAWN_CLOUD_*), read from the ROM's initialisers; the same
+    in the overworld and the dungeons (InitObject treats them alike)."""
     clouds = rom_spawn_clouds(source_root)
-    return bytes(clouds.get(t, SPAWN_CLOUD_NONE) if t in OVERWORLD_MONSTERS else SPAWN_CLOUD_NONE
-                 for t in MONSTER_TYPES)
+    return bytes(clouds.get(t, SPAWN_CLOUD_NONE) for t in MONSTER_TYPES)
 
 
 def overworld_monster_lists(source_root: Path) -> list[list[int]]:

@@ -179,10 +179,8 @@ spawn_counted:                  | d1 = how many
     addq.b #1, %d0
     move.b %d0, OFF_ENEMY_COUNT(%a5)    | a boss that puts down more pieces needs this one counted
     bsr enemy_init_special
-    tst.b OFF_LEVEL(%a5)
-    bne 5f
-    bsr cloud_begin                 | an overworld monster is put down in a spawn cloud
-5:  addq.w #1, %d5
+    bsr cloud_begin                 | a monster is put down in a spawn cloud (when the ROM's initialiser leaves one)
+    addq.w #1, %d5
     bra 1b
 8:  cmp.b OFF_ENEMY_COUNT(%a5), %d5     | (the pieces a boss made are counted already)
     bls 9b

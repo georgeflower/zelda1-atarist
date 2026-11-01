@@ -36,17 +36,24 @@ class SpawnCloudTests(unittest.TestCase):
         # leevers, zoras, peahats, boulders, ghinis, Gohma and Ganon are put down without one
         for at_once in (0x0F, 0x10, 0x11, 0x1A, 0x1F, 0x20, 0x22, 0x33, 0x34, 0x3E):
             self.assertEqual(clouds[at_once], actors.SPAWN_CLOUD_NONE, hex(at_once))
+        # measured in the ROM's dungeons (tools/refnes/cloud_types.mjs): the wizzrobes, wallmaster, Lanmolas, Manhandla, Moldorm and
+        # Gleeok clear their metastate themselves (InitMoldorm and the like store it by hand), the rest wait in the cloud
+        for at_once in (0x23, 0x24, 0x27, 0x3A, 0x3B, 0x3C, 0x41, 0x43, 0x44, 0x45):
+            self.assertEqual(clouds[at_once], actors.SPAWN_CLOUD_NONE, hex(at_once))
+        for in_cloud in (0x2A, 0x2B, 0x31, 0x32, 0x37, 0x38, 0x3D, 0x47, 0x49):
+            self.assertEqual(clouds[in_cloud], actors.SPAWN_CLOUD_SHORT, hex(in_cloud))
 
     @unittest.skipUnless(HAS_ROM, "needs the ROM")
-    def test_only_overworld_monsters_use_the_cloud_for_now(self) -> None:
+    def test_the_dungeons_monsters_use_the_cloud_like_the_overworlds(self) -> None:
+        clouds = actors.rom_spawn_clouds(ROM_ROOT)
         table = actors.monster_cloud_table(ROM_ROOT)
         self.assertEqual(len(table), len(actors.MONSTER_TYPES))
         for nes_type, cloud in zip(actors.MONSTER_TYPES, table):
-            if nes_type not in actors.OVERWORLD_MONSTERS:
-                self.assertEqual(cloud, actors.SPAWN_CLOUD_NONE, hex(nes_type))
+            self.assertEqual(cloud, clouds.get(nes_type, actors.SPAWN_CLOUD_NONE), hex(nes_type))
         self.assertEqual(table[actors.MONSTER_TYPES.index(0x07)], actors.SPAWN_CLOUD_LONG)
         self.assertEqual(table[actors.MONSTER_TYPES.index(0x03)], actors.SPAWN_CLOUD_SHORT)
         self.assertEqual(table[actors.MONSTER_TYPES.index(0x0F)], actors.SPAWN_CLOUD_NONE)
+        self.assertEqual(table[actors.MONSTER_TYPES.index(0x2A)], actors.SPAWN_CLOUD_SHORT)    # a stalfos in a dungeon
 
     def test_the_edge_walk_in_keeps_a_wider_berth_than_the_rom(self) -> None:
         text = (Path(__file__).resolve().parents[1] / "src" / "main.s").read_text(encoding="utf-8")
