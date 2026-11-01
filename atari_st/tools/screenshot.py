@@ -404,7 +404,7 @@ def main() -> None:
     print("ENEMIES " + " ".join(
         f"[{i}:({enemy_byte('ENEMY_X', i):#04x},{enemy_byte('ENEMY_Y', i):#04x}) t={enemy_byte('ENEMY_TYPE', i):02x} "
         f"s={enemy_byte('ENEMY_STATE', i):02x} tm={enemy_byte('ENEMY_TIMER', i):02x} hp={enemy_byte('ENEMY_HP', i):02x} "
-        f"a={enemy_byte('ENEMY_ACTIVE', i)} d={enemy_byte('ENEMY_DIR', i):x} turn={enemy_byte('ENEMY_TURN', i)} want={enemy_byte('ENEMY_WANT', i)} bombs={enemy_byte('ENEMY_BOMBS', i) if 'ENEMY_BOMBS' in layout else 0} dist={enemy_byte('ENEMY_DIST', i)} step={enemy_byte('ENEMY_STEP', i)}]"
+        f"a={enemy_byte('ENEMY_ACTIVE', i)} d={enemy_byte('ENEMY_DIR', i):x} turn={enemy_byte('ENEMY_TURN', i)} want={enemy_byte('ENEMY_WANT', i)} bombs={enemy_byte('ENEMY_BOMBS', i) if 'ENEMY_BOMBS' in layout else 0} dist={enemy_byte('ENEMY_DIST', i)} step={enemy_byte('ENEMY_STEP', i)} cl={enemy_byte('ENEMY_CLOUD', i)}]"
         for i in range(count)))
     if "ZORA_ACTIVE" in layout:
         print(f"ZORA_ACTIVE={ram[globals_addr + layout['ZORA_ACTIVE']]} BOULDERS={ram[globals_addr + layout['BOULDERS']]}")

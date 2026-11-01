@@ -394,9 +394,9 @@ cloud_tick:
 3:  clr.b 0(%a0, %d3.w)             | the spark is over: the monster goes, and leaves what it drops
     clr.b 0(%a1, %d3.w)
     move.w %d3, %d5
-    movem.l %d0-%d2, -(%sp)
-    bsr kill_drop_far
-    movem.l (%sp)+, %d0-%d2
+    movem.l %d0-%d2/%a0-%a1, -(%sp)     | kill_drop clobbers a0 and a1, which this loop reads on: the monsters after this slot
+    bsr kill_drop_far                   | were then looked at through the wrong table (a flying head came back to life)
+    movem.l (%sp)+, %d0-%d2/%a0-%a1
     bra 8f
 2:  subq.b #1, 0(%a1, %d3.w)
 8:  addq.w #1, %d3
