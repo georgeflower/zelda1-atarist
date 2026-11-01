@@ -38,15 +38,16 @@ class SpawnCloudTests(unittest.TestCase):
             self.assertEqual(clouds[at_once], actors.SPAWN_CLOUD_NONE, hex(at_once))
 
     @unittest.skipUnless(HAS_ROM, "needs the ROM")
-    def test_only_overworld_monsters_use_the_cloud_for_now(self) -> None:
+    def test_the_dungeons_monsters_use_the_cloud_like_the_overworlds(self) -> None:
+        clouds = actors.rom_spawn_clouds(ROM_ROOT)
         table = actors.monster_cloud_table(ROM_ROOT)
         self.assertEqual(len(table), len(actors.MONSTER_TYPES))
         for nes_type, cloud in zip(actors.MONSTER_TYPES, table):
-            if nes_type not in actors.OVERWORLD_MONSTERS:
-                self.assertEqual(cloud, actors.SPAWN_CLOUD_NONE, hex(nes_type))
+            self.assertEqual(cloud, clouds.get(nes_type, actors.SPAWN_CLOUD_NONE), hex(nes_type))
         self.assertEqual(table[actors.MONSTER_TYPES.index(0x07)], actors.SPAWN_CLOUD_LONG)
         self.assertEqual(table[actors.MONSTER_TYPES.index(0x03)], actors.SPAWN_CLOUD_SHORT)
         self.assertEqual(table[actors.MONSTER_TYPES.index(0x0F)], actors.SPAWN_CLOUD_NONE)
+        self.assertEqual(table[actors.MONSTER_TYPES.index(0x2A)], actors.SPAWN_CLOUD_SHORT)    # a stalfos in a dungeon
 
     def test_the_edge_walk_in_keeps_a_wider_berth_than_the_rom(self) -> None:
         text = (Path(__file__).resolve().parents[1] / "src" / "main.s").read_text(encoding="utf-8")

@@ -2207,7 +2207,8 @@ curtain_column:
 | Once the last monster of an underworld room has died the room counts as
 | cleared: its shutters open for good, and a trigger-7 item shows up.
 uw_check_clear:
-    movem.l %d0-%d1/%a0, -(%sp)
+    movem.l %d0-%d1/%a0-%a1, -(%sp)
+    lea OFF_ENEMY_CLOUD(%a5), %a1
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
     uwlea FLAGS, %a0
@@ -2219,9 +2220,12 @@ uw_check_clear:
     beq 0f
     tst.b OFF_ENEMY_ACTIVE(%a5)
     bne 0f
+    tst.b (%a1)
+    bne 0f                          | the first one is still in its spawn cloud: it is not gone
     moveq #0, %d1                   | CheckSecretTriggerRingleader: the first monster is gone, so the rest die with it
 5:  cmp.b OFF_ENEMY_COUNT(%a5), %d1
     bhs 0f
+    clr.b 0(%a1, %d1.w)             | (one that is still in its cloud goes too)
     cmpi.b #1, OFF_ENEMY_ACTIVE(%a5, %d1.w)
     bne 6f
     clr.b OFF_ENEMY_ACTIVE(%a5, %d1.w)
@@ -2233,6 +2237,8 @@ uw_check_clear:
     bhs 2f
     cmpi.b #1, OFF_ENEMY_ACTIVE(%a5, %d1.w)
     beq 9f                      | a blade trap (2) is not a monster to kill
+    tst.b 0(%a1, %d1.w)
+    bne 9f                      | a monster in its spawn cloud is alive
     addq.w #1, %d1
     bra 1b
 2:  cmpi.b #TRIGGER_MONEY_OR_LIFE, OFF_ROOM_TRIGGER(%a5)
@@ -2257,7 +2263,7 @@ uw_check_clear:
     bne 9f
     move.b #2, OFF_ITEM_ACTIVE(%a5)
     sfx SFX_ITEM_APPEARS
-9:  movem.l (%sp)+, %d0-%d1/%a0
+9:  movem.l (%sp)+, %d0-%d1/%a0-%a1
     rts
 
 | ---------------------------------------------------------------- push block
