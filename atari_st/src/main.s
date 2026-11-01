@@ -81,8 +81,8 @@
     .equ BUFFER_COUNT, 3
     .equ BUFFER_ALLOC, ((BUFFER_COUNT - 1) * SCREEN_BYTES + 256 + LEVEL_BUF_BYTES)
     .equ XBIOS_PHYSBASE, 2
-    .if (OFF_SCREEN_PTR != 0) + (OFF_BG_CUR != 4) + (OFF_BG_NEXT != 8)
-    .error "init_buffers reads SCREEN_PTR, BG_CUR and BG_NEXT as the first three longs of the variable block"
+    .if (OFF_BG_CUR != OFF_SCREEN_PTR + 4) + (OFF_BG_NEXT != OFF_SCREEN_PTR + 8)
+    .error "init_buffers and the intro read SCREEN_PTR, BG_CUR and BG_NEXT as three longs in a row"
     .endif
 
 | ------------------------------------------------------------------- sprites
@@ -131,7 +131,13 @@
     .equ LINK_EDGE_UP, 0x3d
     .equ LINK_EDGE_DOWN, 0xdd
 
-    .equ MAX_ENEMIES, 8
+    .equ MAX_ENEMIES, 11
+    | The per-monster arrays of globals.s are MAX_ENEMIES long and lie side by side: a few routines reach the next one
+    | by adding the stride to a base (ENEMY_TURN -> ENEMY_WANT -> ENEMY_SHOOT).
+    .equ ENEMY_STRIDE, MAX_ENEMIES
+    .if (OFF_ENEMY_Y - OFF_ENEMY_X != MAX_ENEMIES) + (OFF_ENEMY_WANT - OFF_ENEMY_TURN != ENEMY_STRIDE) + (OFF_ENEMY_SHOOT - OFF_ENEMY_WANT != ENEMY_STRIDE) + (OFF_ENEMY_ERASE_OFFSETS + MAX_ENEMIES * 4 != OFF_ITEM_ERASE_OFFSETS)
+    .error "globals.s sizes the per-monster arrays for another MAX_ENEMIES"
+    .endif
     | Monsters that walk in from the edge of a screen (the overworld screens whose attribute F has bit 3). The ROM lets the
     | first one in at once, the next 20 to 50 frames after it (2 to 5 tenths of a second) and keeps them only $22 away from
     | Link, which on the first screens next to the start puts them on top of him. These are the gentler values asked for:
@@ -272,7 +278,7 @@ begin_game:
     .if DEV_START_UW != 255
     | Development shortcut: start inside the level, with a sword and a key.
     moveq #DEV_START_LEVEL, %d0
-    bsr uw_select_level_far
+    bsr uw_select_level_mid
     move.b #UW_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
     move.b #UW_BOUND_RIGHT, OFF_BOUND_RIGHT(%a5)
     move.b #UW_BOUND_UP, OFF_BOUND_UP(%a5)
@@ -292,7 +298,7 @@ begin_game:
     .endif
     bsr enter_room
     .if DEV_START_CAVE
-    bsr start_cave_entry_far            | development shortcut: start inside the cave behind the start screen
+    bsr start_cave_entry_mid            | development shortcut: start inside the cave behind the start screen
     .endif
     bsr draw_hud_far
     rts
@@ -312,6 +318,16 @@ init_pointers:
     adda.l #(mon_sprites - table_anchor), %a0
     move.l %a0, OFF_MON_SPR_OW(%a5)
     move.l %a0, OFF_MON_SPR(%a5)
+    rts
+
+uw_select_level_mid:                    | the dev start's other call, the same
+    pea 1f(%pc)
+1:  addi.l #(uw_select_level - 1b), (%sp)
+    rts
+
+start_cave_entry_mid:                  | the dev start's cave, the same
+    pea 1f(%pc)
+1:  addi.l #(start_cave_entry - 1b), (%sp)
     rts
 
 quest_apply_mid:                        | the dev start's call (a 32-bit stub: begin_game is far from the stubs in the middle)
@@ -493,11 +509,11 @@ init_buffers:
     add.l #SCREEN_BYTES, %d0
     move.l %d0, OFF_LEVEL_BUF(%a5)      | behind the screens: the level buffer (loader.s)
 
-    | SCREEN_PTR, BG_CUR and BG_NEXT are the first three longs of the variable block: keep them as the home of the three
+    | SCREEN_PTR, BG_CUR and BG_NEXT are three longs in a row: keep them as the home of the three
     | buffers (the intro and the credits move them about and put them back), and make all three black.
-    movem.l (%a5), %d1-%d3
+    movem.l OFF_SCREEN_PTR(%a5), %d1-%d3
     movem.l %d1-%d3, OFF_HOME_SCREEN(%a5)
-    movea.l %a5, %a1
+    lea OFF_SCREEN_PTR(%a5), %a1
     moveq #(BUFFER_COUNT - 1), %d6
 2:  movea.l (%a1)+, %a0
     move.w #(SCREEN_LONGS - 1), %d7
@@ -806,9 +822,9 @@ dbl_enter:
 | What the sprites erased this frame are is what was drawn two frames ago.
 swap_erase_state:
     movem.l %d0-%d1/%a0-%a1, -(%sp)
-    xchg_state ENEMY_ERASE_VALID, OLD_ENEMY_ERASE_VALID, 8
-    xchg_state ENEMY_ERASE_OFFSETS, OLD_ENEMY_ERASE_OFFSETS, 32
-    xchg_state ENEMY_ERASE2_OFFSETS, OLD_ENEMY_ERASE2_OFFSETS, 32
+    xchg_state ENEMY_ERASE_VALID, OLD_ENEMY_ERASE_VALID, MAX_ENEMIES
+    xchg_state ENEMY_ERASE_OFFSETS, OLD_ENEMY_ERASE_OFFSETS, MAX_ENEMIES * 4
+    xchg_state ENEMY_ERASE2_OFFSETS, OLD_ENEMY_ERASE2_OFFSETS, MAX_ENEMIES * 4
     xchg_state PROJ_ERASE_VALID, OLD_PROJ_ERASE_VALID, 8
     xchg_state PROJ_ERASE_OFFSETS, OLD_PROJ_ERASE_OFFSETS, 32
     xchg_state ITEM_ERASE_VALID, OLD_ITEM_ERASE_VALID, 3
@@ -828,7 +844,7 @@ swap_erase_state:
 
 clear_old_erase_state:
     movem.l %d0/%a0, -(%sp)
-    clear_state OLD_ENEMY_ERASE_VALID, 8
+    clear_state OLD_ENEMY_ERASE_VALID, MAX_ENEMIES
     clear_state OLD_PROJ_ERASE_VALID, 8
     clear_state OLD_ITEM_ERASE_VALID, 3
     clr.b OFF_OLD_SWORD_VALID(%a5)
@@ -842,7 +858,7 @@ clear_old_erase_state:
 clear_erase_state:
     movem.l %d0/%a0, -(%sp)
     bsr clear_old_erase_state
-    clear_state ENEMY_ERASE_VALID, 8
+    clear_state ENEMY_ERASE_VALID, MAX_ENEMIES
     clear_state PROJ_ERASE_VALID, 8
     clear_state ITEM_ERASE_VALID, 3
     clr.b OFF_SWORD_VALID(%a5)
@@ -920,8 +936,6 @@ update_play:
 
     | The code has outgrown what one 16-bit branch spans, so the modules at the end reach main.s's frame routines
     | through these stubs in the middle.
-uw_select_level_far:                    | first: begin_game's dev start reaches it with little to spare
-    bra uw_select_level
 clear_erase_state_far:
     bra clear_erase_state
 enemy_init_special_far:

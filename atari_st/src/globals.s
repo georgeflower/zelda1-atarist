@@ -15,6 +15,30 @@
     .set gvar_offset, ((gvar_offset + 1) / 2) * 2
     .endm
 
+    | Per-actor arrays come first: they are indexed as d8(a5,dn), whose
+    | displacement is only a signed byte, so every one has to start below 128.
+    | The three item slots and eleven monster arrays (MAX_ENEMIES, main.s) fill it exactly: the last, ENEMY_STEP,
+    | starts at 125. ENEMY_ERASE_VALID (a few uses only) lies beyond and is reached with a lea.
+    gvar ITEM_X, 3
+    gvar ITEM_Y, 3
+    gvar ITEM_ID, 3
+    gvar ITEM_ACTIVE, 3         | 0 none, 1 drop, 2 the room's item
+    gvar ITEM_ERASE_VALID, 3
+    gvar ENEMY_X, 11
+    gvar ENEMY_Y, 11
+    gvar ENEMY_DIR, 11
+    gvar ENEMY_ACTIVE, 11
+    gvar ENEMY_TYPE, 11         | monster index
+    gvar ENEMY_HP, 11
+    gvar ENEMY_HURT, 11         | frames left of knock-back invincibility
+    gvar ENEMY_SHOVE, 11        | direction an enemy is being knocked back in, 0 for none
+    gvar ENEMY_STATE, 11        | per-monster behaviour state
+    gvar ENEMY_TIMER, 11        | per-monster countdown
+    gvar ENEMY_STEP, 11         | wallmaster: where it is along its path
+
+    galign
+    gvar ENEMY_ERASE_VALID, 11  | (beyond the d8 reach)
+    galign
     gvar SCREEN_PTR, 4          | visible screen
     gvar BG_CUR, 4              | clean render of the current room
     gvar BG_NEXT, 4             | room being scrolled in
@@ -22,33 +46,12 @@
     gvar OLD_SSP, 4
     gvar ERASE_OFFSET, 4        | where the sprite was drawn last frame
 
-    | Per-actor arrays come first: they are indexed as d8(a5,dn), whose
-    | displacement is only a signed byte, so every one has to start below 128.
-    gvar ENEMY_X, 8
-    gvar ENEMY_Y, 8
-    gvar ENEMY_DIR, 8
-    gvar ENEMY_ACTIVE, 8
-    gvar ENEMY_ERASE_VALID, 8
-    gvar ENEMY_TYPE, 8          | monster index
-    gvar ENEMY_HP, 8
-    gvar ENEMY_HURT, 8          | frames left of knock-back invincibility
-    gvar ITEM_X, 3
-    gvar ITEM_Y, 3
-    gvar ITEM_ID, 3
-    gvar ITEM_ACTIVE, 3         | 0 none, 1 drop, 2 the room's item
-    gvar ITEM_ERASE_VALID, 3
-    gvar ENEMY_SHOVE, 8         | direction an enemy is being knocked back in, 0 for none
-    gvar ENEMY_STATE, 8         | per-monster behaviour state
-    gvar ENEMY_TIMER, 8         | per-monster countdown
-    gvar ENEMY_STEP, 8          | wallmaster: where it is along its path
-
-    galign
-    gvar ENEMY_ERASE_OFFSETS, 32
+    gvar ENEMY_ERASE_OFFSETS, 44
     gvar ITEM_ERASE_OFFSETS, 12
     gvar SWORD_ERASE_OFFSET, 4
     gvar BOMB_ERASE_OFFSET, 4
     | What was drawn into the other screen buffer one frame earlier, so it can be erased there.
-    gvar OLD_ENEMY_ERASE_OFFSETS, 32
+    gvar OLD_ENEMY_ERASE_OFFSETS, 44
     gvar OLD_ITEM_ERASE_OFFSETS, 12
     gvar OLD_SWORD_ERASE_OFFSET, 4
     gvar OLD_BOMB_ERASE_OFFSET, 4
@@ -136,7 +139,7 @@
     gvar CAVE_TEXT_ROW, 1
     gvar CAVE_TEXT_TIMER, 1
     gvar DBL_ACTIVE, 1          | 1 while play frames alternate between two screen buffers
-    gvar OLD_ENEMY_ERASE_VALID, 8
+    gvar OLD_ENEMY_ERASE_VALID, 11
     gvar OLD_ITEM_ERASE_VALID, 3
     gvar OLD_SWORD_VALID, 1
     gvar OLD_BOMB_VALID, 1
@@ -157,6 +160,7 @@
     gvar OLD_IERB, 1
     gvar OLD_IMRB, 1
     gvar LEVEL, 1               | 0 overworld, otherwise the underworld level
+    gvar BOUND_PAD, 1           | (keeps BOUND_RIGHT even: init_state stores the pairs two bytes at a time)
     gvar BOUND_LEFT, 1          | room bounds for the current world
     gvar BOUND_RIGHT, 1
     gvar BOUND_UP, 1
@@ -210,8 +214,8 @@
     gvar LINK_HELD, 1          | a wallmaster has him
     gvar TRIFORCE, 1           | the level's triforce piece is his
     gvar ENDING_TIMER, 1       | frames left of the triforce celebration
-    gvar ENEMY_SPEED, 8        | keese: flying speed
-    gvar ENEMY_FRAC, 8         | keese: position fraction
+    gvar ENEMY_SPEED, 11        | keese: flying speed
+    gvar ENEMY_FRAC, 11         | keese: position fraction
     gvar MUS_SKIP, 1           | counts VBLs at 60 Hz; the song is written for 50
     gvar WORLD_KILLS, 1        | WorldKillCount
     gvar HELP_COUNT, 1         | HelpDropCount: kills since Link was last hurt, up to 10
@@ -251,7 +255,7 @@
     gvar BLOCK_Y, 1
     gvar BLOCK_PUSH, 1         | frames Link has been pushing it
     gvar BLOCK_TICK, 1         | he pushed it this frame
-    gvar ENEMY_STUN, 8         | frames a monster stays stunned
+    gvar ENEMY_STUN, 11         | frames a monster stays stunned
     gvar ENDING_PHASE, 1       | the triforce ending: 0 none, 1 hold, 2 flash, 3 hearts, 4 curtain, 5 pause
     gvar TRIFORCE_PIECES, 1    | bit n: the triforce piece of level n+1 is his (InvTriforce)
     gvar ENDING_STEP, 1        | curtain columns closed from each side so far
@@ -262,9 +266,9 @@
     gvar MINIMAP_SIG, 2        | what the ribbon's map last showed: room id, flags, blink phase
     gvar UW_PERSON, 1          | the dungeon room's old man: 0 nobody, 1 speaking, 2 has spoken
     galign
-    gvar ENEMY_TURN, 8         | frames until a wanderer may turn toward Link again (ObjTurnTimer)
-    gvar ENEMY_WANT, 8         | a goriya that has Link in range (ObjWantsToShoot)
-    gvar ENEMY_SHOOT, 8        | an overworld walker's shooting timer: $30 down to 0, it shoots at $10 (ObjShootTimer)
+    gvar ENEMY_TURN, 11         | frames until a wanderer may turn toward Link again (ObjTurnTimer)
+    gvar ENEMY_WANT, 11         | a goriya that has Link in range (ObjWantsToShoot)
+    gvar ENEMY_SHOOT, 11        | an overworld walker's shooting timer: $30 down to 0, it shoots at $10 (ObjShootTimer)
     gvar LIFT_TIMER, 1         | frames left of Link holding a new weapon up (ItemLiftTimer)
 
     gvar PAL_LEVEL, 1          | the level whose palette the ST is showing (0 = overworld); palette_sync follows OFF_LEVEL
@@ -286,14 +290,14 @@
     gvar OWS_UNDO, 32          | up to sixteen (square, metatile) pairs (a screen full of armos)
     | The movers (movers.s): per-monster fields of tektites, boulders, leevers, zoras and peahats. They are
     | one block so clear_enemies can wipe them together; the four counters follow the eight rows.
-    gvar ENEMY_GHOST, 8        | bit 0: weapons pass through it; bit 1: it does Link no harm (burrowed, submerged, flying high)
-    gvar ENEMY_ANIMC, 8        | animation counter (ObjAnimCounter)
-    gvar ENEMY_ANIMF, 8        | animation frame, 0 or 1 (ObjAnimFrame)
-    gvar ENEMY_JY, 8           | a jumper's vertical speed, whole pixels (signed)
-    gvar ENEMY_JF, 8           | and its fraction
-    gvar ENEMY_REV, 8          | how many jumps in a row ran into a room bound (Jumper_ObjReversalCount)
-    gvar ENEMY_TGT, 8          | where the jump is to land (Jumper_ObjTargetY)
-    gvar ENEMY_DIST, 8         | a flyer's distance travelled (Flyer_ObjDistTraveled)
+    gvar ENEMY_GHOST, 11        | bit 0: weapons pass through it; bit 1: it does Link no harm (burrowed, submerged, flying high)
+    gvar ENEMY_ANIMC, 11        | animation counter (ObjAnimCounter)
+    gvar ENEMY_ANIMF, 11        | animation frame, 0 or 1 (ObjAnimFrame)
+    gvar ENEMY_JY, 11           | a jumper's vertical speed, whole pixels (signed)
+    gvar ENEMY_JF, 11           | and its fraction
+    gvar ENEMY_REV, 11          | how many jumps in a row ran into a room bound (Jumper_ObjReversalCount)
+    gvar ENEMY_TGT, 11          | where the jump is to land (Jumper_ObjTargetY)
+    gvar ENEMY_DIST, 11         | a flyer's distance travelled (Flyer_ObjDistTraveled)
     gvar RED_LEEVER_LONG, 1    | RedLeeverLongTimer, in tenths of a second
     gvar RED_LEEVERS, 1        | ActiveRedLeeverCount
     gvar ZORA_ACTIVE, 1        | ZoraActive
@@ -330,10 +334,10 @@
 
     | A Dodongo is two sprites wide: the second one's erase offsets, and Moldorm's chain fields.
     galign
-    gvar ENEMY_ERASE2_OFFSETS, 32
-    gvar OLD_ENEMY_ERASE2_OFFSETS, 32
-    gvar ENEMY_OLDDIR, 8       | a Moldorm segment's previous heading, which the segment below it takes up
-    gvar ENEMY_BOUNCE, 8       | a Moldorm head's heading after bouncing off a wall, kept for the next turn (Moldorm_ObjBounceDir)
+    gvar ENEMY_ERASE2_OFFSETS, 44
+    gvar OLD_ENEMY_ERASE2_OFFSETS, 44
+    gvar ENEMY_OLDDIR, 11       | a Moldorm segment's previous heading, which the segment below it takes up
+    gvar ENEMY_BOUNCE, 11       | a Moldorm head's heading after bouncing off a wall, kept for the next turn (Moldorm_ObjBounceDir)
 
     galign
     gvar CAVE_TEXT_IDXW, 2     | where the next letter is in cave_text (a word: the dungeons' speeches add up to more than 255)
@@ -410,8 +414,8 @@
     gvar POND_CYCLE, 1         | SecretColorCycle: the recorder's pond in screen $42, 1 to $B while the water changes
     gvar POND_WALK, 1          | the water can be walked on (ObjectFirstUnwalkableTile is $99)
     gvar FAIRY_ON, 1           | bit n: heart n of the pond fairy is out
-    gvar ENEMY_CLOUD, 8        | per monster: 0, or the picture (1-3) of the spawn cloud it is still in; it neither moves nor harms nor can be hurt
-    gvar ENEMY_CLOUD_T, 8      | frames left of that picture (ObjTimer)
+    gvar ENEMY_CLOUD, 11        | per monster: 0, or the picture (1-3) of the spawn cloud it is still in; it neither moves nor harms nor can be hurt
+    gvar ENEMY_CLOUD_T, 11      | frames left of that picture (ObjTimer)
     galign
     gvar FAIRY_ANG, 16         | each heart's angle: whole in the high byte, fraction in the low
     gvar INTRO_TOP, 2          | the title and the story (intro.s): the scroll, CurVScroll counted on from the first page
@@ -500,7 +504,7 @@
     gvar QUEST_APPLIED, 1        | the quest the overworld's tables are in now (quest_apply swaps the Second Quest's differences in and out)
     gvar DEBUG_ROOM, 1           | T toggles it: the ribbon shows the room id (RM-xx, or CL-xx in a cellar)
     gvar T_HELD, 1               | T was down last frame (edge trigger)
-    gvar ENEMY_BOMBS, 8          | the bombs a Dodongo has swallowed (Dodongo_ObjBombHits); not ENEMY_WANT, which wander_tick clears
+    gvar ENEMY_BOMBS, 11          | the bombs a Dodongo has swallowed (Dodongo_ObjBombHits); not ENEMY_WANT, which wander_tick clears
     gvar SWORD_LOCK, 1           | SwordBlocked: a red bubble ($2D) has locked the sword until a blue one ($2C) or a full refill of hearts frees it
     galign
     gvar UW_BLOCK, 2             | what to add to the address of UW_OPEN / UW_FLAGS: 0 in Levels 1-6, UW_B_DELTA in Levels 7-9

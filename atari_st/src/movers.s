@@ -1070,12 +1070,12 @@ enemy_slot_reset:
     clr.b 0(%a0, %d5.w)
     lea OFF_ENEMY_TURN(%a5), %a0
     clr.b 0(%a0, %d5.w)
-    clr.b 8(%a0, %d5.w)
-    clr.b 16(%a0, %d5.w)
+    clr.b ENEMY_STRIDE(%a0, %d5.w)
+    clr.b (ENEMY_STRIDE * 2)(%a0, %d5.w)
     lea OFF_ENEMY_GHOST(%a5), %a0
     moveq #7, %d0
 1:  clr.b 0(%a0, %d5.w)
-    lea 8(%a0), %a0
+    lea ENEMY_STRIDE(%a0), %a0
     dbra %d0, 1b
     movem.l (%sp)+, %d0/%a0
     rts
