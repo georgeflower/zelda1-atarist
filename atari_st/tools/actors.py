@@ -578,6 +578,16 @@ ROD_TILES = (0x4A, 0x8A)          # the rod's two pictures, Anim_ItemFrameTiles 
 SWORD_SETS = 4                    # wooden, white and magic sword, then the rod
 
 
+BLADE_WHITE = 1       # the white and the magic sword's blade: slot 1, the palette's white
+BLADE_GREY = 2        # the palette's dark grey
+
+
+def _grey_blade(rows: list[list[int]]) -> list[list[int]]:
+    """A white blade on a pale floor cannot be seen on a real screen (the overworld's ground, the dungeons' floor), and the 16 colours
+    have no mid grey: every other pixel of the blade is the dark grey instead, a chequerboard that looks like a grey blade."""
+    return [[BLADE_GREY if v == BLADE_WHITE and (x + y) % 2 == 0 else v for x, v in enumerate(row)] for y, row in enumerate(rows)]
+
+
 def _sword_frames(sp_tiles, bg_tiles, palette) -> bytes:
     """Link's sword facing up, down, left, right: one set a grade (the palette row is the grade - 1, as
     UpdateSwordOrRod adds it), then the magic rod (its base attribute with bit 0 set: row 5)."""
@@ -585,9 +595,12 @@ def _sword_frames(sp_tiles, bg_tiles, palette) -> bytes:
             (B.LINK_PALETTE_ROW + 1, ROD_TILES)]
 
     def frame(row, tiles, d):
-        # The swords keep the ROM's colours: the white one and the magic one have a white blade. What kept it in view on a real
-        # screen was the overworld's ground, which build_assets.OW_GROUND_ST makes a little darker.
-        return _pack_masked(_weapon_rows(sp_tiles, bg_tiles, palette, d, row, tiles or (SWORD_TILE_VERTICAL, SWORD_TILE_HORIZONTAL)))
+        # The white and the magic sword have a white blade in the ROM, which vanishes on the pale floor of a real screen: it is drawn as a grey one
+        # (_grey_blade), the wooden sword and the rod keep their colours.
+        picture = _weapon_rows(sp_tiles, bg_tiles, palette, d, row, tiles or (SWORD_TILE_VERTICAL, SWORD_TILE_HORIZONTAL))
+        if tiles is None and row != B.LINK_PALETTE_ROW:
+            picture = _grey_blade(picture)
+        return _pack_masked(picture)
 
     return b"".join(frame(row, tiles, d) for row, tiles in rows for d in WEAPON_DIRECTIONS)
 

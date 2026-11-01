@@ -1989,11 +1989,19 @@ take_item:
     and.w #7, %d1
     moveq #1, %d2
     lsl.b %d1, %d2
+    cmp.b #9, OFF_LEVEL(%a5)
+    beq 26f                     | Level 9 keeps its own bytes (OFF_INV_MAP9, OFF_INV_COMPASS9)
     cmp.b #ITEM_MAP, %d0
     bne 24f
     or.b %d2, OFF_INV_MAP(%a5)
     bra 25f
 24: or.b %d2, OFF_INV_COMPASS(%a5)
+    bra 25f
+26: cmp.b #ITEM_MAP, %d0
+    bne 27f
+    or.b %d2, OFF_INV_MAP9(%a5)
+    bra 25f
+27: or.b %d2, OFF_INV_COMPASS9(%a5)
 25: sfx SFX_ITEM_TAKEN
 9:  bsr b_item_fix
     movem.l (%sp)+, %d0-%d2/%a0-%a1

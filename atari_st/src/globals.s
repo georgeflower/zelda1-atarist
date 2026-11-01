@@ -108,6 +108,8 @@
     .equ OFF_INV_MAGIC_KEY, OFF_ITEMS + 13
     .equ OFF_INV_BRACELET, OFF_ITEMS + 14
     .equ OFF_INV_LETTER, OFF_ITEMS + 15
+    .equ OFF_INV_COMPASS9, OFF_ITEMS + 0x12     | Level 9's compass and map have slots of their own, as in the ROM (HasMap): bit 0
+    .equ OFF_INV_MAP9, OFF_ITEMS + 0x13
     .equ OFF_INV_CLOCK, OFF_ITEMS + 21          | the clock: monsters freeze until Link leaves the screen
     .equ OFF_INV_BOOMERANG, OFF_ITEMS + 29
     .equ OFF_INV_MAGIC_BOOMERANG, OFF_ITEMS + 30
@@ -546,4 +548,21 @@
     .macro uwlea name, reg
     lea OFF_UW_\name(%a5), \reg
     adda.w OFF_UW_BLOCK(%a5), \reg
+    .endm
+
+| invmap / invcompass reg: the byte whose bit (level - 1) & 7 says whether Link has this level's map or compass. Levels 1-8
+| share OFF_INV_MAP / OFF_INV_COMPASS; Level 9 would land on Level 1's bit, so it has bytes of its own (bit 0).
+    .macro invmap r
+    move.b OFF_INV_MAP(%a5), \r
+    cmp.b #9, OFF_LEVEL(%a5)
+    bne.s 998f
+    move.b OFF_INV_MAP9(%a5), \r
+998:
+    .endm
+    .macro invcompass r
+    move.b OFF_INV_COMPASS(%a5), \r
+    cmp.b #9, OFF_LEVEL(%a5)
+    bne.s 998f
+    move.b OFF_INV_COMPASS9(%a5), \r
+998:
     .endm

@@ -511,10 +511,10 @@ menu_level_item:
     and.w #7, %d0
     moveq #1, %d1
     lsl.b %d0, %d1
-    move.b OFF_INV_COMPASS(%a5), %d0
+    invcompass %d0
     cmp.w #0x11, %d4
     bne 1f
-    move.b OFF_INV_MAP(%a5), %d0
+    invmap %d0
 1:  and.b %d1, %d0
     beq 9f
     moveq #1, %d5
