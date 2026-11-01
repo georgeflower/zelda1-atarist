@@ -389,7 +389,7 @@ minimap_paint:
     moveq #1, %d5
     lsl.b %d6, %d5              | this level's bit in the item masks
 
-    move.b OFF_INV_MAP(%a5), %d0
+    invmap %d0
     and.b %d5, %d0
     beq 5f
     lvtab ROOM_INDEX, %a2
@@ -405,7 +405,7 @@ minimap_paint:
     cmp.w #128, %d3
     blo 3b
 
-5:  move.b OFF_INV_COMPASS(%a5), %d0
+5:  invcompass %d0
     and.b %d5, %d0
     beq 7f
     moveq #0, %d3
@@ -560,11 +560,11 @@ minimap_tick:
     move.b OFF_ROOM_ID(%a5), %d0
     lsl.w #8, %d0
     addq.w #1, %d0
-    move.b OFF_INV_MAP(%a5), %d1
+    invmap %d1
     and.b %d2, %d1
     beq 1f
     or.w #2, %d0
-1:  move.b OFF_INV_COMPASS(%a5), %d1
+1:  invcompass %d1
     and.b %d2, %d1
     beq 3f
     or.w #4, %d0
