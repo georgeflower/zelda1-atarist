@@ -546,8 +546,12 @@ class RomLevelPaletteTests(unittest.TestCase):
         for level, palette in enumerate(self.bundle.level_palettes, 1):
             info = build_assets.require_binary(ROM_ROOT, f"dat/LevelInfoUW{level}.dat")
             nes = info[build_assets.LEVEL_INFO_PALETTE_OFFSET : build_assets.LEVEL_INFO_PALETTE_OFFSET + 32]
-            table, colors = underworld.palette_lookup(self._overworld(), self._true_overworld(), nes)
+            extra = underworld.LEVEL_EXTRA_COLOURS.get(level, ())
+            table, colors = underworld.palette_lookup(self._overworld(), self._true_overworld(), nes, extra)
             self.assertEqual(colors, palette)
+            for colour in extra:  # art of this level only (Ganon's cyan): a slot of its own that no row of the level uses
+                slot = palette.index(build_assets.nes_color_to_st(colour))
+                self.assertNotIn(slot, {s for row in table for s in row}, f"level {level} colour {colour:#04x}")
             for row in range(8):
                 for pixel in range(4):
                     wanted = build_assets.nes_color_to_st(nes[0] if pixel == 0 else nes[row * 4 + pixel])
