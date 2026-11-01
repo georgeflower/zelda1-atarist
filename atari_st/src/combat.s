@@ -304,7 +304,7 @@ beam_update:
 
     moveq #0, %d6                       | monsters in the way
 5:  cmp.b OFF_ENEMY_COUNT(%a5), %d6
-    bhs 9f
+    bhs 75f
     tst.b OFF_ENEMY_ACTIVE(%a5, %d6.w)
     beq 7f
     tst.b OFF_ENEMY_HURT(%a5, %d6.w)
@@ -336,6 +336,13 @@ beam_update:
     bra 8f
 7:  addq.w #1, %d6
     bra 5b
+75: move.w %d4, %d1                     | the old man takes the beam as he takes the sword
+    move.w %d5, %d2
+    moveq #SWORD_REACH, %d4
+    moveq #SWORD_REACH, %d6
+    bsr boss_person_hit_f
+    tst.w %d0
+    beq 9f
 8:  clr.b OFF_BEAM_ACTIVE(%a5)
     move.b OFF_BEAM_X(%a5), OFF_SPARK_X(%a5)
     move.b OFF_BEAM_Y(%a5), OFF_SPARK_Y(%a5)
@@ -777,8 +784,8 @@ moldorm_died:
 9:  movem.l (%sp)+, %d0-%d2
     rts
 
-| Remove enemy d5, count the kill and roll for a drop the way HandleMonsterDied
-| and SetUpDroppedItem do. Ten kills in a row without being hurt guarantee a
+| Enemy d5 has died: count the kill, and let it die in a spark; when the spark is over kill_drop rolls for a drop the way
+| HandleMonsterDied and SetUpDroppedItem do. Ten kills in a row without being hurt guarantee a
 | drop (a bomb if the tenth was a bomb kill, else five rupees), and the
 | sixteenth is a fairy.
 kill_enemy:
@@ -799,57 +806,11 @@ kill_enemy:
     tst.b OFF_HIT_BY_BOMB(%a5)
     beq 1f
     addq.b #1, OFF_HELP_VALUE(%a5)
-1:  moveq #0, %d0                       | the column moves on before the lookup
-    move.b OFF_KILL_CYCLE(%a5), %d0
-    addq.w #1, %d0
-    cmp.w #KILL_CYCLE_LENGTH, %d0
-    blo 2f
-    moveq #0, %d0
-2:  move.b %d0, OFF_KILL_CYCLE(%a5)
-
-    moveq #0, %d0
-    move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d0
-    moveq #3, %d1
-    cmpi.b #0xff, %d0
-    beq 4f
-    ltab mon_table, %a0
-    lsl.w #3, %d0
-    moveq #0, %d1
-    move.b 4(%a0, %d0.w), %d1
-    cmpi.b #0xff, %d1
-    beq 9f                      | this kind never drops anything
-    tst.w %d5
-    bne 4f
-    cmpi.b #0x2a, 0(%a0, %d0.w)
-    beq 9f                      | a stalfos in the first slot may carry the room's item
-4:  move.w %d1, %d2
-    mulu.w #KILL_CYCLE_LENGTH, %d2
-    moveq #0, %d0
-    move.b OFF_KILL_CYCLE(%a5), %d0
-    add.w %d0, %d2
-    ltab drop_table, %a0
-    moveq #0, %d0
-    move.b 0(%a0, %d2.w), %d2           | d2 = the item the table offers
-    cmpi.b #FAIRY_KILLS, OFF_WORLD_KILLS(%a5)
-    bne 5f
-    moveq #ITEM_FAIRY, %d2
-    bra 7f
-5:  cmpi.b #HELP_KILLS, OFF_HELP_COUNT(%a5)
-    blo 6f
-    moveq #ITEM_FIVE_RUPEES, %d2
-    tst.b OFF_HELP_VALUE(%a5)
-    beq 7f
-    moveq #ITEM_BOMBS, %d2
-7:  clr.b OFF_HELP_COUNT(%a5)
-    clr.b OFF_HELP_VALUE(%a5)
-    bra 8f
-6:  bsr rand8
-    ltab drop_rates, %a0
-    cmp.b 0(%a0, %d1.w), %d0
-    bhs 9f
-8:  move.b %d2, %d0
-    bsr spawn_drop
-9:  rts
+1:  lea OFF_ENEMY_CLOUD(%a5), %a0       | the monster dies in a spark: three pictures, and then (kill_drop) it is gone
+    move.b #CLOUD_DYING, 0(%a0, %d5.w)
+    lea OFF_ENEMY_CLOUD_T(%a5), %a0
+    clr.b 0(%a0, %d5.w)
+    rts
 
 | Drop item d0.b where enemy d5 died, if there is a picture for it and a free slot.
 spawn_drop:
@@ -1267,7 +1228,14 @@ bomb_hurt_enemies:
     bsr hit_enemy
 4:  addq.w #1, %d5
     bra 1b
-5:  clr.b OFF_HIT_BY_BOMB(%a5)
+5:  moveq #0, %d1                       | the old man between his fires
+    move.b OFF_CLOUD_X(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_CLOUD_Y(%a5), %d2
+    moveq #BOMB_RANGE, %d4
+    moveq #BOMB_RANGE, %d6
+    bsr boss_person_hit_f
+    clr.b OFF_HIT_BY_BOMB(%a5)
     movem.l (%sp)+, %d0-%d5
     rts
 
@@ -1441,7 +1409,7 @@ fire_update:
 
 8:  moveq #0, %d5                   | burn what it touches
 21: cmp.b OFF_ENEMY_COUNT(%a5), %d5
-    bhs 9f
+    bhs 25f
     tst.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
     beq 29f
     tst.b OFF_ENEMY_HURT(%a5, %d5.w)
@@ -1472,6 +1440,13 @@ fire_update:
     bsr hit_enemy
 29: addq.w #1, %d5
     bra 21b
+25: moveq #0, %d1                       | the old man between his fires
+    move.b OFF_FIRE_X(%a5), %d1
+    moveq #0, %d2
+    move.b OFF_FIRE_Y(%a5), %d2
+    moveq #FIRE_RANGE, %d4
+    moveq #FIRE_RANGE, %d6
+    bsr boss_person_hit_f
 9:  movem.l (%sp)+, %d0-%d6
     rts
 

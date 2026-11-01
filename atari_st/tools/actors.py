@@ -553,6 +553,7 @@ SWORD_TILE_VERTICAL = 0x20        # RDirectionToWeaponFrame: frame 0 for up and 
 SWORD_TILE_HORIZONTAL = 0x82      # ... frame 1 for left and right (Anim_ItemFrameTiles)
 SPARK_TILE = 0x30
 CLOUD_TILES = (0x70, 0x72)
+DEATH_SPARK_TILES = (0x62, 0x64)    # a monster's death spark (item slot $24: frames 1 and 0): the little one, then the big one
 SPAWN_CLOUD_LAST_TILE = 0x74    # the bomb item's frame 3: the spawn cloud runs through $70, $72 and $74
 SPARK_CORNER_FLIPS = (("h",), ("h", "v"), ("v",), ())    # SwordShotSpreadBaseAttr, by loop index
 
@@ -608,7 +609,7 @@ def _fire_rows(anim, heap, attr_heap, sp_tiles, palette) -> list[list[int]]:
 
 def _effect_frames(sp_tiles, bg_tiles, palette, fire_rows) -> bytes:
     """Two bomb clouds, four spark corners in four palette rows each, the candle fire and its mirror, then the third
-    picture of the spawn cloud (the first two are the bomb's)."""
+    picture of the spawn cloud (the first two are the bomb's), then the death spark's little and big pictures."""
     frames = [
         _pack_masked(_item_rows(sp_tiles, bg_tiles, palette, tile, B.LINK_PALETTE_ROW + 1))
         for tile in CLOUD_TILES
@@ -620,6 +621,8 @@ def _effect_frames(sp_tiles, bg_tiles, palette, fire_rows) -> bytes:
     frames.append(_pack_masked(fire_rows))
     frames.append(_pack_masked([r[::-1] for r in fire_rows]))
     frames.append(_pack_masked(_item_rows(sp_tiles, bg_tiles, palette, SPAWN_CLOUD_LAST_TILE, B.LINK_PALETTE_ROW + 1)))
+    for tile in DEATH_SPARK_TILES:
+        frames.append(_pack_masked(_item_rows(sp_tiles, bg_tiles, palette, tile, B.LINK_PALETTE_ROW + 1)))
     return b"".join(frames)
 
 
