@@ -348,6 +348,8 @@ PERSON_LIFE_OR_MONEY = 0x51
 LIFE_OR_MONEY_SELECTOR = 0x36
 PERSON_KIND_BOMBS = 1          # record byte 13: sells room for four more bombs for 100 rupees
 PERSON_KIND_MONEY = 2          # a heart container or 50 rupees
+STATUE_LAYOUT_FOUR = 0x24    # StatueRoomLayouts: the room layouts whose statues shoot fireballs (pattern 0: four statues, pattern 1: two)
+STATUE_LAYOUT_TWO = 0x23
 RUPEE_STASH = 0x35           # ten rupees on the floor (trigger bit 6)
 GRUMBLE = 0x36               # the moblin who wants food (trigger bit 5); his text is selector $24
 GRUMBLE_SELECTOR = 0x24
@@ -1009,7 +1011,7 @@ def dungeon_people(source_root: Path, level: int, room_ids, attrs, first_text_by
 
 def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, lists=(), level: int = 0) -> bytes:
     """count, secret trigger (bit 7: the room has a push block, 6 a rupee stash, 5 Grumble, 4 the man at Level 9's door), item id, item X, item Y,
-    unsupported (bit 7: a dark room, bits 5-6: which boss roar the room can hear, attribute E's sound index),
+    unsupported (bit 7: a dark room, bits 5-6: which boss roar the room can hear, attribute E's sound index, bits 3-4: statues that shoot fireballs, 1 four, 2 two; bits 0-2: monsters not ported),
     eight monsters, then where the person's speech starts in the cave text (0xFF: nobody talks here)."""
     attr_c, attr_d, attr_e, attr_f = attrs
     list_id = (attr_c[room] & 0x3F) | (0x40 if attr_d[room] & 0x80 else 0)
@@ -1061,10 +1063,11 @@ def _room_info(room: int, attrs, foe_counts, info, person: int = NO_PERSON, list
         trigger |= 0x10                                 # the man who lets Link in once he holds all eight pieces
     dark = 0x80 if attr_e[room] & 0x80 else 0           # attribute E bit 7: a dark room (until the candle is lit)
     roar = (attr_e[room] >> 5) & 3                      # CheckBossSoundEffectUW: 0 none, 1 $10, 2 $20, 3 $40
-    if unsupported > 0x1F:
-        raise SystemExit(f"room {room:#x}: {unsupported} unsupported monsters leave no room for the roar bits")
+    if unsupported > 0x07:
+        raise SystemExit(f"room {room:#x}: {unsupported} unsupported monsters leave no room for the statue and roar bits")
+    statues = {STATUE_LAYOUT_FOUR: 1, STATUE_LAYOUT_TWO: 2}.get(attr_d[room] & 0x3F, 0)    # UpdateStatues: the statues that shoot fireballs
     item_x = (pos & 0xF0) - (8 if item_id == TRIFORCE_PIECE else 0)   # the ROM moves a triforce piece 8 pixels left (@StoreLocation), onto the room's middle
-    record = bytearray([len(monsters), trigger, item_id, item_x, (pos & 0x0F) << 4, unsupported | roar << 5 | dark])
+    record = bytearray([len(monsters), trigger, item_id, item_x, (pos & 0x0F) << 4, unsupported | statues << 3 | roar << 5 | dark])
     record.extend(monsters)
     record.extend([0xFF] * (ROOM_INFO_BYTES - 2 - len(record)))
     if person != NO_PERSON and not monsters:

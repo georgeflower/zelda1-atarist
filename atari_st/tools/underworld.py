@@ -388,6 +388,16 @@ PROTECTED_SLOTS = (1, 2, 4, 7, 9)
 SPRITE_ROW3 = 7            # the fourth sprite palette row: the one whose three colours each level chooses itself
 
 
+# The yellow-green column ($08, $18, $28) of the PPU palette, used by Levels 4 and 6 only (the overworld has none of it):
+# the table in build_assets gives the NTSC brown and gold, which are not what the game shows (Level 6 is green), so the dungeons
+# take the reference emulator's dark green, olive green and yellow.
+LEVEL_COLOUR_ST = {0x08: 0x010, 0x18: 0x230, 0x28: 0x770}
+
+
+def level_colour_to_st(nes: int) -> int:
+    return LEVEL_COLOUR_ST.get(nes, B.nes_color_to_st(nes))
+
+
 def palette_lookup(ow_palette: bytes, ow_map: "B.PaletteMap", uw_palette: bytes):
     """Express a level's palette rows in a 16-colour ST palette that keeps the overworld's slot numbers.
 
@@ -446,10 +456,10 @@ def palette_lookup(ow_palette: bytes, ow_map: "B.PaletteMap", uw_palette: bytes)
             raise SystemExit(f"Level colour {nes:#04x} has no free slot in the shared ST palette")
         slot = spare.pop(0)
         slot_of[nes] = slot
-        st_colors[slot] = B.nes_color_to_st(nes)
+        st_colors[slot] = level_colour_to_st(nes)
 
     for slot, colour in forced.items():
-        st_colors[slot] = B.nes_color_to_st(colour)
+        st_colors[slot] = level_colour_to_st(colour)
     table = []
     for row in range(B.PALETTE_ROWS):
         if row == sprite3:
