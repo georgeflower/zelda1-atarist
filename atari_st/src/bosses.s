@@ -871,6 +871,8 @@ gohma_init:
     lea OFF_ENEMY_ANIMC(%a5), %a0
     clr.b 0(%a0, %d5.w)
     move.b #1, OFF_BOSS_BUSY(%a5)
+    move.b #0x80, OFF_ENEMY_X(%a5, %d5.w)   | InitGohma: it starts at ($80, $70) whatever the room list says
+    move.b #0x70, OFF_ENEMY_Y(%a5, %d5.w)
     moveq #MON_GOHMA_LEG_BLUE, %d1
     cmpi.b #MON_GOHMA_RED, OFF_ENEMY_TYPE(%a5, %d5.w)
     bne 1f
