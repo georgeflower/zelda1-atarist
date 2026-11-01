@@ -187,6 +187,10 @@ def main() -> None:
     suffix = "_idle" if args.idle else ""
     rom = json.loads((args.rom or PROJECT / "build" / "refnes" / f"rom_play{suffix}.json").read_text())
     port = json.loads((args.port or PROJECT / "build" / "refnes" / f"port_play{suffix}.json").read_text())
+    for level in port.values():          # in some dungeons the port's first one to four frames of a room are taken before the monsters are made
+        for name, samples in level["rooms"].items():
+            lead = next((i for i, s in enumerate(samples) if s["count"]), 0)
+            level["rooms"][name] = samples[lead:]
     out: list = []
     (compare_idle if args.idle else compare_fight)(rom, port, out)
     bad = 0
