@@ -92,7 +92,7 @@ uw_spawn:
     move.b %d2, OFF_ROOM_DARK(%a5)
     and.b #0x80, OFF_ROOM_DARK(%a5)
     move.b %d2, OFF_ROOM_UNSUPPORTED(%a5)
-    and.b #0x1f, OFF_ROOM_UNSUPPORTED(%a5)
+    and.b #0x07, OFF_ROOM_UNSUPPORTED(%a5)
     lsr.b #5, %d2
     and.b #3, %d2
     move.b %d2, OFF_ROOM_ROAR(%a5)      | the boss roar the room can hear (music_roar_tick)

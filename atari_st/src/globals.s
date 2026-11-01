@@ -522,6 +522,8 @@
     gvar FILE_CONFIRM, 1         | the continue question's "are you sure" about RETRY is on show (filesel.s)
     gvar SPAWNED_WORLD, 1        | 0 when SPAWNED_ROOM is an overworld screen, 1 when it is a dungeon room
     gvar UW_KILLS, 128           | per dungeon room, the monsters killed since it was last filled (LevelKillCounts); cleared on the way in and out, not saved
+    gvar ROOM_STATUES, 1         | the room's statues that shoot fireballs (record byte 5): 0 none, 1 four, 2 two
+    gvar STATUE_T, 4             | each one's wait before its next shot (Statue_ObjFireballTimer)
     galign
     gvar IVP, 68                 | where each table of INTRO.DAT is while the buffer holds it (INTRO_TABLE_COUNT longs; ivtab, loader.s)
     .equ GLOBALS_BYTES, gvar_offset

@@ -871,6 +871,8 @@ gohma_init:
     lea OFF_ENEMY_ANIMC(%a5), %a0
     clr.b 0(%a0, %d5.w)
     move.b #1, OFF_BOSS_BUSY(%a5)
+    move.b #0x80, OFF_ENEMY_X(%a5, %d5.w)   | InitGohma: it starts at ($80, $70) whatever the room list says
+    move.b #0x70, OFF_ENEMY_Y(%a5, %d5.w)
     moveq #MON_GOHMA_LEG_BLUE, %d1
     cmpi.b #MON_GOHMA_RED, OFF_ENEMY_TYPE(%a5, %d5.w)
     bne 1f
@@ -3076,6 +3078,14 @@ stash_y:
 boss_room_init:
     movem.l %d0-%d2/%a0, -(%sp)
     clr.b OFF_GRUMBLE_ON(%a5)
+    move.b 5(%a1), %d2                  | statues that shoot (record byte 5, bits 3-4): every one starts with its timer at 0
+    lsr.b #3, %d2
+    and.b #3, %d2
+    move.b %d2, OFF_ROOM_STATUES(%a5)
+    clr.b (OFF_STATUE_T + 0)(%a5)
+    clr.b (OFF_STATUE_T + 1)(%a5)
+    clr.b (OFF_STATUE_T + 2)(%a5)
+    clr.b (OFF_STATUE_T + 3)(%a5)
     move.b 1(%a1), %d1
     uwlea FLAGS, %a0
     btst #5, %d1
@@ -3186,6 +3196,7 @@ boss_misc_update:
     bsr ganon_tick
     bsr zelda_tick
     bsr person_fire_tick
+    bsr statue_fire_tick
     movem.l %d0-%d7/%a0-%a2, -(%sp)
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
@@ -3334,14 +3345,85 @@ person_fire_tick:
     bgt 8f
 3:  addq.w #4, %d1                      | the fireball starts four pixels right of its flame
     move.w #CAVE_PERSON_Y, %d2
+    move.w %d7, -(%sp)                  | (the aim leaves its speeds in d6 and d7, and its sums in d1 and d2: the mouth is kept)
+    move.w %d1, -(%sp)
+    move.w %d2, -(%sp)
     bsr fireball_aim_xy_bf
+    move.w (%sp)+, %d2
+    move.w (%sp)+, %d1
     bsr fireball_spawn_xy_bf
+    move.w (%sp)+, %d7
 8:  dbra %d7, 1b
     movem.l (%sp)+, %d0-%d7/%a0-%a1
 9:  rts
 
 person_fire_waits:
     .byte 0x50, 0x80, 0xf0, 0x60
+
+| The statues of the rooms whose layout is $24 (four) or $23 (two) shoot at Link all the time (UpdateStatues, patterns 0
+| and 1): the same timers and the same rule as the flames, a fireball from the statue's spot. ROOM_STATUES: 0 none, 1 four, 2 two.
+statue_fire_tick:
+    tst.b OFF_LEVEL(%a5)
+    beq 9f
+    tst.b OFF_IN_CELLAR(%a5)
+    bne 9f
+    moveq #0, %d6                       | the first of its statues in statue_xs: the four, then the two
+    moveq #3, %d7
+    move.b OFF_ROOM_STATUES(%a5), %d0
+    beq 9f
+    cmp.b #2, %d0
+    bne 0f
+    moveq #4, %d6
+    moveq #1, %d7
+0:  movem.l %d0-%d7/%a0-%a1, -(%sp)
+1:  lea OFF_STATUE_T(%a5), %a0
+    subq.b #1, 0(%a0, %d7.w)
+    cmpi.b #0xff, 0(%a0, %d7.w)
+    bne 8f                              | not its turn yet
+    bsr rand8_bf
+    cmp.b #0xf0, %d0
+    bhs 8f                              | the wait stays $FF: another 256 frames
+    and.w #3, %d0
+    lea person_fire_waits(%pc), %a1
+    move.b 0(%a1, %d0.w), 0(%a0, %d7.w)
+    lea statue_xs(%pc), %a1
+    move.w %d7, %d0
+    add.w %d6, %d0
+    moveq #0, %d1
+    move.b 0(%a1, %d0.w), %d1           | the statue's X
+    moveq #0, %d2
+    move.b 8(%a1, %d0.w), %d2           | and Y
+    moveq #0, %d0                       | Link within $18 of it on both axes: no shot
+    move.b OFF_LINK_X(%a5), %d0
+    sub.w %d1, %d0
+    cmp.w #0x18, %d0
+    bge 3f
+    cmp.w #-0x18, %d0
+    ble 3f
+    moveq #0, %d0
+    move.b OFF_LINK_Y(%a5), %d0
+    sub.w %d2, %d0
+    cmp.w #0x18, %d0
+    bge 3f
+    cmp.w #-0x18, %d0
+    bgt 8f
+3:  addq.w #4, %d1                      | the fireball starts four pixels right of its statue
+    movem.w %d6-%d7, -(%sp)             | (the aim leaves its speeds in d6 and d7, and its sums in d1 and d2: the mouth is kept)
+    move.w %d1, -(%sp)
+    move.w %d2, -(%sp)
+    bsr fireball_aim_xy_bf
+    move.w (%sp)+, %d2
+    move.w (%sp)+, %d1
+    bsr fireball_spawn_xy_bf
+    movem.w (%sp)+, %d6-%d7
+8:  dbra %d7, 1b
+    movem.l (%sp)+, %d0-%d7/%a0-%a1
+9:  rts
+
+statue_xs:
+    .byte 0x24, 0xc8, 0x24, 0xc8, 0x64, 0x88, 0x48, 0xa8
+statue_ys:
+    .byte 0xc0, 0xbc, 0x64, 0x5c, 0x94, 0x8c, 0x82, 0x86
 
 | ------------------------------------------------------------------ the push block
 | (the section of combat.s that says how it works)
