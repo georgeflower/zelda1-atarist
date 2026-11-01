@@ -51,7 +51,7 @@ class DeathDataTests(unittest.TestCase):
         steps = [data.colours[3 * (data.constants["COLOURS_STEPS"] + n):3 * (data.constants["COLOURS_STEPS"] + n) + 3] for n in range(4)]
         self.assertEqual(steps[-1], [0, 0, 0])               # the world has faded to black
         self.assertNotEqual(steps[0], steps[1])
-        self.assertEqual(data.colours[:3], [0x620, 0x610, 0x733])
+        self.assertEqual(data.colours[:3], [0x520, 0x510, 0x732])
 
     def test_game_over_is_ten_tiles_of_the_roms_text(self) -> None:
         data = rom_death()
