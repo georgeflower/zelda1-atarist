@@ -19,6 +19,7 @@ The player is invincible, holds the magic sword, comes in at the bottom door, wa
 - `rom_play.mjs [out.json] [--quest 1|2] [--level N] [--rooms ...] [--frames N] [--idle]`: the ROM side (jsnes).
 - `port_play.py [out.json] [--quest 1|2] [--level N] [--rooms ...] [--frames N] [--idle] [--name auto0]`: the port side (Hatari, needs `TOS`). One dev build and run per room; `--name` picks the build directory, so two workers can run at once.
 - `compare_play.py [--idle] [--rom ..] [--port ..] [--notes]`: what must agree: the monsters of a room, the room item at the start, the doors after a clear, and (idle) how fast each kind of monster moves. How long the player takes, and whether it gets stuck on a block, depend on the player and are only notes.
+- `cloud_probe.mjs LEVEL ROOM [QUEST]` prints, frame by frame, the metastate of the monsters of one room right after it opens (the spawn cloud); `cloud_types.mjs [--quest N]` does it for every room of every dungeon and says per monster type whether it starts in a cloud and for how many frames.
 - `run_phase2.sh LEVEL [QUEST]`: one dungeon, fight then idle, ROM then port.
 
 It found two things in the port that the per-room tables could not show: the wizzrobes were moved twice, and shutters opened in rooms whose trigger never opens them.
