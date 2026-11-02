@@ -828,12 +828,17 @@ enemy_shove:
     and.b #15, %d0
     cmp.b #13, %d0
     beq 12f
-11: move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
-    and.b #DIR_VERTICAL, %d0
-    move.b %d6, %d1
-    and.b #DIR_VERTICAL, %d1
-    cmp.b %d0, %d1
-    bne 3f                      | across its lane: no shove
+11: move.b %d6, %d1             | between squares: it is knocked on only along the lane it stands in. Obj_Shove looks at the
+    and.b #DIR_VERTICAL, %d1    | way it faces on the first frame only (a blow across the lane needs a square boundary); the
+    bne 13f                     | knock then goes its whole way, so a blow that began on a boundary must not stop four pixels
+    move.b %d3, %d0             | on, off its lane
+    and.b #15, %d0
+    cmp.b #13, %d0
+    bne 3f                      | sideways: Y has to be on a lane
+    bra 12f
+13: move.b %d2, %d0
+    and.b #15, %d0
+    bne 3f                      | up or down: X has to be on a lane
 12: moveq #3, %d4
 1:  move.b %d2, %d0
     and.b #15, %d0
