@@ -207,8 +207,9 @@ dmon_boomerang_hurts:
     rts
 
 | ------------------------------------------------------------ contact with Link
-| d5 = a monster touching Link, d1.w = the damage it does. Returns d0.w = 0 for the usual shove and harm, 1 when it
-| harms nobody (a bubble), 2 when it harms him but does not shove him (a like-like has hold of him).
+| d5 = a monster touching Link, d1.w = the damage it does. Returns d0.w = 0 for the usual shove and harm (a bubble does
+| none, but HarmLink still shoves him, makes the hurt cry and flashes him), 2 when it harms him but does not shove him
+| (a like-like has hold of him).
 dmon_contact:
     movem.l %d1-%d2, -(%sp)
     move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d2
@@ -217,17 +218,17 @@ dmon_contact:
     cmp.b #MON_BUBBLE, %d2
     bne 3f
     move.b #SWORD_BLOCK_FRAMES, OFF_SWORD_BLOCK(%a5)   | the sword stops working for a while
-    moveq #1, %d0
+    moveq #0, %d0
     bra 9f
 3:  cmp.b #MON_BUBBLE_BLUE, %d2                 | UpdateBubble: SwordBlocked = type - $2C, so blue frees the sword...
     bne 4f
     clr.b OFF_SWORD_LOCK(%a5)
-    moveq #1, %d0
+    moveq #0, %d0
     bra 9f
 4:  cmp.b #MON_BUBBLE_RED, %d2
     bne 1f
     move.b #1, OFF_SWORD_LOCK(%a5)              | ...and red locks it, with no end of its own
-    moveq #1, %d0
+    moveq #0, %d0
     bra 9f
 1:  cmp.b #MON_LIKELIKE, %d2
     bne 8f
