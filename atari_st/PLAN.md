@@ -1,19 +1,21 @@
 # Zelda 1 for Atari ST - what is left
 
-Work in progress. Both quests are in. The `.PRG` is about 270 KB; the intro's data (`INTRO.DAT`) and each dungeon's data (`LEVEL<n>[Q].DAT`) are files next to it. With the screens and the biggest file it needs about 390 KB free, so it runs on a 520 STFM (about 407 KB free), but only just. This file is the short list of what is left and what I want to do next, with the data tables at the end. How the code works is in `AGENTS.md` / `CLAUDE.md`, how to build is in `README.md`.
+Work in progress. Both quests are in. The `.PRG` is about 270 KB; the intro's data (`INTRO.DAT`) and each dungeon's data (`LEVEL<n>[Q].DAT`) are files next to it. With the screens and the biggest file it needs about 390 KB free, so it runs on a 520 STFM (about 407 KB free), but only just. This file is the short list of what is left and what I want to do next, with the data tables at the end. How the code works is in `AGENTS.md` / `CLAUDE.md`, how to build is in `README.md`. The story of how it was made is in my diary: [Zelda on the Atari ST: the (very) long update](https://qumran.nekoweb.org/zelda-st/index.html).
 
 ## What is left
 
 | # | What | Why |
 | --- | --- | --- |
-| 1 | More play-testing and bug hunting on real hardware, then the Second Quest |
-| 2 | Closer to the original in a few places | the Esc question (quit without saving, save and quit) is not in the original either |
+| 1 | More play-testing and bug hunting on real hardware | most of the recent bugs were found by playing |
+| 2 | Level 5, room `$16`: a problem with the key | reported, still needs steps to reproduce it |
+| 3 | Closer to the original in a few places | the Esc question (quit without saving, save and quit) is not in the original either |
+| 4 | Free memory | about 17 KB is spare; packing the drum samples to 4 bits would give back about 21 KB, only if it is needed |
 
-Not planned: anything that needs the NES hardware itself (the PPU, the DPCM channel) rather than its data.
+Not planned: anything that needs the NES hardware itself (the PPU, the DPCM channel) rather than its data, and overscan. The game stays at 320x200 with the 24-line HUD.
 
 ## Next
 
-1 first, then 2.
+1 first, then 2 and 3. 4 only when space runs out.
 
 ## Reference data
 
