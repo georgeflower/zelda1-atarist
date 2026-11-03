@@ -8,14 +8,15 @@ Work in progress. Both quests are in. The `.PRG` is about 270 KB; the intro's da
 | --- | --- | --- |
 | 1 | More play-testing and bug hunting on real hardware | most of the recent bugs were found by playing |
 | 2 | Level 5, room `$16`: a problem with the key | reported, still needs steps to reproduce it |
-| 3 | Closer to the original in a few places | the Esc question (quit without saving, save and quit) is not in the original either |
-| 4 | Free memory | about 17 KB is spare; packing the drum samples to 4 bits would give back about 21 KB, only if it is needed |
+| 3 | Free memory | about 17 KB is spare; packing the drum samples to 4 bits would give back about 21 KB, only if it is needed |
+
+Kept on purpose: the Esc menu (quit without saving, save and quit, back to game) is not in the original.
 
 Not planned: anything that needs the NES hardware itself (the PPU, the DPCM channel) rather than its data, and overscan. The game stays at 320x200 with the 24-line HUD.
 
 ## Next
 
-1 first, then 2 and 3. 4 only when space runs out.
+1 first, then 2. 3 only when space runs out.
 
 ## Reference data
 
