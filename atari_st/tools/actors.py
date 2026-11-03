@@ -507,22 +507,33 @@ def _item_rows(sp_tiles, bg_tiles, palette, tile: int, row: int) -> list[list[in
     return _join(left, right)
 
 
+MASTER_SWORD_SLOT = 0x20     # DrawItemBySlot: the sword's slot 0 with palette attribute 2 (the magic sword) is drawn from this special slot
+
+
+def item_tile(code, slot: int, attr: int) -> int:
+    """The tile DrawItemBySlot picks for an item slot with the palette attribute the item ends up with: the magical sword has a picture of its
+    own (a slanted blade), which the sword's slot 0 only shows for the other two grades."""
+    if slot == 0 and (attr & 0xFF) == 2:
+        slot = MASTER_SWORD_SLOT
+    return code["tiles"][code["offsets"][slot]]
+
+
 def _item_frame(code, sp_tiles, bg_tiles, palette, item_id: int):
     """One floor item, laid out the way Anim_WriteSpecificItemSprites does."""
     slot = code["slot"][item_id]
-    tile = code["tiles"][code["offsets"][slot]]
     descriptor = code["descriptor"][item_id]
     base = code["palette"][slot]
     attr = (base + (descriptor & 0x0F)) if slot in (0, 2, 4, 7, 0x0B) else base
+    tile = item_tile(code, slot, attr)
     return _pack_masked(_item_rows(sp_tiles, bg_tiles, palette, tile, 4 + (attr & 3)))
 
 
 def _hud_item(code, sp_tiles, bg_tiles, palette, item_id: int) -> bytes:
     """An item as the two 8x8 status bar tiles that hold its 8x16 picture."""
     slot = code["slot"][item_id]
-    tile = code["tiles"][code["offsets"][slot]]
     base = code["palette"][slot]
     attr = (base + (code["descriptor"][item_id] & 0x0F)) if slot in (0, 2, 4, 7, 0x0B) else base
+    tile = item_tile(code, slot, attr)
     row = 4 + (attr & 3)
     tiles = bg_tiles if tile & 1 else sp_tiles
     backdrop = palette.index(row, 0)

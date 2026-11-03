@@ -490,6 +490,7 @@ def item_frames(code: dict, sp_tiles, bg_tiles, palette, item_id: int) -> tuple[
                 KIND_FLASH)
     base = code["palette"][slot]
     attr = (base + (code["descriptor"][item_id] & 0x0F)) if slot in VARYING_SLOTS else base
+    tile = A.item_tile(code, slot, attr)
     return [A._pack_masked(A._item_rows(sp_tiles, bg_tiles, palette, tile, 4 + (attr & 3)))], KIND_STATIC
 
 

@@ -1609,11 +1609,7 @@ gleeok_init:
     move.b OFF_ENEMY_TYPE(%a5, %d5.w), %d7
     sub.w #MON_GLEEOK2, %d7
     addq.w #2, %d7                      | the number of necks
-    move.b #3, OFF_GLEEOK_SEGS(%a5)     | a neck's segments: two, but one with four necks
-    cmp.w #4, %d7
-    bne 0f
-    move.b #2, OFF_GLEEOK_SEGS(%a5)
-0:
+    move.b #4, OFF_GLEEOK_SEGS(%a5)     | a neck's segments: three, the way the ROM draws them (a column of them behind the head)
     move.b #1, OFF_BOSS_BUSY(%a5)
     moveq #0, %d6
 1:  moveq #MON_GLEEOK_HEAD, %d1
@@ -1758,13 +1754,13 @@ dmon_ghead:
     move.b OFF_ENEMY_X(%a5, %d5.w), %d0
     sub.w #GLEEOK_BODY_X, %d0
     muls.w %d3, %d0
-    divs.w #3, %d0
+    asr.w #2, %d0
     add.w #GLEEOK_BODY_X, %d0           | where the segment belongs
     moveq #0, %d1
     move.b OFF_ENEMY_Y(%a5, %d5.w), %d1
     sub.w #GLEEOK_BODY_Y, %d1
     muls.w %d3, %d1
-    divs.w #3, %d1
+    asr.w #2, %d1
     add.w #GLEEOK_BODY_Y, %d1
     move.w %d4, %d2
     add.w %d3, %d2
@@ -3071,7 +3067,7 @@ zelda_tick:
 | Things a dungeon room has that are not monsters. The ten rupees (InitRupeeStash: a pyramid, taken one at a time
 | by walking over them, and once one is taken the stash is gone for good) are painted into the room like Gleeok's
 | body, and the room is drawn again without a rupee that Link has taken (STASH_MASK says which are left). Grumble
-| (InitGrumble) stands at ($78, $80) as a moblin the room draws, blocks Link (link_collide) and eats the food that
+| (InitGrumble) stands at ($78, $80) as a red goriya the room draws, blocks Link (link_collide) and eats the food that
 | is put down beside him; then he goes, for good (room flag bit 1).
     .equ STASH_COUNT, 10
     .equ GRUMBLE_X, 0x78
@@ -3175,12 +3171,12 @@ grumble_bake:
     btst #1, 0(%a0, %d0.w)
     bne 9f
     movea.l %a1, %a3
-    moveq #MON_MOBLIN, %d0
+    moveq #MON_GRUMBLE, %d0
     add.w %d0, %d0
     bsr mon_art_ptr_bf
     moveq #0, %d7
     move.w 0(%a0, %d0.w), %d7
-    addq.w #4, %d7                      | the moblin facing down: image 2, the plain copy
+    addq.w #4, %d7                      | the goriya facing down: image 2, the plain copy
     mulu.w #SPRITE_FRAME_BYTES, %d7
     movea.l OFF_MON_SPR(%a5), %a2
     adda.l %d7, %a2
@@ -3702,7 +3698,6 @@ block_slide:
 | stairs at ($D0, $60), once; in any other room (the bow room's block) the secret tune plays and nothing else happens.
 block_land:
     movem.l %d0-%d7/%a0-%a1, -(%sp)
-    move.b #2, OFF_BLOCK_STATE(%a5)
     clr.b OFF_BLOCK_FRAME(%a5)
     bsr block_geom
     cmpi.b #TRIGGER_PUSH_BLOCK, OFF_ROOM_TRIGGER(%a5)
@@ -3714,7 +3709,8 @@ block_land:
     bsr block_geom
     bra 8f
 7:  sfx SFX_SECRET
-8:  lea OFF_UW_MAP(%a5), %a0        | the floor where it was, the block where it is
+8:  move.b #2, OFF_BLOCK_STATE(%a5)  | (landed; a redraw from here on keeps it where it is, block_keep)
+    lea OFF_UW_MAP(%a5), %a0        | the floor where it was, the block where it is
     lea OFF_BLOCK_TILES(%a5), %a1
     moveq #3, %d6
 6:  bsr block_cell_index
@@ -3741,6 +3737,46 @@ block_land:
     move.b %d5, OFF_BLOCK_Y(%a5)
     bsr block_render
     movem.l (%sp)+, %d0-%d7/%a0-%a1
+    rts
+
+| The room is being laid out again inside the room (a bomb opened a wall, a door opened): the map has just been rebuilt from
+| the room's data, which has the block on its first square and no stairs. A block that has landed goes back to where it
+| landed and a trigger-5 room's stairs are laid again. A block that waits or slides needs nothing (the push redoes the map).
+block_keep:
+    movem.l %d0-%d7/%a0-%a1, -(%sp)
+    cmpi.b #2, OFF_BLOCK_STATE(%a5)
+    bne 9f
+    bsr block_geom                  | d0,d1 where it is now; d4,d5 one step on in BLOCK_DIR
+    move.w %d0, %d2                 | where it came from is one step back: 2 * here - there
+    add.w %d2, %d2
+    sub.w %d4, %d2
+    move.w %d1, %d3
+    add.w %d3, %d3
+    sub.w %d5, %d3
+    move.w %d0, %d4                 | block_cell_index: from (d0,d1) to (d4,d5)
+    move.w %d1, %d5
+    move.w %d2, %d0
+    move.w %d3, %d1
+    lea OFF_UW_MAP(%a5), %a0
+    lea OFF_BLOCK_TILES(%a5), %a1
+    moveq #3, %d6
+1:  bsr block_cell_index
+    move.b 4(%a1, %d6.w), 0(%a0, %d2.w)
+    move.b 0(%a1, %d6.w), 0(%a0, %d3.w)
+    dbra %d6, 1b
+    cmpi.b #5, OFF_ROOM_TRIGGER(%a5)
+    bne 9f
+    moveq #0, %d7
+    move.b OFF_UW_STAIRS_ID(%a5), %d7
+    beq 9f
+    move.b %d7, (4 * 32 + 26)(%a0)
+    addq.b #1, %d7
+    move.b %d7, (5 * 32 + 26)(%a0)
+    addq.b #1, %d7
+    move.b %d7, (4 * 32 + 27)(%a0)
+    addq.b #1, %d7
+    move.b %d7, (5 * 32 + 27)(%a0)
+9:  movem.l (%sp)+, %d0-%d7/%a0-%a1
     rts
 
 | While the block slides, its picture is the effect in slot 11, a pixel further each frame.

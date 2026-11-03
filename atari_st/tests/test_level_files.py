@@ -126,7 +126,7 @@ class SpawnSiteTests(unittest.TestCase):
                     for kid in kids:
                         self.assertIn(self.index[kid], wanted, f"level {level.key}: {hex(boss)} without {hex(kid)}")
 
-    def test_grumble_is_drawn_as_a_moblin_so_his_levels_carry_one(self) -> None:
+    def test_grumble_is_drawn_as_a_red_goriya_so_his_levels_carry_one(self) -> None:
         for level in self.bundle.levels:
             records = b"".join(level.actors.room_info)
             has_grumble = any(records[at + 1] & 0x20 for at in range(0, len(records), 16))

@@ -183,6 +183,8 @@ uw_render_map:
     movem.l (%sp)+, %d0-%d7/%a0-%a4
     rts
 
+    farstub block_keep_f, block_keep    | (bosses.s)
+
 | Build and draw the current room. d0.w = room id, a1 = destination buffer
 uw_render_current:
     movem.l %d1/%a0, -(%sp)
@@ -191,7 +193,10 @@ uw_render_current:
     lea OFF_UW_MAP(%a5), %a0
     move.b OFF_UW_ENTER_MASK(%a5), %d1
     bsr uw_build_map
-    lea OFF_UW_MAP(%a5), %a0
+    tst.b OFF_BLOCK_KEEP(%a5)
+    beq 1f
+    bsr block_keep_f                    | (a redraw inside the room: the pushed block stays where it landed)
+1:  lea OFF_UW_MAP(%a5), %a0
     bsr uw_render_map
     lea OFF_UW_MAP(%a5), %a0
     bsr uw_open_false_walls
@@ -763,7 +768,9 @@ uw_redraw_room:
     moveq #0, %d0
     move.b OFF_ROOM_ID(%a5), %d0
     movea.l OFF_BG_CUR(%a5), %a1
+    move.b #1, OFF_BLOCK_KEEP(%a5)
     bsr uw_render_current
+    clr.b OFF_BLOCK_KEEP(%a5)
     bsr show_background_far
     clr.b OFF_ERASE_VALID(%a5)
     movem.l (%sp)+, %d0/%a1

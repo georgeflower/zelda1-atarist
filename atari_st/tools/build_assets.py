@@ -1208,7 +1208,7 @@ def level_include(levels) -> str:
 SPAWNED = {0x12: (0x1C,), 0x13: (0x15,), 0x33: (0xFD,), 0x34: (0xFC,), 0x38: (0x18,), 0xFB: (0x18,),
            0x43: (0xF9, 0x46), 0x44: (0x43, 0xF9, 0x46), 0x45: (0x43, 0xF9, 0x46), 0xF9: (0x46,)}   # (every Gleeok is drawn from the two-necked one's pieces)
 CELLAR_MONSTER = 0x1B      # every cellar is full of keese (uw.s), whatever the level's rooms list
-GRUMBLE_MONSTER = 0x03     # Grumble is drawn as a moblin (bosses.s), in the rooms whose record has trigger bit 5
+GRUMBLE_MONSTER = 0x06     # Grumble is a red goriya (InitGrumble: "Grumble Goriya"; his picture is the red goriya's, sprite palette row 2), drawn by bosses.s in the rooms whose record has trigger bit 5
 # What the overworld makes besides its screens' monster lists: armos, the flying ghini, ghini, zora, boulder (movers.s,
 # owspec.s), the recorder's whirlwind and the fairy.
 OVERWORLD_EXTRA = (0x1E, 0x22, 0x21, 0x11, 0x20, 0x2E, 0x2F)
@@ -1431,7 +1431,7 @@ def underworld_equates(uw, level_count: int = 1, record_count: int = 1) -> list[
         f".equ MON_GLEEOK4, {uw.actors.mon_index[0x45]}",
         f".equ MON_GLEEOK_HEAD, {uw.actors.mon_index[0xF9]}",
         f".equ MON_GLEEOK_FLYER, {uw.actors.mon_index[0x46]}",
-        f".equ MON_MOBLIN, {uw.actors.mon_index[0x03]}",
+        f".equ MON_GRUMBLE, {uw.actors.mon_index[GRUMBLE_MONSTER]}",
         f".equ MON_WIZ_BLUE, {uw.actors.mon_index[0x23]}",
         f".equ MON_WIZ_RED, {uw.actors.mon_index[0x24]}",
         f".equ MON_LANMOLA_RED, {uw.actors.mon_index[0x3B]}",

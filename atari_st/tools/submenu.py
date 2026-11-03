@@ -110,9 +110,9 @@ def _picture(ppu: I.Ppu, tiles, palette: B.PaletteMap, bank: I.TileBank) -> list
 def _item_frame(code, sp_tiles, bg_tiles, palette, item_id: int) -> bytes:
     """What Anim_WriteSpecificItemSprites makes of the item, in the palette row DrawItemInInventory picks."""
     slot = code["slot"][item_id]
-    tile = code["tiles"][code["offsets"][slot]]
     base = code["palette"][slot]
     attr = (base + (code["descriptor"][item_id] & 0x0F)) if slot in (0, 2, 4, 7, 0x0B) else base
+    tile = A.item_tile(code, slot, attr)
     rows = A._item_rows(sp_tiles, bg_tiles, palette, tile, 4 + (attr & 3))
     if 0x62 <= tile < 0x6C:
         # slim items: the second sprite starts at x + 7, the first one is in front

@@ -155,6 +155,14 @@ SCENES: dict[str, list[str]] = {
     "uw4_stash": ["--uw", "0x11", "--level", "4", "--vbls", "420"],
     "uw7_grumble": ["--uw", "0x28", "--level", "7", "--vbls", "420"],
     "uw7_crowd": ["--uw", "0x5a", "--level", "7", "--vbls", "420"],
+    # Aquamentus has his body (the pieces wait out his spawn cloud); Gleeok has three segments on each of his four necks
+    "uw7_aquamentus": ["--uw", "0x2a", "--level", "7", "--vbls", "420"],
+    "uw8_gleeok": ["--uw", "0x3c", "--level", "8", "--vbls", "500"],
+    # the block pushed one square, then a bomb opens the right wall (the room is laid out again): the block stays where it landed
+    "uw7_block_bombed": ["--uw", "0x1a", "--level", "7", "--vbls", "600", "--keys",
+                         "240:=INV_BOMBS=4,240:=B_ITEM=1,250:=ENEMY_ACTIVE.0=0,250:=ENEMY_ACTIVE.1=0,250:=ENEMY_ACTIVE.2=0,"
+                         "250:=ENEMY_ACTIVE.3=0,250:=ENEMY_ACTIVE.4=0,250:=ENEMY_ACTIVE.5=0,250:=UW_FLAGS.26=1,250:=LINK_X=0x70,"
+                         "252:+left,330:-left,345:=LINK_X=0xc8,346:+right,348:-right,352:+space,354:-space"],
     "uw2_statues": ["--uw", "0x4f", "--level", "2", "--vbls", "350"],
     "uw9_lanmola": ["--uw", "0x11", "--level", "9", "--vbls", "420"],
     "uw9_patra": ["--uw", "0x21", "--level", "9", "--vbls", "420"],
@@ -236,6 +244,7 @@ SCENES: dict[str, list[str]] = {
     "q2_credits_end": ["--room", "0x77", "--quest", "2", "--vbls", "2400", "--keys", Q2_CREDITS],
     # Caves (caves.s): --cave starts inside the cave behind the screen; the keys poke rupees and walk to a ware.
     "cave_sword": ["--room", "0x77", "--cave", "--vbls", "420"],
+    "cave_magic_sword": ["--room", "0x21", "--cave", "--vbls", "420"],
     "cave_shop": ["--room", "0x25", "--cave", "--vbls", "420"],
     "cave_shop_bought": ["--room", "0x25", "--cave", "--vbls", "560", "--keys",
                          "300:=INV_RUPEES=200,420:+right,425:-right,430:+up,500:-up"],

@@ -523,7 +523,9 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   with the other `block_*` routines; the near code calls them through `block_*_f` stubs in dmon.s) grabs the block's
   picture from the clean room into `BLOCK_SPRITE`, draws the room without it, puts the block's tiles into the map where it
   will land (so Link cannot walk through) and `block_draw` paints the picture as effect slot 11 (`fx_put_a0`); Link follows
-  it as he keeps pushing. After 16 frames `block_land` finishes: trigger-4 rooms open their shutters for good (and do not
+  it as he keeps pushing. A redraw of the room inside the room (a bomb opens a wall: `uw_redraw_room`) rebuilds the map, which has the block on its first
+  square again: `uw_redraw_room` sets `BLOCK_KEEP` and `uw_render_current` then calls `block_keep`, which puts a landed block (`BLOCK_STATE` 2) and the stairs
+  back where they were. After 16 frames `block_land` finishes: trigger-4 rooms open their shutters for good (and do not
   open them on clear), trigger-5 rooms lay the stairs (below), in `$22` the block just lands (secret tune): the stairs sit
   inside a ring of 8 blocks and the player pushes the left block up or down to open a gap. **Trigger 5**
   (`CheckSecretTriggerBlockStairs`): the stairs are the four tiles `$70`-`$73` (column-major) at tile column 26, row 4, i.e. ($D0,$60),
@@ -803,7 +805,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   **`MAX_ENEMIES` is 11** (`ENEMY_STRIDE` apart): the arrays that sit within reach of `d8(%a5,%dn)` (they must start below offset 128) are indexed that way, the others through `lea` and `0(%aN,%dM.w)`; two worms of five or Patra and eight children fit, a room's other monsters share what is left. `mon_art.bin` gives, per monster, the first frame of its
   art in `mon_sprites` (octoroks have six images; `proj_sprites` ends with the rock and four arrows, `PF_ROCK`/`PF_ARROW`). `mon_sprites` holds only the overworld's monsters
   (those of `ow_room_info` in both quests plus `OVERWORLD_EXTRA`), found through the `MON_SPR_OW` pointer set by `init_pointers`; each dungeon's monster pictures are the last
-  part of its `LEVEL<n>[Q].DAT` (`monster_art`: the monsters its room records name, what they put down (`SPAWNED` in `build_assets.py`), the cellars' keese and the moblin
+  part of its `LEVEL<n>[Q].DAT` (`monster_art`: the monsters its room records name, what they put down (`SPAWNED` in `build_assets.py`), the cellars' keese and the red goriya
   Grumble is drawn as), with `uw<N>_mon_art` pointing into them. `OFF_MON_SPR` is the set in use: `mon_spr_select` (uw.s) sets it from `OFF_LEVEL` wherever the level changes
   (`uw_select_level`, `uw_leave_level`, `game_reset_position`, `death_restart`). A monster a level does not carry points at frame 0, so the picture is wrong but nothing reads
   outside the pool: **when code puts down a monster that no room lists, add it to `SPAWNED`** (`tests/test_level_files.py` scans `src/` for those). The overworld
@@ -858,6 +860,11 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   that does not save it. Check callee save lists.
 - When the user asks "check internet and source": the disassembly in `src/` was sufficient every
   time so far; read it first.
+
+- **Aquamentus's body is three more pieces** (`PK_PART` projectiles, made by `enemy_init_special`) that follow him. A monster comes out of a spawn cloud with `ENEMY_ACTIVE` 0, and the pieces used to be removed as soon as their owner was inactive, so after the spawn clouds were added he was a head with no body in every level; they now wait while `ENEMY_CLOUD` is 1-3 and go only when he is dead. A golden scene that shows nothing wrong can hide this: look at the picture.
+- **The magical sword has a picture of its own** (`DrawItemBySlot`: slot 0 with palette attribute 2 is drawn from the special slot `$20`, tile `$48`, a slanted blade with a red hilt): the floor, the lifted, the A box and the Tab screen pictures all go through `actors.item_tile`.
+- **The 16-bit reach is almost spent** (`check_reach.py` says 1 byte left for `bsr update_quit_far`): anything added to `ai.s`, `enemy.s`, `combat.s`, `items.s` or `dmon.s` (the code before the far stubs) moves the stubs further away. Put new code in the modules after them (`uw.s` and on) or move something out with a `farstub`.
+- **A Gleeok with four necks costs the frame**: three segments a neck (twelve pool pieces) make a late pass on about two frames in five at 60 Hz; the game keeps its speed, the picture runs at half rate for those frames.
 
 ## 14. Status and what is next
 

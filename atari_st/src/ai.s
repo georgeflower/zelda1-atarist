@@ -1239,7 +1239,12 @@ update_projectiles:
     move.b PJ_OWNER(%a4, %d7.w), %d1
     tst.b OFF_ENEMY_ACTIVE(%a5, %d1.w)
     bne 51f
-    clr.b PJ_KIND(%a4, %d7.w)
+    lea OFF_ENEMY_CLOUD(%a5), %a0   | still in his spawn cloud (picture 1-3): the pieces wait, hidden
+    move.b 0(%a0, %d1.w), %d0
+    subq.b #1, %d0
+    cmp.b #2, %d0
+    bls 8f
+    clr.b PJ_KIND(%a4, %d7.w)       | dead: his body goes with him
     bra 8f
 51: bsr boss_part_update
     bra 8f
