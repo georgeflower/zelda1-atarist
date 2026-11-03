@@ -624,7 +624,7 @@ update_cave:
     bsr menu_check_open_cave_far        | Tab: the inventory screen, for the letter
     cmp.b #MODE_CAVE, OFF_GAME_MODE(%a5)
     bne 9f
-    bsr cave_talk_far
+    bsr cave_talk
     bsr cave_update_far
     tst.b OFF_CAVE_TEXT_ON(%a5)
     bne 2f                      | Link waits while the old man speaks
@@ -886,4 +886,125 @@ finish_scroll:
     bsr uw_mark_visited                 | the inventory screen's map shows the room he has come into
 1:  bsr spawn_room_enemies
     move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
+    rts
+
+| The end of the level, UpdateMode12EndLevel_Full: Link holds the triforce piece up
+| (phase 1), the screen flashes (2), his hearts fill one by one (3), a curtain closes
+| the room from both sides (4), a pause on the black room (5), and then he is back
+| at the level's entrance on the overworld.
+ending_update:
+    movem.l %d0-%d2/%a0-%a1, -(%sp)
+    move.b OFF_ENDING_PHASE(%a5), %d2
+    beq 9f
+    | the piece hovers 16 pixels above Link; the other slots are empty
+    move.b #ITEM_TRIFORCE, OFF_ITEM_ID(%a5)
+    move.b OFF_LINK_X(%a5), OFF_ITEM_X(%a5)
+    move.b OFF_LINK_Y(%a5), %d0
+    sub.b #16, %d0
+    move.b %d0, OFF_ITEM_Y(%a5)
+    move.b #ITEM_LIFTED, OFF_ITEM_ACTIVE(%a5)
+    clr.b (OFF_ITEM_ACTIVE + 1)(%a5)
+    clr.b (OFF_ITEM_ACTIVE + 2)(%a5)
+    clr.b OFF_LINK_SHOVE(%a5)
+    cmp.b #3, %d2
+    beq 30f                             | the hearts have their own timing
+    subq.b #1, OFF_ENDING_TIMER(%a5)
+    cmp.b #2, %d2
+    bhi 4f
+    bne 20f                             | phase 1: hold
+    bra 3f
+    | phase 2: the backdrop flashes white every 4 frames
+3:  movea.l #PALETTE_BASE, %a1
+    bsr cur_palette_bf
+    move.b OFF_ENDING_TIMER(%a5), %d0
+    beq 31f
+    btst #2, %d0
+    beq 32f
+    move.w #0x0777, (%a1)
+    bra 9f
+32: move.w (%a0), (%a1)
+    bra 9f
+31: move.w (%a0), (%a1)             | the flash is over
+    move.b #3, OFF_ENDING_PHASE(%a5)
+    clr.b OFF_ENDING_TIMER(%a5)
+    bra 9f
+20: tst.b OFF_ENDING_TIMER(%a5)
+    bne 9f
+    move.b #2, OFF_ENDING_PHASE(%a5)
+    move.b #ENDING_FLASH_FRAMES, OFF_ENDING_TIMER(%a5)
+    bra 9f
+    | phase 3: a half heart at a time until he has all his hearts
+30: moveq #0, %d0
+    move.b OFF_HEART_CONTAINERS(%a5), %d0
+    add.w %d0, %d0
+    cmp.b OFF_HP_HALVES(%a5), %d0
+    bhi 33f
+    move.b #4, OFF_ENDING_PHASE(%a5)
+    clr.b OFF_ENDING_STEP(%a5)
+    move.b #ENDING_CURTAIN_FRAMES, OFF_ENDING_TIMER(%a5)
+    bra 9f
+33: tst.b OFF_ENDING_TIMER(%a5)
+    beq 34f
+    subq.b #1, OFF_ENDING_TIMER(%a5)
+    bra 9f
+34: addq.b #1, OFF_HP_HALVES(%a5)
+    move.b #1, OFF_HUD_DIRTY(%a5)
+    sfx SFX_HEART
+    move.b #ENDING_HEART_FRAMES, OFF_ENDING_TIMER(%a5)
+    bra 9f
+4:  cmp.b #4, %d2
+    bne 5f
+    | phase 4: the curtain
+    tst.b OFF_ENDING_TIMER(%a5)
+    bne 9f
+    moveq #0, %d0
+    move.b OFF_ENDING_STEP(%a5), %d0
+    bsr curtain_column                  | the left edge, then the right edge
+    moveq #31, %d1
+    sub.w %d0, %d1
+    move.w %d1, %d0
+    bsr curtain_column
+    addq.b #1, OFF_ENDING_STEP(%a5)
+    move.b #ENDING_CURTAIN_FRAMES, OFF_ENDING_TIMER(%a5)
+    cmpi.b #ENDING_CURTAIN_STEPS, OFF_ENDING_STEP(%a5)
+    blo 9f
+    move.b #5, OFF_ENDING_PHASE(%a5)
+    move.b #ENDING_PAUSE_FRAMES, OFF_ENDING_TIMER(%a5)
+    bra 9f
+5:  tst.b OFF_ENDING_TIMER(%a5)         | phase 5: the pause, then out
+    bne 9f
+    clr.b OFF_ENDING_PHASE(%a5)
+    clr.b OFF_LINK_HELD(%a5)
+    clr.b OFF_ITEM_ACTIVE(%a5)
+    bsr uw_leave_level
+9:  movem.l (%sp)+, %d0-%d2/%a0-%a1
+    rts
+
+| d0.w = a column of the playfield (0-31, 8 pixels wide): blank it in the clean room
+| and in both screens, so Link's erasing keeps it black. Keeps every register.
+curtain_column:
+    movem.l %d0-%d2/%a0, -(%sp)
+    move.w %d0, %d1
+    lsr.w #1, %d1
+    lsl.w #3, %d1                       | the 16-pixel group, 8 bytes each
+    and.w #1, %d0
+    add.w %d0, %d1                      | the left or the right byte of its words
+    add.w #PLAYFIELD_ORIGIN, %d1
+    .macro curtain_buffer off
+    movea.l \off(%a5), %a0
+    adda.w %d1, %a0
+    move.w #(PLAYFIELD_HEIGHT - 1), %d2
+1:  clr.b (%a0)
+    clr.b 2(%a0)
+    clr.b 4(%a0)
+    clr.b 6(%a0)
+    lea SCREEN_STRIDE(%a0), %a0
+    dbra %d2, 1b
+    .endm
+    curtain_buffer OFF_BG_CUR
+    curtain_buffer OFF_SCREEN_PTR
+    tst.b OFF_DBL_ACTIVE(%a5)
+    beq 9f
+    curtain_buffer OFF_BG_NEXT
+9:  movem.l (%sp)+, %d0-%d2/%a0
     rts

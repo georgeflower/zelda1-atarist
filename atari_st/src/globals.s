@@ -531,6 +531,7 @@
     gvar ROOM_STATUES, 1         | the room's statues that shoot fireballs (record byte 5): 0 none, 1 four, 2 two
     gvar ENEMY_LIVE, 11         | what a monster in its spawn cloud becomes when it is out: 1 a monster of the room, 2 one that is none (a bubble, a blade trap)
     gvar BLOCK_KEEP, 1           | set while uw_redraw_room rebuilds the map: a block that has landed is put back where it landed (block_keep)
+    gvar GRUMBLE_ROOM, 1         | this is Grumble's room (fed or not): his two flames burn here
     gvar STATUE_T, 4             | each one's wait before its next shot (Statue_ObjFireballTimer)
     galign
     gvar IVP, 68                 | where each table of INTRO.DAT is while the buffer holds it (INTRO_TABLE_COUNT longs; ivtab, loader.s)

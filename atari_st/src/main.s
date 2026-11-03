@@ -622,82 +622,6 @@ draw_cave_fires:
 9:  movem.l (%sp)+, %d0-%d4/%a0-%a2
     rts
 
-| The old man's speech, one character every few frames. Link stands still
-| until it is finished.
-cave_talk:
-    movem.l %d0-%d4/%a0-%a1, -(%sp)
-    tst.b OFF_CAVE_TEXT_ON(%a5)
-    beq 9f
-    subq.b #1, OFF_CAVE_TEXT_TIMER(%a5)
-    bne 9f
-    ltab cave_text, %a0
-    ltab text_glyphs, %a1
-1:  moveq #0, %d0
-    move.w OFF_CAVE_TEXT_IDXW(%a5), %d0
-    moveq #0, %d4
-    move.b 0(%a0, %d0.w), %d4
-    addq.w #1, OFF_CAVE_TEXT_IDXW(%a5)
-    move.w %d4, %d3
-    and.w #0x3f, %d3
-    cmp.w #0x25, %d3            | a space that takes no time
-    bne 2f
-    addq.b #1, OFF_CAVE_TEXT_COL(%a5)
-    bra 1b
-2:  moveq #0, %d0
-    move.b 0(%a1, %d3.w), %d0
-    moveq #0, %d1
-    move.b OFF_CAVE_TEXT_COL(%a5), %d1
-    moveq #0, %d2
-    move.b OFF_CAVE_TEXT_ROW(%a5), %d2
-    bsr draw_hud_tile_far
-    move.l OFF_SCREEN_PTR(%a5), -(%sp)  | and into the clean room, to survive Link's erasing
-    move.l OFF_BG_CUR(%a5), OFF_SCREEN_PTR(%a5)
-    bsr draw_hud_tile_far
-    move.l (%sp)+, OFF_SCREEN_PTR(%a5)
-    tst.b OFF_DBL_ACTIVE(%a5)
-    beq 21f
-    move.l OFF_SCREEN_PTR(%a5), -(%sp)  | in a dungeon room the other buffer needs the letter too
-    move.l OFF_BG_NEXT(%a5), OFF_SCREEN_PTR(%a5)
-    bsr draw_hud_tile_far
-    move.l (%sp)+, OFF_SCREEN_PTR(%a5)
-21:
-    tst.b OFF_CAVE_TEXT_PEACE(%a5)
-    beq 22f
-    cmp.w #0x24, %d3                    | the last words make no blip on a space
-    beq 23f
-22: sfx SFX_HEART                       | the text blip
-23: addq.b #1, OFF_CAVE_TEXT_COL(%a5)
-    move.b #CAVE_TEXT_DELAY, OFF_CAVE_TEXT_TIMER(%a5)
-    tst.b OFF_CAVE_TEXT_PEACE(%a5)
-    beq 24f
-    move.b #8, OFF_CAVE_TEXT_TIMER(%a5) | UpdatePeaceTextbox: a letter every 8 frames
-24: and.w #0xc0, %d4
-    beq 9f
-    tst.b OFF_CAVE_TEXT_PEACE(%a5)
-    beq 25f
-    cmp.w #0xc0, %d4
-    beq 4f
-    move.b #8, OFF_CAVE_TEXT_COL(%a5)   | PeaceTextboxCharAddrsLo: the second line starts at ($22E4), the third at ($2346)
-    move.b #18, OFF_CAVE_TEXT_ROW(%a5)
-    cmp.w #0x80, %d4
-    beq 9f
-    move.b #10, OFF_CAVE_TEXT_COL(%a5)
-    move.b #21, OFF_CAVE_TEXT_ROW(%a5)
-    bra 9f
-25: move.b #CAVE_TEXT_COL0, OFF_CAVE_TEXT_COL(%a5)
-    cmp.w #0x80, %d4
-    bne 3f
-    move.b #(CAVE_TEXT_ROW0 + 1), OFF_CAVE_TEXT_ROW(%a5)
-    bra 9f
-3:  cmp.w #0x40, %d4
-    bne 4f
-    move.b #(CAVE_TEXT_ROW0 + 2), OFF_CAVE_TEXT_ROW(%a5)
-    bra 9f
-4:  clr.b OFF_CAVE_TEXT_ON(%a5)     | the last line: he has finished
-    clr.b OFF_CAVE_TEXT_PEACE(%a5)
-9:  movem.l (%sp)+, %d0-%d4/%a0-%a1
-    rts
-
 | Copy the whole playfield from bg_cur to the visible screen.
 show_background:
     movem.l %d0-%d1/%a0-%a1, -(%sp)
@@ -987,10 +911,10 @@ draw_hud_tile_ptr_far:
     bra draw_hud_tile_ptr
 menu_check_open_far:
     bra menu_check_open
-cave_talk_far:
-    bra cave_talk
 debug_keys_far:
     bra debug_keys
+ending_update_far:
+    bra ending_update
     .if DEV_AUTOPLAY
 autoplay_far:
     bra autoplay

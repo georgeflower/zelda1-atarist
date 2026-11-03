@@ -3082,6 +3082,7 @@ stash_y:
 boss_room_init:
     movem.l %d0-%d2/%a0, -(%sp)
     clr.b OFF_GRUMBLE_ON(%a5)
+    clr.b OFF_GRUMBLE_ROOM(%a5)
     move.b 5(%a1), %d2                  | statues that shoot (record byte 5, bits 3-4): every one starts with its timer at 0
     lsr.b #3, %d2
     and.b #3, %d2
@@ -3094,6 +3095,7 @@ boss_room_init:
     uwlea FLAGS, %a0
     btst #5, %d1
     beq 1f
+    move.b #1, OFF_GRUMBLE_ROOM(%a5)
     btst #1, 0(%a0, %d0.w)
     bne 1f                              | he has been fed
     move.b #1, OFF_GRUMBLE_ON(%a5)

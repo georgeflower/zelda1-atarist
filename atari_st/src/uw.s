@@ -447,7 +447,7 @@ uw_person_update:
     bsr uw_wares_show
 10: cmp.b #1, %d0
     bne 20f
-    bsr cave_talk_far
+    bsr cave_talk
     tst.b OFF_CAVE_TEXT_ON(%a5)
     bne 90f
     move.b #2, OFF_UW_PERSON(%a5)

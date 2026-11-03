@@ -580,8 +580,8 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   is dark), 6-13 monsters, 14-15 person text offset. Dark rooms (`ROOM_DARK`, `uw_dark_fill`) show nothing but Link, monsters
   and effects until the candle is used (`uw_light_room`, `ROOM_LIT`). Rupee stash: `stash_bake` paints the rupees into the room
   and `boss_misc_update` collects them (`UW_FLAGS` bit 2). Grumble (`GRUMBLE_ON`): blocks the doorway tile until fed (food
-  on his tile), then `UW_FLAGS` bit 1. Gleeok's body is baked into the room (`uw_bake_boss`, `GLEEOK_GONE` after death);
-  necks and heads come from the boss pool, one segment per neck when there are four necks (`GLEEOK_SEGS`). The "more bombs" and "life or money" men are
+  on his tile), then `UW_FLAGS` bit 1. His two flames (the ROM's two type-`$40` objects at X `$48` and `$A8`, Y `$80`; harmless, Link walks through them) are the old man's two bonfires: `draw_effects` draws them for `UW_PERSON` or `GRUMBLE_ROOM` (set by `boss_room_init` for any room whose trigger has bit 5, fed or not, so they burn on). Gleeok's body is baked into the room (`uw_bake_boss`, `GLEEOK_GONE` after death);
+  necks and heads come from the boss pool, three segments on every neck (`GLEEOK_SEGS` is 4: the middle ones are at quarters of the way from the body to the head). The "more bombs" and "life or money" men are
   ported (see Dungeon people below).
   **Room item carried** (`MoveAndDrawRoomItem`, `room_item_follow`): while the room's item lies on the floor (`ITEM_ACTIVE` 2) and the first monster is alive and
   a like-like, a stalfos or a gibdo, the item takes that monster's X and Y every frame (First Quest rooms: Level 1 `$33 $74`, Level 5 `$65 $66`, Level 7 `$5A $6D`); a hidden
@@ -863,7 +863,8 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 
 - **Aquamentus's body is three more pieces** (`PK_PART` projectiles, made by `enemy_init_special`) that follow him. A monster comes out of a spawn cloud with `ENEMY_ACTIVE` 0, and the pieces used to be removed as soon as their owner was inactive, so after the spawn clouds were added he was a head with no body in every level; they now wait while `ENEMY_CLOUD` is 1-3 and go only when he is dead. A golden scene that shows nothing wrong can hide this: look at the picture.
 - **The magical sword has a picture of its own** (`DrawItemBySlot`: slot 0 with palette attribute 2 is drawn from the special slot `$20`, tile `$48`, a slanted blade with a red hilt): the floor, the lifted, the A box and the Tab screen pictures all go through `actors.item_tile`.
-- **The 16-bit reach is almost spent** (`check_reach.py` says 1 byte left for `bsr update_quit_far`): anything added to `ai.s`, `enemy.s`, `combat.s`, `items.s` or `dmon.s` (the code before the far stubs) moves the stubs further away. Put new code in the modules after them (`uw.s` and on) or move something out with a `farstub`.
+- **The 16-bit reach is tight** (`check_reach.py` prints the tightest three; about 230 bytes left after `cave_talk` went to `hud.s` and `ending_update` with `curtain_column` to `link.s`; it was 1): anything added to `ai.s`, `enemy.s`, `combat.s`, `items.s` or `dmon.s` (the code before the far stubs) moves the stubs further away. Put new code in the modules after them (`uw.s` and on) or move something out with a `farstub`. The place matters: `save.s` reaches `ow_set_square_raw` in `secrets.s`, `ai.s` reaches `owspec.s`, the stubs reach `intro.s`, so a move that lands between those pairs only moves the problem (the build tells which).
+- **`sprite_offset` adds all of `d1`**: a caller that loads X with `move.w` must clear the upper half first. The old man's bonfires did not, so they were drawn at a wild address and never showed, in any dungeon.
 - **A Gleeok with four necks costs the frame**: three segments a neck (twelve pool pieces) make a late pass on about two frames in five at 60 Hz; the game keeps its speed, the picture runs at half rate for those frames.
 
 ## 14. Status and what is next
