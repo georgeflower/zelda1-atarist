@@ -1247,6 +1247,9 @@ check_warps:
     bhi 9f                          | the other dungeons are not built yet
     bsr uw_enter_level
     bra 9f
-8:  clr.b OFF_EXIT_GUARD(%a5)
+8:  btst #2, OFF_HELD_DIRS(%a5)
+    bne 9f                          | stepped out facing down with Down still held: the stairs below
+                                    | would take him straight back in, so the guard waits for a release
+    clr.b OFF_EXIT_GUARD(%a5)
 9:  movem.l (%sp)+, %d0-%d3/%a0
     rts

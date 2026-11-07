@@ -828,7 +828,10 @@ enemy_shove:
     and.b #15, %d0
     cmp.b #13, %d0
     beq 12f
-11: move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
+11: cmpi.b #(ENEMY_HURT_FRAMES - 1), OFF_ENEMY_HURT(%a5, %d5.w)
+    bne 12f                     | only the first frame asks: a shove across the lane that began on a boundary (as the ROM's
+                                | Obj_Shove allows) carries on to the next one, or it stopped half way and the walker walked off
+    move.b OFF_ENEMY_DIR(%a5, %d5.w), %d0
     and.b #DIR_VERTICAL, %d0
     move.b %d6, %d1
     and.b #DIR_VERTICAL, %d1
