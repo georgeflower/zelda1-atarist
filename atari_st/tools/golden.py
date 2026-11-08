@@ -167,6 +167,12 @@ SCENES: dict[str, list[str]] = {
     "uw9_lanmola": ["--uw", "0x11", "--level", "9", "--vbls", "420"],
     "uw9_patra": ["--uw", "0x21", "--level", "9", "--vbls", "420"],
     "uw9_ganon": ["--uw", "0x42", "--level", "9", "--vbls", "420"],
+    # The man at Level 9's door with all eight pieces in hand: he is gone and both doors are drawn open.
+    "uw9_door_man_gone": ["--uw", "0x76", "--level", "9", "--vbls", "380", "--keys", "250:=TRIFORCE_PIECES=0xff,260:+up"],
+    # The recorder in screen $52, where monsters are still to walk in: the whirlwind comes at the first blow, takes Link to
+    # the entrance of Level 8 (screen $6D, which also has monsters coming in) and sets him down, visible.
+    "ow52_whirlwind_arrives": ["--room", "0x52", "--vbls", "610", "--keys",
+                               "250:=INV_RECORDER=1,250:=TRIFORCE_PIECES=0xff,250:=B_ITEM=5,250:=LINK_DIR=4,300:+space,303:-space"],
     "uw9_zelda": ["--uw", "0x32", "--level", "9", "--vbls", "420"],
     "uw1_magic_key_door": ["--uw", "0x73", "--level", "1", "--vbls", "500", "--keys", "190:=ITEMS.13=1,200:+up"],
     "uw5_bombs_man": ["--uw", "0x17", "--level", "5", "--vbls", "420"],

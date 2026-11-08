@@ -864,6 +864,11 @@ whirl_update:
     moveq #0, %d2
     moveq #DIR_RIGHT, %d4
     bsr enemy_make
+    tst.w %d0
+    bpl 9f
+    move.b #0x80, OFF_LINK_X(%a5)               | no room for the whirlwind: he is set down anyway, never held for ever
+    clr.b OFF_WHIRL_TELE(%a5)
+    clr.b OFF_LINK_HELD(%a5)
 9:  movem.l (%sp)+, %d0-%d4/%a0
     rts
 

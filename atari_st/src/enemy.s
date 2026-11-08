@@ -75,7 +75,12 @@ uw_spawn:
     beq 3f
     cmpi.b #0xff, OFF_TRIFORCE_PIECES(%a5)
     bne 3f                          | the man at Level 9's door: with all eight pieces Link may pass (InitUnderworldPersonC)
+    uwlea FLAGS, %a0
+    bset #UW_FLAG_PERSON, 0(%a0, %d0.w)     | he is destroyed (DestroyMonster): the room is drawn without him
     bsr uw_open_shutters
+    tst.w %d1
+    beq 0f
+    bsr uw_redraw_room              | the doors are open: show them so (the room was drawn with them shut)
     bra 0f
 3:  cmpi.w #0xffff, 14(%a1)
     beq 0f

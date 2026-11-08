@@ -996,7 +996,7 @@ mv_boulder_set:
 
 | ------------------------------------------------------------------ making monsters
 | Returns d0.w = a slot a new monster can take, or -1. A dead monster's slot will do; so will one more at the
-| end, unless monsters are still to walk in from the edge (their slots are spoken for).
+| end. Monsters still to walk in from the edge keep their slots (EDGE_NEXT up to ENEMY_COUNT), so only the ones before them are looked at.
 enemy_find_slot:
     movem.l %d1-%d2/%a0, -(%sp)
     moveq #0, %d2
@@ -1015,9 +1015,7 @@ enemy_find_slot:
     beq 8f
 4:  addq.w #1, %d1
     bra 2b
-3:  tst.b OFF_EDGE_PENDING(%a5)
-    bne 7f
-    cmpi.b #MAX_ENEMIES, OFF_ENEMY_COUNT(%a5)
+3:  cmpi.b #MAX_ENEMIES, OFF_ENEMY_COUNT(%a5)
     bhs 7f
     moveq #0, %d1
     move.b OFF_ENEMY_COUNT(%a5), %d1
