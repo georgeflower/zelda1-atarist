@@ -32,7 +32,7 @@ so do not add any of these or bump anything when you finish a milestone; what is
 
 ## 1.2 Workflow
 
-No pull requests: commit straight to `master` (the default branch) and push when the owner says "push". Disk images for play-testing are named `Z-###.st`, counting on from the last pull request number (Z-119 is the latest). Before an image goes out: unit tests, golden frames, a default build (section 4) and a play check. Commits end with the `Co-Authored-By` line only, with no session link. The ROM, TOS images and anything decoded from the ROM are never committed.
+No pull requests: commit straight to `master` (the default branch) and push when the owner says "push". Disk images for play-testing are named `Z-###.st`, counting on from the last pull request number (Z-120 is the latest). Before an image goes out: unit tests, golden frames, a default build (section 4) and a play check. Commits end with the `Co-Authored-By` line only, with no session link. The ROM, TOS images and anything decoded from the ROM are never committed.
 
 ## 2. References and links (provided by the project owner - treat as truth)
 
@@ -232,7 +232,7 @@ reach-check listing parser.
 
 ### Golden frames (`tools/golden.py`, `tests/golden/frames/`)
 Thirty-five fixed scenes (overworld start, the Level 2 entrance, Level 1 start and Aquamentus, Level 2 start, Dodongo,
-Moldorm, traps, goriyas, old man, and Levels 3-8: a crowded room, a dark room, a rupee stash, Grumble, a dark crowd; Level 9: a Lanmola room, a Patra room, Ganon's room, Zelda's room and Zelda's thanks; Level 4's Zols and the ladder stopping on a two-square moat) are run through `screenshot.py` (dev builds in `build/dev` via `--room`/`--uw`/`--level`) and
+Moldorm, traps, goriyas, old man, and Levels 3-8: a crowded room, a dark room, a rupee stash, Grumble, a dark crowd; Level 9: a Lanmola room, a Patra room, Ganon's room, Zelda's room and Zelda's thanks; Level 4's Zols, the ladder stopping on a two-square moat, the overworld ladder over a stream and on a lake) are run through `screenshot.py` (dev builds in `build/dev` via `--room`/`--uw`/`--level`) and
 the `FRAMEHASH` (SHA-256 of pixel indices plus palette) is compared with the stored one. **Hashes, not images**: the frames are
 Nintendo's artwork, so the tests keep no images. (Screenshots are not kept in the repository; the owner has a zip of the early ones.) Runs are deterministic. After a change that moves pixels on purpose: look at
 `build/golden/<scene>.png`, then `make golden-update` and commit the changed `frames/*.txt` (one small file per scene, so branches that re-record different scenes do not conflict; a scene changed by two merged branches has to be recorded again on the merged code, see below). `make check` runs it and skips quietly without
@@ -599,8 +599,8 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `test_build_assets.py` replays the doors of all levels). The moat (NES tile `$F4`) always blocks (`tile_blocks`); the ladder
   (`uw_ladder_ok`/`uw_ladder_update` in owspec.s, as `CheckLadder`) is put down in item slot 2 (`RAFT_SLOT`, `ITEM_LIFTED`, drawn by
   `draw_items`) at Link + (up 0,-5; down 0,+19; left -16,+3; right +16,+3), `LADDER_DIR/STATE/ROOM`. `link_collide` lets Link pass the moat
-  only along the ladder's axis, and only while the ladder is still ahead of him: on the ladder's square the moat blocks again, so it carries him one square (as in the ROM: a moat two squares thick is not crossed); it is stashed again (and when the room changes) as `CheckLadder` does. The overworld ladder is still the
-  older square-snapped approximation. Moat rooms that cut doors off from each other: Level 4 `$01 $21 $30`,
+  only along the ladder's axis, and only while the ladder is still ahead of him: on the ladder's square the moat blocks again, so it carries him one square (as in the ROM: a moat two squares thick is not crossed); it is stashed again (and when the room changes) as `CheckLadder` does. The overworld uses the same routines (`ow_ladder_ok` checks the water tiles `$8D`-`$98` in the six
+  `LadderRoomsOW` screens, then runs the same body; `owspec_update` calls `uw_ladder_update`). Moat rooms that cut doors off from each other: Level 4 `$01 $21 $30`,
   5 `$46 $66`, 6 `$19 $1A`, 7 `$18 $49 $5A`, 9 `$23 $40 $56 $65`.
 - **Level 9** (`UW_LEVELS := 1 2 3 4 5 6 7 8 9`; the monsters live in `bosses.s`, the dungeon people and the door man in `uw.s`): 57 rooms,
   a ten-entry cellar array, the old men from person table C, and the man at the door (record trigger bit 4) who opens only
@@ -884,7 +884,7 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-What is left (details in `atari_st/PLAN.md`): more play-testing and longer sessions on real hardware (the last half of Level 9 is still unplayed), and the overworld ladder, which still moves by whole squares. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, with about 17 KB to spare (packing the drum samples to 4 bits would give back about 21 KB). Scope decision: both quests in one build, files per dungeon. All tables are decoded from a user-supplied ROM; do not commit the ROM.
+What is left (details in `atari_st/PLAN.md`): more play-testing and longer sessions on real hardware (the last half of Level 9 is still unplayed). The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, with about 17 KB to spare (packing the drum samples to 4 bits would give back about 21 KB). Scope decision: both quests in one build, files per dungeon. All tables are decoded from a user-supplied ROM; do not commit the ROM.
 
 ## 15. Persistent notes also kept in the repo memory (VS Code agent memory)
 

@@ -1,7 +1,7 @@
 | The overworld's special mechanics (ROM: UpdateDock, CheckLadder, CreateRoomObjects for the heart container on P6).
 |
 |   raft     the docks of F6 ($55) and P4 ($3F): with the raft Link stands at the dock and is carried across the water
-|   ladder   six screens (LadderRoomsOW): with the ladder Link may walk on water, a ladder shows under him
+|   ladder   six screens (LadderRoomsOW): with the ladder Link lays it over a square of water and walks along it (the dungeons' ladder below)
 |   heart    the heart container of P6 ($5F), on the island at ($C0, $90)
 |   armos    twelve screens of them: pushing one wakes it (InitArmosOrFlyingGhini); seven hide stairs or the bracelet
 |   recorder the whirlwind (SummonWhirlwind) takes Link to the entrance of the next level whose piece he has; in
@@ -54,7 +54,7 @@ owspec_update:
     tst.b OFF_LEVEL(%a5)
     bne uw_ladder_update
     bsr raft_update
-    bsr ladder_update
+    bsr uw_ladder_update
     bsr pond_update
     bsr whirl_update
 9:  rts
@@ -144,7 +144,7 @@ ow_ladder_ok:
     bhi 9f
     bsr in_ladder_room
     bne 9f
-    moveq #0, %d0
+    bra ladder_ok_body                  | from here on it is the dungeon's ladder
 9:  rts
 
 | Z = 1 when the screen is one of the six.
@@ -162,8 +162,8 @@ in_ladder_room:
 3:  movem.l (%sp)+, %d0-%d1/%a0         | (movem keeps the flags)
     rts
 
-| The dungeons' ladder (CheckLadder and Link_EndMoveAndAnimate, the same routines as the overworld's): when Link is about to
-| walk into the moat (NES tile $F4) with the ladder, it is laid down in front of him, 16 pixels long (LinkToLadderOffsetsX/Y:
+| The ladder (CheckLadder and Link_EndMoveAndAnimate, one set of routines for the overworld and the dungeons): when Link is about to
+| walk into the moat (NES tile $F4 in a dungeon, water $8D-$98 in the six overworld screens) with the ladder, it is laid down in front of him, 16 pixels long (LinkToLadderOffsetsX/Y:
 | up (0,-5), down (0,+19), left (-16,+3), right (+16,+3) from his position), and he may walk along it only, not across. It is put
 | away when he is a whole ladder past it, or off its line, or has left the room; the moat beyond gets a new one.
     .equ UW_MOAT, 0xf4
@@ -178,6 +178,7 @@ uw_ladder_ok:
     beq 9f
     cmp.w #UW_MOAT, %d5
     bne 9f
+ladder_ok_body:
     movem.l %d1-%d3/%a0, -(%sp)
     tst.b OFF_LADDER_SHOWN(%a5)
     beq 2f
@@ -310,82 +311,6 @@ uw_ladder_update:
 6:  move.b #2, OFF_LADDER_STATE(%a5)
 7:  movem.l (%sp)+, %d0-%d3
 9:  rts
-
-| The ladder is drawn on the square of water Link stands on, or the one he is walking into.
-ladder_update:
-    movem.l %d0-%d4/%a0, -(%sp)
-    tst.b OFF_FOOD_TIMER(%a5)
-    bne 9f                              | the food has the slot
-    tst.b OFF_INV_LADDER(%a5)
-    beq 7f
-    bsr in_ladder_room
-    bne 7f
-    moveq #0, %d3                       | the feet: X + 8, Y + $B
-    move.b OFF_LINK_X(%a5), %d3
-    addq.w #8, %d3
-    moveq #0, %d4
-    move.b OFF_LINK_Y(%a5), %d4
-    add.w #HOTSPOT_Y_OFFSET, %d4
-    bsr 20f
-    cmp.w #0x8d, %d0
-    blo 1f
-    cmp.w #0x98, %d0
-    bls 5f
-1:  tst.b OFF_COMMIT(%a5)               | on land: the square he is walking into
-    beq 7f
-    move.b OFF_LINK_DIR(%a5), %d0
-    btst #0, %d0
-    beq 2f
-    addq.w #8, %d3
-    bra 4f
-2:  btst #1, %d0
-    beq 3f
-    subq.w #8, %d3
-    bra 4f
-3:  btst #2, %d0
-    beq 31f
-    addq.w #8, %d4
-    bra 4f
-31: subq.w #8, %d4
-4:  bsr 20f
-    cmp.w #0x8d, %d0
-    blo 7f
-    cmp.w #0x98, %d0
-    bhi 7f
-5:  and.w #0xf0, %d3                    | the square's top left
-    sub.w #NES_PLAY_AREA_TOP, %d4
-    and.w #0xf0, %d4
-    add.w #NES_PLAY_AREA_TOP, %d4
-    move.b #LADDER_ITEM, (OFF_ITEM_ID + RAFT_SLOT)(%a5)
-    move.b %d3, (OFF_ITEM_X + RAFT_SLOT)(%a5)
-    move.b %d4, (OFF_ITEM_Y + RAFT_SLOT)(%a5)
-    move.b #ITEM_LIFTED, (OFF_ITEM_ACTIVE + RAFT_SLOT)(%a5)
-    move.b #1, OFF_LADDER_SHOWN(%a5)
-    bra 9f
-7:  tst.b OFF_LADDER_SHOWN(%a5)
-    beq 9f
-    clr.b OFF_LADDER_SHOWN(%a5)
-    clr.b (OFF_ITEM_ACTIVE + RAFT_SLOT)(%a5)
-9:  movem.l (%sp)+, %d0-%d4/%a0
-    rts
-
-| d3.w = X, d4.w = Y of a point: d0.w = the NES tile there.
-20: movem.l %d2-%d3, -(%sp)
-    move.w %d4, %d2
-    sub.w #NES_PLAY_AREA_TOP, %d2
-    bpl 21f
-    moveq #0, %d2
-21: lsr.w #3, %d2
-    cmp.w #(PLAY_AREA_ROWS - 1), %d2
-    bls 22f
-    moveq #(PLAY_AREA_ROWS - 1), %d2
-22: lsr.w #3, %d3
-    cmp.w #(PLAY_AREA_COLS - 1), %d3
-    bls 23f
-    moveq #(PLAY_AREA_COLS - 1), %d3
-23: bsr fetch_tile
-    movem.l (%sp)+, %d2-%d3
-    rts
 
 | -------------------------------------------------------------------------------------------------------- armos
 | CheckPassiveTileObjects: a step blocked by an armos tile ($C0-$C3) wakes the armos on that square, and one blocked by a

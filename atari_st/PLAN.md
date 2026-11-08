@@ -7,8 +7,7 @@ Work in progress. Both quests are in. The `.PRG` is about 270 KB; the intro's da
 | # | What | Why |
 | --- | --- | --- |
 | 1 | More play-testing and bug hunting on real hardware | most of the recent bugs were found by playing; I have not played the last half of Level 9 yet, and the Second Quest has had less play than the First |
-| 2 | The overworld ladder | it still moves Link by whole squares; the dungeon ladder follows the ROM exactly, this one is an older guess |
-| 3 | Free memory | about 17 KB is spare; packing the drum samples to 4 bits would give back about 21 KB, only if it is needed |
+| 2 | Free memory | about 17 KB is spare; packing the drum samples to 4 bits would give back about 21 KB, only if it is needed |
 
 Kept on purpose: the Esc menu (quit without saving, save and quit, back to game) is not in the original.
 
@@ -16,7 +15,7 @@ Not planned: anything that needs the NES hardware itself (the PPU, the DPCM chan
 
 ## Next
 
-1 first, 2 when a screen shows it, 3 only when space runs out.
+1 first, 2 only when space runs out.
 
 ## Reference data
 

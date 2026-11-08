@@ -216,6 +216,12 @@ SCENES: dict[str, list[str]] = {
                         "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,260:+right"],
     "uw6_ladder_across": ["--uw", "0x19", "--level", "6", "--vbls", "310", "--keys",
                           "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,260:+right"],
+    # The overworld's ladder is the dungeons' (owspec.s): in room $27 it is laid over the stream in front of Link, and the lake
+    # below is thicker than a ladder, so he stops on it.
+    "ow27_ladder_stream": ["--room", "0x27", "--vbls", "275", "--keys",
+                           "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,250:=LINK_X=0x40,250:=LINK_Y=0x80,250:=LINK_DIR=1,260:+right"],
+    "ow27_ladder_lake": ["--room", "0x27", "--vbls", "330", "--keys",
+                         "250:=INV_LADDER=1,250:=ENEMY_COUNT=0,250:=LINK_X=0x50,250:=LINK_Y=0x90,250:=LINK_DIR=4,260:+down"],
     # A blade trap that has hit Link goes on to the middle line and creeps home (it used to turn round at the touch and wrap round the room).
     "uw1_trap_hits_link": ["--uw", "0x22", "--level", "1", "--vbls", "400", "--keys", "250:=LINK_Y=0x5d,250:=HP_HALVES=40"],
     # The ladder carries Link one square: Level 4's moat in room $21 is two squares thick, and he stops on the ladder (as in the ROM).
