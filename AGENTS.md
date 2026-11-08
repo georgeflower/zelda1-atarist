@@ -30,6 +30,10 @@ damage, tile id, table), read it from there rather than guessing.
 The repository carries **no version numbers**: no `VERSION` file, no `CHANGELOG.md`, no version line in the docs. Göran tags releases himself,
 so do not add any of these or bump anything when you finish a milestone; what is left is in `atari_st/PLAN.md`.
 
+## 1.2 Workflow
+
+No pull requests: commit straight to `master` (the default branch) and push when the owner says "push". Disk images for play-testing are named `Z-###.st`, counting on from the last pull request number (Z-119 is the latest). Before an image goes out: unit tests, golden frames, a default build (section 4) and a play check. Commits end with the `Co-Authored-By` line only, with no session link. The ROM, TOS images and anything decoded from the ROM are never committed.
+
 ## 2. References and links (provided by the project owner - treat as truth)
 
 - **Code truth, raw**: <https://github.com/camthesaxman/zeldasource> (unlabelled
@@ -880,7 +884,7 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-What is left (details in `atari_st/PLAN.md`): more play-testing and longer sessions on real hardware. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, with about 17 KB to spare (packing the drum samples to 4 bits would give back about 21 KB). Scope decision: both quests in one build, files per dungeon. All tables are decoded from a user-supplied ROM; do not commit the ROM.
+What is left (details in `atari_st/PLAN.md`): more play-testing and longer sessions on real hardware (the last half of Level 9 is still unplayed), and the overworld ladder, which still moves by whole squares. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, with about 17 KB to spare (packing the drum samples to 4 bits would give back about 21 KB). Scope decision: both quests in one build, files per dungeon. All tables are decoded from a user-supplied ROM; do not commit the ROM.
 
 ## 15. Persistent notes also kept in the repo memory (VS Code agent memory)
 
