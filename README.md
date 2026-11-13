@@ -8,7 +8,7 @@ I'm making this together with an AI (Claude, from Anthropic). I decide what to b
 
 ## Status
 
-Work in progress. Both quests are in: the whole overworld, all nine dungeons up to Ganon and Zelda, every item, title and story, file select, death and continue, saving to `ZELDA.SAV`, the credits and the music. Expect bugs. There is a short list of what is left in [`atari_st/PLAN.md`](atari_st/PLAN.md).
+The First Quest is complete: the whole overworld, all nine dungeons, Ganon, Zelda and the credits, every item, title and story, file select, death and continue, saving to `ZELDA.SAV` and the music. A bot has played it from the first cave to Zelda on the port and on the NES side by side, with the same keys, and Link walks, turns and goes through doors frame for frame like the original. The Second Quest is in too but has had less play, so expect bugs there. There is a short list of what is left in [`atari_st/PLAN.md`](atari_st/PLAN.md).
 
 The Second Quest starts when you make a file called ZELDA (like the original), or when you finish the game. The `.PRG` is about 270 KB; the title, story, credits and file menu data is in `INTRO.DAT` and each dungeon's data is in a file of its own (`LEVEL1.DAT` ... `LEVEL9.DAT`, and `LEVEL1Q.DAT` ... `LEVEL9Q.DAT` for the Second Quest) that the game reads when you go in, so keep them in the same folder as the `.PRG`. It fits a 512 KB ST: it needs about 390 KB free after loading and a 520 STFM has about 407 KB. If there is not enough memory it says so and exits.
 
