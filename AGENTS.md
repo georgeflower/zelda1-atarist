@@ -909,7 +909,7 @@ inventory in the code (swords of three grades, bow and arrows, rod, potions, foo
 kill counters, knock-back and invincibility; the HUD with the A/B boxes and the Tab inventory screen; YM2149 music and effects; the
 M0 tooling (table dump, 16-bit reach check, golden frames).
 
-The First Quest is complete and played through to Zelda by the bot on both machines. What is left (details in `atari_st/PLAN.md`): more play of the Second Quest and longer sessions on real hardware. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, with about 17 KB to spare (packing the drum samples to 4 bits would give back about 21 KB). Scope decision: both quests in one build, files per dungeon. All tables are decoded from a user-supplied ROM; do not commit the ROM.
+The First Quest is complete and played through to Zelda on an Atari 520 STFM with a joystick (and by the bot on both machines). What is left (details in `atari_st/PLAN.md`): more play of the Second Quest. The PRG (about 270 KB) plus the buffers needs about 390 KB free: a 520 STFM runs it, with about 17 KB to spare (packing the drum samples to 4 bits would give back about 21 KB). Scope decision: both quests in one build, files per dungeon. All tables are decoded from a user-supplied ROM; do not commit the ROM.
 
 ## 15. Persistent notes also kept in the repo memory (VS Code agent memory)
 

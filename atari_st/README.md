@@ -13,9 +13,8 @@ Status
 ------
 
 The First Quest is complete: the whole overworld, all nine dungeons up to Ganon and Zelda, every
-item, title and story, file select, death and continue, saving, the credits and the music. A bot
-(`tools/bot`) has played it through to Zelda on the port and on the NES side by side. The Second
-Quest is in too but has had less play, so expect bugs there. The list of what is left is in
+item, title and story, file select, death and continue, saving, the credits and the music. It has
+been played through to Zelda on an Atari 520 STFM with a joystick. The Second Quest is in too but has had less play, so expect bugs there. The list of what is left is in
 [`PLAN.md`](PLAN.md).
 
 The `.PRG` is about 270 KB. The title, the story, the credits and the file menu read their pictures from `INTRO.DAT` (packed, 13 KB, loaded when the intro starts and again after a dungeon). A dungeon's rooms, doors, tiles and the pictures of its monsters are in
@@ -62,7 +61,7 @@ Known differences from the original
 Roadmap
 -------
 
-What is left is in [`PLAN.md`](PLAN.md), short: more play of the Second Quest and on real hardware.
+What is left is in [`PLAN.md`](PLAN.md), short: more play of the Second Quest.
 
 Tools
 -----
