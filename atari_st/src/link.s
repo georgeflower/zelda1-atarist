@@ -7,7 +7,7 @@
 | exceptions in WalkableTiles.
 
 link_update:
-    movem.l %d0-%d4, -(%sp)
+    movem.l %d0-%d6, -(%sp)
     tst.b OFF_LINK_HELD(%a5)
     bne 9f                      | a wallmaster is carrying him
     tst.b OFF_LINK_EATEN(%a5)
@@ -20,43 +20,69 @@ link_update:
     bra 9f
 0:  tst.b OFF_ATTACK(%a5)
     bne 9f                      | Link stands still during a sword swing
-    bsr read_input_dir
-    move.b %d0, %d4             | d4 = direction held, 0 for none
-    tst.b OFF_COMMIT(%a5)
-    bne 1f
-    tst.b %d4
-    beq 8f                      | nothing held and no step in progress
-1:  moveq #0, %d0
-    move.b OFF_LINK_POS_FRAC(%a5), %d0
-    add.w #LINK_QSPEED, %d0
-    move.w %d0, %d2
-    and.w #LINK_SUBPIXEL_MASK, %d2
-    move.b %d2, OFF_LINK_POS_FRAC(%a5)
-    lsr.w #LINK_SUBPIXEL_SHIFT, %d0
+    bsr read_input_dir          | (keeps HELD_DIRS)
+    bsr link_choose_dir_far
+    bsr link_doorway_left_far   | on the floor again: out of the doorway (CheckDoorway, after the keys were read)
+    move.b %d0, %d4             | d4 = the way the keys take him, 0 for none
+    beq 8f                      | nothing held: he stops where he is, part-way through a step or not (Walker_Move:
+                                | with no input the moving direction is 0; any key held finishes the step in ObjDir)
     clr.b OFF_WARPED(%a5)
-    subq.w #1, %d0
-    bmi 7f                      | not a whole pixel yet
-2:  move.w %d0, -(%sp)
+    bsr link_turn_in_step_far
+    | MoveObject: the quarter speed $60 is applied four times to an 8-bit fraction, added going right or down and
+    | taken off going left or up, a carry or borrow being a pixel. A step ends on the grid line: once there, the rest
+    | of the frame's quarters still turn the fraction but move him no further (the grid-offset limit of
+    | AddQSpeedToPositionFraction), so he averages a little under 1.5 pixels a frame, as on the NES.
+    move.b %d4, %d3             | the way he moves: the key on a grid line, the step's own way part-way through one
+    tst.b OFF_COMMIT(%a5)
+    beq 1f
+    move.b OFF_LINK_DIR(%a5), %d3
+1:  move.b OFF_LINK_POS_FRAC(%a5), %d1  | kept: a Link blocked at the line does not turn the fraction
+    moveq #0, %d6               | set once he reaches the line
+    moveq #3, %d0
+2:  move.b OFF_LINK_POS_FRAC(%a5), %d2
+    move.b %d3, %d5
+    and.b #(DIR_RIGHT + DIR_DOWN), %d5
+    beq 3f
+    add.b #LINK_QSPEED, %d2
+    bra 4f
+3:  sub.b #LINK_QSPEED, %d2
+4:  scs %d5                     | d5 = a whole pixel
+    move.b %d2, OFF_LINK_POS_FRAC(%a5)
+    tst.b %d6
+    bne 6f
+    tst.b %d5
+    beq 6f
+    movem.l %d0-%d1/%d3, -(%sp)
     bsr link_pixel
-    move.w (%sp)+, %d0
+    movem.l (%sp)+, %d0-%d1/%d3
     tst.w %d2
-    bne 7f                      | stopped
+    bne 5f                      | stopped
     cmp.b #MODE_PLAY, OFF_GAME_MODE(%a5)
     bne 9f                      | a scroll or a cave took over
     tst.b OFF_WARPED(%a5)
     bne 9f
-    dbra %d0, 2b
+    tst.b OFF_COMMIT(%a5)
+    bne 6f
+    tst.b OFF_LINK_BACK(%a5)
+    bne 61f
+    moveq #1, %d6               | on the line: no further this frame
+    bra 6f
+61: clr.b OFF_LINK_BACK(%a5)    | back on the line he set out from: the frame's moves carry him on past it the same way
+    move.b %d3, %d4
+6:  dbra %d0, 2b
+    bra 7f
+5:  move.b %d1, OFF_LINK_POS_FRAC(%a5)
 7:  bsr link_animate
 8:  bsr check_warps
-9:  movem.l (%sp)+, %d0-%d4
+9:  movem.l (%sp)+, %d0-%d6
     rts
 
 | One pixel of Link's movement.
 |
-| Like the 6502, Link walks whole 8-pixel grid steps: the key and the tile
-| ahead are only looked at on a grid boundary, and a step that has begun is
-| finished even if the key is let go. That is what lets him end up exactly
-| on an entrance, where CheckWarps looks for him.
+| Like the 6502, Link walks 8-pixel grid steps: the key and the tile ahead are
+| only looked at on a grid boundary, and while any key is held a step that has
+| begun goes on in its own direction. Letting go stops him at once, part-way
+| through the step (link_update), as Walker_Move does.
 |
 | d4.b = direction held (0 for none). Returns d2.w = 1 when he stops.
 link_pixel:
@@ -91,7 +117,9 @@ link_pixel:
     or.b #ALIGN_Y_BIAS, %d3
     move.b %d3, OFF_LINK_Y(%a5)
 
-1:  bsr link_collide
+1:  tst.b OFF_LINK_DOORWAY(%a5)
+    bne 3f                      | in a doorway no tile is looked at (GoWalkableDir)
+    bsr link_collide
     tst.w %d0
     beq 3f
     tst.b OFF_LEVEL(%a5)
@@ -104,11 +132,24 @@ link_pixel:
     bra 5f
 3:  bsr grid_distance
     move.b %d0, OFF_COMMIT(%a5)
+    clr.b OFF_LINK_BACK(%a5)
 6:  move.b OFF_LINK_DIR(%a5), %d1
+    move.b OFF_LINK_X(%a5), %d0
+    lsl.w #8, %d0
+    move.b OFF_LINK_Y(%a5), %d0
     bsr link_step_pixel
     tst.b OFF_COMMIT(%a5)
     beq 9f                      | a scroll or warp reset the step
-    subq.b #1, OFF_COMMIT(%a5)
+    cmp.b #MODE_PLAY, OFF_GAME_MODE(%a5)
+    bne 61f
+    move.b OFF_LINK_X(%a5), %d3
+    lsl.w #8, %d3
+    move.b OFF_LINK_Y(%a5), %d3
+    cmp.w %d0, %d3
+    bne 61f
+    clr.b OFF_COMMIT(%a5)       | the edge of the room held him (a shut door): no step was made (BoundByRoom)
+    bra 5f
+61: subq.b #1, OFF_COMMIT(%a5)
     bsr check_warps
     bra 9f
 5:  moveq #1, %d2
@@ -404,6 +445,8 @@ link_collide:
     bsr tile_blocks
     tst.w %d0
     beq 91f
+    tst.b OFF_COLLIDE_PURE(%a5)
+    bne 91f
     bsr ow_ladder_ok_far        | the ladder lets him walk on water
 91: movem.l (%sp)+, %d1-%d5
     rts
@@ -510,8 +553,7 @@ link_step_pixel:
     bgt 6f
     move.b %d3, OFF_LINK_X(%a5)
     bra 9f
-6:  move.b %d4, OFF_LINK_X(%a5)
-    bsr start_scroll
+6:  bsr link_edge_far
     bra 9f
 
 2:  btst #1, %d1
@@ -524,8 +566,7 @@ link_step_pixel:
     blt 7f
     move.b %d3, OFF_LINK_X(%a5)
     bra 9f
-7:  move.b %d4, OFF_LINK_X(%a5)
-    bsr start_scroll
+7:  bsr link_edge_far
     bra 9f
 
 3:  btst #2, %d1
@@ -538,8 +579,7 @@ link_step_pixel:
     bgt 8f
     move.b %d3, OFF_LINK_Y(%a5)
     bra 9f
-8:  move.b %d4, OFF_LINK_Y(%a5)
-    bsr start_scroll
+8:  bsr link_edge_far
     bra 9f
 
 4:  move.b OFF_LINK_Y(%a5), %d3
@@ -550,8 +590,7 @@ link_step_pixel:
     blt 5f
     move.b %d3, OFF_LINK_Y(%a5)
     bra 9f
-5:  move.b %d4, OFF_LINK_Y(%a5)
-    bsr start_scroll
+5:  bsr link_edge_far
 
 9:  movem.l (%sp)+, %d2-%d4
     rts
@@ -668,7 +707,33 @@ cave_advance:
     bne 0f
     btst #3, %d1
     beq 9f
+    | A turn onto the other axis off the grid first carries Link onto the nearest grid line, as he is carried
+    | through the rest of a step elsewhere (Walker_Move): the doorway out is only open on the grid, so a Link
+    | left a pixel off it at X $6F stood in front of it and could not walk out (the ROM takes him on to $70).
 0:  moveq #0, %d3
+    move.b %d1, %d4
+    and.b #DIR_VERTICAL, %d4
+    beq 42f
+    move.b OFF_LINK_X(%a5), %d3     | going up or down: X must be on the grid
+    and.w #7, %d3
+    beq 44f
+    cmp.w #4, %d3
+    bhs 41f
+    subq.b #1, OFF_LINK_X(%a5)
+    bra 9f
+41: addq.b #1, OFF_LINK_X(%a5)
+    bra 9f
+42: move.b OFF_LINK_Y(%a5), %d3     | going sideways: Y must be on the grid (Y mod 8 = 5)
+    subq.b #5, %d3
+    and.w #7, %d3
+    beq 44f
+    cmp.w #4, %d3
+    bhs 43f
+    subq.b #1, OFF_LINK_Y(%a5)
+    bra 9f
+43: addq.b #1, OFF_LINK_Y(%a5)
+    bra 9f
+44: moveq #0, %d3
     btst #0, %d1
     beq 2f
     move.b OFF_LINK_X(%a5), %d3
@@ -788,7 +853,8 @@ start_scroll:
     bne 11f
     bsr ow_maze_far             | the Lost Woods and the Lost Hills may send Link round again
     bra 7f
-11: lvtab ROOM_INDEX, %a0     | the neighbour has to be part of the level
+11: bsr scroll_to_edge_far     | in a dungeon he comes in at the screen's edge, then walks in (mode 4)
+    lvtab ROOM_INDEX, %a0     | the neighbour has to be part of the level
     cmpi.b #0xff, 0(%a0, %d2.w)
     beq 9f
 7:  move.b %d2, OFF_NEXT_ROOM_ID(%a5)
@@ -813,8 +879,10 @@ start_scroll:
 
 update_scroll:
     movem.l %d0-%d2, -(%sp)
+    tst.b OFF_LINK_AUTOWALK(%a5)
+    bne 3f                      | the world has come to rest: Link walks in
     addq.w #1, OFF_SCROLL_STEP(%a5)
-    move.w OFF_SCROLL_STEP(%a5), %d0
+3:  move.w OFF_SCROLL_STEP(%a5), %d0
     move.b OFF_SCROLL_DIR(%a5), %d1
     and.b #DIR_VERTICAL, %d1
     bne 1f
@@ -823,10 +891,17 @@ update_scroll:
     bra 2f
 1:  bsr compose_vertical
     move.w #SCROLL_STEPS_V, %d2
-2:  bsr scroll_link_position
-    bsr draw_link
+2:  tst.b OFF_LINK_AUTOWALK(%a5)
+    bne 4f
+    bsr scroll_link_position
+    bra 5f
+4:  bsr scroll_walk_far
+5:  bsr draw_link
     cmp.w OFF_SCROLL_STEP(%a5), %d2
     bhi 9f
+    bsr scroll_walk_due_far     | d0.w = 1: in a dungeon he still walks in through the doorway
+    tst.w %d0
+    bne 9f
     bsr finish_scroll
 9:  movem.l (%sp)+, %d0-%d2
     rts
@@ -876,7 +951,8 @@ finish_scroll:
     move.b OFF_NEXT_ROOM_ID(%a5), OFF_ROOM_ID(%a5)
     move.b OFF_SCROLL_TO_X(%a5), OFF_LINK_X(%a5)
     move.b OFF_SCROLL_TO_Y(%a5), OFF_LINK_Y(%a5)
-    clr.b OFF_LINK_POS_FRAC(%a5)
+    clr.b OFF_LINK_AUTOWALK(%a5)
+    bsr link_doorway_entered_far        | in a dungeon he stands in the doorway he came in by
     clr.b OFF_INV_CLOCK(%a5)            | the clock lasts until he leaves the screen (ResetPlayerState)
     tst.b OFF_LEVEL(%a5)
     beq 1f

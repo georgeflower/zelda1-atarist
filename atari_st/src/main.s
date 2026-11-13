@@ -152,6 +152,11 @@
 | ---------------------------------------------------------------- caves
     .equ CAVE_ENTRANCE_TILE, 0x24
     .equ CAVE_ROOM_BOUND_LEFT, 0x21
+    | Link's own left bound in a dungeon room: the ROM lets him walk to X $20, the grid line of the first floor
+    | column (UW_BOUND_LEFT, $21, is ObjectRoomBoundsUW, the monsters' bound); at $21 he stopped a pixel short of
+    | that column and came in from a west door a pixel off the grid.
+    .equ UW_LINK_BOUND_LEFT, 0x20
+    .equ UW_LINK_BOUND_UP, 0x5d         | likewise at the top: the grid row $5D, where the monsters stop at $5E
     .equ CAVE_ROOM_BOUND_RIGHT, 0xd0
     .equ CAVE_ROOM_BOUND_UP, 0x95
     .equ CAVE_ROOM_BOUND_DOWN, 0xbd
@@ -283,9 +288,9 @@ begin_game:
     | Development shortcut: start inside the level, with a sword and a key.
     moveq #DEV_START_LEVEL, %d0
     bsr uw_select_level_mid
-    move.b #UW_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
+    move.b #UW_LINK_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
     move.b #UW_BOUND_RIGHT, OFF_BOUND_RIGHT(%a5)
-    move.b #UW_BOUND_UP, OFF_BOUND_UP(%a5)
+    move.b #UW_LINK_BOUND_UP, OFF_BOUND_UP(%a5)
     move.b #UW_BOUND_DOWN, OFF_BOUND_DOWN(%a5)
     move.b #UW_BOUND_LEFT, OFF_OBJ_LEFT(%a5)
     move.b #UW_BOUND_RIGHT, OFF_OBJ_RIGHT(%a5)
@@ -530,6 +535,7 @@ init_buffers:
 | Render the current room into bg_cur and show it.
 enter_room:
     clr.b OFF_COMMIT(%a5)
+    clr.b OFF_LINK_DOORWAY(%a5)
     clr.b OFF_ROOM_LIT(%a5)             | a room is dark when he comes in (if it is one)
     clr.b OFF_INV_CLOCK(%a5)            | the clock lasts until he leaves the screen (ResetPlayerState)
     moveq #0, %d0
@@ -549,6 +555,7 @@ enter_room:
 
 enter_cave:
     clr.b OFF_COMMIT(%a5)
+    clr.b OFF_LINK_DOORWAY(%a5)
     clr.b OFF_CAVE_FIRE_VALID(%a5)
     bsr clear_enemies
     bsr clear_items
@@ -982,6 +989,14 @@ owspec_init_far:
 uw_person_update_far:
     bra uw_person_update
     farstub quest_apply_far, quest_apply
+    farstub link_choose_dir_far, link_choose_dir
+    farstub link_turn_in_step_far, link_turn_in_step
+    farstub link_edge_far, link_edge
+    farstub link_doorway_left_far, link_doorway_left
+    farstub scroll_to_edge_far, scroll_to_edge
+    farstub scroll_walk_due_far, scroll_walk_due
+    farstub scroll_walk_far, scroll_walk
+    farstub link_doorway_entered_far, link_doorway_entered
     farstub update_death_far, update_death
     farstub death_begin_far, death_begin
     farstub update_quit_far, update_quit
@@ -1014,6 +1029,7 @@ enemy_shove_snap_far:                   | last, so that it moves none of the stu
     .include "save.s"
     .include "exit.s"
     .include "loader.s"
+    .include "linkdir.s"
 
     | The anchor is this address plus a 32-bit link-time distance (a PC-relative relocation), so the routine may sit
     | anywhere. (It used to sit in the middle of the code with a 16-bit `lea room_palette(%pc)`, which limited the

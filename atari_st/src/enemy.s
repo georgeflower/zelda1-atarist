@@ -843,7 +843,23 @@ enemy_shove:
     cmp.b %d0, %d1
     bne 3f                      | across its lane: no shove
 12: moveq #3, %d4
-1:  move.b %d2, %d0
+1:  btst #0, %d6                | the edge of the room stops it, on or off the grid (Obj_Shove's BoundByRoomWithA):
+    beq 13f                     | a monster caught between squares is not walked through the wall and out of the room
+    cmp.b OFF_OBJ_RIGHT(%a5), %d2
+    bhs 3f
+13: btst #1, %d6
+    beq 14f
+    cmp.b OFF_OBJ_LEFT(%a5), %d2
+    blo 3f
+14: btst #2, %d6
+    beq 15f
+    cmp.b OFF_OBJ_DOWN(%a5), %d3
+    bhs 3f
+15: btst #3, %d6
+    beq 16f
+    cmp.b OFF_OBJ_UP(%a5), %d3
+    blo 3f
+16: move.b %d2, %d0
     and.b #15, %d0
     bne 2f
     move.b %d3, %d0

@@ -289,6 +289,9 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
   `ENEMY_ACTIVE.n=0`, stand at X `$80`, hold `left`); `$22` is the trap room (poke
   `LINK_Y=0x5d` to trigger the top traps).
 
+### The play-through bot (`tools/bot/`)
+Plays the game on the NES reference (jsnes, `tools/refnes`) and on the port (Hatari through its debugger, a stop every frame) side by side with the same plan, and compares the item slots, hearts, keys, rupees and triforce after every task: `python3 tools/bot/run.py --tasks all --out build/bot_both` (needs `TOS` and the ROM). The tasks follow the zeldadungeon.net walkthrough: the Gathering (24 tasks), then Levels 1-9, Ganon, Zelda. `--tasks only4` plays one level with everything given (a cheat); `--only NES`/`ST` runs one side; `BOT_DEBUG=1` logs where Link is at every move. It cheats where the walkthrough would need luck or skill (bombs and rupees when short, Link put on stairs shut in by a block). A difference is a port bug only after it has been seen in a probe: most stalls are the bot's own. Files: `run.py` (tasks, comparison, a watchdog), `routes.py` (overworld routes, the tasks), `dungeon.py` (explore a level: plan over rooms and the doorway he came in by, doors, blocks, cellars, fights incl. Ganon), `brain.py` (paths on the 8-px grid, the ladder), `state.py` (one view of both machines), `port_driver.py`, `nes_driver.py`.
+
 ### PowerShell + WSL quirks (cost hours once)
 - `wsl.exe bash -lc '...'` run from the terminal tool does **not** expand shell
   variables assigned in the same invocation. **Write a `.sh` file and run it**:
@@ -461,7 +464,27 @@ stays that of the display (50 updates a second) and only the picture runs at hal
 Where a value is listed it was read from the disassembly (file in `src/`).
 
 - **Movement**: Link moves in 8-px grid steps, decisions only on boundaries; collision
-  per `GetCollidableTile` (hotspot `$B` below the top); UW first unwalkable tile `$78`.
+  per `GetCollidableTile` (hotspot `$B` below the top); UW first unwalkable tile `$78`. With no key held he stops where he is, on the grid or
+  not (`Walker_Move` zeroes the direction; he used to walk on to the next grid line). In a dungeon he reaches X `$20` and Y `$5D`
+  (`UW_LINK_BOUND_LEFT`/`UP`); the monsters keep the ROM's `ObjectRoomBoundsUW` (`$21`, `$5E`). In a cave a turn onto the other axis off
+  the grid first carries him to the nearest grid line (`cave_advance`), so a pixel beside the doorway no longer holds him in.
+- **Walking speed and turns** (`link_update`, `linkdir.s`): the ROM's `MoveObject` exactly: quarter speed `$60` applied four times a
+  frame to an 8-bit fraction (added going right/down, taken off going left/up), a carry or borrow a pixel, and a step stops on its grid
+  line for the rest of the frame, so he averages under 1.5 px a frame. Part-way through a step the opposite key turns him round at once
+  (`LINK_BACK`: walking back to the line he set out from, no stop there) and a key across it in the first half sends him back to that
+  line (`Link_ModifyDirOnGridLine`). Two keys at once follow `Link_ModifyDirAtGridPoint` (`link_choose_dir`): the open ones counted in
+  the order right, left, down, up, the last wins; in a dungeon with both open he turns across his facing once, then goes straight on
+  (`LINK_DIAG_STRAIGHT`), except in the side doors' columns and at the top door. Pushing against a shut door begins no step. Checked
+  frame by frame against the NES with random keys (the bot's `walk` probe).
+- **Doorways** (`linkdir.s`, `CheckDoorway`): at a dungeon door he walks on through its frame to the screen's edge (`$00`, `$F0`, `$3D`,
+  `$DD`: `link_edge`) before the room scrolls, and may stop in it and walk back; `LINK_DOORWAY` is the way out through the doorway he stands
+  in. In it he moves only along the door (`Link_ModifyDirInDoorway`: the key he faces, else its opposite; a key across alone takes him on
+  inward, facing out it does not move him, where the ROM nudges him up to ten pixels), no tile is looked at, and he is out of it once off
+  the door's bounds (`doorway_bounds`, checked after the keys are read). After a scroll he arrives at the screen's edge and walks 16 pixels in
+  by himself (`scroll_walk`, the ROM's mode 4), then stands in the doorway. A false wall or a bombed hole still takes him straight on
+  (`uw_try_door` returns 2). Link is not drawn above Y `$40` (the top doorway's outer pixels would be over the ribbon).
+- **Knock-back**: a struck monster stops at the room's bounds on every pixel, on the grid or not (`Obj_Shove`'s `BoundByRoomWithA`);
+  it used to be shoved through the wall when hit between squares (a wizzrobe left alive under the room, the shutters never opening).
 - **Spawning (overworld)**: a screen places its monsters on `SpawnPosList` squares for Link's direction (not within `$22` of him) when the scroll
   ends, each in the ROM's spawn cloud (`InitObject` metastate 1): the cloud lasts the slot number in frames (an octorok `(slot + 1) * $10`) and then
   six frames for each of its second and third pictures (bomb item frames `$70`, `$72`, `$74`; `fx_sprites` 0, 1 and 20). Meanwhile the monster has
@@ -513,7 +536,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   with the item 16 px over his head (an `ITEM_LIFTED` slot, drawn by `draw_items`; `draw_link` shows the arms-up picture). `LINK_HELD` freezes
   him, `update_enemies` and the cave walking are skipped while it runs. The original only lifts outside walking mode (caves, cellars); the
   boomerang found in a room is lifted here on purpose, at the owner's request.
-- **Candle**: blue candle, fire 16 px ahead, creeps 16 px at half a pixel/frame, stands 63
+- **Candle**: blue candle, fire 16 px ahead, creeps 16 px at half a pixel/frame (over walls and bushes: `UpdateFire` checks no tile), stands 63
   frames, burns monsters within 14 px (1 hit), once per room (`CANDLE_USED`); the red candle has no limit.
 - **Blade traps** (`InitTrap_Full`, `UpdateTrap_Full`): Level 1 room `$22`, Level 2 room `$3F` (with four keese). Type `$4A` = 4
   traps at (`$20,$5D`)(`$20,$BD`)(`$D0,$5D`)(`$D0,$BD`) (type `$49` makes 6, adding
@@ -534,8 +557,8 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   inside a ring of 8 blocks and the player pushes the left block up or down to open a gap. **Trigger 5**
   (`CheckSecretTriggerBlockStairs`): the stairs are the four tiles `$70`-`$73` (column-major) at tile column 26, row 4, i.e. ($D0,$60),
   put into the map as the last four entries of the level's tile bank (`underworld.py`, `stairs_first`, byte 6 of the
-  level record, `OFF_UW_STAIRS_ID`; palette row 2) and walked onto for the cellar like any stairs. Link rests at Y `$5E` at the top wall (the
-  ROM lets him rest at `$5D`), so `check_warps` takes `UW_BOUND_UP` as that row. Rooms with trigger 5: Level 4 `$32`, 5 `$05`,
+  level record, `OFF_UW_STAIRS_ID`; palette row 2) and walked onto for the cellar like any stairs. Link rests at Y `$5D` at the top wall, as in the
+  ROM; `check_warps` takes the stairs from there or from `$5E`. Rooms with trigger 5: Level 4 `$32`, 5 `$05`,
   6 `$09` and `$3A`, 7 `$0D`, 9 `$05 $10 $30`.
 - **Stepping out of stairs** (`EXIT_GUARD`, `check_warps` in `uw.s`): the exit square comes from the ROM's own formula and is often the one directly above the stairs, so Link walks back in if he keeps Down held. The ROM only keeps `UndergroundExitType` for the first 8 px, so it does the same; the port goes further, as asked: the guard is not dropped while Down is still held (`HELD_DIRS`), so he walks over the stairs and has to let go and come back to use them again.
 - **Level 3's Raft stairs** (room `$69`, the stairs at ($D0,$90), cellar `$0F`): Level 3's `LevelInfo_CellarRoomIdArray` is empty, and the ROM still finds the cellar because `CheckWarps` loops over the array without a bound and reads on into the level info until a room has the current room as destination A or B (`$0F` at info offset `$7C`, A and B both `$69`). `underworld.cellar_rooms(info, attrs_d, attrs_a, attrs_b, start)` repeats that scan, after the listed cellars, so `build_cellars` and `level_rooms` see it; it finds nothing extra in any other level or quest.
@@ -599,7 +622,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   `test_build_assets.py` replays the doors of all levels). The moat (NES tile `$F4`) always blocks (`tile_blocks`); the ladder
   (`uw_ladder_ok`/`uw_ladder_update` in owspec.s, as `CheckLadder`) is put down in item slot 2 (`RAFT_SLOT`, `ITEM_LIFTED`, drawn by
   `draw_items`) at Link + (up 0,-5; down 0,+19; left -16,+3; right +16,+3), `LADDER_DIR/STATE/ROOM`. `link_collide` lets Link pass the moat
-  only along the ladder's axis, and only while the ladder is still ahead of him: on the ladder's square the moat blocks again, so it carries him one square (as in the ROM: a moat two squares thick is not crossed); it is stashed again (and when the room changes) as `CheckLadder` does. The overworld uses the same routines (`ow_ladder_ok` checks the water tiles `$8D`-`$98` in the six
+  only along the ladder's axis, and only while the ladder is still ahead of him: on the ladder's square the moat blocks again, so it carries him one square (as in the ROM: a moat two squares thick is not crossed), and from there he can only walk back the way he came (the ROM's Down); it is stashed again (and when the room changes) as `CheckLadder` does. The overworld uses the same routines (`ow_ladder_ok` checks the water tiles `$8D`-`$98` in the six
   `LadderRoomsOW` screens, then runs the same body; `owspec_update` calls `uw_ladder_update`). Moat rooms that cut doors off from each other: Level 4 `$01 $21 $30`,
   5 `$46 $66`, 6 `$19 $1A`, 7 `$18 $49 $5A`, 9 `$23 $40 $56 $65`.
 - **Level 9** (`UW_LEVELS := 1 2 3 4 5 6 7 8 9`; the monsters live in `bosses.s`, the dungeon people and the door man in `uw.s`): 57 rooms,

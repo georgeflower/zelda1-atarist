@@ -454,6 +454,7 @@ game_reset_position:
     clr.b OFF_LINK_SHOVE(%a5)
     clr.b OFF_LINK_HELD(%a5)
     clr.b OFF_COMMIT(%a5)
+    clr.b OFF_LINK_DOORWAY(%a5)
     clr.b OFF_LINK_POS_FRAC(%a5)
     clr.b OFF_DYING(%a5)
     move.b #1, OFF_WARPED(%a5)

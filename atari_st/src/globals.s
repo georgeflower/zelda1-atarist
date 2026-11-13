@@ -533,6 +533,12 @@
     gvar BLOCK_KEEP, 1           | set while uw_redraw_room rebuilds the map: a block that has landed is put back where it landed (block_keep)
     gvar GRUMBLE_ROOM, 1         | this is Grumble's room (fed or not): his two flames burn here
     gvar STATUE_T, 4             | each one's wait before its next shot (Statue_ObjFireballTimer)
+    gvar LINK_BACK, 1           | the step is being walked back towards the line it began on (no stop on reaching it)
+    gvar LINK_GO_STRAIGHT, 1    | two keys held at the last grid point: a key across the step is no reason to turn back
+    gvar LINK_DIAG_STRAIGHT, 1  | dungeon, both of two keys open: he has turned once and now goes straight on
+    gvar COLLIDE_PURE, 1        | link_collide only looks: the ladder is not put down
+    gvar LINK_DOORWAY, 1        | the doorway Link is in (DoorwayDir: its direction bit), 0 in the room
+    gvar LINK_AUTOWALK, 1       | pixels left of the walk in from the screen's edge after a room's scroll (mode 4)
     galign
     gvar IVP, 68                 | where each table of INTRO.DAT is while the buffer holds it (INTRO_TABLE_COUNT longs; ivtab, loader.s)
     .equ GLOBALS_BYTES, gvar_offset

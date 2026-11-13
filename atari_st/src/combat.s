@@ -1380,20 +1380,8 @@ fire_update:
     addq.w #1, %d3
     bra 15f
 13: subq.w #1, %d3
-15: move.w %d2, -(%sp)
-    move.w %d3, -(%sp)
-    btst #0, %d6
-    beq 16f
-    addq.w #8, %d2
-16: btst #2, %d6
-    beq 17f
-    addq.w #8, %d3
-17: bsr enemy_blocked_at
-    move.w (%sp)+, %d3
-    move.w (%sp)+, %d2
-    tst.w %d0
-    bne 18f                     | a wall: it stays where it is
-    move.b %d2, OFF_FIRE_X(%a5)
+15: move.b %d2, OFF_FIRE_X(%a5)        | no wall stops it: UpdateFire moves it with MoveObject, which looks at no tile,
+                                    | so a flame two squares ahead of Link reaches a bush behind another one
     move.b %d3, OFF_FIRE_Y(%a5)
 6:  tst.b OFF_FIRE_TIMER(%a5)
     bne 8f

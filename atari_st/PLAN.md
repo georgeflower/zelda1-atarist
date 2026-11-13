@@ -6,7 +6,7 @@ Work in progress. Both quests are in. The `.PRG` is about 270 KB; the intro's da
 
 | # | What | Why |
 | --- | --- | --- |
-| 1 | More play-testing and bug hunting on real hardware | most of the recent bugs were found by playing; I have not played the last half of Level 9 yet, and the Second Quest has had less play than the First |
+| 1 | More play-testing and bug hunting on real hardware | a bot now plays the whole First Quest, Ganon and Zelda included, on the port and on the NES side by side (`tools/bot`), and pressing the same keys on both found Link's walking off in five ways (the door frames among them); the Second Quest has had less play than the First |
 | 2 | Free memory | about 17 KB is spare; packing the drum samples to 4 bits would give back about 21 KB, only if it is needed |
 
 Kept on purpose: the Esc menu (quit without saving, save and quit, back to game) is not in the original.

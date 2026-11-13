@@ -100,6 +100,11 @@ erase_at:
 draw_link:
     tst.b OFF_WHIRL_TELE(%a5)
     bne 99f                             | the whirlwind has him: he is not to be seen
+    cmp.b #0x40, OFF_LINK_Y(%a5)
+    bhs 98f
+    clr.b OFF_ERASE_VALID(%a5)          | in the top doorway's outer pixels he would be over the ribbon
+    rts
+98:
     movem.l %d0-%d2/%a0-%a1, -(%sp)
 
     | Pick the frame: direction chooses the pair, the walk counter the phase.

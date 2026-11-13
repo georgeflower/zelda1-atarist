@@ -183,8 +183,12 @@ ladder_ok_body:
     tst.b OFF_LADDER_SHOWN(%a5)
     beq 2f
     move.b OFF_LADDER_DIR(%a5), %d2     | a ladder is down: he may walk along its line, but only up to it
-    eor.b %d1, %d2
-    and.b #DIR_VERTICAL, %d2
+    move.b %d1, %d3
+    and.b #DIR_VERTICAL, %d2            | (the same axis: both vertical or both not; an eor of the two would call
+    and.b #DIR_VERTICAL, %d3            | up against down, $0C, a change of axis, and the way back was shut)
+    sne %d2
+    sne %d3
+    cmp.b %d2, %d3
     bne 7f                              | (not the same axis)
     | CheckLadder: moving on without a look at the tiles is for a Link that has not reached the ladder; once he is on it
     | (distance 0) or past it, the moat blocks like any other, so the ladder carries him one square and no further.
@@ -211,6 +215,14 @@ ladder_ok_body:
 16: moveq #1, %d0                       | (blocked again unless it is still ahead)
     tst.w %d2
     bgt 8f
+    cmp.b OFF_LADDER_DIR(%a5), %d1
+    beq 18f
+    | Going back the way he came, towards the shore he stepped off: he may walk along the ladder while he is on it. Without
+    | this a Link on a ladder over a moat two squares thick (Level 4 room $21) could move neither on nor back.
+    cmp.w #-16, %d2
+    bgt 8f
+    bra 7f
+18: tst.w %d2
     bne 7f
     | Squarely on an up ladder (case E of CheckLadder): the tile ahead is the water under his top half, so the tile above
     | it decides, as if he stood 8 pixels higher: a moat one square thick lets him off, a thicker one does not.
@@ -819,6 +831,7 @@ owspec_whirl_ai:
     clr.b OFF_ATTACK(%a5)
     clr.b OFF_LINK_SHOVE(%a5)
     clr.b OFF_COMMIT(%a5)
+    clr.b OFF_LINK_DOORWAY(%a5)
 6:  cmp.w #0xf0, %d1
     blo 9f
     clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)          | it has crossed the screen

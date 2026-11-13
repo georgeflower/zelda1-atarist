@@ -819,8 +819,9 @@ uw_open_door_pair:
 
 | Link is pushing against a doorway.
 |
-| d1.b = direction. Returns d0.w = 1 when he may walk through. A locked door
-| opens (and uses a key) instead of passing him on the same frame.
+| d1.b = direction. Returns d0.w = 1 when he may walk through the doorway, 2 for a false wall or a bombed
+| hole (he leaves the room at once), 0 when not. A locked door opens (and uses a key) instead of passing him
+| on the same frame.
 uw_try_door:
     movem.l %d1-%d6/%a0-%a2, -(%sp)
     tst.b OFF_IN_CELLAR(%a5)
@@ -891,12 +892,15 @@ uw_try_door:
 21: cmpi.b #1, %d6
     beq 8f                          | a solid wall
     cmpi.b #4, %d6
-    blo 9f                          | a false wall can be walked through
+    blo 13f                         | a false wall can be walked through
     uwlea OPEN, %a2
     move.b 0(%a2, %d0.w), %d5
     btst %d2, %d5
-    bne 9f                          | already opened
+    beq 14f
     cmpi.b #4, %d6
+    beq 13f                         | a hole a bomb made
+    bra 9f                          | already opened
+14: cmpi.b #4, %d6
     beq 8f                          | bombable: needs a bomb
     tst.b OFF_INV_MAGIC_KEY(%a5)
     bne 22f                         | the magic key opens every door and is never used up
@@ -909,12 +913,15 @@ uw_try_door:
     bsr uw_redraw_room
     bra 8f
 
-9:  cmp.w #2, %d2
+13: moveq #2, %d4                   | a false wall or a hole: he goes straight into the next room (TouchDoor)
+    bra 15f
+9:  moveq #1, %d4                   | a doorway: he walks through its frame first (CheckDoorway)
+15: cmp.w #2, %d2
     bhs 10f
     move.b #DOORWAY_LANE_Y, OFF_LINK_Y(%a5)
     bra 11f
 10: move.b #DOORWAY_LANE_X, OFF_LINK_X(%a5)
-11: moveq #1, %d0
+11: move.w %d4, %d0
     bra 12f
 8:  moveq #0, %d0
 12: movem.l (%sp)+, %d1-%d6/%a0-%a2
@@ -984,9 +991,9 @@ uw_enter_level:
 | is also where a wallmaster takes him.
 uw_warp_to_start:
     move.b #1, OFF_WARPED(%a5)
-    move.b #UW_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
+    move.b #UW_LINK_BOUND_LEFT, OFF_BOUND_LEFT(%a5)
     move.b #UW_BOUND_RIGHT, OFF_BOUND_RIGHT(%a5)
-    move.b #UW_BOUND_UP, OFF_BOUND_UP(%a5)
+    move.b #UW_LINK_BOUND_UP, OFF_BOUND_UP(%a5)
     move.b #UW_BOUND_DOWN, OFF_BOUND_DOWN(%a5)
     move.b #UW_BOUND_LEFT, OFF_OBJ_LEFT(%a5)
     move.b #UW_BOUND_RIGHT, OFF_OBJ_RIGHT(%a5)
@@ -1075,6 +1082,7 @@ uw_enter_cellar:
     move.b #DIR_DOWN, OFF_LINK_DIR(%a5)
     clr.b OFF_LINK_POS_FRAC(%a5)
     clr.b OFF_COMMIT(%a5)
+    clr.b OFF_LINK_DOORWAY(%a5)
     move.b #1, OFF_WARPED(%a5)
     move.b #LINK_EDGE_UP, OFF_BOUND_UP(%a5)
     move.b #CELLAR_START_Y, OFF_OBJ_UP(%a5)
@@ -1166,11 +1174,12 @@ uw_leave_cellar:
     move.b %d1, OFF_LINK_Y(%a5)
     clr.b OFF_IN_CELLAR(%a5)
     sfx SFX_STAIRS
-    move.b #UW_BOUND_UP, OFF_BOUND_UP(%a5)
+    move.b #UW_LINK_BOUND_UP, OFF_BOUND_UP(%a5)
     move.b #UW_BOUND_UP, OFF_OBJ_UP(%a5)
     move.b #DIR_DOWN, OFF_LINK_DIR(%a5)
     clr.b OFF_LINK_POS_FRAC(%a5)
     clr.b OFF_COMMIT(%a5)
+    clr.b OFF_LINK_DOORWAY(%a5)
     clr.b OFF_UW_ENTER_MASK(%a5)
     move.b #1, OFF_WARPED(%a5)
     move.b #1, OFF_EXIT_GUARD(%a5)
@@ -1191,8 +1200,8 @@ check_warps:
     move.b OFF_LINK_Y(%a5), %d0
     tst.b OFF_LEVEL(%a5)
     beq 7f
-    cmp.b #UW_BOUND_UP, %d0         | the stairs a push block uncovers sit in the top row: the ROM lets Link rest on
-    beq 6f                          | $5D there (it stops him when he would cross the bound), the port stops him at the bound
+    cmp.b #UW_BOUND_UP, %d0         | the stairs a push block uncovers sit in the top row; Link rests there at $5D,
+    beq 6f                          | as in the ROM, but a Link at $5E (pushed down a pixel) still takes them
 7:  and.b #0x0f, %d0
     cmp.b #0x0d, %d0
     bne 8f
