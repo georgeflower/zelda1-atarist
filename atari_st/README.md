@@ -55,7 +55,7 @@ Known differences from the original
 -----------------------------------
 
 - `T` is a debug key (the room number on the ribbon), it is not in the original
-- the game plays at the PAL speed of 50 frames a second; on a 60 Hz display every sixth frame holds the game and the song back, so both run at the same speed as on a 50 Hz one (the NES in 60 Hz is a sixth faster)
+- by default the game plays at the PAL speed of 50 frames a second; on a 60 Hz display every sixth frame holds the game and the song back, so both run at the same speed as on a 50 Hz one (the NES in 60 Hz is a sixth faster). Build with `NTSC=1` for the NTSC speed instead (see Building)
 - it needs about 390 KB free after loading: that fits a 520 STFM with TOS 1.02, but only just
 
 Roadmap
@@ -88,6 +88,23 @@ from the repository root:
 make -C atari_st all      # needs the ROM at ext/Original.nes, writes atari_st/build/ZELDAST.PRG
 make -C atari_st check    # unit tests, manifest check, PRG header check, golden frames
 ```
+
+### NTSC / 60 Hz option
+
+```sh
+make -C atari_st all NTSC=1      # a USA/Japan ROM, played at the speed of the NTSC NES
+```
+
+`NTSC=1` is for an NTSC ROM (*The Legend of Zelda (USA)*, PRG0 tested) and a 60 Hz ST:
+
+- on a 60 Hz display the game and the music make one step per frame, as on an NTSC NES (the
+  default holds every sixth frame back to keep the PAL speed); on a 50 Hz display nothing changes
+- the music's pitches are converted with the NTSC CPU clock (`MUSIC_CLOCK=ntsc`; it can also be set
+  on its own, `pal` or `ntsc`). With the wrong clock every note is about a semitone off.
+
+Switching `NTSC` between builds re-rips the music and reassembles by itself. A busy overworld
+screen needs a little more than one 60 Hz frame now and then; the game then catches up (one
+update without drawing), so it keeps its speed and shows 30 pictures a second for a moment.
 
 Needed: Python 3, `make`, GNU m68k binutils (`m68k-linux-gnu-as`, `ld`, `objcopy`, `nm`). Optional:
 `py65` (the sound bank), `machine68k` (music player tests), Hatari with a TOS image (running, golden

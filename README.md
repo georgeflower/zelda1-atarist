@@ -111,6 +111,8 @@ There is no ready-made `.PRG` in the repository, since it would contain the game
 
 If a tool has another name or lives somewhere else, give it to make: `make -C atari_st all TOOLCHAIN_PREFIX=m68k-elf- PYTHON=python`.
 
+**NTSC / 60 Hz (this fork):** with a USA ROM (*The Legend of Zelda (USA)*, PRG0 tested: SHA-1 differs from the one above, that is expected) build with `make -C atari_st all NTSC=1`. On a 60 Hz ST the game and the music then run at the speed of the NTSC NES (one step per frame; the default plays at the PAL speed everywhere), and the music's pitches are converted with the NTSC clock. Details in [atari_st/README.md](atari_st/README.md#ntsc--60-hz-option).
+
 ### Running it
 
 You need an ST with 512 KB of RAM or more, real or in an emulator, and a TOS image for the emulator: [EmuTOS](https://emutos.sourceforge.io/) 1.4 (the 512k version) is free. Hatari is on [hatari-emu.org](https://hatari-emu.org/) (also as a Windows build) or `sudo apt-get install hatari`.

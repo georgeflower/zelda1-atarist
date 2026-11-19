@@ -289,6 +289,7 @@ music_ctx_end:
 music_vbl:
     movem.l %d0-%d5/%a0-%a3/%a5, -(%sp)
     lea globals(%pc), %a5
+    .ifndef SPEED_NTSC                  | (make NTSC=1: one music frame a VBL, the NTSC tempo at 60 Hz)
     btst #1, 0x00ff820a         | sync mode bit: set for 50 Hz
     bne 3f
     move.b OFF_MUS_SKIP(%a5), %d0
@@ -299,7 +300,11 @@ music_vbl:
 4:  move.b %d0, OFF_MUS_SKIP(%a5)
     beq 2f                      | every sixth VBL holds the music so 60 Hz keeps its tempo
 3:  bsr music_tick
-2:  movem.l (%sp)+, %d0-%d5/%a0-%a3/%a5
+2:
+    .else
+    bsr music_tick
+    .endif
+    movem.l (%sp)+, %d0-%d5/%a0-%a3/%a5
     move.l music_old_vbl(%pc), -(%sp)
     rts                         | on into TOS' own VBL handler
 

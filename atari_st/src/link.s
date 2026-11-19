@@ -9,9 +9,9 @@
 link_update:
     movem.l %d0-%d6, -(%sp)
     tst.b OFF_FALSE_WALL_T(%a5)         | Link's object timer, as TouchDoorFalse uses it
-    beq 01f
+    beq 901f
     subq.b #1, OFF_FALSE_WALL_T(%a5)
-01: tst.b OFF_LINK_HELD(%a5)
+901: tst.b OFF_LINK_HELD(%a5)
     bne 9f                      | a wallmaster is carrying him
     tst.b OFF_LINK_EATEN(%a5)
     bne 9f                      | a like-like has him: he can only swing
@@ -338,10 +338,10 @@ read_input_dir:
 link_collide:
     movem.l %d1-%d5, -(%sp)
     tst.b OFF_UW_PERSON(%a5)
-    bne 03f
+    bne 903f
     tst.b OFF_GRUMBLE_ON(%a5)           | Grumble too, until he is fed (CheckPersonBlocking takes type $36)
     beq 0f
-03: btst #3, %d1                | DIR_UP: the old man is in the way: no step up above Y $8E anywhere in the room
+903: btst #3, %d1                | DIR_UP: the old man is in the way: no step up above Y $8E anywhere in the room
     beq 0f
     cmpi.b #0x8e, OFF_LINK_Y(%a5)
     bhs 0f
@@ -349,16 +349,16 @@ link_collide:
     movem.l (%sp)+, %d1-%d5
     rts
 0:  tst.b OFF_ROCK_STATE(%a5)           | a rock that slides stops him when he is within 16 of it, in any direction
-    beq 01f                             | (CheckTileObjectsBlocking)
+    beq 1f                             | (CheckTileObjectsBlocking)
     moveq #0, %d2
     move.b OFF_LINK_X(%a5), %d2
     moveq #0, %d3
     move.b OFF_ROCK_X(%a5), %d3
     sub.w %d3, %d2
-    bpl 02f
+    bpl 2f
     neg.w %d2
-02: cmp.w #16, %d2
-    bhs 01f
+2:  cmp.w #16, %d2
+    bhs 1f
     moveq #0, %d2
     move.b OFF_LINK_Y(%a5), %d2
     addq.w #3, %d2
@@ -368,19 +368,19 @@ link_collide:
     move.b OFF_ROCK_FRAME(%a5), %d4
     lsr.w #1, %d4
     cmpi.b #DIR_UP, OFF_ROCK_DIR(%a5)
-    bne 03f
+    bne 3f
     sub.w %d4, %d3
-    bra 04f
-03: add.w %d4, %d3
-04: sub.w %d3, %d2
-    bpl 05f
+    bra 4f
+3:  add.w %d4, %d3
+4:  sub.w %d3, %d2
+    bpl 5f
     neg.w %d2
-05: cmp.w #16, %d2
-    bhs 01f
+5:  cmp.w #16, %d2
+    bhs 1f
     moveq #1, %d0
     movem.l (%sp)+, %d1-%d5
     rts
-01: moveq #0, %d2
+1:  moveq #0, %d2
     move.b OFF_LINK_Y(%a5), %d2
     add.w #HOTSPOT_Y_OFFSET, %d2
     moveq #0, %d3

@@ -27,43 +27,77 @@
     .endm
 
 | a0 = frame data, a1 = top-left group in the destination, d0.w = shift 0..15
+| (Speed: the mask is inverted and shifted once a row, with ones shifted in, instead of inverted per group; the
+| right-hand group is merged from the low words first, so only one set of swaps is needed; a shift over 8 is done
+| as a shift left by 16 - shift, which is cheaper on the 68000. Same pixels as the original per-group version.)
+    .macro sprite_merge_rmw plane
+    and.w %d5, (%a2)
+    or.w \plane, (%a2)+
+    .endm
 draw_sprite:
     movem.l %d0-%d7/%a0-%a2, -(%sp)
     moveq #(SPRITE_HEIGHT - 1), %d7
-1:  sprite_shift_word %d1
-    sprite_shift_word %d2
-    sprite_shift_word %d3
-    sprite_shift_word %d4
-    sprite_shift_word %d5
-
-    | After the shift the left-hand pixels sit in the high halves, so swap them
-    | down, merge, then swap again for the right-hand group.
+    cmp.w #8, %d0
+    bhi 20f
+10: .irp r, %d1, %d2, %d3, %d4               | a rotate right puts the left-hand group's word in the low half
+    moveq #0, \r                                | and the right-hand group's in the high half
+    move.w (%a0)+, \r
+    ror.l %d0, \r
+    .endr
+    moveq #-1, %d5                      | the inverted mask, ones on both sides
+    move.w (%a0)+, %d5
+    not.w %d5
+    ror.l %d0, %d5
+    movea.l %a1, %a2                    | left-hand group: the low words
+    sprite_merge_rmw %d1
+    sprite_merge_rmw %d2
+    sprite_merge_rmw %d3
+    sprite_merge_rmw %d4
+    swap %d1
+    swap %d2
+    swap %d3
+    swap %d4
+    swap %d5
+    lea 8(%a1), %a2                     | right-hand group: the high words
+    sprite_merge_rmw %d1
+    sprite_merge_rmw %d2
+    sprite_merge_rmw %d3
+    sprite_merge_rmw %d4
+    adda.w #SCREEN_STRIDE, %a1
+    dbra %d7, 10b
+    movem.l (%sp)+, %d0-%d7/%a0-%a2
+    rts
+20: neg.w %d0
+    add.w #16, %d0                      | 16 - shift, to the left
+21: .irp r, %d1, %d2, %d3, %d4
+    moveq #0, \r
+    move.w (%a0)+, \r
+    lsl.l %d0, \r
+    .endr
+    moveq #-1, %d5
+    move.w (%a0)+, %d5
+    not.w %d5
+    rol.l %d0, %d5
+    lea 8(%a1), %a2
+    sprite_merge_rmw %d1
+    sprite_merge_rmw %d2
+    sprite_merge_rmw %d3
+    sprite_merge_rmw %d4
     swap %d1
     swap %d2
     swap %d3
     swap %d4
     swap %d5
     movea.l %a1, %a2
-    sprite_merge_group %d1
-    sprite_merge_group %d2
-    sprite_merge_group %d3
-    sprite_merge_group %d4
-
-    swap %d1
-    swap %d2
-    swap %d3
-    swap %d4
-    swap %d5
-    lea 8(%a1), %a2
-    sprite_merge_group %d1
-    sprite_merge_group %d2
-    sprite_merge_group %d3
-    sprite_merge_group %d4
-
+    sprite_merge_rmw %d1
+    sprite_merge_rmw %d2
+    sprite_merge_rmw %d3
+    sprite_merge_rmw %d4
     adda.w #SCREEN_STRIDE, %a1
-    dbra %d7, 1b
+    dbra %d7, 21b
     movem.l (%sp)+, %d0-%d7/%a0-%a2
     rts
+
 
 | Put back the background the sprite covered last frame.
 erase_sprite:

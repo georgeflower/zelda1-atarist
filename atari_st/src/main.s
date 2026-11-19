@@ -346,6 +346,7 @@ quest_apply_mid:                        | the dev start's call (a 32-bit stub: b
 
 main_loop:
     bsr wait_vbl
+    .ifndef SPEED_NTSC                  | (make NTSC=1: one update a VBL, the NTSC NES's speed at 60 Hz)
     btst #1, 0xffff820a         | sync mode bit: set for 50 Hz
     bne.s 7f
     addq.b #1, OFF_HOLD_SKIP(%a5)
@@ -355,7 +356,12 @@ main_loop:
     move.l FR_CLOCK, OFF_LAST_CLOCK(%a5)    | a held VBL is not a late frame
     bra main_loop               | 60 Hz plays at the speed of 50: one update in six is left out, like the music's tick
 7:
+    .endif
     bsr frame_begin
+    .ifdef DEV_GOD                      | (speed tests only: Link cannot be hurt, as in src/autoplay.s)
+    move.b #0x60, OFF_LINK_HURT(%a5)
+    move.b #12, OFF_HP_HALVES(%a5)
+    .endif
     bsr palette_sync
     bsr poll_keyboard
     bsr debug_keys_far
@@ -737,14 +743,22 @@ dbl_enter:
     movem.l (%sp)+, %d0-%d1/%a0-%a1
     rts
 
-    .macro xchg_state first, second, count
+    .macro xchg_state first, second, count       | (four bytes at a time where both are even and it divides)
     lea OFF_\first(%a5), %a0
     lea OFF_\second(%a5), %a1
+    .if ((OFF_\first & 1) + (OFF_\second & 1) + (\count & 3)) == 0
+    move.w #(\count / 4 - 1), %d0
+1:  move.l (%a0), %d1
+    move.l (%a1), (%a0)+
+    move.l %d1, (%a1)+
+    dbra %d0, 1b
+    .else
     move.w #(\count - 1), %d0
 1:  move.b (%a0), %d1
     move.b (%a1), (%a0)+
     move.b %d1, (%a1)+
     dbra %d0, 1b
+    .endif
     .endm
 
     .macro clear_state name, count

@@ -82,18 +82,36 @@ $(MUSIC_GENERATED) &: $(TOOLS_DIR)/ym_convert.py $(MUSIC_PLAYER)
 	$(PYTHON) $(TOOLS_DIR)/ym_convert.py --player $(MUSIC_PLAYER) --out-dir $(GENERATED_DIR)
 
 MUSIC_CAPABILITY_STAMP := $(BUILD_DIR)/music_capability.stamp
+# NTSC=1: a build for a USA/Japan ROM played at NTSC speed. On a 60 Hz display the game and the music make one step
+# per frame (the default holds every sixth 60 Hz frame back so that both play at the PAL speed everywhere), and the
+# music's pitches are converted with the NTSC CPU clock.
+# MUSIC_CLOCK: the NES CPU clock the music's pitches are converted with: pal for the Europe ROM, ntsc for a USA/Japan
+# ROM (with the wrong one every note is about a semitone off). Part of the stamp below, so changing it re-rips.
+ifeq ($(NTSC),1)
+MUSIC_CLOCK ?= ntsc
+ASFLAGS += --defsym SPEED_NTSC=1
+endif
+MUSIC_CLOCK ?= pal
 .PHONY: FORCE_MUSIC_CAPABILITY_STAMP
 FORCE_MUSIC_CAPABILITY_STAMP:
 
 $(MUSIC_CAPABILITY_STAMP): FORCE_MUSIC_CAPABILITY_STAMP
 	@mkdir -p $(BUILD_DIR)
 	@available=$$($(PYTHON) -c "import py65" >/dev/null 2>&1 && printf yes || printf no); \
-	printf '%s\n' "$$available" | cmp -s - $@ 2>/dev/null || printf '%s\n' "$$available" > $@
+	printf '%s %s\n' "$$available" "$(MUSIC_CLOCK)" | cmp -s - $@ 2>/dev/null || printf '%s %s\n' "$$available" "$(MUSIC_CLOCK)" > $@
 
 $(MUSIC_PACKED) &: $(TOOLS_DIR)/music_pack.py $(TOOLS_DIR)/nes_music_rip.py $(MUSIC_GENERATED) $(MUSIC_ROM) $(MUSIC_CAPABILITY_STAMP)
-	$(PYTHON) $(TOOLS_DIR)/music_pack.py $(if $(MUSIC_ROM),--rom $(MUSIC_ROM)) --out-dir $(GENERATED_DIR)
+	$(PYTHON) $(TOOLS_DIR)/music_pack.py $(if $(MUSIC_ROM),--rom $(MUSIC_ROM)) --clock $(MUSIC_CLOCK) --out-dir $(GENERATED_DIR)
 
-$(OBJ): $(SOURCES) $(GENERATED) $(MUSIC_GENERATED) $(MUSIC_PACKED)
+# NTSC=1 changes the assembler flags: a stamp of the setting makes switching it reassemble.
+SPEED_STAMP := $(BUILD_DIR)/speed.stamp
+.PHONY: FORCE_SPEED_STAMP
+FORCE_SPEED_STAMP:
+$(SPEED_STAMP): FORCE_SPEED_STAMP
+	@mkdir -p $(BUILD_DIR)
+	@printf 'NTSC=%s\n' '$(NTSC)' | cmp -s - $@ 2>/dev/null || printf 'NTSC=%s\n' '$(NTSC)' > $@
+
+$(OBJ): $(SOURCES) $(GENERATED) $(MUSIC_GENERATED) $(MUSIC_PACKED) $(SPEED_STAMP)
 	@mkdir -p $(BUILD_DIR)
 	$(AS) $(ASFLAGS) -al=$(LISTING) -o $@ $(MAIN_SRC)
 
