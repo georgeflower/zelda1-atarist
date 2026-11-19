@@ -174,7 +174,10 @@ From `atari_st/` (inside WSL) or via `make -C atari_st` from the repo root:
 make all        # assets + assemble + link + PRG  -> build/ZELDAST.PRG
 make check      # all + unit tests + asset verify + PRG header check
 make clean      # rm -rf build  (deletes scratch scripts in build/ too!)
+make all NTSC=1 # a USA/Japan ROM at the NTSC NES's speed (see below)
 ```
+
+`NTSC=1` (from the fork besh27/zelda1-atarist, merged): `--defsym SPEED_NTSC=1`, so on a 60 Hz display `main_loop` and `music_vbl` no longer hold every sixth VBL (one game and music step a VBL, the NTSC NES's speed), and the music is ripped with the NTSC CPU clock (`MUSIC_CLOCK=ntsc`, `music_pack.py --clock`; with the wrong clock every note is about a semitone off). `build/speed.stamp` and the music stamp make switching it reassemble and re-rip. The default (PAL speed everywhere) is what the owner's disk images use. `--defsym DEV_GOD=1` keeps Link from being hurt (speed tests only).
 
 From PowerShell:
 
@@ -661,7 +664,7 @@ Where a value is listed it was read from the disassembly (file in `src/`).
 - **Walking speeds** (`ROM_QSPEED` in `tools/actors.py`, held to `MONSTER_PERIOD` by `test_walking_speeds_are_the_roms_q_speeds`): a
   q-speed is a 64th of a pixel a frame: `$20` lynels, moblins, goriyas, slow octoroks, red darknuts, stalfos, gibdos, vires (a pixel every
   other frame), `$28` blue darknuts (5 in 8 frames), `$30` fast octoroks (6 in 8, `step_patterns` in `enemy.s`), `$18` zols (3 in 8), `$40`
-  gels and bubbles; a rope charges at `$60`. The armos walks like a goriya at `$20` or `$60` (below); flying ghinis do not walk, they use the flying state machine. Speeds are per frame, and the game plays at the PAL NES's pace on both displays: at 60 Hz `main_loop` lets every sixth VBL pass without an update (`HOLD_SKIP`, after `wait_vbl`; the music holds the same one, `MUS_SKIP`), so 50 frames a second are played either way (the owner asked for it: a 60 Hz screen should not run faster than a 50 Hz one).
+  gels and bubbles; a rope charges at `$60`. The armos walks like a goriya at `$20` or `$60` (below); flying ghinis do not walk, they use the flying state machine. Speeds are per frame, and the game plays at the PAL NES's pace on both displays: at 60 Hz `main_loop` lets every sixth VBL pass without an update (`HOLD_SKIP`, after `wait_vbl`; the music holds the same one, `MUS_SKIP`), so 50 frames a second are played either way (the owner asked for it: a 60 Hz screen should not run faster than a 50 Hz one). A build with `NTSC=1` leaves the hold out (section 4).
   **Ringleader** (`TRIGGER_RINGLEADER`, `uw_check_clear`): when slot 0 is dead, kill the others and open the shutters.
 - **Dodongo** (`$32`, `BEH_DODONGO`, `MODE_DODONGO`; ROM `UpdateDodongo`): a wanderer (turn rate `$20`) whose X is shifted by `$10` when it
   does not face left (it is two sprites wide: `draw_dodongo`, second erase offsets `ENEMY_ERASE2_OFFSETS`). State 0 walks, 1 is
