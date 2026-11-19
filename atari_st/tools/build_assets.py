@@ -145,7 +145,9 @@ HUD_GLYPHS = (
 )
 CODE_PLUS = 0x2B                         # a text code no speech uses
 
-CAVE_WALL_ROW = PALETTE_ROWS       # the palette row appended for the cave's row 3
+CAVE_WALL_ROW = PALETTE_ROWS       # the palette row appended for the cave's row 3 (the cellars' walls)
+CAVE_ROOM_ROW = PALETTE_ROWS + 1   # the cave room's walls: row 3 with its dark brown ($07) in CAVE_SLOT
+CAVE_WALL_NES = 0x07               # the cave walls' colour (CaveBgPaletteRowsTransferBuf row 3, pixel 1)
 PERSON_TEXT_NAME = "dat/PersonText.dat"
 def _ending_text(lines: tuple[str, ...]) -> bytes:
     """NES text codes for lines of text, in cave_talk's layout: the last character of a line carries $80 (the second
@@ -774,7 +776,30 @@ def add_cave_palette_row(palette: PaletteMap, source_root: Path) -> PaletteMap:
         return min(range(len(palette.st_colors)), key=lambda i: distance(palette.st_colors[i]))
 
     entries = (palette.table[0][0],) + tuple(nearest(color) for color in row3[1:])
-    return PaletteMap(st_colors=palette.st_colors, table=palette.table + (entries,))
+    # The walls are drawn in pixel 1, the dark brown $07, which the overworld's colours lack (the nearest is black,
+    # so the walls vanished). In a cave the ST shows cave_palette instead, the overworld's with CAVE_SLOT turned
+    # into that brown; the cave room's own row names that slot.
+    if row3[1] != CAVE_WALL_NES:
+        raise SystemExit(f"The cave walls' colour is {row3[1]:#04x}, expected {CAVE_WALL_NES:#04x}")
+    room = (palette.table[0][0], cave_slot(palette)) + entries[2:]
+    return PaletteMap(st_colors=palette.st_colors, table=palette.table + (entries, room))
+
+
+def cave_slot(palette: PaletteMap) -> int:
+    """The slot that holds the cave walls' brown while Link is in a cave: the overworld's ground ($37, background row
+    2 pixel 2), which no sprite, the ribbon or anything else shown in a cave uses."""
+    slot = palette.table[2][2]
+    used = {palette.table[row][pixel] for row in (HUD_TEXT_ROW, HUD_ACCENT_ROW, 4, 5, 6, 7) for pixel in range(PALETTE_ROW_COLORS)}
+    if slot in used:
+        raise SystemExit(f"Slot {slot} (the ground) is used by a sprite or the ribbon; the cave walls need another")
+    return slot
+
+
+def cave_palette(palette: PaletteMap) -> tuple[int, ...]:
+    """The 16 ST colours shown in a cave: the overworld's with the walls' brown in cave_slot."""
+    colours = list(palette.st_colors)
+    colours[cave_slot(palette)] = nes_color_to_st(CAVE_WALL_NES)
+    return tuple(colours)
 
 
 def decode_cave(source_root: Path, metatiles: list, layout_name: str = "RoomLayoutOWCave0") -> bytes:
@@ -795,8 +820,8 @@ def decode_cave(source_root: Path, metatiles: list, layout_name: str = "RoomLayo
         for col in range(OW_ROOM_COLS):
             tiles = square_to_tiles(columns[col][row], primary, secondary)
             # The room's attributes ($44) give every other column the overworld's palette 0 or 1; only the stairs
-            # of the take-any-road room show it, everything else in a cave is the wall palette's black.
-            key = ((col & 1) if tiles[0] in (0x70, 0x72) else CAVE_WALL_ROW, tiles)
+            # of the take-any-road room show it, everything else is the cave's wall row (brown and black).
+            key = ((col & 1) if tiles[0] in (0x70, 0x72) else CAVE_ROOM_ROW, tiles)
             if key not in known:
                 known[key] = len(metatiles)
                 metatiles.append(key)
@@ -1581,6 +1606,9 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
             "    .section .rodata",
             "    .align 2",
             format_words("room_palette", bundle.palette.st_colors),
+            "",
+            "| Inside a cave: the overworld's colours with the walls' brown in CAVE_SLOT (cur_palette).",
+            format_words("cave_palette", cave_palette(bundle.palette)),
             "",
             format_words("pond_colors", [nes_color_to_st(color) for color in POND_CYCLE_COLORS]),
             "",

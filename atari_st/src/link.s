@@ -634,6 +634,7 @@ start_cave_entry:
     move.b #MODE_CAVE, OFF_GAME_MODE(%a5)
     clr.b OFF_LINK_SHOVE(%a5)
     bsr enter_cave_far
+    bsr palette_sync            | the cave's colours at once, not a frame late
     movem.l (%sp)+, %d0-%d2
     rts
 
@@ -652,6 +653,7 @@ leave_cave:
     move.b #LINK_ANIM_PERIOD, OFF_LINK_ANIM_COUNTER(%a5)
     move.b #MODE_PLAY, OFF_GAME_MODE(%a5)
     bsr enter_room_far
+    bsr palette_sync            | the overworld's colours back at once
     movem.l (%sp)+, %d0-%d2
     rts
 

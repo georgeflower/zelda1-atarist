@@ -82,15 +82,21 @@ restore_video:
 
     bra restore_ikbd_far
 
-| a0 = the 16 ST colours for where Link is: the overworld's, or the current dungeon's (level_palettes,
-| built by underworld.palette_lookup so that every colour keeps its slot). Only a0 changes.
+| a0 = the 16 ST colours for where Link is: the overworld's, a cave's (cave_palette: the walls' brown in the
+| ground's slot), or the current dungeon's (level_palettes, built by underworld.palette_lookup so that every
+| colour keeps its slot). Only a0 changes.
 cur_palette:
     move.l %d0, -(%sp)
     moveq #0, %d0
     move.b OFF_LEVEL(%a5), %d0
     ltab room_palette, %a0
     tst.w %d0
-    beq 1f
+    bne 2f
+    cmp.b #MODE_CAVE, OFF_GAME_MODE(%a5)
+    bne 1f
+    ltab cave_palette, %a0
+    bra 1f
+2:
     ltab level_palettes, %a0
     subq.w #1, %d0
     lsl.w #5, %d0
@@ -103,6 +109,11 @@ cur_palette:
 palette_sync:
     movem.l %d0/%d7/%a0-%a1, -(%sp)
     move.b OFF_LEVEL(%a5), %d0
+    bne 2f
+    cmp.b #MODE_CAVE, OFF_GAME_MODE(%a5)
+    bne 2f
+    moveq #-1, %d0              | a cave: the overworld with the walls' brown
+2:
     cmp.b OFF_PAL_LEVEL(%a5), %d0
     beq 9f
     move.b %d0, OFF_PAL_LEVEL(%a5)
