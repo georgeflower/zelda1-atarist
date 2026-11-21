@@ -710,6 +710,13 @@ file_select_update:
 filesel_play:
     move.b %d0, OFF_PROFILE(%a5)
     bsr save_load_game                  | the profile's game, Link at the start
+    tst.b OFF_HAS_SWORD(%a5)            | a new character (no sword, no deaths): How to play before the first screen
+    bne 1f
+    lea OFF_SLOT_DEATHS(%a5), %a0
+    tst.b 0(%a0, %d0.w)
+    bne 1f
+    move.b #1, OFF_HELP_REQUESTED(%a5)
+1:
     bsr intro_leave
     bra begin_game_xf
 

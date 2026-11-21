@@ -17,6 +17,10 @@
     .equ SCAN_RIGHT, 0x4d
     .equ SCAN_DOWN, 0x50
     .equ SCAN_RELEASE_BIT, 0x80
+    .equ SCAN_CONTROL, 0x1d
+    .equ SCAN_LSHIFT, 0x2a
+    .equ SCAN_RSHIFT, 0x36
+    .equ SCAN_HELP, 0x62
 
     .equ PKT_NONE, 0
     .equ PKT_JOY0, 1
@@ -45,7 +49,9 @@ poll_keyboard:
 2:  cmp.b #PKT_JOY1, %d1
     bne 3f
     move.b %d0, OFF_JOY1(%a5)
-    bra 1b
+    bpl 1b                      | (bit 7: the fire button, which names the A box FIRE)
+    moveq #0, %d1
+    bra 10f
 3:  cmp.b #PKT_SKIP2, %d1
     bne 1b
     move.b #PKT_SKIP1, OFF_IKBD_PKT(%a5)
@@ -72,13 +78,45 @@ poll_keyboard:
     lea OFF_KEY_STATES(%a5), %a0
     move.b #1, 0(%a0, %d0.w)
     cmpi.b #SCAN_ESC, %d0
-    bne 1b
+    bne 11f
     move.b #1, OFF_EXIT_REQUESTED(%a5)
+    bra 1b
+11: cmpi.b #SCAN_HELP, %d0
+    bne 12f
+    move.b #1, OFF_HELP_REQUESTED(%a5)
+    bra 1b
+12: moveq #1, %d1               | Control: the A box says CTRL
+    cmpi.b #SCAN_CONTROL, %d0
+    bne 13f
+    move.b %d1, OFF_CTRL_RAW(%a5)
+    bra 10f
+13: moveq #2, %d1               | either Shift: SHFT, and Control's byte as well (Shift swings the sword as Control does)
+    cmpi.b #SCAN_LSHIFT, %d0
+    beq 14f
+    cmpi.b #SCAN_RSHIFT, %d0
+    bne 1b
+14: move.b #1, SCAN_CONTROL(%a0)
+10: cmp.b OFF_FIRE_LAST(%a5), %d1
+    beq 1b
+    move.b %d1, OFF_FIRE_LAST(%a5)
+    move.b #1, OFF_HUD_DIRTY(%a5)
     bra 1b
 
 3:  andi.w #0x007f, %d0
     lea OFF_KEY_STATES(%a5), %a0
     clr.b 0(%a0, %d0.w)
+    cmpi.b #SCAN_CONTROL, %d0
+    bne 15f
+    clr.b OFF_CTRL_RAW(%a5)
+    bra 16f
+15: cmpi.b #SCAN_LSHIFT, %d0
+    beq 16f
+    cmpi.b #SCAN_RSHIFT, %d0
+    bne 1b
+16: move.b OFF_CTRL_RAW(%a5), %d0  | Control's byte stays down while any of the three is
+    or.b SCAN_LSHIFT(%a0), %d0
+    or.b SCAN_RSHIFT(%a0), %d0
+    move.b %d0, SCAN_CONTROL(%a0)
     bra 1b
 
 9:  movem.l (%sp)+, %d0-%d2/%a0-%a1

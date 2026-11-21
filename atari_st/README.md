@@ -26,15 +26,17 @@ How to play
 
 | Key | Action |
 | --- | --- |
-| arrow keys, `W` `A` `S` `D` or the joystick | walk (in 8-pixel steps, like the original) |
-| `Ctrl`, joystick fire | the sword (A) |
-| `Space`, `Alternate` or `B` | the B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
-| `Tab` | the inventory screen (Left/Right or the joystick choose the B item, `Tab` goes back) |
-| `T` | debug: the room number on the ribbon |
+| arrow keys, `W` `A` `S` `D`, joystick | walk (in 8-pixel steps, like the original) |
+| joystick fire, `Ctrl` or `Shift` | the sword (the box marked FIRE, CTRL or SHFT on the status bar: the key used last) |
+| `Space` or `Alternate` | the item in the box marked SPACE: bombs, boomerang, candle, bow, recorder, food, potion or rod |
+| `Tab` | the inventory screen (Left/Right or the joystick choose the item for Space, `Tab` goes back) |
+| `Help` | How to play: the keys, on a page of their own (any of the fire keys, `Return` or `Help` closes it) |
+| `Esc` | pause: the keys, then QUIT WITHOUT SAVING, SAVE AND QUIT or BACK TO GAME (Up/Down and Return, or Esc again to go back) |
 | `T` | debug: show the room id on the ribbon, `RM-37` (`CL-xx` in a cellar); press again to hide it |
-| `Esc` | asks to quit: QUIT WITHOUT SAVING, SAVE AND QUIT or BACK TO GAME (Up/Down and Return, or Esc again to go back) |
 
-The game starts on the title screen. Press fire (Return, Ctrl or the joystick button), pick a player and make a name. Call it ZELDA
+A new character sees the How to play page before the first screen. The disk and the `dist` folder also carry `CONTROLS.TXT`, the same list as a text file (Show it from the desktop).
+
+The game starts on the title screen. Press fire (Return, Ctrl, Shift or the joystick button), pick a player and make a name. Call it ZELDA
 to play the Second Quest, like in the original. The game saves to `ZELDA.SAV` in the current
 directory.
 
@@ -95,10 +97,12 @@ make -C atari_st check    # unit tests, manifest check, PRG header check, golden
 make -C atari_st all NTSC=1      # a USA/Japan ROM, played at the speed of the NTSC NES
 ```
 
-`NTSC=1` is for an NTSC ROM (*The Legend of Zelda (USA)*, PRG0 tested) and a 60 Hz ST:
+`NTSC=1` is for an NTSC ROM (*The Legend of Zelda (USA)*, PRG0 tested):
 
-- on a 60 Hz display the game and the music make one step per frame, as on an NTSC NES (the
-  default holds every sixth frame back to keep the PAL speed); on a 50 Hz display nothing changes
+- the game switches the ST to 60 Hz when it starts, a PAL ST too, and puts it back when it ends
+  (the screen must take 60 Hz: most colour monitors and TVs an ST is used with do)
+- the game and the music make one step per frame, as on an NTSC NES (the default build holds every
+  sixth 60 Hz frame back to keep the PAL speed)
 - the music's pitches are converted with the NTSC CPU clock (`MUSIC_CLOCK=ntsc`; it can also be set
   on its own, `pal` or `ntsc`). With the wrong clock every note is about a semitone off.
 
@@ -106,7 +110,7 @@ Switching `NTSC` between builds re-rips the music and reassembles by itself. A b
 screen needs a little more than one 60 Hz frame now and then; the game then catches up (one
 update without drawing), so it keeps its speed and shows 30 pictures a second for a moment.
 
-Needed: Python 3, `make`, GNU m68k binutils (`m68k-linux-gnu-as`, `ld`, `objcopy`, `nm`). Optional:
+Needed: Python 3, `make`, GNU m68k binutils (`m68k-linux-gnu-as`, `ld`, `objcopy`, `nm`; the Makefile takes `m68k-elf-*` too, as Arch names them). Optional:
 `py65` (the sound bank), `machine68k` (music player tests), Hatari with a TOS image (running, golden
 frames). Outputs: `build/zelda_st.elf`, `build/zelda_st.bin`, `build/ZELDAST.PRG`.
 

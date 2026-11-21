@@ -49,6 +49,10 @@ SCANCODES = {
     "return": 0x1C,
     "ctrl": 0x1D,
     "alt": 0x38,
+    "lshift": 0x2A,
+    "rshift": 0x36,
+    "help": 0x62,
+    "enter": 0x72,
 }
 
 

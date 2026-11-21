@@ -9,13 +9,27 @@ Work in progress. Both quests are in. The `.PRG` is about 270 KB; the intro's da
 | 1 | More play of the Second Quest | the First Quest has been played through to Zelda on a 520 STFM; the Second Quest has had less play |
 | 2 | Free memory | about 17 KB is spare; packing the drum samples to 4 bits would give back about 21 KB, only if it is needed |
 
-Kept on purpose: the Esc menu (quit without saving, save and quit, back to game) is not in the original.
+Kept on purpose: the Esc menu (quit without saving, save and quit, back to game) is not in the original, nor is the How to play
+page (Help, and before a new character's first screen), nor the key names on the status bar (SPACE, and FIRE, CTRL or SHFT for
+the fire key used last) and in the inventory (USE SPACE FOR THIS).
 
-Not planned: anything that needs the NES hardware itself (the PPU, the DPCM channel) rather than its data, and overscan. The game stays at 320x200 with the 24-line HUD.
+## Wishes from players
+
+From the first player feedback (Reddit, November 2026; kept word for word in `feedback/2026-11-21-reddit.md`). Done on the
+`BETA` branch: Shift as a sword key, the keys on the status bar, the How to play page and the keys on the Esc page,
+`CONTROLS.TXT` on the disk, the Makefile finding Arch's `m68k-elf-*` binutils, and the NTSC build switching a PAL ST to 60 Hz.
+
+| # | Wish | Thoughts |
+| --- | --- | --- |
+| W1 | Smoother ways in and out of caves, shops and dungeons | the original lets Link sink 16 pixels into the doorway over 64 frames (`UpdateMode10Stairs`, Link behind the scenery, so only seen over the black doorway), fades the screen out and in around dungeons and cellars (`FadeCycle`, mode 4 and 9) and lets Link climb back out; the port cuts straight across. The fade would also hide the floppy read behind LOADING. Needs a sprite draw that only paints over colour 0, and a palette fade (cheap) |
+| W2 | The intro's loop | the port goes back to the title after the parade as the ROM does; something still differs (a fade? the song starting again?). First compare it frame by frame with the reference emulator, then fix only that |
+| W3 | Remapping the keys | from the How to play page; the choice saved in `ZELDA.SAV` (a new save version, the model in `tools/savefile.py` and its tests) |
+| W4 | A three-button pad | a pad that sends three buttons to an ST (threads on atari-forum.com, t=41064 and t=40371). On an ST the extra buttons can only come in through port 0 (its fire button, and the mouse's right button, which is wired to port 1's fire): the game would read the button bits of port 0's packets (today it drops them all, because in Steem the mouse arrives there as joystick directions) and give them the sword and Space. Needs the pad's wiring from its maker, and a tester with one |
+| W5 | Overscan | full screen with the side borders opened needs exact timing on every line and leaves the game no time: no. The bottom border alone could give the NES's full 56-line status bar back, but only at 50 Hz, with three bigger screens (about 15 KB of the 17 KB spare) and border flicker when the interrupts come late: not now |
 
 ## Next
 
-1 first, 2 only when space runs out.
+1 first, 2 only when space runs out; of the wishes, W1, then W4 once the pad's wiring is known.
 
 ## Reference data
 

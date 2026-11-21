@@ -1,0 +1,32 @@
+THE LEGEND OF ZELDA FOR THE ATARI ST
+====================================
+
+Run ZELDAST.PRG. It needs 512 KB of RAM
+and the .DAT files beside it.
+
+CONTROLS
+--------
+Walk        Arrow keys, W A S D,
+            or a joystick in port 1
+Sword       Fire, Control or Shift
+Use item    Space or Alternate
+Inventory   Tab (Left/Right choose
+            the item for Space)
+Start,      Return, Enter or Fire
+choose
+Pause,      Esc (then Return to
+save, quit  pick a line)
+Help        This list, in the game
+
+In the file menu: Return starts,
+Tab moves to the next line, Control
+or Fire types the chosen letter.
+
+The status bar shows the keys too:
+SPACE over the item, and over the
+sword the fire key you used last
+(FIRE, CTRL or SHFT).
+
+The game is saved to ZELDA.SAV on
+the same disk, from the Esc menu or
+when Link dies.

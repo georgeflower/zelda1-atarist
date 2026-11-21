@@ -17,12 +17,14 @@ The Second Quest starts when you make a file called ZELDA (like the original), o
 | Key | Action |
 | --- | --- |
 | arrow keys, `W` `A` `S` `D`, joystick | walk |
-| `Ctrl`, joystick fire | sword (A) |
-| `Space`, `Alternate` or `B` | B item: bombs, boomerang, candle, bow, recorder, food, potion or rod |
-| `Tab` | inventory screen (Left/Right to choose the B item) |
-| `T` | debug: the room number on the ribbon |
-| `T` | debug: show the room id (`RM-37`, or `CL-xx` in a cellar) on the ribbon |
-| `Esc` | asks to quit: QUIT WITHOUT SAVING, SAVE AND QUIT or BACK TO GAME (Up/Down and Return, or Esc again to go back) |
+| joystick fire, `Ctrl` or `Shift` | the sword (the box marked FIRE, CTRL or SHFT on the status bar: the key used last) |
+| `Space` or `Alternate` | the item in the box marked SPACE: bombs, boomerang, candle, bow, recorder, food, potion or rod |
+| `Tab` | the inventory screen (Left/Right or the joystick choose the item for Space, `Tab` goes back) |
+| `Help` | How to play: the keys, on a page of their own (any of the fire keys, `Return` or `Help` closes it) |
+| `Esc` | pause: the keys, then QUIT WITHOUT SAVING, SAVE AND QUIT or BACK TO GAME (Up/Down and Return, or Esc again to go back) |
+| `T` | debug: show the room id on the ribbon, `RM-37` (`CL-xx` in a cellar); press again to hide it |
+
+A new character sees the How to play page before the first screen. The disk and the `dist` folder also carry `CONTROLS.TXT`, the same list as a text file (Show it from the desktop).
 
 ## Build
 
@@ -48,7 +50,7 @@ The ROM I build and test with is *The Legend of Zelda (Europe) (Rev 1)*: 131,088
    ```sh
    sudo apt-get install git make python3 python3-pip binutils-m68k-linux-gnu
    ```
-   On other distributions look for a `binutils` package for the target `m68k-linux-gnu` (it must provide `m68k-linux-gnu-as`). The `m68k-atari-mint` binutils are not a substitute, the old 2.30 in them rejects the `.section` lines in the source.
+   On other distributions look for a `binutils` package for the target `m68k-linux-gnu` or `m68k-elf` (on Arch Linux, `m68k-elf-binutils` from the AUR). The `m68k-atari-mint` binutils are not a substitute, the old 2.30 in them rejects the `.section` lines in the source.
 2. Optional, for the sound bank: `pip install --break-system-packages py65` (or use a virtual environment).
 3. Get the code: `git clone https://github.com/georgeflower/zelda1-atarist.git` and `cd zelda1-atarist`.
 4. Continue with [Build the game](#build-the-game).
@@ -109,9 +111,9 @@ There is no ready-made `.PRG` in the repository, since it would contain the game
    It reads the ROM, builds the data in `atari_st/build/generated/`, assembles, links, checks that every branch reaches its target and writes `atari_st/build/ZELDAST.PRG` (about 300 KB) and the data files `atari_st/build/generated/INTRO.DAT` and `LEVEL*.DAT` (packed, about 225 KB together). `make -C atari_st dist` copies the `.PRG` and the files into `atari_st/build/dist/`, the folder to run from. `make -C atari_st disk` makes `atari_st/build/ZELDA.st`, a 720 KB floppy image with all of them (for a real drive, a Gotek or an emulator; open the disk on the desktop and run `ZELDAST.PRG`). A rebuild only redoes what changed. `make -C atari_st clean` removes `atari_st/build`.
 3. Optional, to check your work: `make -C atari_st check` runs the unit tests, verifies the generated data, checks the `.PRG` header and runs the golden frames. The golden frames need Hatari and an EmuTOS image in the `TOS` environment variable; without them they are skipped.
 
-If a tool has another name or lives somewhere else, give it to make: `make -C atari_st all TOOLCHAIN_PREFIX=m68k-elf- PYTHON=python`.
+The Makefile finds the binutils as `m68k-linux-gnu-*` (Debian, Ubuntu) or `m68k-elf-*` (Arch: the AUR package `m68k-elf-binutils`) by itself. If a tool has another name or lives somewhere else, give it to make: `make -C atari_st all TOOLCHAIN_PREFIX=m68k-none-elf- PYTHON=python`.
 
-**NTSC / 60 Hz (this fork):** with a USA ROM (*The Legend of Zelda (USA)*, PRG0 tested: SHA-1 differs from the one above, that is expected) build with `make -C atari_st all NTSC=1`. On a 60 Hz ST the game and the music then run at the speed of the NTSC NES (one step per frame; the default plays at the PAL speed everywhere), and the music's pitches are converted with the NTSC clock. Details in [atari_st/README.md](atari_st/README.md#ntsc--60-hz-option).
+**NTSC / 60 Hz:** with a USA ROM (*The Legend of Zelda (USA)*, PRG0 tested: SHA-1 differs from the one above, that is expected) build with `make -C atari_st all NTSC=1`. The game then switches the ST to 60 Hz, a PAL one too (and back when it ends), and the game and the music run at the speed of the NTSC NES, one step a frame (the default build plays at the PAL speed everywhere), and the music's pitches are converted with the NTSC clock. Details in [atari_st/README.md](atari_st/README.md#ntsc--60-hz-option).
 
 ### Running it
 

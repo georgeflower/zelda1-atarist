@@ -922,8 +922,7 @@ music_stop_far:
     bra music_stop
 cur_palette_far:
     bra cur_palette
-update_intro_far:
-    bra update_intro
+    farstub update_intro_far, update_intro     | a 32-bit jump: the 16-bit one had 11 bytes to spare
 dbl_end_far:
     bra dbl_end
 draw_hud_tile_far:

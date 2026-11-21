@@ -7,6 +7,8 @@
     .equ HUD_MENU_ROW, 22               | the inventory screen is 22 tile rows high; the ribbon follows it
 
 draw_hud:
+    cmpi.b #MODE_QUIT, OFF_GAME_MODE(%a5)
+    beq 0f                              | a page of quit.s fills the screen: the ribbon waits (HUD_DIRTY stays) till it closes
     movem.l %d0-%d4, -(%sp)
     clr.b OFF_HUD_DIRTY(%a5)
 
@@ -58,7 +60,7 @@ draw_hud:
     bsr draw_hud_level
     bsr draw_hud_debug
     movem.l (%sp)+, %d0-%d4
-    rts
+0:  rts
 
 | "LEVEL-n" in a dungeon (the ROM writes it over the map; the minimap has that corner here), blank on the overworld:
 | the free columns between the A box and LIFE, on the row where only a ninth heart would ever be.
@@ -143,18 +145,26 @@ level_text:
     .byte 0x15, 0x0E, 0x1F, 0x0E, 0x15, 0x2F, 0x00     | L E V E L - and the digit's place
     .align 2
 
-| The two item boxes, B and A, between the counters and the hearts. A holds the
-| sword once Link has it; B holds the bombs, which Space drops.
-    .equ HUD_B_COL, 12
-    .equ HUD_A_COL, 16
+| The two item boxes between the counters and the hearts, named after the keys that use them, not the NES's B and A:
+| SPACE over the item box (five cells: the word is its top edge), and over the sword's box the fire key used last
+| (FIRE for the joystick, CTRL or SHFT: FIRE_LAST, which input.s keeps). The sword's box is four cells wide, so the
+| sword is drawn half a cell to the right (hud_half), in its middle.
+    .equ HUD_B_COL, 9               | the item box: columns 9-13, the item in 11
+    .equ HUD_A_COL, 15              | the sword's box: columns 15-18, the sword across 16 and 17
 
 draw_hud_boxes:
     movem.l %d0-%d3/%a0, -(%sp)
+    lea hud_label_space(%pc), %a0
     moveq #HUD_B_COL, %d3
-    moveq #HUD_CH_B, %d0
+    moveq #5, %d1
     bsr draw_hud_box
+    moveq #0, %d0
+    move.b OFF_FIRE_LAST(%a5), %d0
+    lsl.w #2, %d0
+    lea hud_label_fire(%pc), %a0
+    adda.w %d0, %a0
     moveq #HUD_A_COL, %d3
-    moveq #HUD_CH_A, %d0
+    moveq #4, %d1
     bsr draw_hud_box
 
     bsr b_item_fix
@@ -165,7 +175,7 @@ draw_hud_boxes:
     ltab hud_items, %a0
     mulu.w #(2 * HUD_TILE_BYTES), %d0
     adda.l %d0, %a0
-    moveq #(HUD_B_COL + 1), %d1
+    moveq #(HUD_B_COL + 2), %d1
     moveq #1, %d2
     bsr draw_hud_tile_ptr
     lea HUD_TILE_BYTES(%a0), %a0
@@ -179,48 +189,88 @@ draw_hud_boxes:
     ltab hud_items, %a0
     mulu.w #(2 * HUD_TILE_BYTES), %d0
     adda.l %d0, %a0
+    bsr hud_half
+    lea OFF_HUD_HALF(%a5), %a0
     moveq #(HUD_A_COL + 1), %d1
     moveq #1, %d2
     bsr draw_hud_tile_ptr
     lea HUD_TILE_BYTES(%a0), %a0
+    addq.w #1, %d1
+    bsr draw_hud_tile_ptr
+    lea HUD_TILE_BYTES(%a0), %a0
+    subq.w #1, %d1
     moveq #2, %d2
+    bsr draw_hud_tile_ptr
+    lea HUD_TILE_BYTES(%a0), %a0
+    addq.w #1, %d1
     bsr draw_hud_tile_ptr
 9:  movem.l (%sp)+, %d0-%d3/%a0
     rts
 
+| a0 = an item's two tiles (top, bottom), eight pixels wide: HUD_HALF gets them moved four pixels to the right, as four
+| tiles (the top's left and right cell, then the bottom's). A byte of a row is eight pixels of one plane.
+hud_half:
+    movem.l %d0-%d2/%a0-%a1, -(%sp)
+    lea OFF_HUD_HALF(%a5), %a1
+    moveq #1, %d2                       | the top tile, then the bottom one
+1:  moveq #(HUD_TILE_BYTES - 1), %d1
+2:  move.b (%a0)+, %d0
+    lsr.b #4, %d0
+    move.b %d0, (%a1)                   | the left cell: the item's left half
+    move.b -1(%a0), %d0
+    lsl.b #4, %d0
+    move.b %d0, HUD_TILE_BYTES(%a1)     | the right cell: its right half
+    addq.l #1, %a1
+    dbra %d1, 2b
+    lea HUD_TILE_BYTES(%a1), %a1        | past the right cell
+    dbra %d2, 1b
+    movem.l (%sp)+, %d0-%d2/%a0-%a1
+    rts
+
 a_icons:
     .byte 0, 14, 15, 15             | wooden, white and magic sword in hud_items
+hud_label_space:
+    .byte HUD_CH_S, HUD_CH_P, HUD_CH_A, HUD_CH_C, HUD_CH_E
+hud_label_fire:
+    .byte HUD_CH_F, HUD_CH_I, HUD_CH_R, HUD_CH_E      | FIRE_LAST 0: the joystick's button
+    .byte HUD_CH_C, HUD_CH_T, HUD_CH_R, HUD_CH_L      | 1: Control
+    .byte HUD_CH_S, HUD_CH_H, HUD_CH_F, HUD_CH_T      | 2: either Shift
     .align 2
 
-| An empty box whose left edge is column d3.w, labelled with tile d0.w. The
-| ribbon is only three rows high, so there is no bottom edge.
+| A box whose left edge is column d3.w and width d1.w cells: its name (a0, d1.w tile numbers) is the top edge, the two
+| rows below have a side at each end and blanks between. The ribbon is only three rows high, so there is no bottom edge.
 draw_hud_box:
-    movem.l %d0-%d2, -(%sp)
-    move.w %d0, -(%sp)
+    movem.l %d0-%d4/%a0, -(%sp)
+    move.w %d1, %d4
+    subq.w #1, %d4                      | the last cell's offset
     move.w %d3, %d1
     moveq #0, %d2
-    moveq #HUD_BOX_TL, %d0
+1:  moveq #0, %d0
+    move.b (%a0)+, %d0
     bsr draw_hud_tile
     addq.w #1, %d1
-    move.w (%sp)+, %d0
-    bsr draw_hud_tile
-    addq.w #1, %d1
-    moveq #HUD_BOX_TR, %d0
-    bsr draw_hud_tile
+    move.w %d1, %d0
+    sub.w %d3, %d0
+    cmp.w %d4, %d0
+    bls 1b
     moveq #1, %d2
 2:  move.w %d3, %d1
     moveq #HUD_BOX_SIDE, %d0
     bsr draw_hud_tile
-    addq.w #1, %d1
+3:  addq.w #1, %d1
+    move.w %d1, %d0
+    sub.w %d3, %d0
+    cmp.w %d4, %d0
+    beq 4f
     moveq #HUD_BLANK, %d0
     bsr draw_hud_tile
-    addq.w #1, %d1
-    moveq #HUD_BOX_SIDE, %d0
+    bra 3b
+4:  moveq #HUD_BOX_SIDE, %d0
     bsr draw_hud_tile
     addq.w #1, %d2
     cmp.w #3, %d2
     blo 2b
-    movem.l (%sp)+, %d0-%d2
+    movem.l (%sp)+, %d0-%d4/%a0
     rts
 
 | One "<icon> X nn" counter. d3.w = icon tile, d4.b = value, d2.w = HUD row.

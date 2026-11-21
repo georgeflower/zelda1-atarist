@@ -100,7 +100,7 @@ atari_st/                the port
 | `combat.s` | sword, beam, bombs, candle, drops/kill counters, `take_item`, HP/knock-back, rings, shield, clock, effects (spark/cloud), shutters, triforce ending, the ringleader trigger |
 | `hud.s` | status ribbon, hearts, counters, A/B boxes (`hud_items`) |
 | `menu.s` | Tab inventory screen (MODE_MENU), laid out as the ROM's submenu: B-item box, items box with the cursor, passive row, triforce or map sheet; the HUD ribbon sits below it |
-| `quit.s` | The Esc question (`MODE_QUIT` 6): QUIT WITHOUT SAVING / SAVE AND QUIT (`save_store_game` of the slot in `OFF_PROFILE`, then `exit_program`) / BACK TO GAME (Esc again does the same), three lines on a black screen with the ribbon's heart as the cursor; Up/Down (W/S, joystick) move, Return, keypad Enter, Ctrl, Space or the joystick button choose (`QUIT_SEL`, `QUIT_KEYS`); opened by `menu_check_open` after the sprites are erased (as the Tab screen is), closed like `menu_close`; `text_draw` writes an ASCII string with `text_glyphs`; a scroll or a cave keeps the request until Link walks again |
+| `quit.s` | Two pages of `MODE_QUIT` (6), `QUIT_PAGE`: 1 is **How to play** (the keys, PRESS FIRE; opened by the Help key, `HELP_REQUESTED`, and before a new character's first screen: `filesel_play` asks for it when the slot has no sword and no deaths; any choosing key, Help or Esc closes it), 0 is the Esc question with the keys listed above it. The pages are row/column/text tables in `.rodata` (`quit_keys_page`, `quit_help_page`, reached with `ltab`); `text_draw` knows capitals, digits, the space and the comma. `draw_hud` draws nothing in `MODE_QUIT` (the ribbon waits, `HUD_DIRTY` kept, till the page closes). The Esc question: QUIT WITHOUT SAVING / SAVE AND QUIT (`save_store_game` of the slot in `OFF_PROFILE`, then `exit_program`) / BACK TO GAME (Esc again does the same), three lines on a black screen with the ribbon's heart as the cursor; Up/Down (W/S, joystick) move, Return, keypad Enter, Ctrl, Space or the joystick button choose (`QUIT_SEL`, `QUIT_KEYS`); opened by `menu_check_open` after the sprites are erased (as the Tab screen is), closed like `menu_close`; `text_draw` writes an ASCII string with `text_glyphs`; a scroll or a cave keeps the request until Link walks again |
 | `intro.s` | the title, the story and the parade of the treasures (MODE_INTRO, game mode 0 of the ROM, M10): ring of 200 lines filled from tile tables, the waterfall's sprites, the glowing Triforce, the fade, `intro_leave`; included after `bosses.s`, reaches main.s through `*_far` stubs |
 | `credits.s` | the credits wall (`INTRO_PHASE_CREDITS` of `MODE_INTRO`, game mode `$13` of the ROM after Zelda's words): the same ring of 200 lines as the story, filled from `credits_*` tables; scrolls 600 lines, then the last screen (ash pile, flashing Triforce of Power); included after `intro.s` |
 | `filesel.s` | the file menu (mode 1, E, F inside `MODE_INTRO` phase 2): player select, name board, elimination, and the continue question after a death (`FILE_CONTINUE`); the slots (`SLOT_*`) |
@@ -174,10 +174,11 @@ From `atari_st/` (inside WSL) or via `make -C atari_st` from the repo root:
 make all        # assets + assemble + link + PRG  -> build/ZELDAST.PRG
 make check      # all + unit tests + asset verify + PRG header check
 make clean      # rm -rf build  (deletes scratch scripts in build/ too!)
+make dist       # build/dist/: the PRG, the .DAT files and CONTROLS.TXT (the keys as text; make disk puts it on the floppy too)
 make all NTSC=1 # a USA/Japan ROM at the NTSC NES's speed (see below)
 ```
 
-`NTSC=1` (from the fork besh27/zelda1-atarist, merged): `--defsym SPEED_NTSC=1`, so on a 60 Hz display `main_loop` and `music_vbl` no longer hold every sixth VBL (one game and music step a VBL, the NTSC NES's speed), and the music is ripped with the NTSC CPU clock (`MUSIC_CLOCK=ntsc`, `music_pack.py --clock`; with the wrong clock every note is about a semitone off). `build/speed.stamp` and the music stamp make switching it reassemble and re-rip. The default (PAL speed everywhere) is what the owner's disk images use. `--defsym DEV_GOD=1` keeps Link from being hurt (speed tests only).
+`NTSC=1` (from the fork besh27/zelda1-atarist, merged): `--defsym SPEED_NTSC=1`: `init_video` switches the ST to 60 Hz (bit 1 of `$FF820A` cleared, the old value in `OLD_SYNC`, put back by `restore_video`), so a PAL ST plays it at the NTSC speed too, and on that display `main_loop` and `music_vbl` no longer hold every sixth VBL (one game and music step a VBL, the NTSC NES's speed), and the music is ripped with the NTSC CPU clock (`MUSIC_CLOCK=ntsc`, `music_pack.py --clock`; with the wrong clock every note is about a semitone off). `build/speed.stamp` and the music stamp make switching it reassemble and re-rip. The default (PAL speed everywhere) is what the owner's disk images use. `--defsym DEV_GOD=1` keeps Link from being hurt (speed tests only).
 
 From PowerShell:
 
@@ -190,7 +191,7 @@ The music bank (`music_bank.bin`, `music_drum_table.bin`, `music_ids.inc`) is bu
 `ext/Original.nes`; the Makefile also tracks whether `py65` is importable (`build/music_capability.stamp`), so
 installing or removing it rebuilds the bank. Without ROM or `py65` the bank is empty and the game silent.
 
-Makefile variables: `TOOLCHAIN_PREFIX` (default `m68k-linux-gnu-`), `PYTHON`
+Makefile variables: `TOOLCHAIN_PREFIX` (`m68k-linux-gnu-` if that `as` is installed, else `m68k-elf-`, as Arch names them), `PYTHON`
 (`python3`). Environment for the tools: `TOS` (path to a TOS image, needed by the
 screenshot harness), `HATARI` (binary, default `hatari`), and the **dev-start
 variables** below.
@@ -268,7 +269,9 @@ python3 tools/screenshot.py --vbls 800 --keys '700:+k,702:-k,710:+space,712:-spa
 - `--keys` is `"<vbl>:+<key>,<vbl>:-<key>,..."`: key press/release events injected
   by **poking the key-state table** in RAM (not through the IKBD), so they test the
   game logic but not `ikbd_isr`. Known keys: `up down left right w a s d k b space
-  tab ctrl alt` (extend `SCANCODES` in `screenshot.py` for more).
+  tab esc return enter ctrl alt lshift rshift help` (extend `SCANCODES` in `screenshot.py` for more). They poke the table, so
+  what `poll_keyboard` does on a key's way in (Shift into Control's byte, `FIRE_LAST`, `HELP_REQUESTED`) is not run: poke those
+  variables instead.
 - **Poke events**: `700:=ENEMY_X.0=120` writes byte 0 of variable `ENEMY_X`;
   `700:=LINK_X=0x78` pokes a plain byte; `.N` indexes arrays. Variable names are
   the `gvar` names in `src/globals.s` (the harness replays the macro to get
@@ -439,6 +442,7 @@ stays that of the display (50 updates a second) and only the picture runs at hal
 - HUD glyphs are 8x8 (`draw_hud_tile`, byte stores, no shifting); `text_glyphs`
   maps NES text codes (digits 0-9, A-Z = `$0A`-`$23`, space `$24`, `.`=`$2C`,
   `-`=`$2F`) to glyphs; `menu_text` converts ASCII.
+- **The two item boxes** (`draw_hud_boxes`, `draw_hud_box`): named after the ST's keys, not B and A: `SPACE` over the item box (columns 9-13, the word is the top edge, the item in column 11) and over the sword's box (15-18) `FIRE`, `CTRL` or `SHFT`, the fire key used last (`FIRE_LAST`). The sword's box is four cells wide, so `hud_half` moves the sword half a cell right into `HUD_HALF` (the nibbles of every plane byte). The inventory's ROM line USE B BUTTON is USE SPACE (`submenu.use_space`, replacing the ROM's codes in the nametable before the picture is baked).
 - `hud_items.bin`: icons for A/B boxes, 2 tiles each, in the order of `actors.HUD_ITEM_IDS` (sword, bomb, boomerang,
   candle, compass, map, bow, recorder, food, blue and red potion, rod, magic boomerang, red candle, white and magical
   sword, arrows, raft, book, rings, ladder, magic key, bracelet, magic shield, letter); `b_icons` in `items.s` maps a
@@ -457,8 +461,8 @@ stays that of the display (50 updates a second) and only the picture runs at hal
 - `read_input_dir` reduces held keys to one direction: bits right=1, left=2, down=4,
   up=8, **lowest bit wins** (so a stuck Up shows only when nothing else is held); a
   direction pressed this frame wins, else the current one is kept while held.
-- **Controls**: arrows / `W A S D` / joystick walk; **`Ctrl` or joystick fire =
-  sword (A)**; **`Space`, `Alternate` or `B` = B item** (bombs / boomerang / candle, edge
+- **Controls**: arrows / `W A S D` / joystick walk; **`Ctrl`, either `Shift` or joystick fire =
+  sword (A)** (`poll_keyboard` keeps Control's byte of `KEY_STATES` down while Control or a Shift is, `CTRL_RAW` being Control itself, so every reader of `SCAN_CTRL` takes Shift too; the fire key used last is `FIRE_LAST`, 0 joystick, 1 Control, 2 Shift, which names the A box); **`Space`, `Alternate` or `B` = B item** (the pages and the docs name Space and Alternate only: the ST has no B button); **`Help`** (`$62`) = the How to play page (bombs / boomerang / candle, edge
   triggered); **`Tab` = inventory screen** (also inside a cave: `menu_check_open_cave`, `MENU_CAVE`; the letter is chosen there and shown to the medicine woman with B); `T` debug room id (`DEBUG_ROOM`, drawn by `draw_hud_debug` at ribbon col 19; edge-triggered via `T_HELD`); `Esc` = the quit question (`quit.s`: `OFF_EXIT_REQUESTED` is the request, `menu_check_open` turns it into `MODE_QUIT` while Link walks; on the title, the story and the death screens `main_loop` ends the game at once). Scancodes: Space
   `$39`, Ctrl `$1D`, Alt `$38`, B `$30`, Tab `$0F`, K `$25`, T `$14`, Esc `$01`.
 

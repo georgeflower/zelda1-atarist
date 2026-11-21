@@ -17,7 +17,9 @@ TOOLS_DIR := tools
 ASSET_INPUTS := $(ROOT_DIR)/src/bins.xml $(ROOT_DIR)/src/Z_05.asm $(ROOT_DIR)/src/Z_06.asm \
 	$(TOOLS_DIR)/underworld.py $(TOOLS_DIR)/actors.py $(TOOLS_DIR)/intro.py $(TOOLS_DIR)/credits.py $(TOOLS_DIR)/filesel.py $(TOOLS_DIR)/gameover.py $(TOOLS_DIR)/submenu.py $(ROOT_DIR)/src/Z_01.asm $(ROOT_DIR)/src/Z_02.asm \
 	$(wildcard $(ROOT_DIR)/bin/dat/CommonBackgroundPatterns.dat $(ROOT_DIR)/ext/Original.nes)
-TOOLCHAIN_PREFIX ?= m68k-linux-gnu-
+# The m68k binutils: Debian/Ubuntu call them m68k-linux-gnu-*, Arch (m68k-elf-binutils, AUR) m68k-elf-*. The first
+# one installed is taken; TOOLCHAIN_PREFIX=... on the command line picks another.
+TOOLCHAIN_PREFIX ?= $(or $(if $(shell command -v m68k-linux-gnu-as 2>/dev/null),m68k-linux-gnu-),$(if $(shell command -v m68k-elf-as 2>/dev/null),m68k-elf-),m68k-linux-gnu-)
 AS := $(TOOLCHAIN_PREFIX)as
 LD := $(TOOLCHAIN_PREFIX)ld
 OBJCOPY := $(TOOLCHAIN_PREFIX)objcopy
@@ -131,11 +133,12 @@ dist: all
 	@mkdir -p $(DIST_DIR)
 	cp $(PRG) $(DIST_DIR)/
 	cp $(addprefix $(GENERATED_DIR)/,$(DATA_FILES)) $(DIST_DIR)/
+	cp CONTROLS.TXT $(DIST_DIR)/
 
 # A 720 KB floppy image with the game on it, for a real drive, a Gotek or an emulator (the 18 files and the PRG fit with room to spare).
 DISK := $(BUILD_DIR)/ZELDA.st
 disk: all
-	$(PYTHON) tools/make_disk.py $(DISK) $(PRG) $(addprefix $(GENERATED_DIR)/,$(DATA_FILES))
+	$(PYTHON) tools/make_disk.py $(DISK) $(PRG) $(addprefix $(GENERATED_DIR)/,$(DATA_FILES)) CONTROLS.TXT
 
 check: all
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py'

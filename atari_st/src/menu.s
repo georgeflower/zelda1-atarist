@@ -44,6 +44,14 @@ menu_check_open:
     bne 0f
     bsr quit_open
     bra 9f
+0:  tst.b OFF_HELP_REQUESTED(%a5)       | Help, or a new character: How to play (quit.s), likewise
+    beq 0f
+    tst.b OFF_GAME_MODE(%a5)
+    bne 0f
+    tst.b OFF_ENDING_PHASE(%a5)
+    bne 0f
+    bsr quit_help_open
+    bra 9f
 0:
     lea OFF_KEY_STATES(%a5), %a0
     tst.b SCAN_TAB(%a0)

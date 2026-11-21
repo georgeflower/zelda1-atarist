@@ -541,6 +541,12 @@
     gvar LINK_DOORWAY, 1        | the doorway Link is in (DoorwayDir: its direction bit), 0 in the room
     gvar LINK_AUTOWALK, 1       | pixels left of the walk in from the screen's edge after a room's scroll (mode 4)
     gvar FALSE_WALL_T, 1        | frames he has yet to push against a false wall before it lets him through (TouchDoorFalse: $18)
+    gvar CTRL_RAW, 1            | the Control key itself: KEY_STATES' Control byte is Control or either Shift (input.s)
+    gvar FIRE_LAST, 1           | the fire key used last, for the A box's label: 0 the joystick (FIRE), 1 Control, 2 Shift
+    gvar HELP_REQUESTED, 1      | Help was pressed (or a new character starts): menu_check_open shows the How to play page
+    gvar QUIT_PAGE, 1           | the page MODE_QUIT shows: 0 the Esc question with the controls, 1 How to play
+    gvar OLD_SYNC, 1            | the sync mode TOS had ($FF820A): the NTSC build switches to 60 Hz and puts it back
+    gvar HUD_HALF, 128          | the A box's sword moved half a tile to the right: left and right cell of the top, then of the bottom
     galign
     gvar IVP, 68                 | where each table of INTRO.DAT is while the buffer holds it (INTRO_TABLE_COUNT longs; ivtab, loader.s)
     .equ GLOBALS_BYTES, gvar_offset

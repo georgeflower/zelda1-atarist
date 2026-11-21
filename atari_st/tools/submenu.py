@@ -96,6 +96,27 @@ def _ppu(streams) -> I.Ppu:
     return ppu
 
 
+def _text_codes(text: str) -> list[int]:
+    return [0x24 if c == " " else int(c, 36) for c in text]
+
+
+USE_B_BUTTON = "USE B BUTTON"           # the ROM's line over "FOR THIS" (row 18 of the nametable)
+USE_SPACE = "USE SPACE"                 # the ST's B button is Space: the same letters of the ROM, placed over "FOR THIS"
+
+
+def use_space(ppu: I.Ppu) -> None:
+    """The line USE B BUTTON becomes USE SPACE, starting two cells in (where FOR THIS starts below it)."""
+    names = ppu.tiles[1]
+    old = _text_codes(USE_B_BUTTON)
+    found = [i for i in range(len(names) - len(old)) if list(names[i:i + len(old)]) == old]
+    if len(found) != 1:
+        raise SystemExit("The inventory's line USE B BUTTON is not where it was")
+    at = found[0]
+    new = _text_codes(" " * 2 + USE_SPACE)
+    new += [0x24] * (len(old) - len(new))
+    names[at:at + len(old)] = new
+
+
 def _picture(ppu: I.Ppu, tiles, palette: B.PaletteMap, bank: I.TileBank) -> list[int]:
     cells = []
     for row in range(FIRST_ROW, FIRST_ROW + PICTURE_ROWS):
@@ -162,6 +183,8 @@ def build(source_root: Path, palette: B.PaletteMap, ow_bg, uw_bg, sp_tiles) -> S
     ow_streams = [empty_rows[label] if label in empty_rows else I.table(asm6, label) for label in OW_BUFFERS]
     uw_streams = [I.table(asm6, label) for label in UW_BUFFERS]
     ow_ppu, uw_ppu = _ppu(ow_streams), _ppu(uw_streams)
+    use_space(ow_ppu)
+    use_space(uw_ppu)
     ow_cells = _picture(ow_ppu, ow_bg, palette, bank)
     uw_cells = _picture(uw_ppu, uw_bg, palette, bank)
     out.cells = I.words(ow_cells + uw_cells)

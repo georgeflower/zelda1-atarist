@@ -54,6 +54,12 @@ init_video:
 
     movea.l #SHIFT_MODE, %a1
     clr.b (%a1)                 | 320x200, four bitplanes
+    .ifdef SPEED_NTSC
+    | The NTSC build (make NTSC=1) plays a step every frame: a PAL ST is switched to 60 Hz for it (bit 1 of the sync
+    | mode clear), as the NTSC NES runs, and put back on the way out (restore_video).
+    move.b 0xffff820a, OFF_OLD_SYNC(%a5)
+    bclr #1, 0xffff820a
+    .endif
 
     | One ST palette covers every NES background and sprite row; see
     | build_palette_map in tools/build_assets.py.
@@ -73,6 +79,9 @@ restore_video:
 
     movea.l #SHIFT_MODE, %a1
     move.b OFF_OLD_SHIFT_MODE(%a5), (%a1)
+    .ifdef SPEED_NTSC
+    move.b OFF_OLD_SYNC(%a5), 0xffff820a    | 50 or 60 Hz, as TOS had it
+    .endif
     movea.l #VIDEO_BASE_LOW, %a1
     move.b OFF_OLD_SCREEN_LOW(%a5), (%a1)
     movea.l #VIDEO_BASE_MID, %a1
