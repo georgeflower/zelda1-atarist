@@ -103,7 +103,9 @@ SCENES: dict[str, list[str]] = {
     "file_register": ["--vbls", "480", "--keys", MENU_TO_REGISTER],
     "file_register_typed": ["--vbls", "556", "--keys", f"{MENU_TO_REGISTER},{MENU_ZELDA}"],
     "file_named": ["--vbls", "700", "--keys", MENU_REGISTERED],
-    "file_play": ["--vbls", "800", "--keys", f"{MENU_REGISTERED},710:+return,712:-return"],
+    # A new character sees How to play first (quit.s, QUIT_PAGE 1); Return goes on to the game.
+    "file_howto": ["--vbls", "800", "--keys", f"{MENU_REGISTERED},710:+return,712:-return"],
+    "file_play": ["--vbls", "860", "--keys", f"{MENU_REGISTERED},710:+return,712:-return,820:+return,822:-return"],
     "file_eliminate": ["--vbls", "745", "--keys", MENU_TO_ELIMINATION],
     "file_eliminated": ["--vbls", "780", "--keys", f"{MENU_TO_ELIMINATION},750:+return,752:-return"],
     # The Tab inventory screen (menu.s, tools/submenu.py): the ROM's layout, then closing it again.
