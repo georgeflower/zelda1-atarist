@@ -27,8 +27,9 @@ damage, tile id, table), read it from there rather than guessing.
 
 ## 1.1 Versions
 
-The repository carries **no version numbers**: no `VERSION` file, no `CHANGELOG.md`, no version line in the docs. Göran tags releases himself,
-so do not add any of these or bump anything when you finish a milestone; what is left is in `atari_st/PLAN.md`.
+Göran sets the version numbers and tags releases himself; do not invent or bump one. `CHANGELOG.md` (repository root, from 1.02 on)
+lists what changed in each version he names, for players, in plain words, newest first: add what a change does for the player under the
+version he is working towards (ask which, if none is named). No `VERSION` file and no version line elsewhere in the docs; what is left is in `atari_st/PLAN.md`.
 
 ## 1.2 Workflow
 
@@ -63,6 +64,7 @@ No pull requests: commit straight to `master` (the default branch) and push when
 
 ```
 build.ps1, util.ps1      PowerShell helpers from the original disassembly project
+CHANGELOG.md             what changed in each version, for players (versions set by the owner)
 README.md                short project overview (+ controls) and the step-by-step build instructions (Linux, Windows/WSL): keep them in step with the Makefile
 AGENTS.md                this briefing (CLAUDE.md only points to it)
 src/                     ORIGINAL NES disassembly (Z_00..Z_07.asm, *.inc, bins.xml, dat/)
