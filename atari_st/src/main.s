@@ -1046,6 +1046,7 @@ enemy_shove_snap_far:                   | last, so that it moves none of the stu
     .include "loader.s"
     .include "linkdir.s"
     .include "zol.s"
+    .include "rim.s"
 
     | The anchor is this address plus a 32-bit link-time distance (a PC-relative relocation), so the routine may sit
     | anywhere. (It used to sit in the middle of the code with a 16-bit `lea room_palette(%pc)`, which limited the

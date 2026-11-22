@@ -149,7 +149,7 @@ level_text:
 | SPACE over the item box (five cells: the word is its top edge), and over the sword's box the fire key used last
 | (FIRE for the joystick, CTRL or SHFT: FIRE_LAST, which input.s keeps). The sword's box is four cells wide, so the
 | sword is drawn half a cell to the right (hud_half), in its middle.
-    .equ HUD_B_COL, 9               | the item box: columns 9-13, the item in 11
+    .equ HUD_B_COL, 9               | the item box: SPACE over columns 9-13, its sides half a cell in (24 pixels apart, as the sword box's), the item in 11
     .equ HUD_A_COL, 15              | the sword's box: columns 15-18, the sword across 16 and 17
 
 draw_hud_boxes:
@@ -158,6 +158,26 @@ draw_hud_boxes:
     moveq #HUD_B_COL, %d3
     moveq #5, %d1
     bsr draw_hud_box
+    | Its sides half a cell in, so that they stand as far apart as the sword box's (24 pixels) and in the middle of
+    | the five letters of SPACE: the side's picture moved four pixels right (hud_half), drawn into columns 9-10 and 12-13.
+    ltab hud_tiles, %a0
+    adda.l #(HUD_BOX_SIDE * HUD_TILE_BYTES), %a0
+    bsr hud_half
+    lea OFF_HUD_HALF(%a5), %a0
+    moveq #1, %d2
+20: moveq #HUD_B_COL, %d1
+    bsr draw_hud_tile_ptr
+    moveq #(HUD_B_COL + 3), %d1
+    bsr draw_hud_tile_ptr
+    lea HUD_TILE_BYTES(%a0), %a0
+    moveq #(HUD_B_COL + 1), %d1
+    bsr draw_hud_tile_ptr
+    moveq #(HUD_B_COL + 4), %d1
+    bsr draw_hud_tile_ptr
+    lea -HUD_TILE_BYTES(%a0), %a0
+    addq.w #1, %d2
+    cmp.w #3, %d2
+    blo 20b
     moveq #0, %d0
     move.b OFF_FIRE_LAST(%a5), %d0
     lsl.w #2, %d0

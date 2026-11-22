@@ -198,6 +198,9 @@ draw_link:
     adda.l %d0, %a1
     move.w %d2, %d0
     bsr draw_sprite
-
+    tst.b OFF_LEVEL(%a5)
+    beq 97f
+    bsr link_rim_f                      | in a dungeon: not over the outer wall (rim.s)
+97:
     movem.l (%sp)+, %d0-%d2/%a0-%a1
 99: rts

@@ -4,6 +4,8 @@ A port of Zelda 1 to the Atari ST. It's written in 68000 assembly and runs as a 
 
 There is no game data in this repo. You have to bring your own ROM and put it in `ext/Original.nes`. The graphics, rooms, music and texts are all read from it when you build. The ROM is gitignored and should never be committed.
 
+**What's new:** see the [changelog](CHANGELOG.md) (latest version: 1.03).
+
 I'm making this together with an AI (Claude, from Anthropic). I decide what to build and what to fix, Claude writes most of the code and the tools. The behaviour follows aldonunez's disassembly of the original, which is in `src/`.
 
 ## Status

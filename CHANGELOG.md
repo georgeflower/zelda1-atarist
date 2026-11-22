@@ -3,7 +3,14 @@
 What changed between versions of the Atari ST port, for players. The author sets the
 version numbers; the newest is at the top.
 
-## 1.02 (BETA)
+## 1.03
+
+- The item box on the status bar is as wide as the sword box: its lines stand as far apart
+  as the ones under CTRL, centred under the word SPACE.
+- In a dungeon, Link goes in under the outer wall when he walks out through a doorway.
+  Before, he was drawn on top of the bricks.
+
+## 1.02
 
 Mostly from players' reports: two comments on Reddit, and krs's test of the beta at 60 Hz
 on a 1040 STFM. The fixes in the second list have not yet been tried on real hardware.

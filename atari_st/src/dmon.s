@@ -636,6 +636,7 @@ vire_hops:
     farstub boss_wizzrobe_f, dmon_wizzrobe
     farstub zol_hit_f, zol_hit
     farstub gel_split_f, gel_split
+    farstub link_rim_f, link_rim
     farstub boss_wizzrobe_frame_f, dmon_wizzrobe_frame
     farstub boss_manhandla_f, dmon_manhandla
     farstub boss_manhandla_init_f, manhandla_init

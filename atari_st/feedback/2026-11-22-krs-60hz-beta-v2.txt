@@ -1,0 +1,112 @@
+
+Legend of Zelda for Atari ST Feedback
+Table of Contents
+
+    Hardware configuration
+    60hz BETA V2
+        Build info
+        Bugs
+            Link's shield not visible
+            Link is not visible after screen transitions downward
+            Missing hit sound when hitting Zols
+            Hitting a stunned Zol delays when it flies back from the hit
+            Passing through closed doors on screen transitions
+            Sprites jumping when pushing blocks
+            Keys visible briefly when entering a room with skeletons
+            RM-4E Armos covering the cave got stuck
+            Bomb count icon is the wrong color
+            Vires count as defeated with only one of its Keese defeated
+            Like Likes can't be defeated when Link is caught by them
+            Like Likes not respawning on continue after they kill you?
+            None of the enemies in LEVEL-4 dropped items
+            Can not use the ladder to cross the water in RM-0A
+        Random thoughts
+
+Hardware configuration
+
+    Atari 1040STFM
+    TOS 1.04 and 2.06 (switchable)
+    CPU switchable between 8/16 MHz
+    4MB RAM
+    ACSI2STM Harddrive, running the game from it.
+
+60hz BETA V2
+Build info
+
+Commit ID: f34ab2c3e5ab693b11f46820e59bbaf6af25a684
+
+Built with an NTSC ROM having the following sha1sum:
+
+4671517d72d09799403f6c672cd2b395933e926e
+
+Build steps:
+
+make -C atari_st dist NTSC=1
+Bugs
+Link's shield not visible
+
+When Link is facing down the shield is not visible. Neither with the standard or Magical shield.
+Link is not visible after screen transitions downward
+
+If you walk down a screen in the overworld and then stop inputs during the transition, Link is not visible at the top of the screen until you move down slightly. He can still be hit by enemies in this state. Or at least it was possible to get hit by an arrow flying from Link's left to hit him while invisible.
+Missing hit sound when hitting Zols
+
+There is no hit sound when you hit Zols with the sword. At least the wooden sword.
+Hitting a stunned Zol delays when it flies back from the hit
+
+Need to check the behavior in the original game if it behaves the same there but here goes:
+
+The Zols now more accurately are flung backwards in the direction they were hit, before hitting a wall and splitting. If you first stun them using the boomerang before hitting them however they will stay in place until they are no longer stunned, and only then fly off in the direction you hit them.
+Passing through closed doors on screen transitions
+
+Dungeon doors that are closed until enemies are defeated have Link pass through them when he enters the room. For example in RM-52 of LEVEL-1 the door is already closed when you enter the room. In the original game it would close behind you after you enter the room.
+
+Another more minor difference to the original is that once you have defeated the enemies that cause the door to unlock, if you re-enter the room the door briefly closes and then opens again. In the ST version it stays open.
+Sprites jumping when pushing blocks
+
+When you push the block in RM-42 of LEVEL-1, Link and the block both jump into the position between the two, overlapping for a frame or two, and then jump back out to their final positions. This also happens with other pushable blocks.
+Keys visible briefly when entering a room with skeletons
+
+When entering a room containing skeletons that can carry a key, the key is visible in the room for a few frames before suddenly getting attached to one of the skeletons when they spawn.
+RM-4E Armos covering the cave got stuck
+
+After entering this screen on the overworld I defeated the left Armos, then took care of the Moblins that enter from the left. Afterwards I walked into the Armos on the right and it woke up but it didn't move, and I couldn't damage it. It also didn't damage Link if I walked into it.
+
+I tried to reproduce this again but it didn't happen the second time.
+
+Edit: Ah so you can also reproduce this if you manage to get a clock pickup on a screen with Armos, and pick it up before waking them up. I managed to get this outside the entrance to LEVEL-5, overworld room ID RM-0B, where the Leever dropped a clock pickup. In that case it may be intended behavior, but it feels odd that you cannot damage them in this state.
+Bomb count icon is the wrong color
+
+I noticed this in earlier builds too but forgot to mention it, but the icon on the status bar showing you the amount of bombs you have is the wrong color. Maybe a technical limitation?
+Vires count as defeated with only one of its Keese defeated
+
+Need to compare NES version behavior still, maybe it's the same there.
+
+If you hit a Vire enemy two red Keese are spawned. If you kill only one of the Keese then exit the room and re-enter the Vire does not respawn.
+Like Likes can't be defeated when Link is caught by them
+
+In RM-32 of LEVEL-4 I got caught by a Like Like and then was unable to defeat them with my sword, leading to my death. This is quite a severe issue as it leads to a guaranteed death. I had the wooden sword when this happened if that matters.
+Like Likes not respawning on continue after they kill you?
+
+In the same room as the above issue, after I got killed by the Like Likes and continued the game, when I came back to the room only the Zol and the Bubbles were there.
+
+This was not completely consistent. The second time it did not happen. But the third time I had killed one of the Zols before I died and then when I got back both the Like Likes and one of the Zols did not respawn. Maybe it is something in that room? It opens a stairwell when you push a block in here, where you find the ladder. I have not been able to reproduce this with other rooms.
+None of the enemies in LEVEL-4 dropped items
+
+Not sure if intentional but none of the enemies in LEVEL-4 dropped items when killed, except for Manhandla who dropped a heart piece.
+Can not use the ladder to cross the water in RM-0A
+
+Maybe this is the same in the original but in the overworld room ID RM-0A, outside where you find the white sword, you cannot cross the water using the ladder. The Zora can spawn in that part so maybe that is why.
+Random thoughts
+
+    Both the black screen issue and the corrupted colors on exit issue are indeed fixed now when having desktop accessories loaded!
+    I also could not reproduce the frame drops at the entrance of LEVEL-3 now in this build, even when having the desktop accessories loaded. Odd.
+    It is very minor, but I'd be remiss if I did not mention the music loop in the intro. It is a whole lot more consistent now! But it now loops on its own just before the intro restarts, and then the song restarts itself again. At 16 MHz it restarts just slightly after the intro itself restarts, causing a slight hickup in both cases. To be clear I don't think this is worth fixing; it is already good enough now in my opinion.
+    I mentioned the music of the FDS version previously, but I forgot that that version of the game is actually quite different functionality-wise in other ways too. Mainly that it loads from a floppy disk, and thus has loading screens etc. Maybe it is too different from the western release to have support for it in this port.
+    I got the White Sword and as you mentioned it is has a checkered texture to stand out against the overworld background. I'm not sure if the white parts of it look different from the non-checkered version but at least they don't appear to have the same color as the ground on my CRT.
+
+Author: krs
+
+Created: 2026-11-22 Sun 22:39
+
+Validate
