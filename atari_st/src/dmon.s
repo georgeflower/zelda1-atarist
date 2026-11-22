@@ -213,8 +213,12 @@ dmon_contact:
 1:  cmp.b #MON_LIKELIKE, %d2
     bne 8f
     tst.b OFF_LINK_EATEN(%a5)
+    beq 5f
+    cmp.b OFF_EATER(%a5), %d5
     bne 2f
-    move.b #1, OFF_LINK_EATEN(%a5)      | it swallows him
+    moveq #1, %d0                       | the one that has him does him no more harm (the NES: a heart when it takes
+    bra 9f                              | him, then none while he hacks his way out; tools/refnes/likelike_probe.mjs)
+5:  move.b #1, OFF_LINK_EATEN(%a5)      | it swallows him
     move.b %d5, OFF_EATER(%a5)
     clr.b OFF_EATEN_FRAMES(%a5)
     clr.b OFF_LINK_SHOVE(%a5)
@@ -637,6 +641,9 @@ vire_hops:
     farstub zol_hit_f, zol_hit
     farstub gel_split_f, gel_split
     farstub link_rim_f, link_rim
+    farstub link_clipped_f, link_clipped
+    farstub shut_tick_f, shut_tick
+    farstub owspec_whirl_ai_f, owspec_whirl_ai
     farstub boss_wizzrobe_frame_f, dmon_wizzrobe_frame
     farstub boss_manhandla_f, dmon_manhandla
     farstub boss_manhandla_init_f, manhandla_init

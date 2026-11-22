@@ -444,6 +444,8 @@ game_reset_position:
 0:  clr.b (%a0)+
     dbra %d0, 0b
     clr.b OFF_ROOM_HIST_I(%a5)
+    clr.b OFF_SPAWNED_VALID(%a5)        | and the kills in the room he died in are forgotten too: they used to be
+    clr.b OFF_ROOM_KILLS(%a5)           | booked to it on the next room's way in, and its last monsters stayed away (krs)
     bsr uw_kills_clear_df
     clr.b OFF_LEVEL(%a5)
     bsr mon_spr_select_df

@@ -83,8 +83,13 @@ uw_build_map:
     move.b 0(%a2, %d6.w), %d0
     cmpi.b #DOOR_SHUTTER, %d0
     bne 21f
-    btst %d6, %d7                   | a shutter opens once its room is cleared
-    bne 3f
+    btst %d6, %d7                   | a shutter opens once its room is cleared,
+    beq 22f
+    btst %d6, OFF_SHUT_FORCE(%a5)   | unless it is shut for a moment behind Link (shut_tick)
+    bne 8f
+    bra 3f
+22: btst %d6, %d1                   | and stands open while he comes in through it (InitMode_EnterRoom: then it
+    bne 3f                          | shuts behind him)
     bra 8f
 21: cmpi.b #4, %d0
     blo 8f                          | open or wall: the stored map already shows it
@@ -222,6 +227,8 @@ uw_mark_visited:
 uw_render_next:
     movem.l %d1-%d3/%a0, -(%sp)
     clr.b OFF_STASH_ROOM(%a5)           | Link is leaving a room: its rupees are no longer on show
+    clr.b OFF_SHUT_PHASE(%a5)
+    clr.b OFF_SHUT_FORCE(%a5)
     clr.b OFF_ROOM_LIT(%a5)             | and a room he lit is dark again
     bsr uw_respawn_check
     | The door Link comes in through is the opposite one; E/W and S/N swap.
@@ -393,6 +400,8 @@ uw_commit_next:
 1:  move.l (%a0)+, (%a1)+
     dbra %d0, 1b
     move.b OFF_UW_NEXT_MASK(%a5), OFF_UW_ENTER_MASK(%a5)
+    move.b #1, OFF_SHUT_PHASE(%a5)      | a shutter he came in by shuts behind him (shut_tick, rim.s)
+    move.b #SHUT_WAIT, OFF_SHUT_T(%a5)
     movem.l (%sp)+, %d0/%a0-%a1
     rts
 
@@ -437,6 +446,7 @@ uw_person_begin:
 | Once per frame: the letters, and Link's release when the last one is down. UW_PERSON: 1 speaking, 2 done
 | (the man stays; one who sells something shows it and waits for Link to step on it), 3 something was taken.
 uw_person_update:
+    bsr shut_tick_f
     movem.l %d0-%d3/%a0-%a2, -(%sp)
     move.b OFF_UW_PERSON(%a5), %d0
     beq 90f

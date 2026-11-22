@@ -582,7 +582,11 @@ update_enemies:
     cmp.b #ENEMY_SHOVE_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
     blo 2f                      | the shove is over; it flashes on but carries on
     bsr enemy_behaviour
-    cmp.w #BEH_MOLDORM, %d0
+    cmp.w #BEH_GEL, %d0
+    bne 21f
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne 2f                      | a zol running from a blow, or a gel sliding off, does that at once
+21: cmp.w #BEH_MOLDORM, %d0
     beq 2f                      | a Moldorm segment is not knocked about: it swims on while it flashes
     cmp.w #BEH_GLEEOK_HEAD, %d0
     beq 2f                      | nor is a head of Gleeok
@@ -604,7 +608,14 @@ update_enemies:
     lea OFF_ENEMY_STUN(%a5), %a0
     tst.b 0(%a0, %d5.w)
     beq 29f
-    subq.b #1, 0(%a0, %d5.w)    | stunned: it does nothing at all
+    subq.b #1, 0(%a0, %d5.w)    | stunned: it does nothing at all, but a zol's run from a blow or a gel's slide
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)   | goes on (UpdateZolState and Gel_Move look at no stun timer)
+    beq 8f
+    cmpi.b #MON_ZOL, OFF_ENEMY_TYPE(%a5, %d5.w)
+    beq 28f
+    cmpi.b #MON_GEL, OFF_ENEMY_TYPE(%a5, %d5.w)
+    bne 8f
+28: bsr gel_split_f
     bra 8f
 29: bsr dmon_eater             | a like-like with Link inside it does nothing else
     tst.w %d0

@@ -716,6 +716,7 @@ hit_enemy:
     beq 11f
     rts
 11: move.b #ENEMY_HURT_FRAMES, OFF_ENEMY_HURT(%a5, %d5.w)
+    sfx SFX_HARMED                      | DealDamage: the "harmed" sound for every blow that hurts
     bsr boss_hit_cry_f                  | a boss cries out when it is struck (bosses.s)
     move.l %d1, -(%sp)
     moveq #1, %d1                       | the hit's weight: set by the weapon, one by default
@@ -1753,9 +1754,13 @@ uw_setup_item:
 room_item_follow:
     cmpi.b #2, OFF_ITEM_ACTIVE(%a5)     | the room's item, visible and not taken
     bne 9f
-    tst.b OFF_ENEMY_ACTIVE(%a5)         | the first monster is alive
+    tst.b OFF_ENEMY_ACTIVE(%a5)         | the first monster is alive, or still in its spawn cloud (the ROM looks
+    bne 2f                              | only at its type, so the item sits on the cloud: krs saw it lie apart)
+    cmpi.b #3, OFF_ENEMY_CLOUD(%a5)
+    bhi 9f
+    tst.b OFF_ENEMY_CLOUD(%a5)
     beq 9f
-    tst.b OFF_LEVEL(%a5)
+2:  tst.b OFF_LEVEL(%a5)
     beq 9f                              | the overworld has no such carriers
     tst.b OFF_IN_CELLAR(%a5)
     bne 9f

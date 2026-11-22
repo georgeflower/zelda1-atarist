@@ -134,11 +134,6 @@ erase_at:
 draw_link:
     tst.b OFF_WHIRL_TELE(%a5)
     bne 99f                             | the whirlwind has him: he is not to be seen
-    cmp.b #0x40, OFF_LINK_Y(%a5)
-    bhs 98f
-    clr.b OFF_ERASE_VALID(%a5)          | in the top doorway's outer pixels he would be over the ribbon
-    rts
-98:
     movem.l %d0-%d2/%a0-%a1, -(%sp)
 
     | Pick the frame: direction chooses the pair, the walk counter the phase.
@@ -160,6 +155,10 @@ draw_link:
     move.b OFF_INV_RING(%a5), %d1    | the ring's tunic: three sets of eight frames
     lsl.w #3, %d1
     add.w %d1, %d0
+    tst.b OFF_INV_MAGIC_SHIELD(%a5)
+    beq 7f
+    add.w #24, %d0                      | the magic shield: the second 24 (build_assets.render_sprites)
+7:
     mulu.w #SPRITE_FRAME_BYTES, %d0
     ltab link_sprites, %a0
     adda.l %d0, %a0
@@ -175,7 +174,11 @@ draw_link:
     ltab item_sprites, %a0
     adda.l %d0, %a0
 5:
-
+    cmp.b #(NES_PLAY_AREA_TOP - 2), OFF_LINK_Y(%a5)
+    bhs 95f
+    bsr link_clipped_f                  | his top lines would be over the ribbon: only the rest (rim.s)
+    bra 97f
+95:
     | Screen X, then split into a group offset and a shift within the group.
     moveq #0, %d0
     move.b OFF_LINK_X(%a5), %d0

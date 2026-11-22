@@ -29,6 +29,7 @@
     farstub uw_redraw_room_bf, uw_redraw_room
     farstub take_item_bf, take_item
     farstub enemy_cell_blocked_bf, enemy_cell_blocked
+    farstub block_link_clamp_r, block_link_clamp
     farstub opposite_dir_bf, opposite_dir
     farstub keese_turn_to_link_bf, keese_turn_to_link
     farstub keese_turn_random_bf, keese_turn_random
@@ -3559,6 +3560,7 @@ block_update:
     cmpi.b #3, OFF_BLOCK_STATE(%a5)
     bne 2f
     addq.b #1, OFF_BLOCK_FRAME(%a5)
+    bsr block_link_clamp_r              | Link stays behind the block, not inside it (rim.s)
     cmpi.b #BLOCK_PUSH_FRAMES, OFF_BLOCK_FRAME(%a5)
     blo 2f
     bsr block_land
@@ -3702,16 +3704,7 @@ block_land:
     movem.l %d0-%d7/%a0-%a1, -(%sp)
     clr.b OFF_BLOCK_FRAME(%a5)
     bsr block_geom
-    cmpi.b #TRIGGER_PUSH_BLOCK, OFF_ROOM_TRIGGER(%a5)
-    bne 7f
-    moveq #0, %d0                   | the shutters open and the room is rebuilt (which puts the block back
-    move.b OFF_ROOM_ID(%a5), %d0    | where it started: the map is set again below)
-    bsr uw_open_shutters_bf
-    bsr uw_redraw_room_bf
-    bsr block_geom
-    bra 8f
-7:  sfx SFX_SECRET
-8:  move.b #2, OFF_BLOCK_STATE(%a5)  | (landed; a redraw from here on keeps it where it is, block_keep)
+    move.b #2, OFF_BLOCK_STATE(%a5)  | (landed; a redraw from here on keeps it where it is, block_keep)
     lea OFF_UW_MAP(%a5), %a0        | the floor where it was, the block where it is
     lea OFF_BLOCK_TILES(%a5), %a1
     moveq #3, %d6
@@ -3737,8 +3730,16 @@ block_land:
     lsl.w #3, %d5
     add.w #BLOCK_ROW_Y, %d5
     move.b %d5, OFF_BLOCK_Y(%a5)
+    cmpi.b #TRIGGER_PUSH_BLOCK, OFF_ROOM_TRIGGER(%a5)
+    bne 7f
+    moveq #0, %d0                   | the shutters open and the room is drawn once, with the block where it landed
+    move.b OFF_ROOM_ID(%a5), %d0    | (block_keep): drawing it twice, first with the block back on its first square,
+    bsr uw_open_shutters_bf         | took long enough on an ST that the screen showed that one for a dozen frames
+    bsr uw_redraw_room_bf
+    bra 9f
+7:  sfx SFX_SECRET
     bsr block_render
-    movem.l (%sp)+, %d0-%d7/%a0-%a1
+9:  movem.l (%sp)+, %d0-%d7/%a0-%a1
     rts
 
 | The room is being laid out again inside the room (a bomb opened a wall, a door opened): the map has just been rebuilt from

@@ -3,6 +3,33 @@
 What changed between versions of the Atari ST port, for players. The author sets the
 version numbers; the newest is at the top.
 
+## Next version
+
+From krs's second report (the 1.02 beta at 60 Hz on his 1040 STFM). Not yet tried on real
+hardware.
+
+- A like-like that has swallowed Link no longer keeps taking a heart from him every
+  moment. On the NES it bites once and then waits while he hacks his way out; on the ST
+  it went on biting, which with the wooden sword meant certain death.
+- Link is no longer invisible at the top of the screen after scrolling down: the part of
+  him inside the play area is drawn.
+- Link carries his shield when facing down, and the magic shield shows from the front and
+  the side, as on the NES.
+- A dungeon shutter Link walks in through stands open until he is in the room and then
+  shuts behind him. In a room already cleared it shuts and opens again, as the NES does.
+- A pushed block slides without jumping back to where it started for a moment, and Link
+  stays behind it instead of walking into it.
+- The key a skeleton carries no longer lies on its own spot before the skeleton appears:
+  it is on the skeleton's puff of smoke.
+- Hitting a monster without killing it makes the "hit" sound.
+- Dying in a room and continuing no longer leaves that room's last monsters missing.
+- A zol hit after the boomerang stunned it runs from the blow at once.
+- The bomb icon on the status bar is blue, as on the NES.
+
+As on the NES (not changed): Level 4's gels and like-likes never drop anything; a vire
+with one of its keese killed stays away; an armos frozen by the clock cannot be hit;
+the ladder does not work over the water at the white sword's screen.
+
 ## 1.03
 
 - The item box on the status bar is as wide as the sword box: its lines stand as far apart

@@ -128,7 +128,7 @@ $(OBJ): $(SOURCES) $(GENERATED) $(MUSIC_GENERATED) $(MUSIC_PACKED) $(SPEED_STAMP
 
 $(ELF): $(OBJ) link.ld
 	$(LD) $(LDFLAGS) -o $@ $(OBJ)
-	$(PYTHON) $(TOOLS_DIR)/check_reach.py --nm $(NM) --listing $(LISTING) $@ $(SOURCES)
+	$(PYTHON) $(TOOLS_DIR)/check_reach.py --nm $(NM) --listing $(LISTING) $@ $(SOURCES) || { rm -f $@; exit 1; }
 
 $(BIN): $(ELF)
 	$(OBJCOPY) -O binary $< $@

@@ -548,6 +548,9 @@
     gvar OLD_SYNC, 1            | the sync mode TOS had ($FF820A): the NTSC build switches to 60 Hz and puts it back
     gvar HUD_HALF, 128          | the A box's sword moved half a tile to the right: left and right cell of the top, then of the bottom
     gvar SLOT_NEW, 3            | per slot: registered in this sitting, How to play not yet shown (filesel_play); not saved
+    gvar SHUT_PHASE, 1          | the shutter Link came in by: 1 shuts it behind him, 2 opens it again in a cleared room
+    gvar SHUT_T, 1
+    gvar SHUT_FORCE, 1          | shutters (bit per direction, as UW_OPEN) shown shut although the room is cleared
     galign
     gvar OLD_NVBLS, 2           | TOS' nvbls, put back on the way out (init_video empties the VBL queue)
     gvar IVP, 68                 | where each table of INTRO.DAT is while the buffer holds it (INTRO_TABLE_COUNT longs; ivtab, loader.s)

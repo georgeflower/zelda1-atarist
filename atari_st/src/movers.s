@@ -78,7 +78,7 @@ mover_update:
     cmp.w #BEH_ARMOS, %d7
     beq owspec_armos_ai
     cmp.w #BEH_WHIRLWIND, %d7
-    beq owspec_whirl_ai
+    beq owspec_whirl_ai_f
     cmp.w #BEH_FAIRY, %d7
     beq owspec_fairy_ai
     move.l %d1, -(%sp)                  | a ghini turns toward Link whenever the dice allow

@@ -29,6 +29,8 @@ OW_BG_BLOCK_NAME = "dat/PatternBlockOWBG.dat"
 OW_BG_MISC_NAME = "dat/CommonMiscPatterns.dat"
 OW_SP_COMMON_NAME = "dat/CommonSpritePatterns.dat"
 OW_SP_BLOCK_NAME = "dat/PatternBlockOWSP.dat"
+OW_SP_DEMO_NAME = "dat/DemoSpritePatterns.dat"
+OW_SP_DEMO_FIRST_TILE = 0x70
 OW_BG_COMMON_FIRST_TILE = 0x00  # PPU $1000
 OW_BG_BLOCK_FIRST_TILE = 0x70  # PPU $1700
 OW_BG_MISC_FIRST_TILE = 0xF2  # PPU $1F20
@@ -128,7 +130,7 @@ HUD_GLYPHS = (
     ("HEART_EMPTY", 0x66, HUD_ACCENT_ROW),
     ("RUPEE", 0xF7, HUD_ACCENT_ROW),
     ("KEY", 0xF9, HUD_ACCENT_ROW),
-    ("BOMB", 0x61, HUD_ACCENT_ROW),
+    ("BOMB", 0x61, HUD_TEXT_ROW),           # the bomb sits in the attribute block below the key's: palette row 0, blue
     # The item boxes of the status bar.
     ("BOX_TL", 0x69, HUD_TEXT_ROW),
     ("BOX_TR", 0x6B, HUD_TEXT_ROW),
@@ -499,8 +501,11 @@ def load_ow_sprite_tiles(source_root: Path) -> list[list[list[int]]] | None:
     if common is None:
         return None
     block = extract_binary(source_root, OW_SP_BLOCK_NAME) or b""
+    # Tiles $70-$8D are never loaded by the game: they are what the title demo left in CHR RAM, there in the
+    # overworld too (the magic shield's tile $80 is one of them).
+    demo = (extract_binary(source_root, OW_SP_DEMO_NAME) or b"")[: (OW_SP_BLOCK_FIRST_TILE - OW_SP_DEMO_FIRST_TILE) * 16]
     return assemble_pattern_table(
-        ((OW_SP_COMMON_FIRST_TILE, common), (OW_SP_BLOCK_FIRST_TILE, block))
+        ((OW_SP_COMMON_FIRST_TILE, common), (OW_SP_DEMO_FIRST_TILE, demo), (OW_SP_BLOCK_FIRST_TILE, block))
     )
 
 
@@ -1130,11 +1135,57 @@ UW_LEVELS = (1, 2, 3, 4, 5, 6, 7, 8, 9)      # the dungeons the game has so far 
 LINK_TUNIC_SETS = 3     # no ring, blue ring, red ring
 
 
+# The shield (Link_EndMoveAndAnimate in Z_07.asm). Without the magic shield a Link facing down has the small one in
+# front: his left sprite's tile + $50 ($08 -> $58, $0A -> $5A). With it, the sprite on the shield's side (the right one
+# facing right, else the left one) whose tile is in LinkHeadTiles becomes the one of LinkHeadMagicShieldTiles. A
+# down-facing tile ($0A) that was mirrored is drawn plain (there is only one picture of the shield from the front).
+LINK_HEAD_TILES = (0x02, 0x06, 0x08, 0x0A)
+LINK_HEAD_MAGIC_SHIELD_TILES = (0x80, 0x54, 0x60, 0x60)
+LINK_SHIELD_SETS = 2    # the small shield, the magic shield
+
+
+def link_sprite_halves(first_tile: int, flip: bool, direction: str, magic: bool) -> tuple[tuple[int, bool], tuple[int, bool]]:
+    """(tile, mirrored) of Link's left and right 8x16 sprite for one frame, the shield applied."""
+    halves = [(first_tile + 2, True), (first_tile, True)] if flip else [(first_tile, False), (first_tile + 2, False)]
+    if magic:
+        side = 1 if direction == "right" else 0
+        tile, mirrored = halves[side]
+        if tile in LINK_HEAD_TILES:
+            new = LINK_HEAD_MAGIC_SHIELD_TILES[LINK_HEAD_TILES.index(tile)]
+            halves[side] = (new, False if tile == 0x0A else mirrored)
+    elif direction == "down":
+        tile, mirrored = halves[0]
+        if tile < 0x0B:
+            halves[0] = (tile + 0x50, False if tile == 0x0A else mirrored)
+    return halves[0], halves[1]
+
+
+def build_link_frame(chr_tiles, palette, halves) -> bytes:
+    """One 16x16 frame from two 8x16 sprites (tile, mirrored): four bitplane words and an opacity mask a line."""
+    columns = []
+    for tile, mirrored in halves:
+        rows = [chr_tiles[tile][r] for r in range(8)] + [chr_tiles[tile + 1][r] for r in range(8)]
+        columns.append([row[::-1] if mirrored else row for row in rows])
+    packed = bytearray()
+    for row in range(METATILE_HEIGHT):
+        pixels = columns[0][row] + columns[1][row]
+        packed.extend(pack_st_row(palette.index(LINK_PALETTE_ROW, value) for value in pixels))
+        mask = 0
+        for x, pixel in enumerate(pixels):
+            if pixel:
+                mask |= 1 << (15 - x)
+        packed.extend(mask.to_bytes(2, "big"))
+    return bytes(packed)
+
+
 def render_sprites(bundle: AssetBundle) -> bytes:
+    """Link's frames: for the small shield, then the magic one, a set per ring (none, blue, red) of LINK_FRAMES."""
     return b"".join(
-        build_sprite_frame(bundle.sprite_tiles, _TunicPalette(bundle.palette, tunic), LINK_PALETTE_ROW, first_tile, flip)
+        build_link_frame(bundle.sprite_tiles, _TunicPalette(bundle.palette, tunic),
+                         link_sprite_halves(first_tile, flip, name.split("_")[0], magic))
+        for magic in (False, True)
         for tunic in link_tunic_indices(bundle.palette)
-        for _, first_tile, flip in LINK_FRAMES
+        for name, first_tile, flip in LINK_FRAMES
     )
 
 
@@ -1665,7 +1716,7 @@ def write_outputs(out_dir: Path, bundle: AssetBundle) -> None:
             f"room_bytes={room_bytes}",
             f"metatile_count={metatile_count}",
             f"metatile_bytes={METATILE_BYTES}",
-            f"sprite_frame_count={len(LINK_FRAMES) * LINK_TUNIC_SETS}",
+            f"sprite_frame_count={len(LINK_FRAMES) * LINK_TUNIC_SETS * LINK_SHIELD_SETS}",
             f"sprite_frame_bytes={SPRITE_FRAME_BYTES}",
             f"hud_tile_count={len(HUD_GLYPHS)}",
             f"hud_tile_bytes={HUD_TILE_BYTES}",
