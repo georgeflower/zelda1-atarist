@@ -1,0 +1,121 @@
+
+Legend of Zelda for Atari ST Feedback
+Table of Contents
+
+    Hardware configuration
+    60hz BETA
+        Build info
+        Bugs
+            Random black screen
+            Consistent frame drops in dungeons?
+            Corrupt colors on desktop after exiting the game
+            Intro music drifting
+            Delayed knock-back on damage
+            How To Play screen always shown
+            Link becomes invisible in money making game
+            Soldier statues damage Link when approached from below
+            Blob enemies feel unfair
+            The Triforce outline is broken up
+        Random thoughts
+
+Hardware configuration
+
+    Atari 1040STFM
+    TOS 1.04 and 2.06 (switchable)
+    CPU switchable between 8/16 MHz
+    4MB RAM
+    ACSI2STM Harddrive, running the game from it.
+
+60hz BETA
+Build info
+
+Commit ID: 7c4798f47d8e5bdb898a5cc9ec6ffadd4dbf579b
+
+Built with an NTSC ROM having the following sha1sum:
+
+4671517d72d09799403f6c672cd2b395933e926e
+
+Build steps:
+
+make -C atari_st all NTSC=1
+
+make -C atari_st dist NTSC=1
+Bugs
+Random black screen
+
+I have figured this one out I think: On my normal partition I have a desktop accessory/control panel that blanks the screen after a certain amount of inactivity. The timer for this is reset when you press a button or move the mouse, but for some reason the inputs to this game doesn't seem to reset the timer. I tried running the game from a partition that does not have any desktop accessories loaded at all and indeed now it does not occur anymore. After further testing this also happens with the old version but I guess I just didn't play enough to run into it then.
+
+The accessory is XCONTROL I believe.
+
+Original text below:
+
+Main issue is that randomly the screen just goes black. The game is still running (sounds from the game continues, such as sword slashes, music etc) but you can't see anything. Can still save and quit at this point to at least save the progress although you have to do it blind.
+
+I haven't found a reliable repro for this yet. It seems quite random. It can even happen rarely if you just let it sit looping the intro. When it happens in the intro however the picture does come back when it loops back to the title screen. I also had this happen once during the Save/Continue screen, and the picture came back after I chose continue.
+
+This issue happens both at 8 and 16MHz, and both on TOS 1.04 and 2.06.
+Consistent frame drops in dungeons?
+
+At some points, mainly so far in dungeons, the game starts chugging a bit, dropping frames. I first noticed this on screens with many enemies, such as the room in the first dungeon with lots of skeletons in it (RM-53) and the room to the right of that (RM-54) with lots of bats, although it seems to just happen regularly in dungeons in general and maybe is not related to the amount of enemies. When testing a bit further for example I noticed it starts dropping frames when just moving around in the first room of dungeon 3 (RM-7C) and moving back out to the overworld it is smooth again.
+
+This seems different to the normal framedrops that happen in say the overworld when there are many enemies, as in those circumstances the game stops dropping frames once the enemies are defeated or you move to another screen.
+
+Maybe the dungeons are just heavier?
+
+Happens on both 8 and 16 MHz although it is slightly better at 16MHz.
+Corrupt colors on desktop after exiting the game
+
+Edit: This may also have to do with my desktop accessories as it didn't happen on the partition without them. Perhaps it has to do with XCONTROL's color setting utility.
+
+When quitting the game the colors on the desktop get corrupted so to say. Almost inverted in a way; whites are black, black text is cyan, the previously blue background is gray etc. After enough times it gets bad enough to where you have to reset the system because you can't read anything.
+Intro music drifting
+
+During the title screen and intro, the music now does loop/restart correctly when it goes back to the waterfall title screen. But if you let it loop enough times the music drifts out of sync.
+
+At 16MHz this is less of an issue it seems. At 8MHz I notice some more frame drops as it scrolls through the treasures, although not consistently oddly enough. So perhaps it just can't quite keep up.
+
+In the original I think I recall the music seemingly just hard resetting as the intro restarts. Maybe they ran into the same issue heh.
+Delayed knock-back on damage
+
+When taking damage you're not knocked back until you start moving again.
+
+So basically:
+
+    Stand still and get hit by an enemy.
+    Notice how you do take damage and the health goes down, but Link is still standing in the same spot.
+    Start moving.
+    Notice how Link is now knocked back.
+
+If you are unlucky you may at that point get knocked into another enemy and take further damage.
+How To Play screen always shown
+
+The HOW TO PLAY screen pops up every time you load a saved game, not just when starting a new game. Maybe intentional.
+
+Edit: Actually no, now it does not do that anymore. When I noticed this it was after having exited the game after the black screen issue occurred, and it did it several times. Would need to investigate more to find a good repro.
+Link becomes invisible in money making game
+
+In the Money Making Game room (Overworld room ID RM-1F), if you overlap the rupee sprites fully Link disappears. Overlapping them partially causes parts of Link's sprite to flicker as is more expected.
+Soldier statues damage Link when approached from below
+
+The soldier statues in the overworld that start moving when you touch them cause damage immediately when approached from below, but not from the other directions. I don't remember if this is the case in the original as well or not now.
+Blob enemies feel unfair
+
+When you hit the blob enemies in for example Dungeon 3 (in RM-4B, RM-6B and RM-7B) they split into two smaller droplets. When they do this they always end up going downwards to the adjacent grid. If Link is standing there they end up hitting him immediately. They can even split through wall blocks (RM-4B). I don't remember this being the case in the original. Perhaps they should take into account where Link is when they split so as to avoid splitting into him, as well as taking into account any walls around them when they split and avoid those too.
+The Triforce outline is broken up
+
+As I'm sure you've noticed as well the outline around the Triforce on the sub-screen is a bit messed up.
+Random thoughts
+
+    Having the sword on Shift was indeed a big improvement in my opinion. With the WASD controls using Control felt quite awkward and I ended up using the arrow keys instead. But with Sword on Shift I can play the game with one hand now without issue.
+    While I understand changing the A and B nomenclature in the game for the actual keys, I don't like how they cut off the blue outline around the sword and item at the top. The SHFT text also runs into the room ID text without any space between them, so it says SHFTRM-XX. Speaking of the outline, the bottom of that outline both in the old and new version is cut off by the game screen, but I assume that was intentional to fit the game screen.
+    When building the game, I noticed that music_pack.py ran both for the make all and the make dist steps. Is it really necessary to have it run again in the dist step? In case it is, it is necessary to supply the NTSC=1 argument for both those make commands instead of just the first which confused me a bit at first.
+    In my initial feedback I said it would be incredible if it ran in fullscreen, but fullscreen effects break at 16 MHz and since the game does run slightly better in heavy areas at that speed it is probably best to keep it the way it is. Running things in fullscreen is also heavy on its own so it would likely affect performance negatively. With 60hz it is almost fullscreen anyway.
+    The Famicom game famously has some different music and sound effects, owing to its Famicom Disk System origins. While I don't have an STE to test that on, perhaps it would be possible to play those back with the DMA channels?
+    I do have a blitter chip in my STFM. Could the game optionally use that for faster graphics routines if it detects one? That would benefit STE and Mega ST owners as well.
+    Overall it is quite incredible seeing this game running on an ST as well as it does. Great job!
+
+Author: krs
+
+Created: 2026-11-22 Sun 00:56
+
+Validate
