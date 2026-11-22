@@ -159,27 +159,7 @@ dmon_survived:
     bsr dmon_unhurt
     dbra %d6, 2b
     bra 9f
-1:  moveq #0, %d2                       | a zol: two gels, one going each way across its heading
-    move.b OFF_ENEMY_X(%a5, %d5.w), %d2
-    add.w #8, %d2                       | the gels stand on the 16-pixel grid the walkers keep to (Gel_Move: ((X + 8) AND $F0)
-    and.w #0xf0, %d2                    | and (((Y + 8) AND $F0) OR $0D)); the blow had shoved the zol off it
-    moveq #0, %d3
-    move.b OFF_ENEMY_Y(%a5, %d5.w), %d3
-    add.w #8, %d3
-    and.w #0xf0, %d3
-    or.w #0x0d, %d3
-    moveq #DIR_LEFT, %d4
-    cmpi.b #DIR_DOWN, OFF_ENEMY_DIR(%a5, %d5.w)
-    bhs 3f
-    moveq #DIR_UP, %d4
-3:  clr.b OFF_ENEMY_ACTIVE(%a5, %d5.w)
-    moveq #MON_GEL, %d1
-    bsr enemy_make
-    bsr dmon_unhurt
-    lsr.b #1, %d4
-    moveq #MON_GEL, %d1
-    bsr enemy_make
-    bsr dmon_unhurt
+1:  bsr zol_hit_f                       | a zol: a big shove first, or two gels at once (bosses.s)
 9:  movem.l (%sp)+, %d0-%d6/%a0
     rts
 
@@ -654,6 +634,8 @@ vire_hops:
 
 | Trampolines to the bosses' code at the end of the image (bosses.s).
     farstub boss_wizzrobe_f, dmon_wizzrobe
+    farstub zol_hit_f, zol_hit
+    farstub gel_split_f, gel_split
     farstub boss_wizzrobe_frame_f, dmon_wizzrobe_frame
     farstub boss_manhandla_f, dmon_manhandla
     farstub boss_manhandla_init_f, manhandla_init

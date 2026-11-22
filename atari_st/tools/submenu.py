@@ -194,7 +194,10 @@ def build(source_root: Path, palette: B.PaletteMap, ow_bg, uw_bg, sp_tiles) -> S
         if any(ppu.palette_row(1, row, col) != 1 for row in (24, 28) for col in (12, 20)):
             raise SystemExit(f"The {label} is not in palette row 1 any more")
     ow_glyphs = [bank.add(I.cell_pixels(ow_bg, palette, BLANK, 1))] * 256
-    for tile in sorted({*empty, *replace, 0xF5, BLANK}):
+    # every tile of the four rows, not only the ones a piece changes: menu_triforce redraws the whole rows, the outer
+    # outline's tiles included (they were blank glyphs, so the outline had gaps)
+    row_tiles = {memory[i] for i in range(len(memory)) if is_data[i]}
+    for tile in sorted({*empty, *replace, *row_tiles, 0xF5, BLANK}):
         ow_glyphs[tile] = bank.add(I.cell_pixels(ow_bg, palette, tile, 1))
     uw_glyphs = [bank.add(I.cell_pixels(uw_bg, palette, BLANK, 1))] * 256
     for tile in list(range(0xE2, 0xF2)) + [0xF5, BLANK]:

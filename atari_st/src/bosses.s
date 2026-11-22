@@ -3894,3 +3894,4 @@ kill_drop:
 8:  move.b %d2, %d0
     bsr spawn_drop_bf
 9:  rts
+

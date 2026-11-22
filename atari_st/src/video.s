@@ -60,6 +60,11 @@ init_video:
     move.b 0xffff820a, OFF_OLD_SYNC(%a5)
     bclr #1, 0xffff820a
     .endif
+    | TOS' VBL queue (nvbls) emptied while the game runs: a desk accessory's screen saver counts the time since the last
+    | key or mouse move there, and the game's own keyboard handler never tells it, so it blanked the screen in the middle
+    | of play and later put the game's colours back on the desktop. restore_video gives the queue back.
+    move.w NVBLS, OFF_OLD_NVBLS(%a5)
+    clr.w NVBLS
 
     | One ST palette covers every NES background and sprite row; see
     | build_palette_map in tools/build_assets.py.
@@ -77,6 +82,7 @@ restore_video:
 1:  move.w (%a0)+, (%a1)+
     dbra %d7, 1b
 
+    move.w OFF_OLD_NVBLS(%a5), NVBLS
     movea.l #SHIFT_MODE, %a1
     move.b OFF_OLD_SHIFT_MODE(%a5), (%a1)
     .ifdef SPEED_NTSC

@@ -383,6 +383,8 @@ wander_tick:
 | rests at its edge for $08, $18, $28 or $38 frames (ENEMY_TIMER), turning at
 | rate $20. d5 = monster. Returns d0.w = 1 while it rests.
 gel_ai:
+    tst.b OFF_ENEMY_STATE(%a5, %d5.w)
+    bne gel_split_f                     | a zol's big shove, or a new gel sliding off (bosses.s)
     tst.b OFF_ENEMY_TIMER(%a5, %d5.w)
     beq 1f
     subq.b #1, OFF_ENEMY_TIMER(%a5, %d5.w)

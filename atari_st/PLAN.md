@@ -19,17 +19,26 @@ From the first player feedback (Reddit, November 2026; kept word for word in `fe
 `BETA` branch: Shift as a sword key, the keys on the status bar, the How to play page and the keys on the Esc page,
 `CONTROLS.TXT` on the disk, the Makefile finding Arch's `m68k-elf-*` binutils, and the NTSC build switching a PAL ST to 60 Hz.
 
+From krs's test of the BETA at 60 Hz (a 1040 STFM, `feedback/2026-11-22-krs-60hz-beta.txt`), fixed on `BETA`, not yet tested on
+his machine: the knock-back waiting for Link's next step, the title song drifting, the zol's split (now the ROM's: a run away
+from the blow, the gels' spawn clouds and slide), the Triforce's outline, How to play on every load, Link vanishing over the
+money game's rupees (caves are double buffered now), RM-xx running into SHFT, and the desk accessory screen saver (the VBL queue
+is emptied while the game runs). As the NES does it: an armos hurts Link while it wakes, and the zol's gels end a row lower.
+Still open: dungeon rooms with many monsters drop frames (W7 would help).
+
 | # | Wish | Thoughts |
 | --- | --- | --- |
 | W1 | Smoother ways in and out of caves, shops and dungeons | the original lets Link sink 16 pixels into the doorway over 64 frames (`UpdateMode10Stairs`, Link behind the scenery, so only seen over the black doorway), fades the screen out and in around dungeons and cellars (`FadeCycle`, mode 4 and 9) and lets Link climb back out; the port cuts straight across. The fade would also hide the floppy read behind LOADING. Needs a sprite draw that only paints over colour 0, and a palette fade (cheap) |
-| W2 | The intro's loop | the port goes back to the title after the parade as the ROM does; something still differs (a fade? the song starting again?). First compare it frame by frame with the reference emulator, then fix only that |
+| W2 | The intro's loop | the port goes back to the title after the parade as the ROM does. The title song now starts again at every loop, as the ROM asks for it (`InitDemoSubphasePlayTitleSong`); before, slow frames in the parade left the music drifting out of step (krs). Still to compare frame by frame: whether anything else differs |
 | W3 | Remapping the keys | from the How to play page; the choice saved in `ZELDA.SAV` (a new save version, the model in `tools/savefile.py` and its tests) |
 | W4 | A three-button pad | a pad that sends three buttons to an ST (threads on atari-forum.com, t=41064 and t=40371). On an ST the extra buttons can only come in through port 0 (its fire button, and the mouse's right button, which is wired to port 1's fire): the game would read the button bits of port 0's packets (today it drops them all, because in Steem the mouse arrives there as joystick directions) and give them the sword and Space. Needs the pad's wiring from its maker, and a tester with one |
-| W5 | Overscan | full screen with the side borders opened needs exact timing on every line and leaves the game no time: no. The bottom border alone could give the NES's full 56-line status bar back, but only at 50 Hz, with three bigger screens (about 15 KB of the 17 KB spare) and border flicker when the interrupts come late: not now |
+| W6 | The Famicom Disk System's music and sounds (krs, November 2026; `feedback/2026-11-22-krs-60hz-beta.txt`) | the Famicom game's extra sound channel and its different tunes are not in the NES ROM the port reads; they would have to come from the disk image, and an STE could play them through its DMA sound. A separate build for the STE, and a tester with one: later, if at all |
+| W7 | The blitter (krs) | a blitter (Mega ST, STE, an STFM with one fitted) could draw and erase the sprites with masks in hardware and take most of the cost out of the busy dungeon rooms. Detect it at start (as TOS does) and keep the CPU routines as they are for the plain ST; `draw_sprite` and `erase_at` are the two places |
+| W5 | Overscan (krs agrees: at 60 Hz the picture is nearly full anyway) | full screen with the side borders opened needs exact timing on every line and leaves the game no time: no. The bottom border alone could give the NES's full 56-line status bar back, but only at 50 Hz, with three bigger screens (about 15 KB of the 17 KB spare) and border flicker when the interrupts come late: not now |
 
 ## Next
 
-1 first, 2 only when space runs out; of the wishes, W1, then W4 once the pad's wiring is known.
+1 first, 2 only when space runs out; of the wishes, W1, then W4 once the pad's wiring is known, then W7.
 
 ## Reference data
 

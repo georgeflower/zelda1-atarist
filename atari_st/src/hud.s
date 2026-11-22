@@ -96,10 +96,10 @@ draw_hud_level:
     movem.l (%sp)+, %d0-%d4/%a0-%a1
     rts
 
-| T (debug_room_toggle): "RM-37" on the ribbon's top row, left of LIFE, with the room Link is in; "CL-7F" with the cellar's
+| T (debug_room_toggle): "RM-37" on the ribbon's bottom row, under LEVEL-n, with the room Link is in; "CL-7F" with the cellar's
 | own id while he is down one. Blanks when it is off.
     .equ HUD_DEBUG_COL, 19
-    .equ HUD_DEBUG_ROW, 0
+    .equ HUD_DEBUG_ROW, 2               | under LEVEL-n: on the top row it ran into the sword box's label (SHFTRM-73)
 draw_hud_debug:
     movem.l %d0-%d4/%a0-%a1, -(%sp)
     ltab text_glyphs, %a1

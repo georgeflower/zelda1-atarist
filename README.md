@@ -113,7 +113,7 @@ There is no ready-made `.PRG` in the repository, since it would contain the game
 
 The Makefile finds the binutils as `m68k-linux-gnu-*` (Debian, Ubuntu) or `m68k-elf-*` (Arch: the AUR package `m68k-elf-binutils`) by itself. If a tool has another name or lives somewhere else, give it to make: `make -C atari_st all TOOLCHAIN_PREFIX=m68k-none-elf- PYTHON=python`.
 
-**NTSC / 60 Hz:** with a USA ROM (*The Legend of Zelda (USA)*, PRG0 tested: SHA-1 differs from the one above, that is expected) build with `make -C atari_st all NTSC=1`. The game then switches the ST to 60 Hz, a PAL one too (and back when it ends), and the game and the music run at the speed of the NTSC NES, one step a frame (the default build plays at the PAL speed everywhere), and the music's pitches are converted with the NTSC clock. Details in [atari_st/README.md](atari_st/README.md#ntsc--60-hz-option).
+**NTSC / 60 Hz:** with a USA ROM (*The Legend of Zelda (USA)*, PRG0 tested: SHA-1 differs from the one above, that is expected) build with `make -C atari_st all NTSC=1`. The game then switches the ST to 60 Hz, a PAL one too (and back when it ends), and the game and the music run at the speed of the NTSC NES, one step a frame (the default build plays at the PAL speed everywhere), and the music's pitches are converted with the NTSC clock. Give `NTSC=1` to every `make` (`make -C atari_st dist NTSC=1` alone builds it all). Details in [atari_st/README.md](atari_st/README.md#ntsc--60-hz-option).
 
 ### Running it
 

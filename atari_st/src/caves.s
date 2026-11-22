@@ -619,8 +619,7 @@ cave_sprites_erase:
     move.w %d3, %d0
     lsl.w #2, %d0
     move.l 0(%a0, %d0.w), %d0
-    bsr erase_at_far
-    clr.b 0(%a1, %d3.w)
+    bsr erase_at_far            | (the flag stays: the other buffer still has the picture, at the same place)
 2:  dbra %d3, 1b
     movem.l (%sp)+, %d0/%d3/%a0-%a1
     rts

@@ -85,11 +85,13 @@ class QuitWiringTests(unittest.TestCase):
     def test_help_and_a_new_character_open_how_to_play(self) -> None:
         self.assertIn("move.b #1, OFF_HELP_REQUESTED(%a5)", source("input.s"))
         self.assertRegex(source("menu.s"), r"OFF_HELP_REQUESTED[\s\S]*?bsr quit_help_open")
-        self.assertRegex(source("filesel.s"), r"filesel_play:[\s\S]*?OFF_HAS_SWORD[\s\S]*?OFF_SLOT_DEATHS[\s\S]*?OFF_HELP_REQUESTED")
+        # only a character registered in this sitting, once (krs: a saved game with no sword showed it on every load)
+        self.assertRegex(source("filesel.s"), r"file_register_end:[\s\S]*?OFF_SLOT_NEW")
+        self.assertRegex(source("filesel.s"), r"filesel_play:[\s\S]*?OFF_SLOT_NEW[\s\S]*?clr\.b[\s\S]*?OFF_HELP_REQUESTED")
 
     def test_the_variables_are_declared(self) -> None:
         globals_source = source("globals.s")
-        for name in ("QUIT_SEL", "QUIT_KEYS", "QUIT_PAGE", "HELP_REQUESTED", "FIRE_LAST", "CTRL_RAW"):
+        for name in ("QUIT_SEL", "QUIT_KEYS", "QUIT_PAGE", "HELP_REQUESTED", "FIRE_LAST", "CTRL_RAW", "SLOT_NEW"):
             self.assertRegex(globals_source, rf"gvar {name},")
 
 

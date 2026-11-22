@@ -107,6 +107,15 @@ $(MUSIC_PACKED) &: $(TOOLS_DIR)/music_pack.py $(TOOLS_DIR)/nes_music_rip.py $(MU
 
 # NTSC=1 changes the assembler flags: a stamp of the setting makes switching it reassemble.
 SPEED_STAMP := $(BUILD_DIR)/speed.stamp
+# dist and disk build everything first, so `make dist NTSC=1` alone is enough; without NTSC=1 they rebuild the PAL
+# version (music included) over an NTSC build. Say so before it happens.
+ifneq ($(filter dist disk,$(MAKECMDGOALS)),)
+ifneq ($(NTSC),1)
+ifeq ($(shell cat $(SPEED_STAMP) 2>/dev/null),NTSC=1)
+$(warning The last build was NTSC=1: this one is the PAL version. For the NTSC one: make $(filter dist disk,$(MAKECMDGOALS)) NTSC=1)
+endif
+endif
+endif
 .PHONY: FORCE_SPEED_STAMP
 FORCE_SPEED_STAMP:
 $(SPEED_STAMP): FORCE_SPEED_STAMP

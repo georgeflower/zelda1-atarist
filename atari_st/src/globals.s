@@ -547,7 +547,9 @@
     gvar QUIT_PAGE, 1           | the page MODE_QUIT shows: 0 the Esc question with the controls, 1 How to play
     gvar OLD_SYNC, 1            | the sync mode TOS had ($FF820A): the NTSC build switches to 60 Hz and puts it back
     gvar HUD_HALF, 128          | the A box's sword moved half a tile to the right: left and right cell of the top, then of the bottom
+    gvar SLOT_NEW, 3            | per slot: registered in this sitting, How to play not yet shown (filesel_play); not saved
     galign
+    gvar OLD_NVBLS, 2           | TOS' nvbls, put back on the way out (init_video empties the VBL queue)
     gvar IVP, 68                 | where each table of INTRO.DAT is while the buffer holds it (INTRO_TABLE_COUNT longs; ivtab, loader.s)
     .equ GLOBALS_BYTES, gvar_offset
     .ifdef INTRO_TABLE_COUNT           | (the unit-test harnesses do not read level_buffer.inc)

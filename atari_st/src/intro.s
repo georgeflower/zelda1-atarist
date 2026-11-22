@@ -509,7 +509,9 @@ intro_story_update:
 30: addq.w #1, OFF_INTRO_TIMER(%a5)
     cmp.w #INTRO_STORY_LAST, OFF_INTRO_TIMER(%a5)
     blo 90f
-    bra intro_title_begin
+    bsr intro_title_begin
+    moveq #MUS_TITLE, %d0               | the song from its start again (InitDemoSubphasePlayTitleSong), so a late frame
+    bra music_event_xf                  | in the parade cannot leave the music out of step with the pictures
 
     | The screen is built over two frames: the upper part of the window, then the rest and the animated items, shown.
 90: moveq #0, %d1

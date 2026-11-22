@@ -106,7 +106,10 @@ make -C atari_st all NTSC=1      # a USA/Japan ROM, played at the speed of the N
 - the music's pitches are converted with the NTSC CPU clock (`MUSIC_CLOCK=ntsc`; it can also be set
   on its own, `pal` or `ntsc`). With the wrong clock every note is about a semitone off.
 
-Switching `NTSC` between builds re-rips the music and reassembles by itself. A busy overworld
+Switching `NTSC` between builds re-rips the music and reassembles by itself. So give `NTSC=1` to
+every `make` you run: `make dist` and `make disk` build everything first, and without it they
+rebuild the PAL version over the NTSC one (the Makefile warns). `make -C atari_st dist NTSC=1` on
+its own is enough. A busy overworld
 screen needs a little more than one 60 Hz frame now and then; the game then catches up (one
 update without drawing), so it keeps its speed and shows 30 pictures a second for a moment.
 

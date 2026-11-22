@@ -92,6 +92,8 @@ file_clear_slot:
     andi.l #0xffff, %d0
     lea OFF_SLOT_ACTIVE(%a5), %a0
     clr.b 0(%a0, %d0.l)
+    lea OFF_SLOT_NEW(%a5), %a0
+    clr.b 0(%a0, %d0.l)
     lea OFF_SLOT_DEATHS(%a5), %a0
     clr.b 0(%a0, %d0.l)
     lea OFF_SLOT_QUEST(%a5), %a0
@@ -710,11 +712,10 @@ file_select_update:
 filesel_play:
     move.b %d0, OFF_PROFILE(%a5)
     bsr save_load_game                  | the profile's game, Link at the start
-    tst.b OFF_HAS_SWORD(%a5)            | a new character (no sword, no deaths): How to play before the first screen
-    bne 1f
-    lea OFF_SLOT_DEATHS(%a5), %a0
-    tst.b 0(%a0, %d0.w)
-    bne 1f
+    lea OFF_SLOT_NEW(%a5), %a0          | a character registered in this sitting: How to play before its first screen,
+    tst.b 0(%a0, %d0.w)                 | once (a saved game with no sword yet no longer brings it up on every load)
+    beq 1f
+    clr.b 0(%a0, %d0.w)
     move.b #1, OFF_HELP_REQUESTED(%a5)
 1:
     bsr intro_leave
@@ -953,6 +954,8 @@ file_register_end:
     dbra %d1, 2b
     bra 6f                              | only spaces: still free
 3:  move.b #1, 0(%a0, %d7.w)
+    lea OFF_SLOT_NEW(%a5), %a0          | registered just now: How to play when it is first played
+    move.b #1, 0(%a0, %d7.w)
     lea OFF_SLOT_HEARTS(%a5), %a0
     move.w %d7, %d0
     add.w %d0, %d0

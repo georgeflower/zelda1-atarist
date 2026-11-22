@@ -194,6 +194,7 @@
     .equ PALETTE_BASE, 0x00ff8240
     .equ SHIFT_MODE, 0x00ff8260
     .equ FR_CLOCK, 0x00000462
+    .equ NVBLS, 0x00000454            | TOS: how many VBL queue slots its VBL handler runs
     .equ IKBD_ACIA_STATUS, 0x00fffc00
     .equ IKBD_ACIA_DATA, 0x00fffc02
     .equ MFP_IERB, 0x00fffa09
@@ -595,8 +596,7 @@ erase_cave_fires:
     lsl.w #2, %d0
     move.l 0(%a0, %d0.w), %d0
     bsr erase_at
-    dbra %d3, 1b
-    clr.b OFF_CAVE_FIRE_VALID(%a5)
+    dbra %d3, 1b                | (the flag stays: the fires stand still, and the other buffer has them too)
 9:  movem.l (%sp)+, %d0/%d3/%a0
     rts
 
@@ -661,8 +661,8 @@ show_background:
 | ---------------------------------------------------------- double buffering
 | Playing frames draw into a hidden buffer that is shown on the next frame, so
 | the beam never catches a sprite between its erase and its redraw. SCREEN_PTR
-| is always the buffer being drawn into; BG_NEXT is the other one. Scrolls and
-| caves draw straight to the visible screen instead (DBL_ACTIVE = 0), and then
+| is always the buffer being drawn into; BG_NEXT is the other one (caves too). Scrolls
+| draw straight to the visible screen instead (DBL_ACTIVE = 0), and then
 | SCREEN_PTR is the visible buffer and BG_NEXT is scratch space again.
 
 | d0 = screen address
@@ -699,8 +699,10 @@ swap_screens:
 
 frame_begin:
     tst.b OFF_GAME_MODE(%a5)
-    bne 9f
-    movem.l %d0/%a0, -(%sp)
+    beq 1f
+    cmpi.b #MODE_CAVE, OFF_GAME_MODE(%a5)
+    bne 9f                      | a cave is double buffered too: Link over the money game's rupees was erased with them
+1:  movem.l %d0/%a0, -(%sp)
     tst.b OFF_DBL_ACTIVE(%a5)
     bne 2f
     bsr dbl_enter
@@ -1043,6 +1045,7 @@ enemy_shove_snap_far:                   | last, so that it moves none of the stu
     .include "exit.s"
     .include "loader.s"
     .include "linkdir.s"
+    .include "zol.s"
 
     | The anchor is this address plus a 32-bit link-time distance (a PC-relative relocation), so the routine may sit
     | anywhere. (It used to sit in the middle of the code with a 16-bit `lea room_palette(%pc)`, which limited the

@@ -18,8 +18,25 @@ link_update:
     tst.b OFF_LINK_SHOVE(%a5)
     beq 0f
     tst.b OFF_COMMIT(%a5)
-    bne 0f                      | finish the step he is on first
-    bsr link_shove
+    beq 902f
+    | Part-way through a step: Obj_Shove shoves him at once all the same. A shove across the step's axis
+    | becomes one opposite his facing (only on a grid line may he be shoved sideways); the step is dropped
+    | and the next one is measured from where the shove leaves him (link_pixel, grid_distance).
+    move.b OFF_LINK_DIR(%a5), %d0
+    move.b OFF_LINK_SHOVE_DIR(%a5), %d1
+    eor.b %d0, %d1
+    and.b #DIR_VERTICAL, %d1
+    beq 903f                    | same axis
+    move.b %d0, %d1
+    and.b #DIR_VERTICAL, %d1
+    beq 904f
+    eor.b #DIR_VERTICAL, %d0    | up <-> down
+    bra 905f
+904: eor.b #(DIR_RIGHT + DIR_LEFT), %d0 | right <-> left
+905: move.b %d0, OFF_LINK_SHOVE_DIR(%a5)
+903: clr.b OFF_COMMIT(%a5)
+    clr.b OFF_LINK_BACK(%a5)
+902: bsr link_shove
     bra 9f
 0:  tst.b OFF_ATTACK(%a5)
     bne 9f                      | Link stands still during a sword swing
@@ -688,7 +705,12 @@ update_cave:
     bsr cave_sprites_draw_far
     bsr draw_items
     bsr draw_link
-9:  movem.l (%sp)+, %d0-%d3
+    bsr present_frame_far       | the hidden buffer goes on show (frame_begin swapped them)
+    bra 10f
+9:  cmp.b #MODE_CAVE, OFF_GAME_MODE(%a5)
+    beq 10f
+    bsr dbl_end_far             | out of the cave, or the inventory screen: what was drawn goes on show
+10: movem.l (%sp)+, %d0-%d3
     rts
 
 | Advance Link inside the simplified cave room with plain rectangular bounds.
