@@ -35,6 +35,15 @@ class TransferStreamTests(unittest.TestCase):
 
 
 @unittest.skipUnless(HAS_ROM, "needs the ROM")
+class TimelineTests(unittest.TestCase):
+    def test_the_storys_last_pause_is_the_roms_own(self) -> None:
+        # $39 in the US ROM the disassembly is, $78 in the European one: read from the code, never typed.
+        wait = intro.story_last_wait(ROM_ROOT)
+        self.assertIn(wait, (0x39, 0x78))
+        self.assertEqual(rom_intro().constants["INTRO_STORY_LAST"], wait)
+
+
+@unittest.skipUnless(HAS_ROM, "needs the ROM")
 class PictureTests(unittest.TestCase):
     def test_every_cell_names_a_whole_tile(self) -> None:
         data = rom_intro()

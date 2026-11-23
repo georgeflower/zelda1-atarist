@@ -18,7 +18,7 @@
     .equ INTRO_WINDOW_TOP, 24             | the NES line on the first screen line
     .equ INTRO_TITLE_FRAMES, 512          | DemoTimer counts every other frame up to 256
     .equ INTRO_STORY_WAIT, 256            | AnimateDemoPhase1Subphase1 and 3 wait for DemoTimer to wrap
-    .equ INTRO_STORY_LAST, 57             | AnimateDemoPhase1Subphase4: until DemoTimer is $39
+                                          | INTRO_STORY_LAST (assets.inc, intro.py): Subphase4's wait, read from the ROM ($39 US, $78 Europe)
     .equ INTRO_TOP_START, 16              | CurVScroll when the story starts
     .equ INTRO_TOP_REST, 248              | where the first page stops: page A at scroll 8
     .equ INTRO_STEPS, 1408                | ScrolledLineCount: five pages and a half; the last count does not scroll

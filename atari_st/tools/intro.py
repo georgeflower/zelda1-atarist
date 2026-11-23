@@ -494,6 +494,20 @@ def item_frames(code: dict, sp_tiles, bg_tiles, palette, item_id: int) -> tuple[
     return [A._pack_masked(A._item_rows(sp_tiles, bg_tiles, palette, tile, 4 + (attr & 3)))], KIND_STATIC
 
 
+# AnimateDemoPhase1Subphase4: INC DemoTimer / LDA DemoTimer / CMP #nn. The US ROM (the disassembly) waits $39 frames,
+# the European Rev 1 ROM $78, which keeps its intro as long as its title song; so the wait is read from the ROM in use.
+STORY_LAST_CODE = bytes.fromhex("EE1A04AD1A04C9")
+
+
+def story_last_wait(source_root: Path) -> int:
+    """The frames of the story's last pause (AnimateDemoPhase1Subphase4), from the ROM's own code."""
+    rom = (source_root / "ext" / "Original.nes").read_bytes()[16:]
+    start = rom.find(STORY_LAST_CODE)
+    if start < 0 or rom.find(STORY_LAST_CODE, start + 1) >= 0:
+        raise SystemExit("intro.py: AnimateDemoPhase1Subphase4 not found once in the ROM")
+    return rom[start + len(STORY_LAST_CODE)]
+
+
 def build(source_root: Path) -> IntroData:
     asm2 = _asm(source_root, "Z_02.asm")
     out = IntroData()
@@ -635,6 +649,7 @@ def build(source_root: Path) -> IntroData:
         "STORY_ROW_COUNT": out.story_row_count,
         "INTRO_SPAWNS": out.spawn_count,
         "TITLE_TILE_BYTES": len(out.title_tiles),
+        "INTRO_STORY_LAST": story_last_wait(source_root),
     })
     return out
 

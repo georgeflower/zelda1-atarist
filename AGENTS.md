@@ -769,7 +769,9 @@ Where a value is listed it was read from the disassembly (file in `src/`).
   per step. The treasures of the parade that do not change are drawn into the ring a line at a time as their lines come in (`intro_overlay_line`,
   `intro_spawns`: strip line, x, first picture, kind); the flashing and fluttering ones (kind 1 and 2) are sprites over the screen each frame, as are
   the waterfall's waves and crest on the title. The timeline is the ROM's (512 frames of title with the Triforce glow `TriforceGlowingColors`, 14 fade
-  palettes with `DemoPhase0Subphase1Delays`, the first page scrolling in, 256 frames of rest, 1408 steps of parade, 256, 56). The scroll copy is the
+  palettes with `DemoPhase0Subphase1Delays`, the first page scrolling in, 256 frames of rest, 1408 steps of parade, 256, then
+  `INTRO_STORY_LAST`: read from the ROM's code by `intro.story_last_wait`, 57 frames in the US ROM the disassembly is, 120 in the
+  European Rev 1, which makes the cycle 4864 frames on the NES and 4859 here; `tools/refnes/intro_loop_probe.mjs` logs the NES's). The scroll copy is the
   most expensive thing the game does (about 130,000 cycles a picture, split over two frames); the music's drums take enough of the rest that a few
   frames in a hundred run a VBL long while the animated items are on screen. Return, the keypad Enter, Ctrl or the joystick button is Start (the title says PRESS FIRE: `intro.put_title_prompt` replaces the ROM's PUSH START BUTTON line); leaving
   restores the three buffers, the palette and the game's mode (`intro_leave`). `music_update` leaves the song alone in this mode (the title song is an
