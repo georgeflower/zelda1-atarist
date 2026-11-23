@@ -3,7 +3,7 @@
 What changed between versions of the Atari ST port, for players. The author sets the
 version numbers; the newest is at the top.
 
-## Next version
+## 1.04
 
 From krs's second report (the 1.02 beta at 60 Hz on his 1040 STFM). Not yet tried on real
 hardware.
