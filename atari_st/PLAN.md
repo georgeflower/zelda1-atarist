@@ -29,7 +29,8 @@ Still open: dungeon rooms with many monsters drop frames (W7 would help).
 | # | Wish | Thoughts |
 | --- | --- | --- |
 | W1 | Smoother ways in and out of caves, shops and dungeons | the original lets Link sink 16 pixels into the doorway over 64 frames (`UpdateMode10Stairs`, Link behind the scenery, so only seen over the black doorway), fades the screen out and in around dungeons and cellars (`FadeCycle`, mode 4 and 9) and lets Link climb back out; the port cuts straight across. The fade would also hide the floppy read behind LOADING. Needs a sprite draw that only paints over colour 0, and a palette fade (cheap) |
-| W2 | The intro's loop | the port goes back to the title after the parade as the ROM does. The title song now starts again at every loop, as the ROM asks for it (`InitDemoSubphasePlayTitleSong`); before, slow frames in the parade left the music drifting out of step (krs). Still to compare frame by frame: whether anything else differs |
+| W2 | The intro's loop | done: the port goes back to the title after the parade as the ROM does, the title song starts again at every loop (`InitDemoSubphasePlayTitleSong`), and the story's last pause is read from the ROM (120 frames in the European ROM, 57 in the US one), so a cycle is 4859 frames against the NES's 4864 and the song is cut at the same place in its loop. On an 8 MHz ST a few slow frames in the parade still put the restart about 0.7 s later in the song than on the NES; krs finds it not worth fixing |
+| W8 | Typing the name on the keyboard | when registering a new character, the letter keys (and Backspace, Return to finish) should write the name straight into the field, as well as walking the ROM's letter board with the arrows. `poll_keyboard` already keeps every key's state in `KEY_STATES`; the register screen (`filesel.s`, mode E) needs a table from scancode to the NES text code (A-Z `$0A`-`$23`, digits, space, and the board's few signs), the same cursor moves the board's A button makes, and the keys that choose on that screen (Ctrl, Space, Alt, Tab, Return) kept apart from the typing |
 | W3 | Remapping the keys | from the How to play page; the choice saved in `ZELDA.SAV` (a new save version, the model in `tools/savefile.py` and its tests) |
 | W4 | A three-button pad | a pad that sends three buttons to an ST (threads on atari-forum.com, t=41064 and t=40371). On an ST the extra buttons can only come in through port 0 (its fire button, and the mouse's right button, which is wired to port 1's fire): the game would read the button bits of port 0's packets (today it drops them all, because in Steem the mouse arrives there as joystick directions) and give them the sword and Space. Needs the pad's wiring from its maker, and a tester with one |
 | W6 | The Famicom Disk System's music and sounds (krs, November 2026; `feedback/2026-11-22-krs-60hz-beta.txt`) | the Famicom game's extra sound channel and its different tunes are not in the NES ROM the port reads; they would have to come from the disk image, and an STE could play them through its DMA sound. A separate build for the STE, and a tester with one: later, if at all |
@@ -38,7 +39,7 @@ Still open: dungeon rooms with many monsters drop frames (W7 would help).
 
 ## Next
 
-1 first, 2 only when space runs out; of the wishes, W1, then W4 once the pad's wiring is known, then W7.
+1 first, 2 only when space runs out; of the wishes, W8 (small), W1, then W4 once the pad's wiring is known, then W7.
 
 ## Reference data
 
