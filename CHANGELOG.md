@@ -25,6 +25,10 @@ hardware.
 - Dying in a room and continuing no longer leaves that room's last monsters missing.
 - A zol hit after the boomerang stunned it runs from the blow at once.
 - The bomb icon on the status bar is blue, as on the NES.
+- A new character's name can be typed on the keyboard: letters, digits, the space and
+  the board's signs, in your own keyboard's layout, with Backspace to rub out. Return
+  moves down to END, and Return again saves the character. The arrows and Ctrl still
+  pick letters from the board.
 - The last pause of the story, before the title comes back, is as long as on the European
   NES (2.4 seconds instead of 1.1; the American cartridge has the short one). The intro
   now takes as long as on the NES, so the title song plays the same stretch of its loop

@@ -77,6 +77,7 @@ poll_keyboard:
 
     lea OFF_KEY_STATES(%a5), %a0
     move.b #1, 0(%a0, %d0.w)
+    move.b %d0, OFF_KEY_TYPED(%a5)  | for the name on the register screen
     cmpi.b #SCAN_ESC, %d0
     bne 11f
     move.b #1, OFF_EXIT_REQUESTED(%a5)

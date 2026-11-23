@@ -36,7 +36,7 @@ How to play
 
 A new character sees the How to play page before the first screen. The disk and the `dist` folder also carry `CONTROLS.TXT`, the same list as a text file (Show it from the desktop).
 
-The game starts on the title screen. Press fire (Return, Ctrl, Shift or the joystick button), pick a player and make a name. Call it ZELDA
+The game starts on the title screen. Press fire (Return, Ctrl, Shift or the joystick button), pick a player and make a name (type it on the keyboard, or pick the letters with the arrows and Ctrl). Call it ZELDA
 to play the Second Quest, like in the original. The game saves to `ZELDA.SAV` in the current
 directory.
 

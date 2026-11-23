@@ -129,19 +129,31 @@ file_buttons:
     lea OFF_KEY_STATES(%a5), %a0
     moveq #0, %d0
     file_key SCAN_RIGHT, BTN_RIGHT
-    file_key SCAN_D, BTN_RIGHT
     file_key SCAN_LEFT, BTN_LEFT
-    file_key SCAN_A, BTN_LEFT
     file_key SCAN_DOWN, BTN_DOWN
-    file_key SCAN_S, BTN_DOWN
     file_key SCAN_UP, BTN_UP
-    file_key SCAN_W, BTN_UP
     file_key SCAN_RETURN, BTN_START
     file_key SCAN_KEYPAD_ENTER, BTN_START
     file_key SCAN_TAB, BTN_SELECT
+    file_key SCAN_ALT, BTN_B
+    cmpi.b #FILE_REGISTER, OFF_FILE_SCREEN(%a5)
+    bne 6f
+    move.b SCAN_LSHIFT(%a0), %d1        | the register screen types the name: W A S D and Space are letters there, and
+    or.b SCAN_RSHIFT(%a0), %d1          | Shift (for ! & and the like) is not A: with a Shift down only Control itself is
+    beq 8f
+    tst.b OFF_CTRL_RAW(%a5)
+    beq 7f
+    ori.b #BTN_A, %d0
+    bra 7f
+8:  file_key SCAN_CTRL, BTN_A
+    bra 7f
+6:  file_key SCAN_D, BTN_RIGHT
+    file_key SCAN_A, BTN_LEFT
+    file_key SCAN_S, BTN_DOWN
+    file_key SCAN_W, BTN_UP
     file_key SCAN_CTRL, BTN_A
     file_key SCAN_SPACE, BTN_B
-    file_key SCAN_ALT, BTN_B
+7:
     move.b OFF_JOY0(%a5), %d1
     or.b OFF_JOY1(%a5), %d1
     btst #0, %d1
@@ -574,6 +586,8 @@ file_links:
 | d0.b = the screen: FILE_SELECT, FILE_REGISTER or FILE_ELIMINATE.
 filesel_begin:
     bsr intro_data_f                    | (after a death the buffer holds the dungeon)
+    bsr file_key_tables
+    clr.b OFF_KEY_TYPED(%a5)
     move.b %d0, OFF_FILE_SCREEN(%a5)
     move.b #INTRO_PHASE_MENU, OFF_INTRO_PHASE(%a5)
     bsr intro_black
@@ -743,54 +757,6 @@ file_ef_select:
     tst.b 0(%a0, %d1.w)
     bne 1b
 3:  bsr file_heart_show
-9:  rts
-
-| Register your name (UpdateModeERegister).
-file_register_update:
-    move.b OFF_FILE_PRESSED(%a5), %d0
-    cmpi.b #FILE_END, OFF_FILE_SEL(%a5)
-    bne 2f
-    btst #4, %d0                        | Start on END (A does it too: it has nothing else to do there)
-    bne file_register_end
-    btst #7, %d0
-    bne file_register_end
-    bra 3f
-2:  bsr file_directions
-3:  bsr file_ef_select
-    bsr file_cursors
-    cmpi.b #FILE_END, OFF_FILE_SEL(%a5)
-    beq 9f
-    move.b OFF_FILE_PRESSED(%a5), %d0
-    andi.b #(BTN_A + BTN_B), %d0
-    beq 9f
-    cmp.b #BTN_A, %d0
-    bne 4f                              | B, or both: the cursor moves on without a letter
-    moveq #SFX_BOMB, %d0                | Tune0Request = $20: the click of a letter
-    bsr music_play_xf
-    moveq #0, %d0
-    move.b OFF_FILE_BOARD(%a5), %d0
-    ltab file_char_map, %a0
-    move.b 0(%a0, %d0.w), %d0           | the letter the cursor is on
-    moveq #0, %d7
-    move.b OFF_FILE_SEL(%a5), %d7
-    moveq #0, %d1
-    move.b OFF_FILE_COL(%a5), %d1
-    move.w %d7, %d2
-    lsl.w #3, %d2
-    add.w %d1, %d2
-    lea OFF_SLOT_NAMES(%a5), %a0
-    move.b %d0, 0(%a0, %d2.w)
-    add.w #FILE_REG_NAME_COL, %d1
-    move.w %d7, %d2
-    mulu.w #3, %d2
-    add.w #FILE_REG_NAME_ROW, %d2
-    moveq #0, %d3
-    bsr file_glyph
-4:  move.b OFF_FILE_COL(%a5), %d0
-    addq.b #1, %d0
-    andi.b #7, %d0                      | after the eighth it is the first again
-    move.b %d0, OFF_FILE_COL(%a5)
-    bsr file_cursors
 9:  rts
 
 | The block cursors: the name's (on the character that is next) and the board's, flashing every 8 frames, and gone

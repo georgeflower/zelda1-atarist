@@ -551,7 +551,9 @@
     gvar SHUT_PHASE, 1          | the shutter Link came in by: 1 shuts it behind him, 2 opens it again in a cleared room
     gvar SHUT_T, 1
     gvar SHUT_FORCE, 1          | shutters (bit per direction, as UW_OPEN) shown shut although the room is cleared
+    gvar KEY_TYPED, 1           | the last key pressed (its scancode), for typing a name; whoever reads it clears it (filesel.s)
     galign
+    gvar KEY_TABLES, 8          | TOS' keyboard tables (Keytbl): scancode to character, without and with Shift, the machine's own layout
     gvar OLD_NVBLS, 2           | TOS' nvbls, put back on the way out (init_video empties the VBL queue)
     gvar IVP, 68                 | where each table of INTRO.DAT is while the buffer holds it (INTRO_TABLE_COUNT longs; ivtab, loader.s)
     .equ GLOBALS_BYTES, gvar_offset

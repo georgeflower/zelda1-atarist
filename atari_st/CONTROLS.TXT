@@ -21,6 +21,10 @@ Help        This list, in the game
 In the file menu: Return starts,
 Tab moves to the next line, Control
 or Fire types the chosen letter.
+A name can also be typed on the
+keyboard (Backspace rubs out);
+Return goes down to END, and Return
+again saves the new character.
 
 The status bar shows the keys too:
 SPACE over the item, and over the

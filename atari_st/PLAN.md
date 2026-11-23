@@ -8,7 +8,6 @@ Work in progress. Both quests are in. The `.PRG` is about 270 KB; the intro's da
 | --- | --- | --- |
 | 1 | More play of the Second Quest | the First Quest has been played through to Zelda on a 520 STFM; the Second Quest has had less play |
 | 2 | Free memory | about 17 KB is spare; packing the drum samples to 4 bits would give back about 21 KB, only if it is needed |
-| 3 | Typing the name on the keyboard | when registering a new character, the letter keys (and Backspace, Return to finish) should write the name straight into the field, as well as walking the ROM's letter board with the arrows. `poll_keyboard` already keeps every key's state in `KEY_STATES`; the register screen (`filesel.s`, mode E) needs a table from scancode to the NES text code (A-Z `$0A`-`$23`, digits, space, and the board's few signs), the same cursor moves the board's A button makes, and the keys that choose on that screen (Ctrl, Space, Alt, Tab, Return) kept apart from the typing |
 
 Kept on purpose: the Esc menu (quit without saving, save and quit, back to game) is not in the original, nor is the How to play
 page (Help, and before a new character's first screen), nor the key names on the status bar (SPACE, and FIRE, CTRL or SHFT for
@@ -39,7 +38,7 @@ Still open: dungeon rooms with many monsters drop frames (W7 would help).
 
 ## Next
 
-3 (small) and 1 first, 2 only when space runs out; of the wishes, W1, then W4 once the pad's wiring is known, then W7.
+1 first, 2 only when space runs out; of the wishes, W1, then W4 once the pad's wiring is known, then W7.
 
 ## Reference data
 
