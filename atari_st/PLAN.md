@@ -8,6 +8,7 @@ Work in progress. Both quests are in. The `.PRG` is about 270 KB; the intro's da
 | --- | --- | --- |
 | 1 | More play of the Second Quest | the First Quest has been played through to Zelda on a 520 STFM; the Second Quest has had less play |
 | 2 | Free memory | about 17 KB is spare; packing the drum samples to 4 bits would give back about 21 KB, only if it is needed |
+| 3 | Key hints on the file menu's screens | a player (Manu, November 2026) got no further than his name: nothing says that the heart has to go down to END with Tab and that Return then registers. A line of the keys under each screen of the file menu (select, register, eliminate, continue), such as TAB NEXT  RETURN DONE on the register screen, drawn with `text_draw` in the free rows below the ROM's picture. Since `name.s` Return on a name goes to END by itself, but the hint is still the quickest way to show it |
 
 Kept on purpose: the Esc menu (quit without saving, save and quit, back to game) is not in the original, nor is the How to play
 page (Help, and before a new character's first screen), nor the key names on the status bar (SPACE, and FIRE, CTRL or SHFT for
@@ -38,7 +39,7 @@ Still open: dungeon rooms with many monsters drop frames (W7 would help).
 
 ## Next
 
-1 first, 2 only when space runs out; of the wishes, W1, then W4 once the pad's wiring is known, then W7.
+3 first (small), then 1; 2 only when space runs out; of the wishes, W1, then W4 once the pad's wiring is known, then W7.
 
 ## Reference data
 
